@@ -1,0 +1,33 @@
+syntax = "proto2";
+
+import "github.com/google/cloudprober/probes/config.proto";
+import "github.com/google/cloudprober/servers/config.proto";
+import "github.com/google/cloudprober/targets/targets.proto";
+import "github.com/google/cloudprober/surfacers/config.proto";
+import "github.com/google/cloudprober/targets/rtc/rtcreporter/rtcreporter.proto";
+
+package cloudprober;
+
+message ProberConfig {
+  // Prefix for output strings. This is used to identiy the data belonging to
+  // gorober when using a shared output medium like serial port.
+  optional string output_prefix = 1 [default = "cloudprober"];
+
+  // Where to write the output. Default is stdout.
+  optional string output_file = 2;
+
+  repeated probes.ProbeDef probe = 3;
+  repeated metrics.surfacer.SurfacerDef surfacer = 4;
+
+  optional targets.rtcreporter.RtcReportOptions rtc_report_options = 94;
+
+  // Servers to run inside cloudprober.
+  repeated servers.Server server = 97;
+
+  optional int32 sysvars_interval_msec = 98 [default = 10000];
+  optional string sysvars_env_var = 99 [default = "SYSVARS"];
+
+  // Global targets options. Per-probe options are specified within the probe
+  // stanza.
+  optional targets.GlobalTargetsOptions global_targets_options = 100;
+}

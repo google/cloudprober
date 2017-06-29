@@ -1,0 +1,31 @@
+syntax = "proto2";
+
+package cloudprober.probes.http;
+
+message ProbeConf {
+  enum ProtocolType {
+    HTTP = 0;
+    HTTPS = 1;
+  }
+
+  // Which HTTP protocol to use
+  optional ProtocolType protocol = 1 [default = HTTP];
+  // Relative URL (to append to all targets). Must begin with '/'
+  optional string relative_url = 2;
+  // Port, default is 80 for HTTP and 443 for HTTPS
+  optional int32 port = 3;
+  // Whether to resolve the target before making the request. If set to false,
+  // we hand over the target and relative_url directly to the golang's HTTP
+  // module, Otherwise, we resolve the target first to an IP address and
+  // make a request using that while passing target name as Host header.
+  optional bool resolve_first = 4 [default = false];
+  // Export response (body) count as a metric
+  optional bool export_response_as_metrics = 5 [default = false];
+
+  // Requests per probe
+  optional int32 requests_per_probe = 98 [default = 1];
+  // How long to wait between two requests to the same target
+  optional int32 requests_interval_msec = 99 [default = 25];
+  // Export stats after these many milliseconds
+  optional int32 stats_export_interval_msec = 100 [default = 10000];
+}

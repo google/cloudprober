@@ -1,0 +1,48 @@
+syntax = "proto2";
+
+import "github.com/google/cloudprober/probes/http/config.proto";
+import "github.com/google/cloudprober/probes/dns/config.proto";
+import "github.com/google/cloudprober/probes/external/config.proto";
+import "github.com/google/cloudprober/probes/ping/config.proto";
+import "github.com/google/cloudprober/probes/udp/config.proto";
+import "github.com/google/cloudprober/targets/targets.proto";
+
+package cloudprober.probes;
+
+message ProbeDef {
+  required string name = 1;
+
+  enum Type {
+    PING = 0;
+    HTTP = 1;
+    DNS = 2;
+    EXTERNAL = 3;
+    UDP = 4;
+    USER_DEFINED = 5;
+  }
+  required Type type = 2;
+
+  // Which machines this probe should run on. If defined, cloudprober will run
+  // this probe only if machine's hostname matches this value.
+  optional string run_on = 3;
+
+  // Interval between two probes
+  optional int32 interval_msec = 4 [default = 2000];
+
+  // Timeout for each probe
+  optional int32 timeout_msec = 5 [default = 1000];
+
+  // Targets for the probe
+  required targets.TargetsDef targets = 6;
+
+  oneof probe {
+    ping.ProbeConf ping_probe = 20;
+    http.ProbeConf http_probe = 21;
+    dns.ProbeConf dns_probe = 22;
+    external.ProbeConf external_probe = 23;
+    udp.ProbeConf udp_probe = 24;
+    // This field's contents are passed on to the user defined probe, registered
+    // for this probe's name through probes.Register().
+    string user_defined_probe = 99;
+  }
+}

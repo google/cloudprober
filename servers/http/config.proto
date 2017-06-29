@@ -1,0 +1,7 @@
+syntax = "proto2";
+
+package cloudprober.servers.http;
+
+message ServerConf {
+  optional int32 port = 1 [default = 3141];
+}

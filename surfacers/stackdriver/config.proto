@@ -1,0 +1,11 @@
+syntax = "proto2";
+
+package cloudprober.metrics.surfacer;
+
+message StackdriverSurfacer {
+  optional bool batch = 1 [default = true];
+  optional uint64 batch_size = 2 [default = 200];
+  optional uint64 batch_timer_sec = 3 [default = 10];
+
+  optional string monitoring_url = 5 [default = "custom.googleapis.com/"];
+}

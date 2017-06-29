@@ -1,0 +1,18 @@
+syntax = "proto2";
+
+package cloudprober.servers.udp;
+
+message ServerConf {
+  required int32 port = 1;
+
+  enum Type {
+    // Echos the incoming packet back.
+    // Note that UDP echo server limits reads to 4098 bytes. For messages longer
+    // than 4098 bytes it won't work as expected.
+    ECHO = 0;
+
+    // Discard the incoming packet. Return nothing.
+    DISCARD = 1;
+  }
+  required Type type = 2;
+}

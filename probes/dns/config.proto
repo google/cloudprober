@@ -1,0 +1,11 @@
+syntax = "proto2";
+
+package cloudprober.probes.dns;
+
+message ProbeConf {
+  // Domain to use when making DNS queries
+  optional string resolved_domain = 1 [default = "www.google.com."];
+
+  // Export stats after these many milliseconds
+  optional int32 stats_export_interval_msec = 2 [default = 10000];
+}

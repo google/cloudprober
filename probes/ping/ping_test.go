@@ -1,0 +1,408 @@
+// Copyright 2017 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package ping
+
+import (
+	"errors"
+	"fmt"
+	"net"
+	"reflect"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/golang/glog"
+	"github.com/golang/protobuf/proto"
+	"github.com/google/cloudprober/logger"
+	"github.com/google/cloudprober/targets"
+	"golang.org/x/net/icmp"
+	"golang.org/x/net/ipv4"
+	"golang.org/x/net/ipv6"
+)
+
+func peerToIP(peer net.Addr) string {
+	switch peer := peer.(type) {
+	case *net.UDPAddr:
+		return peer.IP.String()
+	case *net.IPAddr:
+		return peer.IP.String()
+	}
+	return ""
+}
+
+func replyPkt(pkt []byte, ipVersion int) []byte {
+	protocol := protocolICMP
+	var typ icmp.Type
+	typ = ipv4.ICMPTypeEchoReply
+	if ipVersion == 6 {
+		protocol = protocolIPv6ICMP
+		typ = ipv6.ICMPTypeEchoReply
+	}
+	m, _ := icmp.ParseMessage(protocol, pkt)
+	m.Type = typ
+	b, _ := m.Marshal(nil)
+	return b
+}
+
+type testICMPConn struct {
+	sentPackets map[string](chan []byte)
+	c           *ProbeConf
+}
+
+func newTestICMPConn(c *ProbeConf, targets []string) *testICMPConn {
+	tic := &testICMPConn{
+		c:           c,
+		sentPackets: make(map[string](chan []byte)),
+	}
+	for _, target := range targets {
+		tic.sentPackets[target] = make(chan []byte, c.GetPacketsPerProbe())
+	}
+	return tic
+}
+
+func (tic *testICMPConn) read(buf []byte) (int, net.Addr, error) {
+	var cases []reflect.SelectCase
+	var targets []string
+	for t, ch := range tic.sentPackets {
+		cases = append(cases, reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(ch)})
+		targets = append(targets, t)
+	}
+	chosen, value, ok := reflect.Select(cases)
+	if !ok {
+		return 0, nil, fmt.Errorf("nothing to read")
+	}
+	pkt := value.Bytes()
+	copy(buf[0:len(pkt)], replyPkt(pkt, int(tic.c.GetIpVersion())))
+	peerIP, _ := resolveAddr(targets[chosen], int(tic.c.GetIpVersion()))
+
+	var peer net.Addr
+	peer = &net.IPAddr{IP: peerIP}
+	if tic.c.GetUseDatagramSocket() {
+		peer = &net.UDPAddr{IP: peerIP}
+	}
+	return len(pkt), peer, nil
+}
+
+func (tic *testICMPConn) write(b []byte, peer net.Addr) (int, error) {
+	target := peerToIP(peer)
+	tic.sentPackets[target] <- b
+	return len(b), nil
+}
+
+func (tic *testICMPConn) setReadDeadline(deadline time.Time) {
+}
+
+func (tic *testICMPConn) close() {
+}
+
+// Sends packets and verifies
+func sendAndCheckPackets(p *Probe, t *testing.T) {
+	tic := newTestICMPConn(p.c, p.targets)
+	p.conn = tic
+	trackerChan := make(chan bool, int(p.c.GetPacketsPerProbe())*len(p.targets))
+	p.resolveTargets()
+	runID := p.newRunID()
+	p.sendPackets(runID, trackerChan)
+
+	protocol := protocolICMP
+	var expectedMsgType icmp.Type
+	expectedMsgType = ipv4.ICMPTypeEcho
+	if p.c.GetIpVersion() == 6 {
+		protocol = protocolIPv6ICMP
+		expectedMsgType = ipv6.ICMPTypeEchoRequest
+	}
+
+	for _, target := range p.targets {
+		if int(p.sent[target]) != int(p.c.GetPacketsPerProbe()) {
+			t.Errorf("Mismatch in number of packets recorded to be sent. Sent: %d, Recorded: %d", p.c.GetPacketsPerProbe(), p.sent[target])
+		}
+		if len(tic.sentPackets[target]) != int(p.c.GetPacketsPerProbe()) {
+			t.Errorf("Mismatch in number of packets received. Sent: %d, Got: %d", p.c.GetPacketsPerProbe(), len(tic.sentPackets[target]))
+		}
+		close(tic.sentPackets[target])
+		for b := range tic.sentPackets[target] {
+			// Make sure packets parse ok
+			m, err := icmp.ParseMessage(protocol, b)
+			if err != nil {
+				t.Errorf("%v", err)
+			}
+			// Check packet type
+			if m.Type != expectedMsgType {
+				t.Errorf("Wrong packet type. Got: %v, expected: %v", m.Type, expectedMsgType)
+			}
+			// Check packet size
+			if len(b) != int(p.c.GetPayloadSize())+8 {
+				t.Errorf("Wrong packet size. Got: %d, expected: %d", len(b), int(p.c.GetPayloadSize())+8)
+			}
+			// Verify ICMP id and sequence number
+			pkt, ok := m.Body.(*icmp.Echo)
+			if !ok {
+				t.Errorf("Wrong ICMP packet body")
+			}
+			if pkt.ID != int(runID) {
+				t.Errorf("Got wrong ICMP ID. Got: %d, Expected: %d", pkt.ID, runID)
+			}
+			if pkt.Seq&0xff00 != int(runID)&0xff00 {
+				t.Errorf("Got wrong ICMP base seq number. Got: %d, Expected: %d", pkt.Seq&0xff00, runID&0xff00)
+			}
+		}
+	}
+}
+
+func newProbe(c *ProbeConf, t []string) (*Probe, error) {
+	tgts := targets.StaticTargets(strings.Join(t, ","))
+	p := &Probe{
+		name:        "ping_test",
+		c:           c,
+		interval:    2 * time.Second,
+		timeout:     time.Second,
+		tgts:        tgts,
+		ipVer:       int(c.GetIpVersion()),
+		l:           &logger.Logger{},
+		sent:        make(map[string]int64),
+		received:    make(map[string]int64),
+		latencyUsec: make(map[string]int64),
+		ip2target:   make(map[string]string),
+		target2addr: make(map[string]net.Addr),
+	}
+
+	p.targets = p.tgts.List()
+	return p, p.setSourceFromConfig()
+}
+
+type intf struct {
+	addrs []net.Addr
+}
+
+func (i *intf) Addrs() ([]net.Addr, error) {
+	return i.addrs, nil
+}
+
+func mockInterfaceByName(iname string, addrs []string) {
+	ips := make([]net.Addr, len(addrs))
+	for i, a := range addrs {
+		ips[i] = &net.IPAddr{IP: net.ParseIP(a)}
+	}
+	i := &intf{addrs: ips}
+	interfaceByName = func(name string) (addr, error) {
+		if name != iname {
+			return nil, errors.New("device not found")
+		}
+		return i, nil
+	}
+}
+
+func TestInitSourceIP(t *testing.T) {
+	rows := []struct {
+		name       string
+		sourceIP   string
+		sourceIntf string
+		intf       string
+		intfAddrs  []string
+		want       string
+		wantError  bool
+	}{
+		{
+			name:     "Use ip if set",
+			sourceIP: "1.1.1.1",
+			want:     "1.1.1.1",
+		},
+		{
+			name:       "Interface with no adders fails",
+			sourceIntf: "eth1",
+			intf:       "eth1",
+			wantError:  true,
+		},
+		{
+			name:       "Unknown interface fails",
+			sourceIntf: "eth1",
+			intf:       "eth0",
+			wantError:  true,
+		},
+		{
+			name:       "Uses first addr for interface",
+			sourceIntf: "eth1",
+			intf:       "eth1",
+			intfAddrs:  []string{"1.1.1.1", "2.2.2.2"},
+			want:       "1.1.1.1",
+		},
+	}
+
+	for _, r := range rows {
+		c := &ProbeConf{}
+		if r.sourceIP != "" {
+			c.Source = &ProbeConf_SourceIp{r.sourceIP}
+		} else {
+			c.Source = &ProbeConf_SourceInterface{r.sourceIntf}
+			mockInterfaceByName(r.intf, r.intfAddrs)
+		}
+		p, err := newProbe(c, []string{})
+		if (err != nil) != r.wantError {
+			t.Errorf("Row %q: newProbe() gave error %q, want error is %v", r.name, err, r.wantError)
+			continue
+		}
+		if r.wantError {
+			continue
+		}
+		if p.source != r.want {
+			t.Errorf("Row %q: p.source = %q, want %q", r.name, p.source, r.want)
+		}
+	}
+}
+
+// Test sendPackets IPv4, raw sockets
+func TestSendPackets(t *testing.T) {
+	c := &ProbeConf{}
+	c.Source = &ProbeConf_SourceIp{"1.1.1.1"}
+	p, err := newProbe(c, []string{"2.2.2.2", "3.3.3.3"})
+	if err != nil {
+		t.Fatalf("Got error from newProbe: %v", err)
+	}
+	sendAndCheckPackets(p, t)
+}
+
+// Test sendPackets IPv6, raw sockets
+func TestSendPacketsIPv6(t *testing.T) {
+	c := &ProbeConf{}
+	c.IpVersion = proto.Int32(6)
+	c.Source = &ProbeConf_SourceIp{"::1"}
+	p, err := newProbe(c, []string{"::2", "::3"})
+	if err != nil {
+		t.Fatalf("Got error from newProbe: %v", err)
+	}
+	sendAndCheckPackets(p, t)
+}
+
+// Test sendPackets IPv6, raw sockets, no packets should come on IPv4 target
+func TestSendPacketsIPv6ToIPv4Hosts(t *testing.T) {
+	c := &ProbeConf{}
+	c.IpVersion = proto.Int32(6)
+	c.Source = &ProbeConf_SourceIp{"::1"}
+	p, err := newProbe(c, []string{"2.2.2.2"})
+	if err != nil {
+		t.Fatalf("Got error from newProbe: %v", err)
+	}
+	tic := newTestICMPConn(c, p.targets)
+	p.conn = tic
+	trackerChan := make(chan bool, int(c.GetPacketsPerProbe())*len(p.targets))
+	p.resolveTargets()
+	p.sendPackets(p.newRunID(), trackerChan)
+	for _, target := range p.targets {
+		if len(tic.sentPackets[target]) != 0 {
+			t.Errorf("IPv6 probe: should not have received any packets for IPv4 only targets, but got %d packets", len(tic.sentPackets[target]))
+		}
+	}
+}
+
+// Test sendPackets IPv4, datagram sockets
+func TestSendPacketsDatagramSocket(t *testing.T) {
+	c := &ProbeConf{}
+	c.UseDatagramSocket = proto.Bool(true)
+	c.Source = &ProbeConf_SourceIp{"1.1.1.1"}
+	p, err := newProbe(c, []string{"2.2.2.2", "3.3.3.3"})
+	if err != nil {
+		t.Fatalf("Got error from newProbe: %v", err)
+	}
+	sendAndCheckPackets(p, t)
+}
+
+// Test sendPackets IPv6, datagram sockets
+func TestSendPacketsIPv6DatagramSocket(t *testing.T) {
+	c := &ProbeConf{}
+	c.UseDatagramSocket = proto.Bool(true)
+	c.IpVersion = proto.Int32(6)
+	c.Source = &ProbeConf_SourceIp{"::1"}
+	p, err := newProbe(c, []string{"::2", "::3"})
+	if err != nil {
+		t.Fatalf("Got error from newProbe: %v", err)
+	}
+	sendAndCheckPackets(p, t)
+}
+
+// Test runProbe IPv4, raw sockets
+func TestRunProbe(t *testing.T) {
+	c := &ProbeConf{}
+	c.Source = &ProbeConf_SourceIp{"1.1.1.1"}
+	p, err := newProbe(c, []string{"2.2.2.2", "3.3.3.3"})
+	if err != nil {
+		t.Fatalf("Got error from newProbe: %v", err)
+	}
+	p.conn = newTestICMPConn(c, p.targets)
+	p.runProbe()
+	for _, target := range p.targets {
+		glog.Infof("target: %s, sent: %d, received: %d, total_rtt: %dus", target, p.sent[target], p.received[target], p.latencyUsec[target])
+		if p.sent[target] == 0 || (p.sent[target] != p.received[target]) {
+			t.Errorf("We are leaking packets. Sent: %d, Received: %d", p.sent[target], p.received[target])
+		}
+	}
+}
+
+// Test runProbe IPv6, raw sockets
+func TestRunProbeIPv6(t *testing.T) {
+	c := &ProbeConf{}
+	c.IpVersion = proto.Int32(6)
+	c.Source = &ProbeConf_SourceIp{"::1"}
+	p, err := newProbe(c, []string{"::2", "::3"})
+	if err != nil {
+		t.Fatalf("Got error from newProbe: %v", err)
+	}
+	p.conn = newTestICMPConn(c, p.targets)
+	p.runProbe()
+	for _, target := range p.targets {
+		glog.Infof("target: %s, sent: %d, received: %d, total_rtt: %dus", target, p.sent[target], p.received[target], p.latencyUsec[target])
+		if p.sent[target] == 0 || (p.sent[target] != p.received[target]) {
+			t.Errorf("We are leaking packets. Sent: %d, Received: %d", p.sent[target], p.received[target])
+		}
+	}
+}
+
+// Test runProbe IPv4, datagram sockets
+func TestRunProbeDatagram(t *testing.T) {
+	c := &ProbeConf{}
+	c.UseDatagramSocket = proto.Bool(true)
+	c.Source = &ProbeConf_SourceIp{"1.1.1.1"}
+	p, err := newProbe(c, []string{"2.2.2.2", "3.3.3.3"})
+	if err != nil {
+		t.Fatalf("Got error from newProbe: %v", err)
+	}
+	p.conn = newTestICMPConn(c, p.targets)
+	p.runProbe()
+	for _, target := range p.targets {
+		glog.Infof("target: %s, sent: %d, received: %d, total_rtt: %dus", target, p.sent[target], p.received[target], p.latencyUsec[target])
+		if p.sent[target] == 0 || (p.sent[target] != p.received[target]) {
+			t.Errorf("We are leaking packets. Sent: %d, Received: %d", p.sent[target], p.received[target])
+		}
+	}
+}
+
+// Test runProbe IPv6, datagram sockets
+func TestRunProbeIPv6Datagram(t *testing.T) {
+	c := &ProbeConf{}
+	c.UseDatagramSocket = proto.Bool(true)
+	c.IpVersion = proto.Int32(6)
+	c.Source = &ProbeConf_SourceIp{"::1"}
+	p, err := newProbe(c, []string{"::2", "::3"})
+	if err != nil {
+		t.Fatalf("Got error from newProbe: %v", err)
+	}
+	p.conn = newTestICMPConn(c, p.targets)
+	p.runProbe()
+	for _, target := range p.targets {
+		glog.Infof("target: %s, sent: %d, received: %d, total_rtt: %dus", target, p.sent[target], p.received[target], p.latencyUsec[target])
+		if p.sent[target] == 0 || (p.sent[target] != p.received[target]) {
+			t.Errorf("We are leaking packets. Sent: %d, Received: %d", p.sent[target], p.received[target])
+		}
+	}
+}

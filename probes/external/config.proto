@@ -1,0 +1,39 @@
+syntax = "proto2";
+
+package cloudprober.probes.external;
+
+message ProbeConf {
+  // External probes support two mode: ONCE and SERVER. In ONCE mode, external
+  // command is re-executed for each probe run, while in SERVER mode, command
+  // is run in server mode, re-executed only if not running already.
+  enum Mode {
+    ONCE = 0;
+    SERVER = 1;
+  }
+  optional Mode mode = 1 [default = SERVER];
+
+  // Command.  For ONCE probes, arguments are processed for the following field
+  // substitutions:
+  // @probe@    Name of the probe
+  // @target@   Hostname of the target
+  // @address@  IP address of the target
+  //
+  // For example, for target ig-us-central1-a, /tools/recreate_vm -vm @target@
+  // will get converted to: /tools/recreate_vm -vm ig-us-central1-a
+  optional string command = 2;
+
+  message Option {
+    optional string name = 1;
+    // Values are substituted similar to command arguments for ONCE mode probes.
+    optional string value = 2;
+  }
+  // Options for the ProbeRequest for SERVER mode probes.
+  repeated Option options = 3;
+  // Additional labels, e.g. "region=us-east1".
+  optional string labels = 4;
+
+  // Stats export interval in milliseconds.
+  optional int32 stats_export_interval_msec = 5 [default = 10000];
+  // IP version: For target resolution
+  optional int32 ip_version = 6 [default = 4];
+}

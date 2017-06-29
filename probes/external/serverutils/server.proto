@@ -1,0 +1,43 @@
+// This package defines protocol for use with cloudprober's external
+// probe (in server mode).
+syntax = "proto2";
+
+package cloudprober;
+
+// ProbeRequest is the message that cloudprober sends to the external probe
+// server.
+message ProbeRequest {
+  // The unique identifier for this request.  This is unique across
+  // an execution of the probe server.  It starts at 1.
+  required int32 request_id = 1;
+
+  // How long to allow for the execution of this request, in
+  // milliseconds.  If the time limit is exceeded, the server
+  // should abort the request, but *not* send back a reply.  The
+  // client will have to do timeouts anyway.
+  required int32 time_limit = 2;
+
+  message Option {
+    required string name = 1;
+    required string value = 2;
+  }
+  repeated Option options = 3;
+};
+
+// ProbeReply is the message that external probe server sends back to the
+// cloudprober.
+message ProbeReply {
+  // The sequence number for this request.
+  required int32 request_id = 1;
+
+  // For a normal result, this is not present.
+  // If it is present, it indicates that the probe failed.
+  optional string error_message = 2;
+
+  // The result of the probe. Cloudprober parses the payload to retrieve
+  // variables from it. It expects variables in the following format:
+  // var1 value1 (for example: total_errors 589)
+  // TODO: Add an option to export mapped variables, for example:
+  // client-errors map:lang java:200 python:20 golang:3
+  optional string payload = 3;
+};

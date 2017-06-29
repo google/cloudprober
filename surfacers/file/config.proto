@@ -1,0 +1,7 @@
+syntax = "proto2";
+
+package cloudprober.metrics.surfacer;
+
+message FileSurfacer {
+  optional string file_path = 1 [default = "/dev/ttyS2"];
+}

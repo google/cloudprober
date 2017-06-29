@@ -1,0 +1,16 @@
+syntax = "proto2";
+
+package cloudprober.metrics.surfacer;
+
+message PrometheusSurfacer {
+  // How many metrics entries (EventMetrics) to buffer. Incoming metrics
+  // processing is paused while serving data to prometheus. This buffer is to
+  // make writes to prometheus surfacer non-blocking.
+  optional int64 metrics_buffer_size = 1 [default = 10000];
+
+  // HTTP server port that prometheus surfacer listens on.
+  optional int32 port = 2 [default = 3001];
+
+  // URL that prometheus scrapes metrics from.
+  optional string metrics_url = 3 [default = "/metrics"];
+}

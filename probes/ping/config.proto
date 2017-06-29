@@ -1,0 +1,34 @@
+syntax = "proto2";
+
+package cloudprober.probes.ping;
+
+message ProbeConf {
+  // Set the source address to send packets from, either by providing an address
+  // or a network interface.
+  oneof source {
+    string source_ip = 3;
+    string source_interface = 4;
+  }
+  // Packets per probe
+  optional int32 packets_per_probe = 6 [default = 2];
+  // How long to wait between two packets to the same target
+  optional int32 packets_interval_msec = 7 [default = 25];
+  // Export stats after these many probes
+  optional int32 stats_export_interval = 8 [default = 5];  // =10s
+  // Resolve targets after these many probes
+  optional int32 resolve_targets_interval = 9 [default = 5];  // =10s
+  // Ping payload size
+  optional int32 payload_size = 10 [default = 56];
+  // IP protocol version
+  optional int32 ip_version = 11 [default = 4];
+  // Use datagram socket for ICMP.
+  // This option enables unprivileged pings (that is, you don't require root
+  // privilege to send ICMP packets). Note that most of the Linux distributions
+  // don't allow unprivileged pings by default. To enable unprivileged pings on
+  // some Linux distributions, you may need to run the following command:
+  //     sudo sysctl -w net.ipv4.ping_group_range="0 <large valid group id>"
+  // net.ipv4.ping_group_range system setting takes two integers that specify
+  // the group id range that is allowed to execute the unprivileged pings. Note
+  // that the same setting (with ipv4 in the path) applies to IPv6 as well.
+  optional bool use_datagram_socket = 12 [default = true];
+}

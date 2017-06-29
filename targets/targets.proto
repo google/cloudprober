@@ -1,0 +1,51 @@
+// Provides all configuration necesary to list targets for a cloudprober probe.
+syntax = "proto2";
+
+import "github.com/google/cloudprober/targets/lameduck/config.proto";
+import "github.com/google/cloudprober/targets/gce/config.proto";
+import "github.com/google/cloudprober/targets/rtc/config.proto";
+
+package cloudprober.targets;
+
+message TargetsDef {
+  oneof type {
+    // static host names, e.g. www.google.com, 8.8.8.8, en.wikipedia.org
+    string host_names = 1;
+    gce.TargetsConf gce_targets = 2;
+    rtc.TargetsConf rtc_targets = 3;
+    DummyTargets dummy_targets = 7;
+  }
+  // Regex to apply on the targets.
+  optional string regex = 4;
+
+  // Exclude lameducks. Lameduck targets can be set through RTC (realtime
+  // configurator) service. This setting works only while running on GCE.
+  optional bool exclude_lameducks = 5 [default = true];
+
+  // How often targets should be evaluated. Any number less than or equal to 0
+  // will result in no target caching (targets will be reevaluated on demand).
+  // Note that individual target types may have their own caches implemented
+  // (specifically GCE instances/forwarding rules). This does not impact those
+  // caches.
+  optional int32 re_eval_sec = 6 [default = 0];
+}
+
+// DummyTargets represent empty targets, which are useful for external
+// probes that do not have any "proper" targets.  Such as ilbprober.
+message DummyTargets {
+}
+
+// Global targets options. These options are independent of the per-probe
+// targets which are defined by the "Targets" type above.
+//
+// Currently these options are used only for GCE targets to control things like
+// how often to re-evaluate the targets and whether to check for lame ducks or
+// not.
+message GlobalTargetsOptions {
+  // GCE targets options.
+  optional gce.GlobalOptions global_gce_targets_options = 1;
+
+  // Lame duck options. If provided, targets module checks for the lame duck
+  // targets and removes them from the targets list.
+  optional lameduck.Options lame_duck_options = 2;
+}
