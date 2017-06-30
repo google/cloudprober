@@ -1,3 +1,6 @@
+[![Build
+Status](https://travis-ci.org/google/cloudprober.svg?branch=master)](https://travis-ci.org/google/cloudprober)
+
 # Cloudprober
 
 Cloudprober is a monitoring software that runs user-defined probes on a machine.
