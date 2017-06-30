@@ -96,7 +96,7 @@ cd ${project_dir}
 # Get all dependencies
 echo "Getting all the dependencies.."
 echo "======================================================================"
-go get ./...
+go get -t ./...
 
 # Build everything
 echo "Build everything..."
