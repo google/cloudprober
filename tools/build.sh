@@ -109,6 +109,6 @@ echo "======================================================================"
 go test ./...
 
 # Install cloudprober
-echo "Installing cloudprober binary.."
+echo "Build static cloudprober binary.."
 echo "======================================================================"
-go install cmd/cloudprober.go
+CGO_ENABLED=0 go build -ldflags '-extldflags "-static"' ./cmd/cloudprober.go

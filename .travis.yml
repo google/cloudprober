@@ -7,4 +7,12 @@ go_import_path: github.com/google/cloudprober
 
 install: /bin/true
 
-script: GOBIN=$GOPATH/bin tools/build.sh
+script:
+ - GOBIN=$GOPATH/bin tools/build.sh
+
+services:
+ - docker
+
+after_success:
+ - cp /etc/ssl/certs/ca-certificates.crt .
+ - test -n "$DOCKER_IMAGE" && docker build -t ${DOCKER_IMAGE}:latest . && docker login -u ${DOCKER_USER} -p ${DOCKER_PASS} && docker push ${DOCKER_IMAGE}
