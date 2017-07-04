@@ -17,6 +17,7 @@ package udp
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"math/rand"
 	"net"
 	"testing"
@@ -33,7 +34,7 @@ func isClientTimeout(err error) bool {
 	return ok && e != nil && e.Timeout()
 }
 
-func sendAndTestResponse(t *testing.T, c *ServerConf, conn *net.UDPConn) {
+func sendAndTestResponse(t *testing.T, c *ServerConf, conn net.Conn) {
 	size := rand.Intn(1024)
 	data := make([]byte, size)
 	rand.Read(data)
@@ -97,21 +98,21 @@ func TestDiscardServer(t *testing.T) {
 
 func testServer(t *testing.T, testConfig *ServerConf) {
 	l := &logger.Logger{}
-	var serverAddr *net.UDPAddr
+	var serverAddr string
 	// Start server
 	go func() {
 		serverConn, err := listen(testConfig, l)
 		if err != nil {
 			t.Fatal("Error starting listener for the server.")
 		}
-		serverAddr = serverConn.LocalAddr().(*net.UDPAddr)
+		serverAddr = fmt.Sprintf("localhost:%d", serverConn.LocalAddr().(*net.UDPAddr).Port)
 		t.Fatal(serve(context.Background(), testConfig, serverConn, l))
 	}()
 
 	time.Sleep(time.Duration(500) * time.Millisecond) // Sleep 500ms to be sure that server is running
 	// try 100 Samples
 	for i := 0; i < 100; i++ {
-		conn, err := net.DialUDP("udp", nil, serverAddr)
+		conn, err := net.Dial("udp", serverAddr)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -119,7 +120,7 @@ func testServer(t *testing.T, testConfig *ServerConf) {
 		conn.Close()
 	}
 	// try 10 samples on the same connection
-	conn, err := net.DialUDP("udp", nil, serverAddr)
+	conn, err := net.Dial("udp", serverAddr)
 	if err != nil {
 		t.Fatal(err)
 	}

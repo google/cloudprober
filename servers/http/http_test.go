@@ -27,6 +27,10 @@ import (
 	"github.com/google/cloudprober/metrics"
 )
 
+func listenerAddr(ln net.Listener) string {
+	return fmt.Sprintf("localhost:%d", ln.Addr().(*net.TCPAddr).Port)
+}
+
 func TestListenAndServeInstanceURL(t *testing.T) {
 	ln, err := net.Listen("tcp", ":0")
 	if err != nil {
@@ -40,7 +44,7 @@ func TestListenAndServeInstanceURL(t *testing.T) {
 	go func() {
 		t.Fatal(serve(context.Background(), ln, dataChan, testSysVars, &logger.Logger{}))
 	}()
-	resp, err := http.Get(fmt.Sprintf("http://%s/instance", ln.Addr().String()))
+	resp, err := http.Get(fmt.Sprintf("http://%s/instance", listenerAddr(ln)))
 	if err != nil {
 		t.Errorf("HTTP server returned an error for the URL '/instance'. Err: %v", err)
 		return
@@ -71,7 +75,7 @@ func TestListenAndServeStats(t *testing.T) {
 		t.Fatal(serve(context.Background(), ln, dataChan, make(map[string]string), &logger.Logger{}))
 	}()
 	for _, url := range testURLs {
-		resp, err := http.Get(fmt.Sprintf("http://%s/%s", ln.Addr().String(), url))
+		resp, err := http.Get(fmt.Sprintf("http://%s/%s", listenerAddr(ln), url))
 		if err != nil {
 			t.Errorf("HTTP server returned an error for URL '%s'. Err: %v", url, err)
 			continue
