@@ -30,7 +30,7 @@ import (
 // per line).
 type Surfacer struct {
 	// Configuration
-	c *FileSurfacer
+	c *SurfacerConf
 
 	// Channel for incoming data.
 	writeChan chan *metrics.EventMetrics
@@ -48,7 +48,7 @@ type Surfacer struct {
 // cloud logger because it is unlikely to fail reportably after the call to
 // New.
 // TODO: consider plumbing in a context for the logger
-func New(name string, config *FileSurfacer) (*Surfacer, error) {
+func New(name string, config *SurfacerConf) (*Surfacer, error) {
 	// Create an empty surfacer to be returned, assign it an empty write
 	// channel to allow for asynch writes.
 	s := Surfacer{

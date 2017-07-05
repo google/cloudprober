@@ -17,7 +17,7 @@ message ProberConfig {
   optional string output_file = 2;
 
   repeated probes.ProbeDef probe = 3;
-  repeated metrics.surfacer.SurfacerDef surfacer = 4;
+  repeated surfacer.SurfacerDef surfacer = 4;
 
   optional targets.rtcreporter.RtcReportOptions rtc_report_options = 94;
 

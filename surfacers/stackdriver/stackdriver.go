@@ -43,7 +43,7 @@ import (
 type SDSurfacer struct {
 
 	// Configuration
-	c *StackdriverSurfacer
+	c *SurfacerConf
 
 	// Internal cache for saving metric data until a batch is sent
 	cache map[string]*monitoring.TimeSeries
@@ -76,7 +76,7 @@ type SDSurfacer struct {
 // variables for call references (project and instances variables) as well
 // as provisioning it with clients for making the necessary API calls. New
 // requires you to pass in a valid stackdriver surfacer configuration.
-func New(name string, config *StackdriverSurfacer) (*SDSurfacer, error) {
+func New(name string, config *SurfacerConf) (*SDSurfacer, error) {
 	// Create a cache, which is used for batching write requests together,
 	// and a channel for writing data.
 	s := SDSurfacer{

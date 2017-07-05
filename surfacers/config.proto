@@ -4,7 +4,14 @@ import "github.com/google/cloudprober/surfacers/prometheus/config.proto";
 import "github.com/google/cloudprober/surfacers/stackdriver/config.proto";
 import "github.com/google/cloudprober/surfacers/file/config.proto";
 
-package cloudprober.metrics.surfacer;
+package cloudprober.surfacer;
+
+// Enumeration for each type of surfacer we can parse and create
+enum Type {
+  PROMETHEUS = 0;
+  STACKDRIVER = 1;
+  FILE = 2;
+}
 
 message SurfacerDef {
   required string name = 1;
@@ -13,19 +20,13 @@ message SurfacerDef {
   // run this probe only if the machine's hostname matches this value.
   optional string run_on = 2;
 
-  // Enumeration for each type of surfacer we can parse and create
-  enum Type {
-    PROMETHEUS = 0;
-    STACKDRIVER = 1;
-    FILE = 2;
-  }
   required Type type = 3;
 
   // Matching surfacer specific configuration (one for each type in the above
   // enum)
   oneof surfacer {
-    PrometheusSurfacer prometheus_surfacer = 10;
-    StackdriverSurfacer stackdriver_surfacer = 11;
-    FileSurfacer file_surfacer = 12;
+    prometheus.SurfacerConf prometheus_surfacer = 10;
+    stackdriver.SurfacerConf stackdriver_surfacer = 11;
+    file.SurfacerConf file_surfacer = 12;
   }
 }

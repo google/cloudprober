@@ -1,8 +1,8 @@
 syntax = "proto2";
 
-package cloudprober.metrics.surfacer;
+package cloudprober.surfacer.stackdriver;
 
-message StackdriverSurfacer {
+message SurfacerConf {
   optional bool batch = 1 [default = true];
   optional uint64 batch_size = 2 [default = 200];
   optional uint64 batch_timer_sec = 3 [default = 10];

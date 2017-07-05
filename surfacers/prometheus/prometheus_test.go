@@ -79,7 +79,7 @@ type testData struct {
 }
 
 func newPromSurfacer(t *testing.T) *PromSurfacer {
-	c := &PrometheusSurfacer{
+	c := &SurfacerConf{
 		// Specify port 0, let OS assign us a port.
 		Port: proto.Int32(int32(0)),
 		// Attach a random integer to metrics URL so that multiple

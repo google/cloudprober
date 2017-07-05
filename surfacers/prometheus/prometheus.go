@@ -90,7 +90,7 @@ type dataPoint struct {
 //       and timestamp.
 // Data key represents a unique combination of metric name and labels.
 type PromSurfacer struct {
-	c           *PrometheusSurfacer        // Configuration
+	c           *SurfacerConf              // Configuration
 	emChan      chan *metrics.EventMetrics // Buffered channel to store incoming EventMetrics
 	metrics     map[string]*promMetric     // Metric name to promMetric mapping
 	metricNames []string                   // Metric names, to keep names ordered.
@@ -105,9 +105,9 @@ type PromSurfacer struct {
 // New returns a prometheus surfacer based on the config provided. It sets up a
 // goroutine to process both the incoming EventMetrics and the web requests for
 // the URL handler /metrics.
-func New(ctx context.Context, name string, config *PrometheusSurfacer) (*PromSurfacer, error) {
+func New(ctx context.Context, name string, config *SurfacerConf) (*PromSurfacer, error) {
 	if config == nil {
-		config = &PrometheusSurfacer{}
+		config = &SurfacerConf{}
 	}
 	ps := &PromSurfacer{
 		c:            config,

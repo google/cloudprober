@@ -36,11 +36,11 @@ import (
 // New returns a new surfacer based on the config
 func New(s *SurfacerDef) (Surfacer, error) {
 	switch s.GetType() {
-	case SurfacerDef_PROMETHEUS:
+	case Type_PROMETHEUS:
 		return prometheus.New(context.TODO(), s.GetName(), s.GetPrometheusSurfacer())
-	case SurfacerDef_STACKDRIVER:
+	case Type_STACKDRIVER:
 		return stackdriver.New(s.GetName(), s.GetStackdriverSurfacer())
-	case SurfacerDef_FILE:
+	case Type_FILE:
 		return file.New(s.GetName(), s.GetFileSurfacer())
 	default:
 		return nil, fmt.Errorf("unknown surfacer type: %s", s.GetType())
