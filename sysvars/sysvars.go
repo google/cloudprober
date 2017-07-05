@@ -18,12 +18,14 @@ package sysvars
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"sort"
 	"strings"
 	"sync"
 	"time"
 
+	"cloud.google.com/go/compute/metadata"
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
 )
@@ -84,18 +86,24 @@ func Init(ll *logger.Logger, userVars map[string]string) error {
 		return nil
 	}
 
-	startTime = time.Now()
 	l = ll
+	startTime = time.Now()
 	sysVars = make(map[string]string)
-	if err := SystemVars(sysVars); err != nil {
-		l.Error(err)
-		return err
+
+	hostname, err := os.Hostname()
+	if err != nil {
+		return fmt.Errorf("utils.SystemVars: error getting local hostname: %v", err)
+	}
+	sysVars["hostname"] = hostname
+
+	// If on GCE, add GCE variables.
+	if metadata.OnGCE() {
+		return gceVars(sysVars)
 	}
 
 	for k, v := range userVars {
 		sysVars[k] = v
 	}
-
 	return nil
 }
 

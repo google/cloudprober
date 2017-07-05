@@ -17,7 +17,6 @@ package sysvars
 import (
 	"fmt"
 	"net"
-	"os"
 	"strings"
 
 	"cloud.google.com/go/compute/metadata"
@@ -118,20 +117,4 @@ func addGceNicInfo(vars map[string]string) {
 		ip, _, _ := net.ParseCIDR(v)
 		vars[k+"-sample"] = ip.String()
 	}
-}
-
-// SystemVars finds system level variables and adds them to the map passed in the arguments.
-func SystemVars(vars map[string]string) error {
-	if vars == nil {
-		vars = make(map[string]string)
-	}
-	hostname, err := os.Hostname()
-	if err != nil {
-		return fmt.Errorf("utils.SystemVars: error getting local hostname: %v", err)
-	}
-	vars["hostname"] = hostname
-	if metadata.OnGCE() {
-		return gceVars(vars)
-	}
-	return nil
 }
