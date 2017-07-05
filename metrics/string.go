@@ -15,19 +15,29 @@
 // Package metrics implements data types for probes generated data.
 package metrics
 
-// Value represents any metric value
-type Value interface {
-	clone() Value
-	Add(delta Value) error
-	String() string
+import "errors"
+
+// String implements a value type with string storage.
+// It satisfies the Value interface.
+type String struct {
+	s string
 }
 
-// NumValue represents any numerical metric value, e.g. Int, Float.
-// It's a superset of Value interface.
-type NumValue interface {
-	Value
-	Inc()
-	Int64() int64
-	Float64() float64
-	IncBy(delta NumValue)
+// NewString returns a new String with the given string value.
+func NewString(s string) String {
+	return String{s: s}
+}
+
+// Add isn't supported for String type, this is only to satisfy the Value interface.
+func (s String) Add(val Value) error {
+	return errors.New("string value type doesn't support Add() operation")
+}
+
+// String simply returns the stored string.
+func (s String) String() string {
+	return "\"" + s.s + "\""
+}
+
+func (s String) clone() Value {
+	return String{s: s.s}
 }
