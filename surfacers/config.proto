@@ -8,19 +8,17 @@ package cloudprober.surfacer;
 
 // Enumeration for each type of surfacer we can parse and create
 enum Type {
-  PROMETHEUS = 0;
-  STACKDRIVER = 1;
-  FILE = 2;
+  NONE = 0;
+  PROMETHEUS = 1;
+  STACKDRIVER = 2;
+  FILE = 3;
 }
 
 message SurfacerDef {
-  required string name = 1;
+  // This name is used for logging. If not defined, it's derived from the type.
+  optional string name = 1;
 
-  // Which machines this surfacer should run on. If defined, cloudprober will
-  // run this probe only if the machine's hostname matches this value.
-  optional string run_on = 2;
-
-  required Type type = 3;
+  required Type type = 2;
 
   // Matching surfacer specific configuration (one for each type in the above
   // enum)

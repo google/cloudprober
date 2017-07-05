@@ -33,8 +33,8 @@ import (
 	"github.com/google/cloudprober/surfacers/stackdriver"
 )
 
-// New returns a new surfacer based on the config
-func New(s *SurfacerDef) (Surfacer, error) {
+// initSurfacer initializes and returns a new surfacer based on the config.
+func initSurfacer(s *SurfacerDef) (Surfacer, error) {
 	switch s.GetType() {
 	case Type_PROMETHEUS:
 		return prometheus.New(context.TODO(), s.GetName(), s.GetPrometheusSurfacer())
@@ -52,4 +52,32 @@ type Surfacer interface {
 	// Function for writing a piece of metric data to a specified metric
 	// store (or other location).
 	Write(ctx context.Context, em *metrics.EventMetrics)
+}
+
+func defaultSurfacers() ([]Surfacer, error) {
+	defaultPromSurfacer, err := prometheus.New(context.TODO(), "", nil)
+	return []Surfacer{defaultPromSurfacer}, err
+}
+
+// Init initializes the surfacers from the config protobufs and returns them as
+// a list.
+func Init(sDefs []*SurfacerDef) ([]Surfacer, error) {
+	// If no surfacers are defined, return default surfacers. This behavior
+	// can be disabled by explicitly specifying "surfacer {}" in the config.
+	if len(sDefs) == 0 {
+		return defaultSurfacers()
+	}
+
+	var result []Surfacer
+	for _, sDef := range sDefs {
+		if sDef.GetType() == Type_NONE {
+			continue
+		}
+		s, err := initSurfacer(sDef)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, s)
+	}
+	return result, nil
 }

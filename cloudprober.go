@@ -56,17 +56,6 @@ func (pr *Prober) newLogger(probeName string) (*logger.Logger, error) {
 	return logger.New(context.Background(), logsNamePrefix+"."+probeName, &pr.logFailCnt)
 }
 
-func (pr *Prober) parseSurfacers() error {
-	for _, sConfig := range pr.c.GetSurfacer() {
-		s, err := surfacers.New(sConfig)
-		if err != nil {
-			return err
-		}
-		pr.surfacers = append(pr.surfacers, s)
-	}
-	return nil
-}
-
 // InitFromConfig initializes Cloudprober using the provided config.
 func InitFromConfig(configFile string) (*Prober, error) {
 	pr := &Prober{}
@@ -91,7 +80,9 @@ func InitFromConfig(configFile string) (*Prober, error) {
 	}
 
 	pr.Probes = probes.Init(pr.c.GetProbe(), pr.c.GetGlobalTargetsOptions(), sysvars.Vars(), &pr.logFailCnt)
-	if err := pr.parseSurfacers(); err != nil {
+
+	pr.surfacers, err = surfacers.Init(pr.c.GetSurfacer())
+	if err != nil {
 		return nil, err
 	}
 
