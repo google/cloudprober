@@ -93,6 +93,11 @@ func ReadFromGCEMetadata(metadataKeyName string) (string, error) {
 	return metadata.Get("project/attributes/" + metadataKeyName)
 }
 
+// DefaultConfig returns the default config string.
+func DefaultConfig() string {
+	return proto.MarshalTextString(&ProberConfig{})
+}
+
 // Parse processes a config file as a Go text template and parses it into a ProberConfig proto.
 func Parse(config string, sysVars map[string]string) (*ProberConfig, error) {
 	funcMap := map[string]interface{}{
