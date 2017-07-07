@@ -18,7 +18,7 @@ message SurfacerDef {
   // This name is used for logging. If not defined, it's derived from the type.
   optional string name = 1;
 
-  required Type type = 2;
+  optional Type type = 2;
 
   // Matching surfacer specific configuration (one for each type in the above
   // enum)

@@ -118,7 +118,7 @@ func getConfig() string {
 		}
 	}
 	// If config not found in metadata, check default config on disk
-	if _, err := os.Stat(defaultConfigFile); os.IsExist(err) {
+	if _, err := os.Stat(defaultConfigFile); !os.IsNotExist(err) {
 		return configFileToString(defaultConfigFile)
 	}
 	glog.Warningf("Config file %s not found. Using default config.", defaultConfigFile)
