@@ -13,12 +13,7 @@ on-premise systems. This kind of monitoring makes it possible to monitor your
 systems' interfaces regardless of the implementation and helps you quickly pin
 down what's broken in your system.
 
-<div style="text-align: center">
-  <figure>
-    <img src="https://manugarg.github.io/cloudprober_assets/diagrams/cloudprober_use_case.svg"/>
-    <small><figcaption style="font-weight:bold;margin-top:12px">Cloudprober Use Case</figcaption></small>
-  </figure>
-</div>
+![Cloudprober Use Case](https://manugarg.github.io/cloudprober_assets/diagrams/cloudprober_use_case.svg)
 
 ## Features
 * Automated target discovery for Cloud targets. GCP is supported out-of-the-box;
