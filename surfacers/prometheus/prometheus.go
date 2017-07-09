@@ -120,7 +120,7 @@ func New(ctx context.Context, name string, config *SurfacerConf) (*PromSurfacer,
 
 	var err error
 	// Create a new cloud logger specifically for this project and instance
-	ps.l, err = logger.New(ctx, name, nil)
+	ps.l, err = logger.New(ctx, name)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create cloud logger for surfacer %s: %v", name, err)
 	}

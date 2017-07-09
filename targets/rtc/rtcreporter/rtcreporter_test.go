@@ -56,8 +56,7 @@ func TestMkTargetInfo(t *testing.T) {
 
 // TestReport only tests that report puts the correct protobuf into the RTC config.
 func TestReport(t *testing.T) {
-	var failureCnt int64
-	l, err := logger.New(context.Background(), "rtcserve_test", &failureCnt)
+	l, err := logger.New(context.Background(), "rtcserve_test")
 	if err != nil {
 		t.Errorf("Unable to initialize logger. %v", err)
 	}

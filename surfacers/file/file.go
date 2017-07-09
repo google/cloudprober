@@ -39,8 +39,7 @@ type Surfacer struct {
 	outf *os.File
 
 	// Cloud logger
-	l       *logger.Logger
-	failCnt int64
+	l *logger.Logger
 }
 
 // New initializes a Surfacer for serializing data into a file (usually set as
@@ -58,7 +57,7 @@ func New(name string, config *SurfacerConf) (*Surfacer, error) {
 
 	// Create a new cloud logger specifically for this project and instance
 	var err error
-	s.l, err = logger.New(context.Background(), name, &s.failCnt)
+	s.l, err = logger.New(context.Background(), name)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create cloud logger: %v", err)
 	}

@@ -45,7 +45,6 @@ const (
 // Prober represents a collection of probes where each probe implements the Probe interface.
 type Prober struct {
 	Probes      map[string]probes.Probe
-	logFailCnt  int64
 	c           *config.ProberConfig
 	outf        *os.File
 	rtcReporter *rtcreporter.Reporter
@@ -53,7 +52,7 @@ type Prober struct {
 }
 
 func (pr *Prober) newLogger(probeName string) (*logger.Logger, error) {
-	return logger.New(context.Background(), logsNamePrefix+"."+probeName, &pr.logFailCnt)
+	return logger.New(context.Background(), logsNamePrefix+"."+probeName)
 }
 
 // InitFromConfig initializes Cloudprober using the provided config.
@@ -79,7 +78,7 @@ func InitFromConfig(configFile string) (*Prober, error) {
 		}
 	}
 
-	pr.Probes = probes.Init(pr.c.GetProbe(), pr.c.GetGlobalTargetsOptions(), sysvars.Vars(), &pr.logFailCnt)
+	pr.Probes = probes.Init(pr.c.GetProbe(), pr.c.GetGlobalTargetsOptions(), sysvars.Vars())
 
 	pr.surfacers, err = surfacers.Init(pr.c.GetSurfacer())
 	if err != nil {

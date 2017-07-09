@@ -33,7 +33,7 @@ var (
 )
 
 func newTestSurfacer() SDSurfacer {
-	l, _ := logger.New(context.TODO(), "test-logger", nil)
+	l, _ := logger.New(context.TODO(), "test-logger")
 	return SDSurfacer{
 		projectName:  "test-project",
 		instanceName: "test-instance",

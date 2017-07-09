@@ -71,13 +71,13 @@ type Probe interface {
 	Run(ctx context.Context, dataChan chan *metrics.EventMetrics)
 }
 
-func newLogger(probeName string, logFailCnt *int64) (*logger.Logger, error) {
-	return logger.New(context.Background(), logsNamePrefix+"."+probeName, logFailCnt)
+func newLogger(probeName string) (*logger.Logger, error) {
+	return logger.New(context.Background(), logsNamePrefix+"."+probeName)
 }
 
 // Init initializes the probes defined in the config.
-func Init(probeProtobufs []*ProbeDef, globalTargetsOpts *targets.GlobalTargetsOptions, sysVars map[string]string, logFailCnt *int64) map[string]Probe {
-	globalTargetsLogger, err := newLogger("globalTargets", logFailCnt)
+func Init(probeProtobufs []*ProbeDef, globalTargetsOpts *targets.GlobalTargetsOptions, sysVars map[string]string) map[string]Probe {
+	globalTargetsLogger, err := newLogger("globalTargets")
 	if err != nil {
 		glog.Exitf("Error in initializing logger for the global targets. Err: %v", err)
 	}
@@ -97,7 +97,7 @@ func Init(probeProtobufs []*ProbeDef, globalTargetsOpts *targets.GlobalTargetsOp
 		if probes[p.GetName()] != nil {
 			glog.Exitf("Bad config: probe %s is already defined", p.GetName())
 		}
-		l, err := newLogger(p.GetName(), logFailCnt)
+		l, err := newLogger(p.GetName())
 		if err != nil {
 			glog.Exitf("Error in initializing logger for the probe %s. Err: %v", p.GetName(), err)
 		}

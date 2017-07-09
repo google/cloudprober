@@ -36,7 +36,7 @@ var (
 func main() {
 	flag.Parse()
 
-	l, err := logger.New(context.Background(), "UDP_"+*responseType, nil)
+	l, err := logger.New(context.Background(), "UDP_"+*responseType)
 	if err != nil {
 		glog.Fatal(err)
 	}

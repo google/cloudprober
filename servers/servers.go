@@ -32,7 +32,7 @@ const (
 )
 
 func newLogger(ctx context.Context, logName string) (*logger.Logger, error) {
-	return logger.New(ctx, logsNamePrefix+"."+logName, nil)
+	return logger.New(ctx, logsNamePrefix+"."+logName)
 }
 
 // Run initializes and starts cloudprober servers, based on the provided config.

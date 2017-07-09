@@ -59,20 +59,17 @@ const (
 // Logger{} is a valid object that will log through the traditional logger.
 //
 type Logger struct {
-	logc       *logging.Client
-	logger     *logging.Logger
-	failureCnt *int64
+	logc   *logging.Client
+	logger *logging.Logger
 	// TODO: Logger should eventually embed the probe id and each probe
 	// should get a different Logger object (embedding that probe's probe id) but
-	// sharing the same logging client and failure count. We could then make probe
-	// id one of the metadata on all logging messages.
+	// sharing the same logging client. We could then make probe id one of the
+	// metadata on all logging messages.
 }
 
 // New returns a new Logger object with cloud logging client initialized if running on GCE.
-func New(ctx context.Context, logName string, cnt *int64) (*Logger, error) {
-	l := &Logger{
-		failureCnt: cnt,
-	}
+func New(ctx context.Context, logName string) (*Logger, error) {
+	l := &Logger{}
 
 	if !metadata.OnGCE() {
 		return l, nil

@@ -106,7 +106,7 @@ func New(name string, config *SurfacerConf) (*SDSurfacer, error) {
 	}
 
 	// Create a new cloud logger specifically for this project and instance
-	s.l, err = logger.New(s.ctx, name, &s.failCnt)
+	s.l, err = logger.New(s.ctx, name)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create cloud logger: %v", err)
 	}
