@@ -63,7 +63,7 @@ func main() {
 		glog.Exitf("Error in initializing probe %s from the config. Err: %v", "dns_test", err)
 	}
 	dataChan := make(chan *metrics.EventMetrics, 1000)
-	go dp.Run(context.Background(), dataChan)
+	go dp.Start(context.Background(), dataChan)
 
 	for {
 		em := <-dataChan

@@ -195,8 +195,8 @@ func (p *Probe) runProbe(resultsChan chan<- utils.ProbeResult) {
 	wg.Wait()
 }
 
-// Run starts and runs the probe indefinitely.
-func (p *Probe) Run(ctx context.Context, dataChan chan *metrics.EventMetrics) {
+// Start starts and runs the probe indefinitely.
+func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) {
 	resultsChan := make(chan utils.ProbeResult, len(p.targets))
 
 	// This function is used by StatsKeeper to get the latest list of targets.

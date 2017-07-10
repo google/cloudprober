@@ -56,7 +56,7 @@ func main() {
 	}
 
 	dataChan := make(chan *metrics.EventMetrics, 1000)
-	go p.Run(context.Background(), dataChan)
+	go p.Start(context.Background(), dataChan)
 
 	for {
 		em := <-dataChan

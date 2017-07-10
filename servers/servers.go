@@ -35,8 +35,8 @@ func newLogger(ctx context.Context, logName string) (*logger.Logger, error) {
 	return logger.New(ctx, logsNamePrefix+"."+logName)
 }
 
-// Run initializes and starts cloudprober servers, based on the provided config.
-func Run(ctx context.Context, serverProtobufs []*Server, dataChan chan<- *metrics.EventMetrics) {
+// Start initializes and starts cloudprober servers, based on the provided config.
+func Start(ctx context.Context, serverProtobufs []*Server, dataChan chan<- *metrics.EventMetrics) {
 	for _, s := range serverProtobufs {
 		runServer(ctx, s, dataChan)
 	}

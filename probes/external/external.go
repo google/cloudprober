@@ -407,8 +407,8 @@ func (p *Probe) runProbe(ctx context.Context, dataChan chan *metrics.EventMetric
 	p.runOnceProbe(ctx, dataChan)
 }
 
-// Run starts and runs the probe indefinitely.
-func (p *Probe) Run(ctx context.Context, dataChan chan *metrics.EventMetrics) {
+// Start starts and runs the probe indefinitely.
+func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) {
 	for _ = range time.Tick(p.interval) {
 		// Don't run another probe if context is canceled already.
 		select {

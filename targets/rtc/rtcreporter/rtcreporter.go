@@ -80,8 +80,8 @@ func New(pb *RtcReportOptions, sysVars map[string]string, l *logger.Logger) (*Re
 	}, nil
 }
 
-// Run calls report for every RTC config each tick of the clock.
-func (r *Reporter) Run(ctx context.Context) {
+// Start calls report for every RTC config each tick of the clock.
+func (r *Reporter) Start(ctx context.Context) {
 	t := time.NewTicker(time.Millisecond * time.Duration(r.pb.GetIntervalMsec()))
 	for {
 		select {

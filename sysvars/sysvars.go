@@ -107,9 +107,9 @@ func Init(ll *logger.Logger, userVars map[string]string) error {
 	return nil
 }
 
-// Run exports system variables at the given interval. It overlays variables with
+// Start exports system variables at the given interval. It overlays variables with
 // variables passed through the envVarsName env variable.
-func Run(ctx context.Context, dataChan chan *metrics.EventMetrics, interval time.Duration, envVarsName string) {
+func Start(ctx context.Context, dataChan chan *metrics.EventMetrics, interval time.Duration, envVarsName string) {
 	vars := Vars()
 	for k, v := range parseEnvVars(envVarsName) {
 		vars[k] = v

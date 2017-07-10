@@ -362,9 +362,9 @@ func (p *Probe) runProbe() {
 	wg.Wait()
 }
 
-// Run starts the probe and writes back the data on the provided channel. Probe should
-// have been initialized with Init() before calling Run on it.
-func (p *Probe) Run(ctx context.Context, dataChan chan *metrics.EventMetrics) {
+// Start starts the probe and writes back the data on the provided channel.
+// Probe should have been initialized with Init() before calling Start on it.
+func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) {
 	if p.conn == nil {
 		p.l.Critical("Probe has not been properly initialized yet.")
 	}

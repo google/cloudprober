@@ -64,7 +64,7 @@ func main() {
 		glog.Exitf("Error in initializing probe %s from the config. Err: %v", "external_test", err)
 	}
 	dataChan := make(chan *metrics.EventMetrics, 1000)
-	go ep.Run(context.Background(), dataChan)
+	go ep.Start(context.Background(), dataChan)
 
 	for {
 		em := <-dataChan

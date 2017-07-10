@@ -131,18 +131,18 @@ func (pr *Prober) Start(ctx context.Context) {
 	}()
 
 	// Start a goroutine to export system variables
-	go sysvars.Run(ctx, dataChan, time.Millisecond*time.Duration(pr.c.GetSysvarsIntervalMsec()), pr.c.GetSysvarsEnvVar())
+	go sysvars.Start(ctx, dataChan, time.Millisecond*time.Duration(pr.c.GetSysvarsIntervalMsec()), pr.c.GetSysvarsEnvVar())
 
-	servers.Run(ctx, pr.c.GetServer(), dataChan)
+	servers.Start(ctx, pr.c.GetServer(), dataChan)
 
 	// Start RTC reporter if configured.
 	if pr.rtcReporter != nil {
-		go pr.rtcReporter.Run(ctx)
+		go pr.rtcReporter.Start(ctx)
 	}
 
 	// Start probes, each in its own goroutines
 	for _, p := range pr.Probes {
-		go p.Run(ctx, dataChan)
+		go p.Start(ctx, dataChan)
 	}
 
 	// Wait forever

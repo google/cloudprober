@@ -63,7 +63,7 @@ func main() {
 		glog.Exitf("Error in initializing probe %s from the config. Err: %v", "http_test", err)
 	}
 	dataChan := make(chan *metrics.EventMetrics, 1000)
-	go hp.Run(context.Background(), dataChan)
+	go hp.Start(context.Background(), dataChan)
 
 	for {
 		em := <-dataChan

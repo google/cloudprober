@@ -63,12 +63,13 @@ func runOnThisHost(runOn string, hostname string) bool {
 // probe, a targets.Targets object, interval (how often to run the probe),
 // timeout, a logger.Logger handle and the probe type specific config.
 //
-// Run() method starts the probe. Run is not expected to return for the lifetime
-// of the prober. It takes a data channel that it writes the probe results on.
-// Actual publishing of these results is handled by cloudprober itself.
+// Start() method starts the probe. Start is not expected to return for the
+// lifetime of the prober. It takes a data channel that it writes the probe
+// results on. Actual publishing of these results is handled by cloudprober
+// itself.
 type Probe interface {
 	Init(name string, tgts targets.Targets, interval, timeout time.Duration, l *logger.Logger, config interface{}) error
-	Run(ctx context.Context, dataChan chan *metrics.EventMetrics)
+	Start(ctx context.Context, dataChan chan *metrics.EventMetrics)
 }
 
 func newLogger(probeName string) (*logger.Logger, error) {
