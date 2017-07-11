@@ -47,25 +47,20 @@ type Surfacer struct {
 // cloud logger because it is unlikely to fail reportably after the call to
 // New.
 // TODO: consider plumbing in a context for the logger
-func New(name string, config *SurfacerConf) (*Surfacer, error) {
+func New(config *SurfacerConf, l *logger.Logger) (*Surfacer, error) {
 	// Create an empty surfacer to be returned, assign it an empty write
 	// channel to allow for asynch writes.
 	s := Surfacer{
 		writeChan: make(chan *metrics.EventMetrics, 1000),
 		c:         config,
-	}
-
-	// Create a new cloud logger specifically for this project and instance
-	var err error
-	s.l, err = logger.New(context.Background(), name)
-	if err != nil {
-		return nil, fmt.Errorf("unable to create cloud logger: %v", err)
+		l:         l,
 	}
 
 	// Create an output file to the serial port
 	if s.c.GetFilePath() == "" {
 		return nil, fmt.Errorf("blank file path provided, please provide a valid file path")
 	}
+	var err error
 	if s.outf, err = os.Create(s.c.GetFilePath()); err != nil {
 		s.outf = os.Stdout
 		return nil, fmt.Errorf("failed to create file for writing: %v", err)

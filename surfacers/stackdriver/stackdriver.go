@@ -66,17 +66,13 @@ type SDSurfacer struct {
 
 	// Monitoring client
 	client *monitoring.Service
-
-	// This context is used for API calls.
-	// TODO: Currently we don't make use of the context to timeout the requests, but we should.
-	ctx context.Context
 }
 
 // New initializes a SDSurfacer for Stack Driver with all its necessary internal
 // variables for call references (project and instances variables) as well
 // as provisioning it with clients for making the necessary API calls. New
 // requires you to pass in a valid stackdriver surfacer configuration.
-func New(name string, config *SurfacerConf) (*SDSurfacer, error) {
+func New(config *SurfacerConf, l *logger.Logger) (*SDSurfacer, error) {
 	// Create a cache, which is used for batching write requests together,
 	// and a channel for writing data.
 	s := SDSurfacer{
@@ -84,7 +80,7 @@ func New(name string, config *SurfacerConf) (*SDSurfacer, error) {
 		writeChan: make(chan *metrics.EventMetrics, 1000),
 		c:         config,
 		startTime: time.Now(),
-		ctx:       context.TODO(),
+		l:         l,
 	}
 
 	// TODO: Validate that the config has all the necessary
@@ -105,14 +101,10 @@ func New(name string, config *SurfacerConf) (*SDSurfacer, error) {
 		return nil, fmt.Errorf("unable to retrieve instance zone: %v", err)
 	}
 
-	// Create a new cloud logger specifically for this project and instance
-	s.l, err = logger.New(s.ctx, name)
-	if err != nil {
-		return nil, fmt.Errorf("unable to create cloud logger: %v", err)
-	}
-
 	// Create monitoring client
-	httpClient, err := google.DefaultClient(s.ctx, monitoring.CloudPlatformScope)
+	// TODO: Currently we don't make use of the context to timeout the
+	// requests, but we should.
+	httpClient, err := google.DefaultClient(context.TODO(), monitoring.CloudPlatformScope)
 	if err != nil {
 		return nil, err
 	}
@@ -131,7 +123,7 @@ func New(name string, config *SurfacerConf) (*SDSurfacer, error) {
 		}
 	}()
 
-	s.l.Infof("Create a new stackdriver surfacer: %s", name)
+	s.l.Info("Create a new stackdriver surfacer")
 	return &s, nil
 }
 

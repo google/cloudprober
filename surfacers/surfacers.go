@@ -26,22 +26,43 @@ package surfacers
 import (
 	"context"
 	"fmt"
+	"strings"
 
+	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
 	"github.com/google/cloudprober/surfacers/file"
 	"github.com/google/cloudprober/surfacers/prometheus"
 	"github.com/google/cloudprober/surfacers/stackdriver"
 )
 
+// Default surfacers. These surfacers are enabled if no surfacer is defined.
+var defaultSurfacers = []*SurfacerDef{
+	&SurfacerDef{
+		Type: Type_PROMETHEUS.Enum(),
+	},
+}
+
 // initSurfacer initializes and returns a new surfacer based on the config.
 func initSurfacer(s *SurfacerDef) (Surfacer, error) {
+	// Create a new logger
+	logName := s.GetName()
+	if logName == "" {
+		logName = strings.ToLower(s.GetType().String())
+	}
+
+	// TODO: Plumb context here too.
+	l, err := logger.New(context.TODO(), logName)
+	if err != nil {
+		return nil, fmt.Errorf("unable to create cloud logger: %v", err)
+	}
+
 	switch s.GetType() {
 	case Type_PROMETHEUS:
-		return prometheus.New(context.TODO(), s.GetName(), s.GetPrometheusSurfacer())
+		return prometheus.New(s.GetPrometheusSurfacer(), l)
 	case Type_STACKDRIVER:
-		return stackdriver.New(s.GetName(), s.GetStackdriverSurfacer())
+		return stackdriver.New(s.GetStackdriverSurfacer(), l)
 	case Type_FILE:
-		return file.New(s.GetName(), s.GetFileSurfacer())
+		return file.New(s.GetFileSurfacer(), l)
 	default:
 		return nil, fmt.Errorf("unknown surfacer type: %s", s.GetType())
 	}
@@ -54,18 +75,13 @@ type Surfacer interface {
 	Write(ctx context.Context, em *metrics.EventMetrics)
 }
 
-func defaultSurfacers() ([]Surfacer, error) {
-	defaultPromSurfacer, err := prometheus.New(context.TODO(), "", nil)
-	return []Surfacer{defaultPromSurfacer}, err
-}
-
 // Init initializes the surfacers from the config protobufs and returns them as
 // a list.
 func Init(sDefs []*SurfacerDef) ([]Surfacer, error) {
 	// If no surfacers are defined, return default surfacers. This behavior
 	// can be disabled by explicitly specifying "surfacer {}" in the config.
 	if len(sDefs) == 0 {
-		return defaultSurfacers()
+		sDefs = defaultSurfacers
 	}
 
 	var result []Surfacer

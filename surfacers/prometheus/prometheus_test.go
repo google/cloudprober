@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
 )
 
@@ -87,7 +88,8 @@ func newPromSurfacer(t *testing.T) *PromSurfacer {
 		// each other.
 		MetricsUrl: proto.String(fmt.Sprintf("/metrics_%d", rand.Int())),
 	}
-	ps, err := New(context.Background(), "test_prometheus", c)
+	l, _ := logger.New(context.TODO(), "promtheus_test")
+	ps, err := New(c, l)
 	if err != nil {
 		t.Fatal("Error while initializing prometheus surfacer", err)
 	}

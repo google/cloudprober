@@ -105,7 +105,7 @@ type PromSurfacer struct {
 // New returns a prometheus surfacer based on the config provided. It sets up a
 // goroutine to process both the incoming EventMetrics and the web requests for
 // the URL handler /metrics.
-func New(ctx context.Context, name string, config *SurfacerConf) (*PromSurfacer, error) {
+func New(config *SurfacerConf, l *logger.Logger) (*PromSurfacer, error) {
 	if config == nil {
 		config = &SurfacerConf{}
 	}
@@ -116,13 +116,7 @@ func New(ctx context.Context, name string, config *SurfacerConf) (*PromSurfacer,
 		metrics:      make(map[string]*promMetric),
 		metricNameRe: regexp.MustCompile(ValidMetricNameRegex),
 		labelNameRe:  regexp.MustCompile(ValidLabelNameRegex),
-	}
-
-	var err error
-	// Create a new cloud logger specifically for this project and instance
-	ps.l, err = logger.New(ctx, name)
-	if err != nil {
-		return nil, fmt.Errorf("unable to create cloud logger for surfacer %s: %v", name, err)
+		l:            l,
 	}
 
 	done := make(chan interface{}, 1)

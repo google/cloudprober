@@ -61,7 +61,7 @@ func TestRun(t *testing.T) {
 		// Create a new config using the file created above
 		path := f.Name()
 		conf := &SurfacerConf{FilePath: &path}
-		s, err := New("file-test", conf)
+		s, err := New(conf, nil)
 		if err != nil {
 			t.Errorf("Unable to create a new file surfacer: %v\ntest description: %s", err, tt.description)
 		}
