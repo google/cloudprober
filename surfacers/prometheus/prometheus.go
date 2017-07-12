@@ -36,12 +36,16 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/golang/glog"
+	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
 )
@@ -53,6 +57,7 @@ import (
 const (
 	ValidMetricNameRegex = "^[a-zA-Z_:]([a-zA-Z0-9_:])*$"
 	ValidLabelNameRegex  = "^[a-zA-Z_]([a-zA-Z0-9_])*$"
+	DefaultPortEnvVar    = "CLOUDPROBER_PROMETHEUS_PORT"
 )
 
 // queriesQueueSize defines how many queries can we queue before we start
@@ -108,6 +113,13 @@ type PromSurfacer struct {
 func New(config *SurfacerConf, l *logger.Logger) (*PromSurfacer, error) {
 	if config == nil {
 		config = &SurfacerConf{}
+		if portStr := os.Getenv(DefaultPortEnvVar); portStr != "" {
+			port, err := strconv.ParseInt(portStr, 10, 32)
+			if err != nil {
+				return nil, fmt.Errorf("Failed to parse default port from the env var: %s=%s", DefaultPortEnvVar, portStr)
+			}
+			config.Port = proto.Int32(int32(port))
+		}
 	}
 	ps := &PromSurfacer{
 		c:            config,
@@ -141,13 +153,18 @@ func New(config *SurfacerConf, l *logger.Logger) (*PromSurfacer, error) {
 		<-done
 	})
 
+	// Create a web server to export prometheus metrics.
+	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", int(ps.c.GetPort())))
+	if err != nil {
+		return nil, err
+	}
 	// Start web server in a goroutine.
 	go func() {
-		http.ListenAndServe(fmt.Sprintf(":%d", ps.c.GetPort()), nil)
+		http.Serve(ln, nil)
 		glog.Exit("Prometheus surfacer web server exited.")
 	}()
 
-	glog.Infof("Initialized prometheus exporter at %d/%s", ps.c.GetPort(), ps.c.GetMetricsUrl())
+	glog.Infof("Initialized prometheus exporter at %s/%s", ln.Addr().String(), ps.c.GetMetricsUrl())
 	return ps, nil
 }
 

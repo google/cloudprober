@@ -15,10 +15,16 @@
 package surfacers
 
 import (
+	"os"
 	"testing"
+
+	"github.com/google/cloudprober/surfacers/prometheus"
 )
 
 func TestDefaultConfig(t *testing.T) {
+	// Set prometheus exporter port to 0 through the environment variable,
+	// to allow system to pick a port for us.
+	os.Setenv(prometheus.DefaultPortEnvVar, "0")
 	s, err := Init([]*SurfacerDef{})
 	if err != nil {
 		t.Fatal(err)
