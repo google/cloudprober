@@ -40,6 +40,9 @@ var defaultSurfacers = []*SurfacerDef{
 	&SurfacerDef{
 		Type: Type_PROMETHEUS.Enum(),
 	},
+	&SurfacerDef{
+		Type: Type_FILE.Enum(),
+	},
 }
 
 // initSurfacer initializes and returns a new surfacer based on the config.

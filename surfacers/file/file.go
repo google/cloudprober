@@ -20,15 +20,16 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
 )
 
-// Surfacer structures for writing onto a GCE instance's serial port. Keeps
+// FileSurfacer structures for writing onto a GCE instance's serial port. Keeps
 // track of an output file which the incoming data is serialized onto (one entry
 // per line).
-type Surfacer struct {
+type FileSurfacer struct {
 	// Configuration
 	c *SurfacerConf
 
@@ -40,20 +41,31 @@ type Surfacer struct {
 
 	// Cloud logger
 	l *logger.Logger
+
+	// Each output message has a unique id. This field keeps the record of
+	// that.
+	id int64
 }
 
-// New initializes a Surfacer for serializing data into a file (usually set as
-// a GCE instance's serial port). This Surfacer does not utilize the Google
+// New initializes a FileSurfacer for serializing data into a file (usually set
+// as a GCE instance's serial port). This Surfacer does not utilize the Google
 // cloud logger because it is unlikely to fail reportably after the call to
 // New.
-// TODO: consider plumbing in a context for the logger
-func New(config *SurfacerConf, l *logger.Logger) (*Surfacer, error) {
+func New(config *SurfacerConf, l *logger.Logger) (*FileSurfacer, error) {
 	// Create an empty surfacer to be returned, assign it an empty write
 	// channel to allow for asynch writes.
-	s := Surfacer{
+	s := FileSurfacer{
 		writeChan: make(chan *metrics.EventMetrics, 1000),
 		c:         config,
 		l:         l,
+		// Get a unique id from the nano timestamp. This id is
+		// used to uniquely identify the data strings on the
+		// serial port. Only requirement for this id is that it
+		// should only go up for a particular instance. We don't
+		// call time.Now().UnixNano() for each string that we
+		// print as it's an expensive call and we don't really
+		// make use of its value.
+		id: time.Now().UnixNano(),
 	}
 
 	// Create an output file to the serial port
@@ -66,11 +78,16 @@ func New(config *SurfacerConf, l *logger.Logger) (*Surfacer, error) {
 		return nil, fmt.Errorf("failed to create file for writing: %v", err)
 	}
 
-	// Start the writeTask function to run forever, polling on the writeChan.
-	// Allows for the surfacer to write asynchronously to the serial port.
+	// Start a goroutine to run forever, polling on the writeChan. Allows
+	// for the surfacer to write asynchronously to the serial port.
 	go func() {
 		for {
-			s.writeTask()
+			// Write the EventMetrics to file as string.
+			em := <-s.writeChan
+			if _, err := fmt.Fprintf(s.outf, "%s %d %s\n", s.c.GetPrefix(), s.id, em.String()); err != nil {
+				s.l.Warningf("Unable to write data to %s. Err: %v", s.c.GetFilePath(), err)
+			}
+			s.id++
 		}
 	}()
 
@@ -78,25 +95,12 @@ func New(config *SurfacerConf, l *logger.Logger) (*Surfacer, error) {
 }
 
 // Write takes the data to be written to file (usually set as a GCE instance's
-// serial port). This channel is watched by writeTask and will serialize the
-// data portion to file.
-func (s *Surfacer) Write(ctx context.Context, em *metrics.EventMetrics) {
+// serial port). This channel is watched by a goroutine that actually writes
+// data to a file.
+func (s *FileSurfacer) Write(ctx context.Context, em *metrics.EventMetrics) {
 	select {
 	case s.writeChan <- em:
 	default:
-		s.l.Warningf("Surfacer's write channel is full, dropping new data.")
-	}
-}
-
-// writeTask polls on the writeChan, and when a message is written to the
-// writeChan (using the Write() function) then it converts the message into
-// a JSON object and writes it to file as a JSON encoded string.
-func (s *Surfacer) writeTask() {
-	em := <-s.writeChan
-
-	// Write the EventMetrics to file as string.
-	_, err := fmt.Fprintln(s.outf, em.String())
-	if err != nil {
-		s.l.Warningf("Unable to write data to %s. Err: %v", s.c.GetFilePath(), err)
+		s.l.Warningf("FileSurfacer's write channel is full, dropping new data.")
 	}
 }

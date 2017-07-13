@@ -18,9 +18,6 @@ import "testing"
 
 func TestParse(t *testing.T) {
 	testConfig := `
-output_file: "/tmp/x"
-output_prefix: "cloudprober"
-
 {{ $shard := "ig-us-east1-a-02-afgx" | extractSubstring "[^-]+-[^-]+-[^-]+-[^-]+-([^-]+)-.*" 1 }}
 probe {
   type: PING

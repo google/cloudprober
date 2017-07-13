@@ -22,6 +22,7 @@ lead to flakiness in the future.
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"testing"
@@ -36,15 +37,15 @@ func TestRun(t *testing.T) {
 
 	tests := []struct {
 		description string
-		message     *metrics.EventMetrics
+		em          *metrics.EventMetrics
 	}{
 		{
 			description: "file write of float data",
-			message:     metrics.NewEventMetrics(time.Now()).AddMetric("float-test", metrics.NewInt(123456)),
+			em:          metrics.NewEventMetrics(time.Now()).AddMetric("float-test", metrics.NewInt(123456)),
 		},
 		{
 			description: "file write of string data",
-			message:     metrics.NewEventMetrics(time.Now()).AddMetric("string-test", metrics.NewString("test-string")),
+			em:          metrics.NewEventMetrics(time.Now()).AddMetric("string-test", metrics.NewString("test-string")),
 		},
 	}
 
@@ -66,7 +67,7 @@ func TestRun(t *testing.T) {
 			t.Errorf("Unable to create a new file surfacer: %v\ntest description: %s", err, tt.description)
 		}
 
-		s.Write(context.Background(), tt.message)
+		s.Write(context.Background(), tt.em)
 
 		// Sleep for 100 milliseconds to allow the go thread that is
 		// performing the write to finish writing to the file before
@@ -78,7 +79,7 @@ func TestRun(t *testing.T) {
 		if err != nil {
 			t.Errorf("Unable to open test output file for reading: %v\ntest description: %s", err, tt.description)
 		}
-		if diff := pretty.Compare(tt.message.String()+"\n", string(dat)); diff != "" {
+		if diff := pretty.Compare(fmt.Sprintf("%s %d %s\n", s.c.GetPrefix(), s.id-1, tt.em.String()), string(dat)); diff != "" {
 			t.Errorf("Message written does not match expected output (-want +got):\n%s\ntest description: %s", diff, tt.description)
 		}
 	}

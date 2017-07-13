@@ -23,8 +23,6 @@ package cloudprober
 
 import (
 	"context"
-	"fmt"
-	"os"
 	"time"
 
 	"github.com/google/cloudprober/config"
@@ -46,7 +44,6 @@ const (
 type Prober struct {
 	Probes      map[string]probes.Probe
 	c           *config.ProberConfig
-	outf        *os.File
 	rtcReporter *rtcreporter.Reporter
 	surfacers   []surfacers.Surfacer
 }
@@ -67,15 +64,6 @@ func InitFromConfig(configFile string) (*Prober, error) {
 
 	if pr.c, err = config.Parse(configFile, sysvars.Vars()); err != nil {
 		return nil, err
-	}
-
-	// Set up output
-	pr.outf = os.Stdout
-	if pr.c.GetOutputFile() != "" {
-		var err error
-		if pr.outf, err = os.Create(pr.c.GetOutputFile()); err != nil {
-			return nil, err
-		}
 	}
 
 	pr.Probes = probes.Init(pr.c.GetProbe(), pr.c.GetGlobalTargetsOptions(), sysvars.Vars())
@@ -104,28 +92,15 @@ func (pr *Prober) Start(ctx context.Context) {
 	dataChan := make(chan *metrics.EventMetrics, 1000)
 
 	go func() {
-		// Get a unique id from the nano timestamp. This id is used to uniquely
-		// identify the data strings on the serial port. Only requirement
-		// for this id is that it should only go up for a particular instance.
-		// We don't call time.Now().UnixNano() for each string that we print
-		// as it's an expensive call and we don't really make use of its value.
-		id := time.Now().UnixNano()
-
 		var em *metrics.EventMetrics
-		var s string
 		for {
 			em = <-dataChan
-
-			s = em.String()
-			fmt.Fprintf(pr.outf, "%s %d %s\n", pr.c.GetOutputPrefix(), id, s)
-			id++
-
 			// Replicate the surfacer message to every surfacer we have
 			// registered. Note that s.Write() is expected to be
 			// non-blocking to avoid blocking of EventMetrics message
 			// processing.
-			for _, s := range pr.surfacers {
-				s.Write(context.Background(), em)
+			for _, surfacer := range pr.surfacers {
+				surfacer.Write(context.Background(), em)
 			}
 		}
 	}()
