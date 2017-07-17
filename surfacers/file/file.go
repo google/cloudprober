@@ -68,14 +68,15 @@ func New(config *SurfacerConf, l *logger.Logger) (*FileSurfacer, error) {
 		id: time.Now().UnixNano(),
 	}
 
-	// Create an output file to the serial port
+	// File handle for the output file
 	if s.c.GetFilePath() == "" {
-		return nil, fmt.Errorf("blank file path provided, please provide a valid file path")
-	}
-	var err error
-	if s.outf, err = os.Create(s.c.GetFilePath()); err != nil {
 		s.outf = os.Stdout
-		return nil, fmt.Errorf("failed to create file for writing: %v", err)
+	} else {
+		if outf, err := os.Create(s.c.GetFilePath()); err != nil {
+			return nil, fmt.Errorf("failed to create file for writing: %v", err)
+		} else {
+			s.outf = outf
+		}
 	}
 
 	// Start a goroutine to run forever, polling on the writeChan. Allows

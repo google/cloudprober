@@ -3,6 +3,8 @@ syntax = "proto2";
 package cloudprober.surfacer.file;
 
 message SurfacerConf {
-  optional string file_path = 1 [default = "/dev/stdout"];
+  // Where to write the results. If left unset, file surfacer writes to the
+  // standard output.
+  optional string file_path = 1;
   optional string prefix = 2 [default = "cloudprober"];
 }
