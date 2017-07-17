@@ -386,7 +386,7 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 			em := metrics.NewEventMetrics(ts).
 				AddMetric("sent", metrics.NewInt(p.sent[t])).
 				AddMetric("rcvd", metrics.NewInt(p.received[t])).
-				AddMetric("rtt", metrics.NewInt(p.latencyUsec[t]/1000)).
+				AddMetric("rtt", metrics.NewInt(p.latencyUsec[t])).
 				AddLabel("ptype", "ping").
 				AddLabel("probe", p.name).
 				AddLabel("dst", t)

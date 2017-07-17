@@ -62,16 +62,9 @@ type probeRunResult struct {
 }
 
 func newProbeRunResult(target string) probeRunResult {
-	prr := probeRunResult{
+	return probeRunResult{
 		target: target,
 	}
-	// Borgmon and friends expect results to be in milliseconds. We should
-	// change expectations at the Borgmon end once the transition to the new
-	// metrics model is complete.
-	prr.rtt.Str = func(i int64) string {
-		return fmt.Sprintf("%.3f", float64(i)/1000)
-	}
-	return prr
 }
 
 // Target returns the p.target.
