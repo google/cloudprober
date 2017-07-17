@@ -241,11 +241,7 @@ func New(targetsDef *TargetsDef, targetOpts *GlobalTargetsOptions, globalTargets
 		t.l = sl
 		t.r = globalResolver
 	case *TargetsDef_GceTargets:
-		proj, err := metadata.ProjectID()
-		if err != nil {
-			return nil, fmt.Errorf("targets.New(): Error getting project ID: %v", err)
-		}
-		s, err := gce.New(targetsDef.GetGceTargets(), targetOpts.GetGlobalGceTargetsOptions(), proj, globalResolver, globalTargetsLogger)
+		s, err := gce.New(targetsDef.GetGceTargets(), targetOpts.GetGlobalGceTargetsOptions(), globalResolver, globalTargetsLogger)
 		if err != nil {
 			l.Error("Unable to build GCE targets")
 			return nil, fmt.Errorf("targets.New(): Error building GCE targets: %v", err)

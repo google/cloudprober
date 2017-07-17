@@ -140,11 +140,15 @@ func initGlobalInstancesProvider(project string, reEvalInterval time.Duration, l
 		return nil
 	}
 
-	thisInstance, err := metadata.InstanceName()
-	if err != nil {
-		return fmt.Errorf("initGlobalInstancesProvider: error while getting current instance name: %v", err)
+	var thisInstance string
+	if metadata.OnGCE() {
+		var err error
+		thisInstance, err = metadata.InstanceName()
+		if err != nil {
+			return fmt.Errorf("initGlobalInstancesProvider: error while getting current instance name: %v", err)
+		}
+		l.Infof("initGlobalInstancesProvider: this instance: %s", thisInstance)
 	}
-	l.Infof("initGlobalInstancesProvider: this instance: %s", thisInstance)
 	globalInstancesProvider = &instancesProvider{
 		project:      project,
 		thisInstance: thisInstance,

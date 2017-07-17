@@ -49,9 +49,11 @@ package gce
 
 import (
 	"errors"
+	"fmt"
 	"net"
 	"time"
 
+	"cloud.google.com/go/compute/metadata"
 	"github.com/google/cloudprober/logger"
 	dnsRes "github.com/google/cloudprober/targets/resolver"
 )
@@ -69,7 +71,17 @@ type Targets interface {
 }
 
 // New is a helper function to unpack a Targets proto into a Targets interface.
-func New(conf *TargetsConf, optsProto *GlobalOptions, proj string, res *dnsRes.Resolver, log *logger.Logger) (t Targets, err error) {
+func New(conf *TargetsConf, optsProto *GlobalOptions, res *dnsRes.Resolver, log *logger.Logger) (t Targets, err error) {
+	proj := conf.GetProject()
+	if proj == "" {
+		if !metadata.OnGCE() {
+			return nil, errors.New("targets.gce.New(): project is required for GCE targets when not running on GCE")
+		}
+		proj, err = metadata.ProjectID()
+		if err != nil {
+			return nil, fmt.Errorf("targets.gce.New(): Error getting project ID: %v", err)
+		}
+	}
 	d := time.Duration(optsProto.GetReEvalSec()) * time.Second
 	switch conf.Type.(type) {
 	case *TargetsConf_Instances:
