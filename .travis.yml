@@ -1,6 +1,7 @@
 matrix:
  include:
   - os: linux
+    dist: trusty
   - os: osx
 
 language: go
