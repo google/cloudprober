@@ -73,6 +73,16 @@ func (f *Float) Add(val Value) error {
 	return nil
 }
 
+// AddInt64 adds an int64 to the receiver Float.
+func (f *Float) AddInt64(i int64) {
+	f.f += float64(i)
+}
+
+// AddFloat64 adds a float64 to the receiver Float.
+func (f *Float) AddFloat64(ff float64) {
+	f.f += ff
+}
+
 // String returns the string representation of Float.
 // It's part of the Value interface.
 func (f *Float) String() string {

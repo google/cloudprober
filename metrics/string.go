@@ -28,9 +28,22 @@ func NewString(s string) String {
 	return String{s: s}
 }
 
-// Add isn't supported for String type, this is only to satisfy the Value interface.
+// Add isn't supported for the String type, this is only to satisfy the Value
+// interface.
 func (s String) Add(val Value) error {
 	return errors.New("string value type doesn't support Add() operation")
+}
+
+// AddInt64 generates a panic for the String type. This is added only to satisfy
+// the Value interface.
+func (s String) AddInt64(i int64) {
+	panic("String type doesn't implement AddInt64()")
+}
+
+// AddFloat64 generates a panic for the String type. This is added only to
+// satisfy the Value interface.
+func (s String) AddFloat64(f float64) {
+	panic("String type doesn't implement AddFloat64()")
 }
 
 // String simply returns the stored string.
