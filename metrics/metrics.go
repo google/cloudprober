@@ -19,6 +19,8 @@ package metrics
 type Value interface {
 	clone() Value
 	Add(delta Value) error
+	AddInt64(i int64)
+	AddFloat64(f float64)
 	String() string
 }
 

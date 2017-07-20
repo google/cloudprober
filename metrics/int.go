@@ -74,6 +74,16 @@ func (i *Int) Add(val Value) error {
 	return nil
 }
 
+// AddInt64 adds an int64 to the receiver Int.
+func (i *Int) AddInt64(ii int64) {
+	i.i += ii
+}
+
+// AddFloat64 adds a float64 to the receiver Int.
+func (i *Int) AddFloat64(f float64) {
+	i.i += int64(f)
+}
+
 // String returns the string representation of Int.
 // It's part of the Value interface.
 func (i *Int) String() string {
@@ -134,6 +144,16 @@ func (i *AtomicInt) Add(val Value) error {
 	}
 	atomic.AddInt64(&i.i, delta.Int64())
 	return nil
+}
+
+// AddInt64 adds an int64 to the receiver Int.
+func (i *AtomicInt) AddInt64(ii int64) {
+	atomic.AddInt64(&i.i, ii)
+}
+
+// AddFloat64 adds a float64 to the receiver Int.
+func (i *AtomicInt) AddFloat64(f float64) {
+	atomic.AddInt64(&i.i, int64(f))
 }
 
 // String returns the string representation of AtomicInt.

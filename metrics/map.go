@@ -134,6 +134,18 @@ func (m *Map) Add(val Value) error {
 	return nil
 }
 
+// AddInt64 generates a panic for the Map type. This is added only to satisfy
+// the Value interface.
+func (m *Map) AddInt64(i int64) {
+	panic("Map type doesn't implement AddInt64()")
+}
+
+// AddFloat64 generates a panic for the Map type. This is added only to
+// satisfy the Value interface.
+func (m *Map) AddFloat64(f float64) {
+	panic("Map type doesn't implement AddFloat64()")
+}
+
 // String returns the string representation of the receiver Map.
 // This is part of the Value interface.
 func (m *Map) String() string {
