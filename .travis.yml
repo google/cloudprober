@@ -10,14 +10,10 @@ go:
 
 go_import_path: github.com/google/cloudprober
 
-install: true
-
-script:
- - GOBIN=$GOPATH/bin tools/build.sh
-
 services:
  - docker
 
 after_success:
+ - CGO_ENABLED=0 go build -ldflags '-extldflags "-static"' ./cmd/cloudprober.go
  - cp /etc/ssl/certs/ca-certificates.crt .
  - test -n "$DOCKER_IMAGE" && docker build -t ${DOCKER_IMAGE}:latest . && docker login -u ${DOCKER_USER} -p ${DOCKER_PASS} && docker push ${DOCKER_IMAGE}
