@@ -14,9 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This script builds cloudprober from source. This is primarily required to
-# generate Go code for the config protobufs used by various Cloudprober
-# modules.
+# This script builds cloudprober from source. It expects protobuf's Go code to
+# be already available (can be done using tools/gen_pb_go.sh).
 
 PROTOC_VERSION="3.3.0"
 PROJECT="github.com/google/cloudprober"
@@ -38,59 +37,6 @@ if [ ! -d "${project_dir}" ];then
   echo "such that it's available at ${project_dir}."
   exit 1
 fi
-
-# Make sure protobuf compilation is set up correctly.
-export protoc_path=$(which protoc)
-if [ -z ${protoc_path} ] || [ ! -x  ${protoc_path} ]; then
-  echo "protoc (protobuf compiler) not found on the path. Trying to install it "
-  echo "from the internet. To avoid repeating this step, please install protoc"
-  echo " from https://github.com/google/protobuf, at a system-wide location, "
-  echo "that is accessible through PATH environment variable."
-  echo "======================================================================"
-  sleep 1
-
-  if [ "$(uname -s)" == "Darwin" ]; then
-    os="osx"
-  elif [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then
-    os="linux"
-  else
-    echo "OS unsupported by this this build script. Please install protoc manually."
-  fi
-  arch=$(uname -m)
-  protoc_package="protoc-${PROTOC_VERSION}-${os}-${arch}.zip"
-  protoc_package_url="https://github.com/google/protobuf/releases/download/v${PROTOC_VERSION}/${protoc_package}"
-
-  TMPDIR=$(mktemp -d)
-  cd $TMPDIR
-  echo -e "Downloading protobuf compiler from..\n${protoc_package_url}"
-  echo "======================================================================"
-  wget "${protoc_package_url}"
-  unzip "${protoc_package}"
-  export protoc_path=${PWD}/bin/protoc
-  cd -
-
-  function cleanup {
-    echo "Removing temporary directory used for protoc installation: ${TMPDIR}"
-    rm  -r "${TMPDIR}"
-  }
-  trap cleanup EXIT
-fi
-
-# Get go plugin for protoc
-go get github.com/golang/protobuf/protoc-gen-go
-
-echo "Generating Go code for protobufs.."
-echo "======================================================================"
-# Generate protobuf code from the root directory to ensure proper import paths.
-(
-  cd $GOPATH/src
-  find $PROJECT -name "*.proto" | \
-    while read -r file
-    do
-      dir=$(basename $(dirname $file))
-      ${protoc_path} --go_out=.,import_path=$dir:. $file
-    done
-)
 
 cd ${project_dir}
 # Get all dependencies
