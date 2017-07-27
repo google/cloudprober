@@ -17,6 +17,7 @@ package gce
 import (
 	"errors"
 	"fmt"
+	"math/rand"
 	"net"
 	"sync"
 	"time"
@@ -37,6 +38,9 @@ var (
 	globalInstancesProviderMu sync.Mutex
 	globalInstancesProvider   *instancesProvider
 )
+
+// This is how long we wait between API calls per zone.
+const defaultAPICallInterval = 250 * time.Microsecond
 
 // instances represents GCE instances. To avoid making GCE API calls for each
 // set of GCE instances targets, for example for VM-to-VM probes over internal IP
@@ -156,9 +160,15 @@ func initGlobalInstancesProvider(project string, reEvalInterval time.Duration, l
 		l:            l,
 	}
 	go func() {
-		globalInstancesProvider.expand()
+		globalInstancesProvider.expand(0)
+		// Introduce a random delay between 0-reEvalInterval before
+		// starting the refresh loop. If there are multiple cloudprober
+		// instances, this will make sure that each instance calls GCE
+		// API at a different point of time.
+		randomDelaySec := rand.Intn(int(reEvalInterval.Seconds()))
+		time.Sleep(time.Duration(randomDelaySec) * time.Second)
 		for _ = range time.Tick(reEvalInterval) {
-			globalInstancesProvider.expand()
+			globalInstancesProvider.expand(reEvalInterval)
 		}
 	}()
 	return nil
@@ -179,7 +189,7 @@ func (ip *instancesProvider) list() []string {
 
 // listInstances runs equivalent API calls as "gcloud compute instances list",
 // and is what is used to populate the cache.
-func listInstances(project string) ([]*compute.Instance, error) {
+func listInstances(project string, reEvalInterval time.Duration) ([]*compute.Instance, error) {
 	client, err := google.DefaultClient(oauth2.NoContext, compute.ComputeScope)
 	if err != nil {
 		return nil, err
@@ -192,6 +202,17 @@ func listInstances(project string) ([]*compute.Instance, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// We wait for this long between zone-specific instance list calls.
+	apiCallInterval := defaultAPICallInterval
+
+	// We don't want a longer gap than the following to make sure that all
+	// zones finish in one refresh interval.
+	maxAPICallInterval := time.Duration(reEvalInterval.Nanoseconds()/int64(len(zonesList.Items))) * time.Nanosecond
+	if apiCallInterval > maxAPICallInterval {
+		apiCallInterval = maxAPICallInterval
+	}
+
 	var result []*compute.Instance
 	var instanceList *compute.InstanceList
 	for _, zone := range zonesList.Items {
@@ -200,15 +221,16 @@ func listInstances(project string) ([]*compute.Instance, error) {
 			return nil, err
 		}
 		result = append(result, instanceList.Items...)
+		time.Sleep(apiCallInterval)
 	}
 	return result, nil
 }
 
 // expand will refill the cache, and update names.
-func (ip *instancesProvider) expand() {
+func (ip *instancesProvider) expand(reEvalInterval time.Duration) {
 	ip.l.Infof("gce.instances.expand: expanding GCE targets")
 
-	computeInstances, err := listInstances(ip.project)
+	computeInstances, err := listInstances(ip.project, reEvalInterval)
 	if err != nil {
 		ip.l.Errorf("gce.instances.expand: error while getting list of all instances: %v", err)
 		return
