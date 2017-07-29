@@ -1,7 +1,10 @@
 [![Build
 Status](https://travis-ci.org/google/cloudprober.svg?branch=master)](https://travis-ci.org/google/cloudprober)
+[![Build status](https://ci.appveyor.com/api/projects/status/ypg1okxxfedwkksk?svg=true)](https://ci.appveyor.com/project/manugarg/cloudprober-wwcpu)
 
 # Cloudprober
+
+[cloudprober.github.io](https://cloudprober.github.io)
 
 Cloudprober is a monitoring software that makes it super-easy to monitor
 availability and performance of various components of your system. Cloudprober
@@ -46,5 +49,5 @@ Case](https://cloudprober.github.io/diagrams/cloudprober_use_case.svg)
     the dimensions. Adding support for other Cloud targets, monitoring systems
     and even a new probe type, is straight-forward and fairly easy.
 
-Visit Cloudprober's website at [cloudprober.github.io](http://cloudprober.github.io)
+Visit Cloudprober's website at [cloudprober.github.io](https://cloudprober.github.io)
 to get started with Cloudprober.
