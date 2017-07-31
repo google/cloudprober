@@ -81,8 +81,6 @@ type testData struct {
 
 func newPromSurfacer(t *testing.T) *PromSurfacer {
 	c := &SurfacerConf{
-		// Specify port 0, let OS assign us a port.
-		Port: proto.Int32(int32(0)),
 		// Attach a random integer to metrics URL so that multiple
 		// tests can run in parallel without handlers clashing with
 		// each other.
