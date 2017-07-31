@@ -23,6 +23,11 @@ package cloudprober
 
 import (
 	"context"
+	"fmt"
+	"net"
+	"net/http"
+	"os"
+	"strconv"
 	"time"
 
 	"github.com/google/cloudprober/config"
@@ -40,16 +45,47 @@ const (
 	sysvarsModuleName = "sysvars"
 )
 
+// Constants defining the default server port.
+const (
+	DefaultServerPort = 9313
+	ServerPortEnvVar  = "CLOUDPROBER_PORT"
+)
+
 // Prober represents a collection of probes where each probe implements the Probe interface.
 type Prober struct {
-	Probes      map[string]probes.Probe
-	c           *config.ProberConfig
-	rtcReporter *rtcreporter.Reporter
-	surfacers   []surfacers.Surfacer
+	Probes         map[string]probes.Probe
+	c              *config.ProberConfig
+	rtcReporter    *rtcreporter.Reporter
+	surfacers      []surfacers.Surfacer
+	serverListener net.Listener
 }
 
 func (pr *Prober) newLogger(probeName string) (*logger.Logger, error) {
 	return logger.New(context.Background(), logsNamePrefix+"."+probeName)
+}
+
+func (pr *Prober) initDefaultServer() error {
+	serverPort := int(pr.c.GetPort())
+	if serverPort == 0 {
+		serverPort = DefaultServerPort
+
+		// If ServerPortEnvVar is defined, it will override the default
+		// server port.
+		if portStr := os.Getenv(ServerPortEnvVar); portStr != "" {
+			port, err := strconv.ParseInt(portStr, 10, 32)
+			if err != nil {
+				return fmt.Errorf("failed to parse default port from the env var: %s=%s", ServerPortEnvVar, portStr)
+			}
+			serverPort = int(port)
+		}
+	}
+
+	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", serverPort))
+	if err != nil {
+		return fmt.Errorf("error while creating listener for default HTTP server. Err: %v", err)
+	}
+	pr.serverListener = ln
+	return nil
 }
 
 // InitFromConfig initializes Cloudprober using the provided config.
@@ -66,29 +102,52 @@ func InitFromConfig(configFile string) (*Prober, error) {
 		return nil, err
 	}
 
+	// Start default HTTP server. It's used for profile handlers and
+	// prometheus exporter.
+	if err := pr.initDefaultServer(); err != nil {
+		return nil, err
+	}
+
+	// Initiliaze probes
 	pr.Probes = probes.Init(pr.c.GetProbe(), pr.c.GetGlobalTargetsOptions(), sysvars.Vars())
 
 	pr.surfacers, err = surfacers.Init(pr.c.GetSurfacer())
 	if err != nil {
-		return nil, err
+		goto cleanupInit
 	}
 
 	// Initialize RTC reporter, if configured.
 	if opts := pr.c.GetRtcReportOptions(); opts != nil {
 		l, err := pr.newLogger("rtc-reporter")
 		if err != nil {
-			return nil, err
+			goto cleanupInit
 		}
-		pr.rtcReporter, err = rtcreporter.New(opts, sysvars.Vars(), l)
-		if err != nil {
-			return nil, err
+		if pr.rtcReporter, err = rtcreporter.New(opts, sysvars.Vars(), l); err != nil {
+			goto cleanupInit
 		}
 	}
 	return pr, nil
+
+cleanupInit:
+	if pr.serverListener != nil {
+		pr.serverListener.Close()
+	}
+	return nil, err
 }
 
 // Start starts a previously initialized Cloudprober.
 func (pr *Prober) Start(ctx context.Context) {
+	// Start the default server
+	srv := &http.Server{}
+	go func() {
+		<-ctx.Done()
+		srv.Close()
+	}()
+	go func() {
+		srv.Serve(pr.serverListener)
+		os.Exit(1)
+	}()
+
 	dataChan := make(chan *metrics.EventMetrics, 1000)
 
 	go func() {

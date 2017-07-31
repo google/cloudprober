@@ -23,6 +23,7 @@ package main
 import (
 	"context"
 	"io/ioutil"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"runtime/pprof"

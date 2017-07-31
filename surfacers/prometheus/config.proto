@@ -8,9 +8,6 @@ message SurfacerConf {
   // make writes to prometheus surfacer non-blocking.
   optional int64 metrics_buffer_size = 1 [default = 10000];
 
-  // HTTP server port that prometheus surfacer listens on.
-  optional int32 port = 2 [default = 9313];
-
   // URL that prometheus scrapes metrics from.
   optional string metrics_url = 3 [default = "/metrics"];
 }
