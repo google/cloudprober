@@ -216,7 +216,7 @@ func listInstances(project string, reEvalInterval time.Duration) ([]*compute.Ins
 	var result []*compute.Instance
 	var instanceList *compute.InstanceList
 	for _, zone := range zonesList.Items {
-		instanceList, err = cs.Instances.List(project, zone.Name).Do()
+		instanceList, err = cs.Instances.List(project, zone.Name).Filter("status eq \"RUNNING\"").Do()
 		if err != nil {
 			return nil, err
 		}
