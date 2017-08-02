@@ -42,7 +42,8 @@ type TargetsDef struct {
 	// Regex to apply on the targets.
 	Regex *string `protobuf:"bytes,4,opt,name=regex" json:"regex,omitempty"`
 	// Exclude lameducks. Lameduck targets can be set through RTC (realtime
-	// configurator) service. This setting works only while running on GCE.
+	// configurator) service. This functionality works only if lame_duck_options
+	// are specified.
 	ExcludeLameducks *bool `protobuf:"varint,5,opt,name=exclude_lameducks,json=excludeLameducks,def=1" json:"exclude_lameducks,omitempty"`
 	// How often targets should be evaluated. Any number less than or equal to 0
 	// will result in no target caching (targets will be reevaluated on demand).
