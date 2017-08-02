@@ -154,7 +154,7 @@ func (t *targets) List() []string {
 	}
 
 	// Filter by lameduck
-	if t.excludeLameducks && metadata.OnGCE() {
+	if t.excludeLameducks {
 		lameDucksList, err := lameduck.List()
 		if err != nil {
 			t.log.Errorf("targets.List: Error getting list of lameducking targets: %v", err)
@@ -178,25 +178,34 @@ func (t *targets) List() []string {
 
 // baseTargets constructs a targets instance with no lister or resolver. It
 // provides essentially everything that the targets type wraps over its lister.
-func baseTargets(l *logger.Logger, re string, excludeLameducks bool) (*targets, error) {
+func baseTargets(targetsDef *TargetsDef, targetOpts *GlobalTargetsOptions, l *logger.Logger) (*targets, error) {
 	if l == nil {
 		l = &logger.Logger{}
 	}
-	var reg *regexp.Regexp
-	var err error
-	if re != "" {
-		reg, err = regexp.Compile(re)
-	}
-	if err != nil {
-		return nil, fmt.Errorf("invalid targets regex: %s. Err: %v", re, err)
+
+	tgts := &targets{
+		log: l,
+		r:   globalResolver,
 	}
 
-	return &targets{
-		re:               reg,
-		excludeLameducks: excludeLameducks,
-		log:              l,
-		r:                globalResolver,
-	}, nil
+	if targetsDef == nil {
+		return tgts, nil
+	}
+
+	tgts.excludeLameducks = targetsDef.GetExcludeLameducks()
+	if tgts.excludeLameducks && (targetOpts == nil || targetOpts.GetLameDuckOptions() == nil) {
+		l.Warningf("Disabling exclude_lameducks as lame_duck_options are not specified.")
+		tgts.excludeLameducks = false
+	}
+
+	if targetsDef.GetRegex() != "" {
+		var err error
+		if tgts.re, err = regexp.Compile(targetsDef.GetRegex()); err != nil {
+			return nil, fmt.Errorf("invalid targets regex: %s. Err: %v", targetsDef.GetRegex(), err)
+		}
+	}
+
+	return tgts, nil
 }
 
 // StaticTargets returns a basic "targets" object (implementing the targets
@@ -204,7 +213,7 @@ func baseTargets(l *logger.Logger, re string, excludeLameducks bool) (*targets, 
 // This function is specially useful if you want to get a valid targets object
 // without an associated TargetDef protobuf (for example for testing).
 func StaticTargets(hosts string) Targets {
-	t, _ := baseTargets(nil, "", false)
+	t, _ := baseTargets(nil, nil, nil)
 	sl := &staticLister{}
 	for _, name := range strings.Split(hosts, ",") {
 		sl.list = append(sl.list, strings.TrimSpace(name))
@@ -226,7 +235,7 @@ func StaticTargets(hosts string) Targets {
 // See cloudprober/targets/targets.proto for more information on the possible
 // configurations of Targets.
 func New(targetsDef *TargetsDef, targetOpts *GlobalTargetsOptions, globalTargetsLogger, l *logger.Logger) (Targets, error) {
-	t, err := baseTargets(l, targetsDef.GetRegex(), targetsDef.GetExcludeLameducks())
+	t, err := baseTargets(targetsDef, targetOpts, l)
 	if err != nil {
 		globalTargetsLogger.Error("Unable to produce the base target lister")
 		return nil, fmt.Errorf("targets.New(): Error making baseTargets: %v", err)

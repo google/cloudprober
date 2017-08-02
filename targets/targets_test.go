@@ -19,6 +19,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/logger"
 )
 
@@ -63,7 +64,10 @@ func TestList(t *testing.T) {
 	}
 
 	for id, r := range rows {
-		bt, err := baseTargets(nil, r.re, true)
+		targetsDef := &TargetsDef{
+			Regex: proto.String(r.re),
+		}
+		bt, err := baseTargets(targetsDef, nil, nil)
 		if err != nil {
 			t.Fatal("Unexpected error building baseTarget: ", err)
 		}

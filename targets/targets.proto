@@ -19,8 +19,9 @@ message TargetsDef {
   optional string regex = 4;
 
   // Exclude lameducks. Lameduck targets can be set through RTC (realtime
-  // configurator) service. This setting works only while running on GCE.
-  optional bool exclude_lameducks = 5 [default = true];
+  // configurator) service. This functionality works only if lame_duck_options
+  // are specified.
+  optional bool exclude_lameducks = 5 [default=true];
 
   // How often targets should be evaluated. Any number less than or equal to 0
   // will result in no target caching (targets will be reevaluated on demand).
