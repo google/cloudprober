@@ -156,8 +156,8 @@ func initProbe(p *ProbeDef, tgts targets.Targets, interval, timeout time.Duratio
 // Register allows you to register a user defined probe with cloudprober.
 // Example usage:
 //	import (
-//		"cloudprober/cloudprober"
-//		"cloudprober/probes/probes"
+//		"github.com/google/cloudprober"
+//		"github.com/google/cloudprober/probes"
 //	)
 //
 //	p := &FancyProbe{}
