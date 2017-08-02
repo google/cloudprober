@@ -42,6 +42,9 @@ const (
 	// Regular Expression for all characters that are illegal for log names
 	//	Ref: https://cloud.google.com/logging/docs/api/ref_v2beta1/rest/v2beta1/LogEntry
 	disapprovedRegExp = "[^A-Za-z0-9_/.-]"
+
+	// MaxLogEntrySize Max value of each log entry size
+	MaxLogEntrySize = 4096
 )
 
 // Logger implements a logger that logs messages to Google Cloud Logging. It provides a suite
@@ -144,8 +147,15 @@ func payloadToString(payload interface{}) string {
 // client is not initialized (e.g. if not running on GCE) or cloud logging fails for some reason,
 // it writes logs through the traditional logger.
 func (l *Logger) log(severity logging.Severity, payload interface{}) {
+	textPayload := payloadToString(payload)
+	if len(textPayload) > MaxLogEntrySize {
+		truncateMsg := "... (truncated)"
+		truncateMsgLen := len(truncateMsg)
+		textPayload = textPayload[:MaxLogEntrySize-truncateMsgLen] + truncateMsg
+		payload = textPayload
+	}
 	if l.logc == nil {
-		genericLog(2, severity, payloadToString(payload))
+		genericLog(2, severity, textPayload)
 		return
 	}
 	l.logger.Log(logging.Entry{
