@@ -142,9 +142,13 @@ func Init(optsProto *Options, l *logger.Logger) error {
 		return errors.New("lameduck.Init: No lameDuckOptions given")
 	}
 
-	proj, err := metadata.ProjectID()
-	if err != nil {
-		return fmt.Errorf("lameduck.Init: error while getting project id: %v", err)
+	var proj string
+	if optsProto.GetRuntimeconfigProject() == "" {
+		var err error
+		proj, err = metadata.ProjectID()
+		if err != nil {
+			return fmt.Errorf("lameduck.Init: error while getting project id: %v", err)
+		}
 	}
 	cfg := optsProto.GetRuntimeconfigName()
 
