@@ -19,8 +19,8 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/google/cloudprober/probes/probeutils"
 	"github.com/google/cloudprober/targets"
-	"github.com/google/cloudprober/utils"
 	"github.com/miekg/dns"
 )
 
@@ -43,7 +43,7 @@ func TestRun(t *testing.T) {
 	p.client = new(mockClient)
 	p.targets = p.tgts.List()
 
-	resultsChan := make(chan utils.ProbeResult, len(p.targets))
+	resultsChan := make(chan probeutils.ProbeResult, len(p.targets))
 	p.runProbe(resultsChan)
 
 	// Strings that should be in all targets' output.

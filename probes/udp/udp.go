@@ -32,8 +32,8 @@ import (
 
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
+	"github.com/google/cloudprober/probes/probeutils"
 	"github.com/google/cloudprober/targets"
-	"github.com/google/cloudprober/utils"
 )
 
 // Probe holds aggregate information about all probe runs, per-target.
@@ -143,7 +143,7 @@ func Ping(addr string, timeout time.Duration) (success bool, rtt time.Duration, 
 // Each per-target goroutine writes its probe result to a channel connected to
 // the stats-keeper goroutine, and then exits. This channel is buffered so that
 // the per-target goroutines can exit quickly upon probe completion.
-func (p *Probe) runProbe(stats chan<- utils.ProbeResult) {
+func (p *Probe) runProbe(stats chan<- probeutils.ProbeResult) {
 	// Refresh the list of targets to probe.
 	p.targets = p.tgts.List()
 
@@ -154,7 +154,7 @@ func (p *Probe) runProbe(stats chan<- utils.ProbeResult) {
 
 		// Launch a separate goroutine for each target.
 		// Write probe results to the "stats" channel.
-		go func(target string, stats chan<- utils.ProbeResult) {
+		go func(target string, stats chan<- probeutils.ProbeResult) {
 			defer wg.Done()
 
 			result := probeRunResult{
@@ -192,11 +192,11 @@ func (p *Probe) runProbe(stats chan<- utils.ProbeResult) {
 
 // Start starts and runs the probe indefinitely.
 func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) {
-	resultsChan := make(chan utils.ProbeResult, len(p.targets))
+	resultsChan := make(chan probeutils.ProbeResult, len(p.targets))
 	targetsFunc := func() []string {
 		return p.targets
 	}
-	go utils.StatsKeeper(ctx, "udp", p.name, time.Duration(p.c.GetStatsExportIntervalMsec())*time.Millisecond, targetsFunc, resultsChan, dataChan, p.l)
+	go probeutils.StatsKeeper(ctx, "udp", p.name, time.Duration(p.c.GetStatsExportIntervalMsec())*time.Millisecond, targetsFunc, resultsChan, dataChan, p.l)
 
 	for range time.Tick(p.interval) {
 		// Don't run another probe if context is canceled already.

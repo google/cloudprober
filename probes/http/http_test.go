@@ -21,8 +21,8 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/google/cloudprober/probes/probeutils"
 	"github.com/google/cloudprober/targets"
-	"github.com/google/cloudprober/utils"
 )
 
 // The Transport is mocked instead of the Client because Client is not an
@@ -59,7 +59,7 @@ func TestRun(t *testing.T) {
 	p.Init("http_test", tgts, 2*time.Second, time.Second, nil, c)
 	p.client.Transport = newTestTransport()
 
-	resultsChan := make(chan utils.ProbeResult, len(p.targets))
+	resultsChan := make(chan probeutils.ProbeResult, len(p.targets))
 	p.runProbe(resultsChan)
 
 	// Strings that should be in all targets' output.

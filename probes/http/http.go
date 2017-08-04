@@ -27,8 +27,8 @@ import (
 
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
+	"github.com/google/cloudprober/probes/probeutils"
 	"github.com/google/cloudprober/targets"
-	"github.com/google/cloudprober/utils"
 )
 
 const (
@@ -55,7 +55,7 @@ type Probe struct {
 // stats makes sure that probeRunResult and its fields are not accessed concurrently
 // (see documentation with statsKeeper below). That's the reason we use metrics.Int
 // types instead of metrics.AtomicInt.
-// probeRunResult implements the utils.ProbeResult interface.
+// probeRunResult implements the probeutils.ProbeResult interface.
 type probeRunResult struct {
 	target     string
 	sent       metrics.Int
@@ -75,7 +75,7 @@ func newProbeRunResult(target string) probeRunResult {
 }
 
 // Metrics converts probeRunResult into a slice of the metrics that is suitable for
-// working with metrics.EventMetrics. This method is part of the utils.ProbeResult
+// working with metrics.EventMetrics. This method is part of the probeutils.ProbeResult
 // interface.
 func (prr probeRunResult) Metrics() *metrics.EventMetrics {
 	return metrics.NewEventMetrics(time.Now()).
@@ -87,7 +87,7 @@ func (prr probeRunResult) Metrics() *metrics.EventMetrics {
 		AddMetric("resp-body", prr.respBodies)
 }
 
-// Target returns the p.target. This method is part of the utils.ProbeResult
+// Target returns the p.target. This method is part of the probeutils.ProbeResult
 // interface.
 func (prr probeRunResult) Target() string {
 	return prr.target
@@ -153,7 +153,7 @@ func isClientTimeout(err error) bool {
 	return false
 }
 
-func (p *Probe) runProbe(resultsChan chan<- utils.ProbeResult) {
+func (p *Probe) runProbe(resultsChan chan<- probeutils.ProbeResult) {
 
 	// Refresh the list of targets to probe.
 	p.targets = p.tgts.List()
@@ -165,7 +165,7 @@ func (p *Probe) runProbe(resultsChan chan<- utils.ProbeResult) {
 
 		// Launch a separate goroutine for each target.
 		// Write probe results to the "stats" channel.
-		go func(target string, resultsChan chan<- utils.ProbeResult) {
+		go func(target string, resultsChan chan<- probeutils.ProbeResult) {
 			defer wg.Done()
 			result := newProbeRunResult(target)
 
@@ -240,14 +240,14 @@ func (p *Probe) runProbe(resultsChan chan<- utils.ProbeResult) {
 
 // Start starts and runs the probe indefinitely.
 func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) {
-	resultsChan := make(chan utils.ProbeResult, len(p.targets))
+	resultsChan := make(chan probeutils.ProbeResult, len(p.targets))
 
 	// This function is used by StatsKeeper to get the latest list of targets.
 	// TODO: Make p.targets mutex protected as it's read and written by concurrent goroutines.
 	targetsFunc := func() []string {
 		return p.targets
 	}
-	go utils.StatsKeeper(ctx, "http", p.name, time.Duration(p.c.GetStatsExportIntervalMsec())*time.Millisecond, targetsFunc, resultsChan, dataChan, p.l)
+	go probeutils.StatsKeeper(ctx, "http", p.name, time.Duration(p.c.GetStatsExportIntervalMsec())*time.Millisecond, targetsFunc, resultsChan, dataChan, p.l)
 
 	for _ = range time.Tick(p.interval) {
 		// Don't run another probe if context is canceled already.

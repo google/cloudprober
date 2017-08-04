@@ -32,8 +32,8 @@ import (
 
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
+	"github.com/google/cloudprober/probes/probeutils"
 	"github.com/google/cloudprober/targets"
-	"github.com/google/cloudprober/utils"
 	"github.com/miekg/dns"
 )
 
@@ -139,7 +139,7 @@ func isClientTimeout(err error) bool {
 	return ok && e != nil && e.Timeout()
 }
 
-func (p *Probe) runProbe(resultsChan chan<- utils.ProbeResult) {
+func (p *Probe) runProbe(resultsChan chan<- probeutils.ProbeResult) {
 
 	// Refresh the list of targets to probe.
 	p.targets = p.tgts.List()
@@ -151,7 +151,7 @@ func (p *Probe) runProbe(resultsChan chan<- utils.ProbeResult) {
 
 		// Launch a separate goroutine for each target.
 		// Write probe results to the "resultsChan" channel.
-		go func(target string, resultsChan chan<- utils.ProbeResult) {
+		go func(target string, resultsChan chan<- probeutils.ProbeResult) {
 			defer wg.Done()
 
 			result := probeRunResult{
@@ -189,14 +189,14 @@ func (p *Probe) runProbe(resultsChan chan<- utils.ProbeResult) {
 
 // Start starts and runs the probe indefinitely.
 func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) {
-	resultsChan := make(chan utils.ProbeResult, len(p.targets))
+	resultsChan := make(chan probeutils.ProbeResult, len(p.targets))
 
 	// This function is used by StatsKeeper to get the latest list of targets.
 	// TODO: Make p.targets mutex protected as it's read and written by concurrent goroutines.
 	targetsFunc := func() []string {
 		return p.targets
 	}
-	go utils.StatsKeeper(ctx, "dns", p.name, time.Duration(p.c.GetStatsExportIntervalMsec())*time.Millisecond, targetsFunc, resultsChan, dataChan, p.l)
+	go probeutils.StatsKeeper(ctx, "dns", p.name, time.Duration(p.c.GetStatsExportIntervalMsec())*time.Millisecond, targetsFunc, resultsChan, dataChan, p.l)
 
 	for range time.Tick(p.interval) {
 		// Don't run another probe if context is canceled already.
