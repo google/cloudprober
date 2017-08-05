@@ -220,7 +220,7 @@ func (p *Probe) startCmdIfNotRunning() error {
 	return nil
 }
 
-func (p *Probe) defaultEventMetrics(target string) *metrics.EventMetrics {
+func (p *Probe) defaultMetrics(target string) *metrics.EventMetrics {
 	return metrics.NewEventMetrics(time.Now()).
 		AddMetric("success", metrics.NewInt(p.success)).
 		AddMetric("total", metrics.NewInt(p.total)).
@@ -230,29 +230,55 @@ func (p *Probe) defaultEventMetrics(target string) *metrics.EventMetrics {
 		AddLabel("dst", target)
 }
 
-func (p *Probe) payloadToEventMetrics(target, payload string) *metrics.EventMetrics {
-	em := p.defaultEventMetrics(target)
+func (p *Probe) payloadToMetrics(target, payload string) *metrics.EventMetrics {
+	em := metrics.NewEventMetrics(time.Now()).
+		AddLabel("ptype", "external").
+		AddLabel("probe", p.name).
+		AddLabel("dst", target)
+
+	switch p.c.GetOutputMetricsKind() {
+	case ProbeConf_CUMULATIVE:
+		em.Kind = metrics.CUMULATIVE
+	case ProbeConf_GAUGE:
+		em.Kind = metrics.GAUGE
+	case ProbeConf_UNDEFINED:
+		if p.c.GetMode() == ProbeConf_ONCE {
+			em.Kind = metrics.GAUGE
+		} else {
+			em.Kind = metrics.CUMULATIVE
+		}
+	}
 
 	// Convert payload variables into metrics. Variables are specified in
 	// the following format:
 	// var1 value1
 	// var2 value2
 	for _, line := range strings.Split(payload, "\n") {
-		varKV := strings.Split(line, " ")
+		line = strings.TrimSpace(line)
+		if len(line) == 0 {
+			continue
+		}
+		varKV := strings.Fields(line)
 		if len(varKV) != 2 {
 			p.l.Warningf("Wrong var key-value format: %s", line)
 			continue
 		}
-		i, err := strconv.ParseInt(varKV[1], 10, 64)
-		if err != nil {
-			p.l.Warningf("Only integer values are supported: %s", varKV[1])
+		metricName := varKV[0]
+		switch metricName {
+		case "success", "total", "latency":
+			p.l.Warningf("Metric name (%s) in the output conflicts with standard metrics: (success,total,latency). Ignoring.", metricName)
 			continue
 		}
-		em.AddMetric(varKV[0], metrics.NewInt(i))
+		f, err := strconv.ParseFloat(varKV[1], 64)
+		if err != nil {
+			p.l.Warningf("Only float values are supported: %s", varKV[1])
+			continue
+		}
+		em.AddMetric(metricName, metrics.NewFloat(f))
 	}
 	// Labels are specified in the probe config.
-	if p.c.GetLabels() != "" {
-		for _, label := range strings.Split(p.c.GetLabels(), ",") {
+	if p.c.GetOutputMetricsLabels() != "" {
+		for _, label := range strings.Split(p.c.GetOutputMetricsLabels(), ",") {
 			labelKV := strings.Split(label, "=")
 			if len(labelKV) != 2 {
 				p.l.Warningf("Wrong label format: %s", labelKV)
@@ -349,9 +375,16 @@ func (p *Probe) runServerProbe(ctx context.Context, dataChan chan *metrics.Event
 			p.success++
 			p.latency += int64(time.Since(startTime).Nanoseconds() / 1000)
 		}
-		em := p.payloadToEventMetrics(target, r.GetPayload())
+
+		em := p.defaultMetrics(target)
 		p.l.Info(em.String())
-		dataChan <- em.Clone()
+		dataChan <- em
+
+		if p.c.GetOutputAsMetrics() {
+			em = p.payloadToMetrics(target, r.GetPayload())
+			p.l.Info(em.String())
+			dataChan <- em
+		}
 	}
 }
 
@@ -393,9 +426,15 @@ func (p *Probe) runOnceProbe(ctx context.Context, dataChan chan *metrics.EventMe
 			p.latency += int64(time.Since(startTime).Nanoseconds() / 1000)
 		}
 
-		em := p.payloadToEventMetrics(target, string(b))
+		em := p.defaultMetrics(target)
 		p.l.Info(em.String())
-		dataChan <- em.Clone()
+		dataChan <- em
+
+		if p.c.GetOutputAsMetrics() {
+			em = p.payloadToMetrics(target, string(b))
+			p.l.Info(em.String())
+			dataChan <- em
+		}
 	}
 }
 
