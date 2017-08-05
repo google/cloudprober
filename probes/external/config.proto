@@ -10,7 +10,7 @@ message ProbeConf {
     ONCE = 0;
     SERVER = 1;
   }
-  optional Mode mode = 1 [default = SERVER];
+  optional Mode mode = 1 [default = ONCE];
 
   // Command.  For ONCE probes, arguments are processed for the following field
   // substitutions:
@@ -20,20 +20,38 @@ message ProbeConf {
   //
   // For example, for target ig-us-central1-a, /tools/recreate_vm -vm @target@
   // will get converted to: /tools/recreate_vm -vm ig-us-central1-a
-  optional string command = 2;
+  required string command = 2;
 
+  // Options for the SERVER mode probe requests. These options are passed on the
+  // external probe server as part of the ProbeRequest. Values are substituted
+  // similar to command arguments for the ONCE mode probes.
   message Option {
     optional string name = 1;
-    // Values are substituted similar to command arguments for ONCE mode probes.
     optional string value = 2;
   }
-  // Options for the ProbeRequest for SERVER mode probes.
   repeated Option options = 3;
-  // Additional labels, e.g. "region=us-east1".
-  optional string labels = 4;
 
-  // Stats export interval in milliseconds.
-  optional int32 stats_export_interval_msec = 5 [default = 10000];
+  // Export output as metrics, where output is the output returned by the
+  // external probe process, over stdout for ONCE probes, and through ProbeReply
+  // for SERVER probes. Cloudprober expects variables to be in the following
+  // format in the output:
+  // var1 value1 (for example: total_errors 589)
+  optional bool output_as_metrics = 4 [default = true];
+
+  // MetricsKind specifies whether to treat output metrics as GAUGE or
+  // CUMULATIVE. If left unspecified, metrics from ONCE mode probes are treated
+  // as GAUGE and metrics from SERVER mode probes are treated as CUMULATIVE.
+  enum MetricsKind {
+    UNDEFINED = 0;
+    GAUGE = 1;
+    CUMULATIVE = 2;
+  }
+  optional MetricsKind output_metrics_kind = 5;
+
+  // Additional labels (comma-separated) to attach to the output metrics, e.g.
+  // "region=us-east1,zone=us-east1-d".
+  optional string output_metrics_labels = 6;
+
   // IP version: For target resolution
-  optional int32 ip_version = 6 [default = 4];
+  optional int32 ip_version = 100 [default = 4];
 }

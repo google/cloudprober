@@ -33,6 +33,7 @@ import (
 
 var (
 	config    = flag.String("config_file", "", "Config file (ProbeConf)")
+	command   = flag.String("command", "", "External probe command")
 	intervalF = flag.Duration("interval", 60*time.Second, "Interval between probes")
 	timeoutF  = flag.Duration("timeout", 59*time.Second, "Per-probe timeout")
 	targetsF  = flag.String("targets", "", "Comma separated list of targets (optional). Useful if your probe config makes use of the @target@ or @address@ labels. See config protobuf for more on these labels.")
@@ -41,7 +42,9 @@ var (
 func main() {
 	flag.Parse()
 
-	c := &external.ProbeConf{}
+	c := &external.ProbeConf{
+		Command: command,
+	}
 
 	// If we are given a config file, read it. If not, use defaults.
 	if *config != "" {

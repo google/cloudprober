@@ -34,10 +34,13 @@ func TestPayloadToEventMetrics(t *testing.T) {
 		"time_to_ssh 30",
 	}
 	target := "target"
-	em := p.payloadToEventMetrics(target, strings.Join(payload, "\n"))
-	expectedEM := p.defaultEventMetrics(target).
+	em := p.payloadToMetrics(target, strings.Join(payload, "\n"))
+	expectedEM := metrics.NewEventMetrics(em.Timestamp).
 		AddMetric("time_to_running", metrics.NewInt(10)).
-		AddMetric("time_to_ssh", metrics.NewInt(30))
+		AddMetric("time_to_ssh", metrics.NewInt(30)).
+		AddLabel("ptype", "external").
+		AddLabel("probe", "testprobe").
+		AddLabel("dst", "target")
 	if em.String() != expectedEM.String() {
 		t.Errorf("payload not parsed correctly.\nExpected: %s\n, Got: %s", expectedEM.String(), em.String())
 	}
