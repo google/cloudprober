@@ -51,3 +51,6 @@ Case](https://cloudprober.github.io/diagrams/cloudprober_use_case.svg)
 
 Visit Cloudprober's website at [cloudprober.github.io](https://cloudprober.github.io)
 to get started with Cloudprober.
+
+Join [Cloudprober Group](https://groups.google.com/forum/#!forum/cloudprober) for
+discussion and release announcements.
