@@ -24,8 +24,8 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/logger"
-	"github.com/google/cloudprober/rtc"
 	"github.com/google/cloudprober/targets/rtc/rtcreporter"
+	"github.com/google/cloudprober/targets/rtc/rtcservice"
 	"google.golang.org/api/runtimeconfig/v1beta1"
 )
 
@@ -35,18 +35,18 @@ import (
 // https://cloud.google.com/deployment-manager/runtime-configurator/reference/rest/
 //
 // Each variable in RTC is a key/val pair. When listing targets, we assume the
-// variables in the rtc.Config are laid out as <Hostname : RtcTargetInfo>, where
-// RtcTargetInfo is a base64 encoded RtcTargetInfo protobuf. The hostnames are
-// listed, with one of their addresses assigned as a solve address. If groupTag
-// is empty, no filtering by groupTag occurs. Otherwise, only variables with a
-// group_tag matching an element of groupTag will be listed.
+// variables in the rtcservice.Config are laid out as <Hostname : RtcTargetInfo>
+// where RtcTargetInfo is a base64 encoded RtcTargetInfo protobuf. The hostnames
+// are listed, with one of their addresses assigned as a solve address. If
+// groupTag is empty, no filtering by groupTag occurs. Otherwise, only variables
+// with a group_tag matching an element of groupTag will be listed.
 //
 // Note that this only provides a means to list targets stored in an RTC
 // config. It does not provide means to maintain this list. When listing,
 // however, Targets will ignore sufficiently old RTC entries, as configured by
 // "exp_msec" in the TargetsConf protobuf.
 type Targets struct {
-	rtc rtc.Config
+	rtc rtcservice.Config
 	l   *logger.Logger
 	// Expire is a filter on the UpdateTime field of runtimeconfig.Variable.
 	expire time.Duration
@@ -116,7 +116,7 @@ func (t *Targets) runc() {
 func (t *Targets) evalList() []string {
 	resp, err := t.rtc.List()
 	if err != nil {
-		t.l.Errorf("rtc.List() : unable to produce RTC list : %v", err)
+		t.l.Errorf("rtc.evalList() : unable to produce RTC list : %v", err)
 		return nil
 	}
 
@@ -127,7 +127,7 @@ func (t *Targets) evalList() []string {
 		// Filter out old entries, as configured by "exp_msec".
 		updateTime, err := time.Parse(time.RFC3339Nano, v.UpdateTime)
 		if err != nil {
-			t.l.Errorf("rtc.targsFromVar: Unable to parse variable UpdateTime (was %v): %v", v.UpdateTime, err)
+			t.l.Errorf("rtc.evalList: unable to parse variable UpdateTime (was %v): %v", v.UpdateTime, err)
 			continue
 		}
 		if updateTime.Before(cutoff) {
@@ -161,7 +161,7 @@ func (t *Targets) evalList() []string {
 	return targs
 }
 
-// targsFromVar produces the target associated with a variable in an rtc.Config,
+// targsFromVar produces the target associated with a variable in an rtcservice.Config,
 // after making the appropriate filters. While doing this, t.nameToIP will be
 // updated.
 func (t *Targets) targsFromVar(v *runtimeconfig.Variable) (string, error) {
@@ -214,7 +214,7 @@ func (t *Targets) targsFromVar(v *runtimeconfig.Variable) (string, error) {
 
 // New returns an rtc resolver / lister, given a defining protobuf.
 func New(pb *TargetsConf, proj string, l *logger.Logger) (*Targets, error) {
-	rtc, err := rtc.New(proj, pb.GetCfg())
+	rtc, err := rtcservice.New(proj, pb.GetCfg())
 	if err != nil {
 		err = fmt.Errorf("newRTC: Error building rtc client %v for targets: %v", pb.GetCfg(), err)
 		return nil, err

@@ -27,12 +27,12 @@ import (
 
 	"cloud.google.com/go/compute/metadata"
 	"github.com/google/cloudprober/logger"
-	"github.com/google/cloudprober/rtc"
+	"github.com/google/cloudprober/targets/rtc/rtcservice"
 	"google.golang.org/api/runtimeconfig/v1beta1"
 )
 
 type lameDucksProvider struct {
-	rtc            rtc.Config
+	rtc            rtcservice.Config
 	opts           *Options
 	expirationTime time.Duration
 	l              *logger.Logger
@@ -153,7 +153,7 @@ func Init(optsProto *Options, l *logger.Logger) error {
 	cfg := optsProto.GetRuntimeconfigName()
 
 	onceLameDucksProvider.Do(func() {
-		rtc, err := rtc.New(proj, cfg)
+		rtc, err := rtcservice.New(proj, cfg)
 		if err != nil {
 			l.Errorf("targets: unable to build rtc config: %v", err)
 			return
