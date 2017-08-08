@@ -20,7 +20,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/logger"
-	"github.com/google/cloudprober/rtc"
+	"github.com/google/cloudprober/targets/rtc/rtcservice"
 	"github.com/kylelemons/godebug/pretty"
 )
 
@@ -65,7 +65,7 @@ func TestReport(t *testing.T) {
 			"hostname":  "host1",
 			"public_ip": "1.1.1.1",
 		},
-		cfgs:       []rtc.Config{rtc.NewStub()},
+		cfgs:       []rtcservice.Config{rtcservice.NewStub()},
 		reportVars: []string{"public_ip"},
 		groups:     []string{"Group 1"},
 		l:          l,
