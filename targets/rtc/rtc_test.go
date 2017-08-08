@@ -23,8 +23,8 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/logger"
-	"github.com/google/cloudprober/rtc"
 	"github.com/google/cloudprober/targets/rtc/rtcreporter"
+	"github.com/google/cloudprober/targets/rtc/rtcservice"
 	"github.com/kylelemons/godebug/pretty"
 )
 
@@ -218,7 +218,7 @@ func TestRtctargsResolve(t *testing.T) {
 Nextrow:
 	for id, r := range rows {
 		// Setup targs
-		rtc := rtc.NewStub()
+		rtc := rtcservice.NewStub()
 		for _, v := range r.vars {
 			data, err := proto.Marshal(v.value)
 			if err != nil {
@@ -355,7 +355,7 @@ func TestRtctargsStale(t *testing.T) {
 Nextrow:
 	for id, r := range rows {
 		// Setup targs
-		rtc := rtc.NewStub()
+		rtc := rtcservice.NewStub()
 		for _, v := range r.vars {
 			data, err := proto.Marshal(v.value)
 			if err != nil {

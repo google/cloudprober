@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package rtc provides utility functions for the cloudprober project used when
-// dealing with the Runtime Configurator API.
+// Package rtcservice provides utility functions for the cloudprober project
+// used when dealing with the Runtime Configurator API.
 // https://cloud.google.com/deployment-manager/runtime-configurator/reference/rest/
 // This API essentially provides a small key/val store for GCE
 // projects. Cloudprober uses this for things like maintaining a lameduck list,
@@ -24,11 +24,11 @@
 // as methods on the Config interface. This allows the behavior to be more
 // easily mocked for testing.
 //
-// rtc.Config is meant to represent a configuration or resource in the RTC sense
-// (see https://cloud.google.com/deployment-manager/runtime-configurator/). If
-// one needs to interact with multiple configurations, they will need multiple
+// rtcservice.Config is meant to represent a configuration or resource in the
+// RTC sense (see https://cloud.google.com/deployment-manager/runtime-configurator/).
+// If one needs to interact with multiple configurations, they will need multiple
 // instances of rtc.Config.
-package rtc
+package rtcservice
 
 import (
 	"encoding/base64"

@@ -30,14 +30,14 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/logger"
-	"github.com/google/cloudprober/rtc"
+	"github.com/google/cloudprober/targets/rtc/rtcservice"
 )
 
 // Reporter provides the means and configuration for a cloudprober instance to
 // report its sysVars to a set of RTC configs.
 type Reporter struct {
 	pb         *RtcReportOptions
-	cfgs       []rtc.Config
+	cfgs       []rtcservice.Config
 	sysVars    map[string]string
 	reportVars []string
 	groups     []string
@@ -52,9 +52,9 @@ func New(pb *RtcReportOptions, sysVars map[string]string, l *logger.Logger) (*Re
 		return nil, errors.New("rtcserve.New: sysVars has no \"project\"")
 	}
 
-	var cfgs []rtc.Config
+	var cfgs []rtcservice.Config
 	for _, name := range pb.GetCfgs() {
-		c, err := rtc.New(proj, name)
+		c, err := rtcservice.New(proj, name)
 		if err != nil {
 			return nil, err
 		}
@@ -115,7 +115,7 @@ func (r *Reporter) mkTargetInfo() *RtcTargetInfo {
 	return pb
 }
 
-func (r *Reporter) report(c rtc.Config) error {
+func (r *Reporter) report(c rtcservice.Config) error {
 	pb := r.mkTargetInfo()
 	data, err := proto.Marshal(pb)
 	if err != nil {
