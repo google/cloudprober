@@ -64,16 +64,16 @@ func TestRun(t *testing.T) {
 
 	// Strings that should be in all targets' output.
 	reqStrs := map[string]int64{
-		"sent": 1,
-		"rcvd": 1,
+		"total":   1,
+		"success": 1,
 	}
 
 	// The resultsChan output iterates through p.targets in the same order.
 	for _, target := range p.targets {
 		r := <-resultsChan
 		result := r.(probeRunResult)
-		if result.sent.Int64() != reqStrs["sent"] || result.rcvd.Int64() != reqStrs["rcvd"] {
-			t.Errorf("Mismatch got (sent, rcvd) = (%d, %d), want (%d, %d)", result.sent.Int64(), result.rcvd.Int64(), reqStrs["sent"], reqStrs["rcvd"])
+		if result.total.Int64() != reqStrs["total"] || result.success.Int64() != reqStrs["success"] {
+			t.Errorf("Mismatch got (total, success) = (%d, %d), want (%d, %d)", result.total.Int64(), result.success.Int64(), reqStrs["total"], reqStrs["success"])
 		}
 		if result.Target() != target {
 			t.Errorf("Unexpected target in probe result. Got: %s, Expected: %s", result.Target(), target)

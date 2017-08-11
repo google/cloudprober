@@ -55,9 +55,9 @@ type Probe struct {
 // types instead of metrics.AtomicInt.
 type probeRunResult struct {
 	target   string
-	sent     metrics.Int
-	rcvd     metrics.Int
-	rtt      metrics.Int // microseconds
+	total    metrics.Int
+	success  metrics.Int
+	latency  metrics.Int // microseconds
 	timeouts metrics.Int
 }
 
@@ -75,9 +75,9 @@ func (prr probeRunResult) Target() string {
 // Metrics converts probeRunResult into metrics.EventMetrics object
 func (prr probeRunResult) Metrics() *metrics.EventMetrics {
 	return metrics.NewEventMetrics(time.Now()).
-		AddMetric("sent", &prr.sent).
-		AddMetric("rcvd", &prr.rcvd).
-		AddMetric("rtt", &prr.rtt).
+		AddMetric("total", &prr.total).
+		AddMetric("success", &prr.success).
+		AddMetric("latency", &prr.latency).
 		AddMetric("timeouts", &prr.timeouts)
 }
 
@@ -110,10 +110,10 @@ func isClientTimeout(err error) bool {
 
 // Ping sends a UDP "ping" to addr.  Probe succeeds if the same data is returned within timeout.
 // TODO: Hide this once b/32340835 is fixed, that is, once nobody using it anymore.
-func Ping(addr string, timeout time.Duration) (success bool, rtt time.Duration, err error) {
+func Ping(addr string, timeout time.Duration) (success bool, latency time.Duration, err error) {
 	conn, err := net.DialTimeout("udp", addr, timeout)
 	if err != nil {
-		return false, rtt, err
+		return false, latency, err
 	}
 
 	defer conn.Close()
@@ -122,18 +122,18 @@ func Ping(addr string, timeout time.Duration) (success bool, rtt time.Duration, 
 	conn.SetWriteDeadline(t.Add(timeout))
 	sendData := []byte(t.Format(time.RFC3339Nano))
 	if _, err = conn.Write(sendData); err != nil {
-		return false, rtt, err
+		return false, latency, err
 	}
 
 	conn.SetReadDeadline(time.Now().Add(timeout))
 
 	b := make([]byte, 1024)
 	n, err := conn.Read(b)
-	rtt = time.Since(t)
+	latency = time.Since(t)
 
 	success = bytes.Equal(b[:n], sendData)
 
-	return success, rtt, err
+	return success, latency, err
 }
 
 // runProbe performs a single probe run. The main thread launches one goroutine
@@ -163,8 +163,8 @@ func (p *Probe) runProbe(stats chan<- probeutils.ProbeResult) {
 
 			// Verified that each request will use different UDP ports.
 			fullTarget := net.JoinHostPort(target, fmt.Sprintf("%d", p.c.GetPort()))
-			result.sent.Inc()
-			success, rtt, err := Ping(fullTarget, p.timeout)
+			result.total.Inc()
+			success, latency, err := Ping(fullTarget, p.timeout)
 
 			if err != nil {
 				if isClientTimeout(err) {
@@ -175,8 +175,8 @@ func (p *Probe) runProbe(stats chan<- probeutils.ProbeResult) {
 				}
 			} else {
 				if success {
-					result.rcvd.Inc()
-					result.rtt.IncBy(metrics.NewInt(rtt.Nanoseconds() / 1000))
+					result.success.Inc()
+					result.latency.IncBy(metrics.NewInt(latency.Nanoseconds() / 1000))
 				} else {
 					p.l.Warningf("Target(%s): Response is nil, but error is also nil", fullTarget)
 				}

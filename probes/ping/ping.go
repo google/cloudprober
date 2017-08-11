@@ -384,9 +384,9 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 		}
 		for _, t := range p.targets {
 			em := metrics.NewEventMetrics(ts).
-				AddMetric("sent", metrics.NewInt(p.sent[t])).
-				AddMetric("rcvd", metrics.NewInt(p.received[t])).
-				AddMetric("rtt", metrics.NewInt(p.latencyUsec[t])).
+				AddMetric("total", metrics.NewInt(p.sent[t])).
+				AddMetric("success", metrics.NewInt(p.received[t])).
+				AddMetric("latency", metrics.NewInt(p.latencyUsec[t])).
 				AddLabel("ptype", "ping").
 				AddLabel("probe", p.name).
 				AddLabel("dst", t)
