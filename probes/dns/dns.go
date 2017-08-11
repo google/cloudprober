@@ -75,9 +75,9 @@ type Probe struct {
 // types instead of metrics.AtomicInt.
 type probeRunResult struct {
 	target   string
-	sent     metrics.Int
-	rcvd     metrics.Int
-	rtt      metrics.Int // microseconds
+	total    metrics.Int
+	success  metrics.Int
+	latency  metrics.Int // microseconds
 	timeouts metrics.Int
 }
 
@@ -90,9 +90,9 @@ func newProbeRunResult(target string) probeRunResult {
 // Metrics converts probeRunResult into metrics.EventMetrics object
 func (prr probeRunResult) Metrics() *metrics.EventMetrics {
 	return metrics.NewEventMetrics(time.Now()).
-		AddMetric("sent", &prr.sent).
-		AddMetric("rcvd", &prr.rcvd).
-		AddMetric("rtt", &prr.rtt).
+		AddMetric("total", &prr.total).
+		AddMetric("success", &prr.success).
+		AddMetric("latency", &prr.latency).
 		AddMetric("timeouts", &prr.timeouts)
 }
 
@@ -161,8 +161,8 @@ func (p *Probe) runProbe(resultsChan chan<- probeutils.ProbeResult) {
 			// Verified that each request will use different UDP ports.
 
 			fullTarget := net.JoinHostPort(target, "53")
-			result.sent.Inc()
-			resp, rtt, err := p.client.Exchange(p.msg, fullTarget)
+			result.total.Inc()
+			resp, latency, err := p.client.Exchange(p.msg, fullTarget)
 
 			if err != nil {
 				if isClientTimeout(err) {
@@ -175,8 +175,8 @@ func (p *Probe) runProbe(resultsChan chan<- probeutils.ProbeResult) {
 				if resp == nil {
 					p.l.Warningf("Target(%s): Response is nil, but error is also nil", fullTarget)
 				}
-				result.rcvd.Inc()
-				result.rtt.IncBy(metrics.NewInt(rtt.Nanoseconds() / 1000))
+				result.success.Inc()
+				result.latency.IncBy(metrics.NewInt(latency.Nanoseconds() / 1000))
 			}
 
 			resultsChan <- result

@@ -58,9 +58,9 @@ type Probe struct {
 // probeRunResult implements the probeutils.ProbeResult interface.
 type probeRunResult struct {
 	target     string
-	sent       metrics.Int
-	rcvd       metrics.Int
-	rtt        metrics.Int // microseconds
+	total      metrics.Int
+	success    metrics.Int
+	latency    metrics.Int // microseconds
 	timeouts   metrics.Int
 	respCodes  *metrics.Map
 	respBodies *metrics.Map
@@ -79,9 +79,9 @@ func newProbeRunResult(target string) probeRunResult {
 // interface.
 func (prr probeRunResult) Metrics() *metrics.EventMetrics {
 	return metrics.NewEventMetrics(time.Now()).
-		AddMetric("sent", &prr.sent).
-		AddMetric("rcvd", &prr.rcvd).
-		AddMetric("rtt", &prr.rtt).
+		AddMetric("total", &prr.total).
+		AddMetric("success", &prr.success).
+		AddMetric("latency", &prr.latency).
 		AddMetric("timeouts", &prr.timeouts).
 		AddMetric("resp-code", prr.respCodes).
 		AddMetric("resp-body", prr.respBodies)
@@ -193,9 +193,9 @@ func (p *Probe) runProbe(resultsChan chan<- probeutils.ProbeResult) {
 
 			for i := 0; i < int(p.c.GetRequestsPerProbe()); i++ {
 				start := time.Now()
-				result.sent.Inc()
+				result.total.Inc()
 				resp, err := p.client.Do(req)
-				rtt := time.Since(start)
+				latency := time.Since(start)
 
 				if err != nil {
 					if isClientTimeout(err) {
@@ -212,8 +212,8 @@ func (p *Probe) runProbe(resultsChan chan<- probeutils.ProbeResult) {
 					// Calling Body.Close() allows the TCP connection to be reused.
 					resp.Body.Close()
 					result.respCodes.IncKey(fmt.Sprintf("%d", resp.StatusCode))
-					result.rcvd.Inc()
-					result.rtt.IncBy(metrics.NewInt(rtt.Nanoseconds() / 1000))
+					result.success.Inc()
+					result.latency.IncBy(metrics.NewInt(latency.Nanoseconds() / 1000))
 					if p.c.GetExportResponseAsMetrics() {
 						if len(respBody) <= maxResponseSizeForMetrics {
 							result.respBodies.IncKey(string(respBody))
