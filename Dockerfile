@@ -3,8 +3,8 @@
 #
 # Docker image built using this can executed in the following manner:
 #   docker run --net host -v $PWD/cloudprober.cfg:/etc/cloudprober.cfg \
-#                         -v /tmp:/tmp cloudprober/cloudprober
+#                         cloudprober/cloudprober
 FROM busybox
 ADD cloudprober /cloudprober
 COPY ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
-CMD ["/cloudprober"]
+CMD ["/cloudprober", "--logtostderr"]
