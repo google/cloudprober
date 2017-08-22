@@ -311,7 +311,7 @@ func (p *Probe) replyForProbe(ctx context.Context, requestID int32) (*serverutil
 func (p *Probe) sendRequest(requestID int32, labels map[string]string) error {
 	req := &serverutils.ProbeRequest{
 		RequestId: proto.Int32(requestID),
-		TimeLimit: proto.Int32(int32(p.timeout.Seconds()) * 1000),
+		TimeLimit: proto.Int32(int32(p.timeout.Nanoseconds() / 1000)),
 		Options:   []*serverutils.ProbeRequest_Option{},
 	}
 	for _, opt := range p.c.GetOptions() {
