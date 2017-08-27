@@ -42,12 +42,16 @@ Case](https://cloudprober.github.io/diagrams/cloudprober_use_case.svg)
     containers. Thanks to the automated target discovery, there is usually no
     need to re-deploy or re-configure cloudprober in response to the most of the
     changes.
+*   Go templates based config file with substitutions for standard variables
+    like project, zone, instance names etc allows for using same config file
+    across the fleet.
 *   Low footprint. Cloudprober docker image is small, containing just the
     statically compiled binary and it takes very little CPU and RAM to run even
     a large number of probes.
 *   Extensible architecture. Cloudprober can be easily extended along most of
     the dimensions. Adding support for other Cloud targets, monitoring systems
-    and even a new probe type, is straight-forward and fairly easy.
+    (e.g. Graphite, Amazon Cloudwatch) and even a new probe type, is
+    straight-forward and fairly easy.
 
 Visit Cloudprober's website at [cloudprober.github.io](https://cloudprober.github.io)
 to get started with Cloudprober.
