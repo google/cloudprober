@@ -50,5 +50,5 @@ message ForwardingRules {
 // targets which are defined by the "GCETargets" type above.
 message GlobalOptions {
   // How often targets should be evaluated/expanded
-  optional int32 re_eval_sec = 1 [default = 300];
+  optional int32 re_eval_sec = 1 [default = 900];  // default 15 min
 }
