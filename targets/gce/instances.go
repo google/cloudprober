@@ -27,7 +27,7 @@ import (
 	dnsRes "github.com/google/cloudprober/targets/resolver"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
-	"google.golang.org/api/compute/v0.alpha"
+	"google.golang.org/api/compute/v1"
 )
 
 // globalInstancesProvider is a singleton instance of the instancesProvider struct.
