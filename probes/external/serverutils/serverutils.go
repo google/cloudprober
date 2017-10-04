@@ -19,12 +19,12 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 
-	log "github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 )
 
@@ -129,7 +129,6 @@ func Serve(probeFunc func(*ProbeRequest, *ProbeReply)) {
 		if err != nil {
 			log.Fatalf("Failed reading request: %v", err)
 		}
-		log.Infof("Received request id: %d", request.RequestId)
 		go func() {
 			reply := &ProbeReply{
 				RequestId: request.RequestId,
@@ -145,7 +144,6 @@ func Serve(probeFunc func(*ProbeRequest, *ProbeReply)) {
 				repliesChan <- reply
 			case <-timeout:
 				// drop the request on the floor.
-				log.Warningf("Timeout for request %v\n", *reply.RequestId)
 				fmt.Fprintf(os.Stderr, "Timeout for request %v\n", *reply.RequestId)
 			}
 		}()
