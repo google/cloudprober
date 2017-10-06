@@ -59,9 +59,9 @@ type Probe struct {
 	// book-keeping params
 	requestID  int32
 	cmdRunning bool
-	cmdStdin   io.WriteCloser
-	cmdStdout  io.ReadCloser
-	cmdStderr  io.ReadCloser
+	cmdStdin   io.Writer
+	cmdStdout  io.Reader
+	cmdStderr  io.Reader
 	replyChan  chan *serverutils.ProbeReply
 	success    int64 // toal probe successes
 	total      int64 // total number of probes
@@ -184,11 +184,11 @@ func (p *Probe) startCmdIfNotRunning() error {
 		return fmt.Errorf("error while starting the cmd: %s %s. Err: %v", cmd.Path, cmd.Args, err)
 	}
 
-	done := make(chan interface{}, 1)
+	done := make(chan struct{})
 	// This goroutine waits for the process to terminate and sets cmdRunning to false when that happens.
 	go func() {
 		err := cmd.Wait()
-		done <- ""
+		close(done)
 		p.cmdRunning = false
 		if err != nil {
 			if exitErr, ok := err.(*exec.ExitError); ok {
@@ -196,28 +196,29 @@ func (p *Probe) startCmdIfNotRunning() error {
 			}
 		}
 	}()
+	go p.readProbeReplies(done)
+	p.cmdRunning = true
+	return nil
+}
 
+func (p *Probe) readProbeReplies(done chan struct{}) {
 	// Start a background goroutine to read probe replies from the probe server
 	// process's stdout and put them on the probe's replyChan. Note that replyChan
 	// is a one element channel. Idea is that we won't need buffering other than the
 	// one provided by Unix pipes.
-	go func() {
-		for {
-			select {
-			case <-done:
-				return
-			default:
-				rep, err := serverutils.ReadProbeReply(bufio.NewReader(p.cmdStdout))
-				if err != nil {
-					p.l.Error(err)
-				}
-				p.replyChan <- rep
+	for {
+		select {
+		case <-done:
+			return
+		default:
+			rep, err := serverutils.ReadProbeReply(bufio.NewReader(p.cmdStdout))
+			if err != nil {
+				p.l.Error(err)
 			}
+			p.replyChan <- rep
 		}
+	}
 
-	}()
-	p.cmdRunning = true
-	return nil
 }
 
 func (p *Probe) defaultMetrics(target string) *metrics.EventMetrics {
@@ -296,19 +297,30 @@ func (p *Probe) replyForProbe(ctx context.Context, requestID int32) (*serverutil
 		select {
 		case <-ctx.Done():
 			return nil, ctx.Err()
-		case r := <-p.replyChan:
-			if r.GetRequestId() != requestID {
+		case rep := <-p.replyChan:
+			if rep.GetRequestId() != requestID {
 				// Not our reply, could be from the last timedout probe. (it shouldn't happen if probe server
 				// is using the standard package).
-				p.l.Warningf("Got a reply that doesn't match with the request: Request id as per request: %d, as per reply:%s. Ignoring.", requestID, r.GetRequestId())
+				p.l.Warningf("Got a reply that doesn't match with the request: Request id as per request: %d, as per reply:%s. Ignoring.", requestID, rep.GetRequestId())
 				continue
 			}
-			return r, nil
+			return rep, nil
 		}
 	}
 }
 
-func (p *Probe) sendRequest(requestID int32, labels map[string]string) error {
+func (p *Probe) sendRequest(requestID int32, target string) error {
+	labels := map[string]string{
+		"probe":  p.name,
+		"target": target,
+	}
+	addr, err := p.tgts.Resolve(target, p.ipVer)
+	if err != nil {
+		p.l.Warningf("Targets.Resolve(%v, %v) failed: %v ", target, p.ipVer, err)
+	} else if !addr.IsUnspecified() {
+		labels["address"] = addr.String()
+	}
+
 	req := &serverutils.ProbeRequest{
 		RequestId: proto.Int32(requestID),
 		TimeLimit: proto.Int32(int32(p.timeout / time.Millisecond)),
@@ -324,68 +336,61 @@ func (p *Probe) sendRequest(requestID int32, labels map[string]string) error {
 			Value: proto.String(value),
 		})
 	}
-	buf, err := proto.Marshal(req)
-	if err != nil {
-		return fmt.Errorf("failed marshalling request: %v", err)
-	}
-	if _, err := fmt.Fprintf(p.cmdStdin, "\nContent-Length: %d\n\n%s", len(buf), buf); err != nil {
-		return fmt.Errorf("failed writing request: %v", err)
-	}
-	return nil
+	return serverutils.WriteMessage(req, p.cmdStdin)
 }
 
 func (p *Probe) runServerProbe(ctx context.Context, dataChan chan *metrics.EventMetrics) {
-	labels := map[string]string{
-		"probe": p.name,
-	}
 	for _, target := range p.tgts.List() {
-		labels["target"] = target
-		addr, err := p.tgts.Resolve(target, p.ipVer)
+		// Run probe for the target. Note that we always return probe
+		// results regardless of the values of rep and err.
+		rep, err := p.runServerProbeForTarget(ctx, target)
 		if err != nil {
-			p.l.Warningf("Targets.Resolve(%v, %v) failed: %v ", target, p.ipVer, err)
-		} else if !addr.IsUnspecified() {
-			labels["address"] = addr.String()
+			p.l.Error(err)
 		}
-
-		p.total++
-		startTime := time.Now()
-		if p.startCmdIfNotRunning() != nil {
-			return
-		}
-		p.requestID++
-		id := p.requestID
-
-		ctxTimeout, cancelFunc := context.WithTimeout(ctx, p.timeout)
-		defer cancelFunc()
-
-		// TODO: We should use context for sending request as well.
-		p.l.Infof("Sending a probe request to the external probe server for target %v", target)
-		if err := p.sendRequest(id, labels); err != nil {
-			p.l.Errorf("Error sending request to probe server: %v", err)
-			return
-		}
-		r, err := p.replyForProbe(ctxTimeout, id)
-		if err != nil {
-			p.l.Errorf("Error reading reply from probe server: %v", err)
-			return
-		}
-		if r.GetErrorMessage() != "" {
-			p.l.Errorf("Probe failed with error message: %s", r.GetErrorMessage())
-		} else {
-			p.success++
-			p.latency += int64(time.Since(startTime).Nanoseconds() / 1000)
-		}
-
 		em := p.defaultMetrics(target)
 		p.l.Info(em.String())
 		dataChan <- em
 
-		if p.c.GetOutputAsMetrics() {
-			em = p.payloadToMetrics(target, r.GetPayload())
+		// If we got a non-nil probe reply and probe is configured to use
+		// the reply payload as metrics.
+		if rep != nil && p.c.GetOutputAsMetrics() {
+			em = p.payloadToMetrics(target, rep.GetPayload())
 			p.l.Info(em.String())
 			dataChan <- em
 		}
 	}
+}
+
+// runServerProbeForTarget runs a "server" probe for a single target and
+// returns the ProbeReply and error if any.
+func (p *Probe) runServerProbeForTarget(ctx context.Context, target string) (*serverutils.ProbeReply, error) {
+	p.total++
+	startTime := time.Now()
+	if err := p.startCmdIfNotRunning(); err != nil {
+		return nil, err
+	}
+	p.requestID++
+	id := p.requestID
+
+	ctxTimeout, cancelFunc := context.WithTimeout(ctx, p.timeout)
+	defer cancelFunc()
+
+	// TODO: We should use context for sending request as well.
+	p.l.Debugf("Sending a probe request to the external probe server for target %v", target)
+	if err := p.sendRequest(id, target); err != nil {
+		return nil, fmt.Errorf("Error sending request to probe server: %v", err)
+	}
+
+	rep, err := p.replyForProbe(ctxTimeout, id)
+	if err != nil {
+		return nil, fmt.Errorf("Error reading reply from probe server: %v", err)
+	}
+	if rep.GetErrorMessage() != "" {
+		return rep, fmt.Errorf("Probe failed with error message: %s", rep.GetErrorMessage())
+	}
+	p.success++
+	p.latency += int64(time.Since(startTime).Nanoseconds() / 1000)
+	return rep, nil
 }
 
 func (p *Probe) runOnceProbe(ctx context.Context, dataChan chan *metrics.EventMetrics) {
