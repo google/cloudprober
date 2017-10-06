@@ -15,15 +15,142 @@
 package external
 
 import (
+	"bufio"
 	"bytes"
+	"context"
 	"fmt"
+	"io"
+	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
 	"github.com/google/cloudprober/probes/external/serverutils"
+	"github.com/google/cloudprober/targets"
 )
+
+const testPayload = "p90 45\n"
+
+// stratProbeServer starts a test probe server to work with the TestProbeServer
+// test below.
+func startProbeServer(t *testing.T, r io.Reader, w io.Writer) {
+	for {
+		req, err := serverutils.ReadProbeRequest(bufio.NewReader(r))
+		if err != nil {
+			t.Errorf("Error reading probe request. Err: %v", err)
+			return
+		}
+		var action string
+		opts := req.GetOptions()
+		for _, opt := range opts {
+			if opt.GetName() == "action" {
+				action = opt.GetValue()
+				break
+			}
+		}
+		id := req.GetRequestId()
+
+		actionToResponse := map[string]*serverutils.ProbeReply{
+			"nopayload": &serverutils.ProbeReply{RequestId: proto.Int32(id)},
+			"payload": &serverutils.ProbeReply{
+				RequestId: proto.Int32(id),
+				Payload:   proto.String(testPayload),
+			},
+			"payload_with_error": &serverutils.ProbeReply{
+				RequestId:    proto.Int32(id),
+				Payload:      proto.String(testPayload),
+				ErrorMessage: proto.String("error"),
+			},
+		}
+		t.Logf("Request id: %d, action: %s", id, action)
+		if res, ok := actionToResponse[action]; ok {
+			serverutils.WriteMessage(res, w)
+		}
+	}
+}
+
+func setProbeOptions(p *Probe, name, value string) {
+	if p.c == nil {
+		p.c = &ProbeConf{}
+	}
+	p.c.Options = []*ProbeConf_Option{
+		{
+			Name:  proto.String(name),
+			Value: proto.String(value),
+		},
+	}
+}
+
+// runAndVerifyServerProbe executes a server probe and verifies the replies
+// received.
+func runAndVerifyProbe(t *testing.T, p *Probe, action string, wantError bool, payload string, total, success int64) {
+	setProbeOptions(p, "action", action)
+	rep, err := p.runServerProbeForTarget(context.Background(), "dummy")
+	if wantError && err != nil {
+		t.Errorf(err.Error())
+	}
+	if !wantError && err == nil {
+		t.Error("Expected error, but didn't get one")
+	}
+	if rep.GetPayload() != payload {
+		t.Errorf("Got payload=%s, Want: %s", rep.GetPayload(), payload)
+	}
+	if p.total != total {
+		t.Errorf("p.total=%d, Want: %d", p.total, total)
+	}
+	if p.success != success {
+		t.Errorf("p.success=%d, Want: %d", p.success, success)
+	}
+}
+
+func TestProbeServer(t *testing.T) {
+	// We create two pairs of pipes to establish communication between this prober
+	// and the test probe server (defined above).
+	// Test probe server input pipe. We writes on w1 and external command reads
+	// from r1.
+	r1, w1, err := os.Pipe()
+	if err != nil {
+		t.Errorf("Error creating OS pipe. Err: %v", err)
+	}
+	// Test probe server output pipe. External command writes on w2 and we read
+	// from r2.
+	r2, w2, err := os.Pipe()
+	if err != nil {
+		t.Errorf("Error creating OS pipe. Err: %v", err)
+	}
+
+	// Start probe server in a goroutine
+	go startProbeServer(t, r1, w2)
+
+	p := &Probe{
+		tgts:       targets.StaticTargets("localhost"),
+		timeout:    time.Second,
+		l:          &logger.Logger{},
+		replyChan:  make(chan *serverutils.ProbeReply),
+		cmdRunning: true, // don't try to start the probe server
+		cmdStdin:   w1,
+		cmdStdout:  r2,
+	}
+	// Start the goroutine that reads probe replies. We don't use the done
+	// channel here. It's only to satisfy the readProbeReplies interface.
+	done := make(chan struct{})
+	go p.readProbeReplies(done)
+
+	// No payload
+	runAndVerifyProbe(t, p, "nopayload", true, "", 1, 1)
+
+	// Timeout
+	runAndVerifyProbe(t, p, "timeout", false, "", 2, 1)
+
+	// Payload
+	runAndVerifyProbe(t, p, "payload", true, testPayload, 3, 2)
+
+	// Payload with error
+	runAndVerifyProbe(t, p, "payload_with_error", false, testPayload, 4, 2)
+}
 
 func TestPayloadToEventMetrics(t *testing.T) {
 	p := &Probe{
@@ -152,40 +279,27 @@ func TestSubstituteLabels(t *testing.T) {
 	}
 }
 
-type BufferCloser struct {
-	bytes.Buffer
-}
-
-func (b *BufferCloser) Close() error { return nil }
-
+// TestSendRequest verifies that sendRequest sends appropriatly populated
+// ProbeRequest.
 func TestSendRequest(t *testing.T) {
-	buf := &BufferCloser{}
+	var buf bytes.Buffer
 	p := &Probe{
 		name:     "testprobe",
-		cmdStdin: buf,
-		c: &ProbeConf{
-			Options: []*ProbeConf_Option{
-				&ProbeConf_Option{
-					Name:  proto.String("target"),
-					Value: proto.String("@target@"),
-				},
-			},
-		},
+		tgts:     targets.StaticTargets("localhost"),
+		l:        &logger.Logger{},
+		cmdStdin: &buf,
 	}
+	setProbeOptions(p, "target", "@target@")
 	requestID := int32(1234)
-	target := "dummy"
-	labels := map[string]string{
-		"probe":   p.name,
-		"target":  target,
-		"address": "1.2.3.4",
-	}
-	err := p.sendRequest(requestID, labels)
+	target := "localhost"
+
+	err := p.sendRequest(requestID, target)
 	if err != nil {
 		t.Errorf("Failed to sendRequest: %v", err)
 	}
 	req := new(serverutils.ProbeRequest)
 	var length int
-	_, err = fmt.Fscanf(buf, "\nContent-Length: %d\n\n", &length)
+	_, err = fmt.Fscanf(&buf, "\nContent-Length: %d\n\n", &length)
 	if err != nil {
 		t.Errorf("Failed to read header: %v", err)
 	}

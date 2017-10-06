@@ -86,16 +86,17 @@ func ReadProbeRequest(r *bufio.Reader) (*ProbeRequest, error) {
 	return req, proto.Unmarshal(buf, req)
 }
 
-func writeReplies(repliesChan chan *ProbeReply) {
-	for r := range repliesChan {
-		buf, err := proto.Marshal(r)
-		if err != nil {
-			log.Fatalf("Failed marshalling response: %v", err)
-		}
-		if _, err := fmt.Fprintf(os.Stdout, "\nContent-Length: %d\n\n%s", len(buf), buf); err != nil {
-			log.Fatalf("Failed writing response: %v", err)
-		}
+// WriteMessage marshals the a proto message and writes it to the writer "w"
+// with appropriate Content-Length header.
+func WriteMessage(pb proto.Message, w io.Writer) error {
+	buf, err := proto.Marshal(pb)
+	if err != nil {
+		return fmt.Errorf("Failed marshalling proto message: %v", err)
 	}
+	if _, err := fmt.Fprintf(w, "\nContent-Length: %d\n\n%s", len(buf), buf); err != nil {
+		return fmt.Errorf("Failed writing response: %v", err)
+	}
+	return nil
 }
 
 // Serve blocks indefinitely, servicing probe requests. Note that this function is
@@ -121,7 +122,14 @@ func Serve(probeFunc func(*ProbeRequest, *ProbeReply)) {
 	repliesChan := make(chan *ProbeReply)
 
 	// Write replies to stdout. These are not required to be in-order.
-	go writeReplies(repliesChan)
+	go func() {
+		for rep := range repliesChan {
+			if err := WriteMessage(rep, os.Stdout); err != nil {
+				log.Fatal(err)
+			}
+
+		}
+	}()
 
 	// Read requests from stdin, and dispatch probes to service them.
 	for {
