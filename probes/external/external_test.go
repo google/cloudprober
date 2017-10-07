@@ -127,7 +127,7 @@ func TestProbeServer(t *testing.T) {
 
 	p := &Probe{
 		tgts:       targets.StaticTargets("localhost"),
-		timeout:    time.Second,
+		timeout:    5 * time.Second,
 		l:          &logger.Logger{},
 		replyChan:  make(chan *serverutils.ProbeReply),
 		cmdRunning: true, // don't try to start the probe server
@@ -139,17 +139,27 @@ func TestProbeServer(t *testing.T) {
 	done := make(chan struct{})
 	go p.readProbeReplies(done)
 
-	// No payload
-	runAndVerifyProbe(t, p, "nopayload", true, "", 1, 1)
+	var total, success int64
 
-	// Timeout
-	runAndVerifyProbe(t, p, "timeout", false, "", 2, 1)
+	// No payload
+	total++
+	success++
+	runAndVerifyProbe(t, p, "nopayload", true, "", total, success)
 
 	// Payload
-	runAndVerifyProbe(t, p, "payload", true, testPayload, 3, 2)
+	total++
+	success++
+	runAndVerifyProbe(t, p, "payload", true, testPayload, total, success)
 
 	// Payload with error
-	runAndVerifyProbe(t, p, "payload_with_error", false, testPayload, 4, 2)
+	total++
+	runAndVerifyProbe(t, p, "payload_with_error", false, testPayload, total, success)
+
+	// Timeout
+	total++
+	// Reduce probe timeout to make this test pass quicker.
+	p.timeout = time.Second
+	runAndVerifyProbe(t, p, "timeout", false, "", total, success)
 }
 
 func TestPayloadToEventMetrics(t *testing.T) {
