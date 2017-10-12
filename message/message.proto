@@ -1,0 +1,35 @@
+syntax = "proto2";
+
+package message;
+
+// Constants defines constants with default values.
+message Constants {
+  optional uint64 magic = 1 [default=0xea74cace87ea];
+}
+
+// Datanode is something that see's a message AND can modify it.
+message DataNode {
+  enum Type {
+    UNKNOWN = 0;
+    CLIENT = 1;
+    SERVER = 2;
+  }
+  optional Type type = 1 [default = CLIENT];
+  optional string name = 2;
+
+  // 8 bytes of timestamp in pcap-friendly network byte order.
+  optional bytes timestamp_usec = 3;
+}
+
+// Message is a message sent over the network.
+message Message {
+  optional fixed64 magic = 1;
+
+  // 8 bytes of sequence in pcap-friendly network byte order.
+  optional bytes seq = 2;
+
+  // Datanodes seen by this message.
+  repeated DataNode nodes = 3;
+
+  optional bytes pad = 99;
+}
