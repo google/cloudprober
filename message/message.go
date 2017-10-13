@@ -22,7 +22,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	"google3/base/go/log"
+	"github.com/google/cloudprober/logger"
 )
 
 // FlowState maintains the state of flow on both the sender and receiver sides.
@@ -169,7 +169,7 @@ func (fs *FlowState) WithdrawMessage(seq uint64) bool {
 // ProcessMessage processes an incoming byte stream as a message.
 // It updates FlowState for the sender seq|msgTS|rxTS and returns a
 // Results object with information on the message.
-func ProcessMessage(fsm *FlowStateMap, msgBytes []byte, rxTS time.Time) (*Results, error) {
+func ProcessMessage(fsm *FlowStateMap, msgBytes []byte, rxTS time.Time, l *logger.Logger) (*Results, error) {
 	msg := &Message{}
 	if err := proto.Unmarshal(msgBytes, msg); err != nil {
 		return nil, err
@@ -226,7 +226,7 @@ func ProcessMessage(fsm *FlowStateMap, msgBytes []byte, rxTS time.Time) (*Result
 		fs.rxTS = rxTS
 	} else if seqDelta == 0 {
 		// Repeat message !!!. Prober restart? or left over message?
-		log.Errorf("Duplicate seq from %s: seq %d msgTS: %s, %s", sender, msgSeq, fs.msgTS, msgTS)
+		l.Errorf("Duplicate seq from %s: seq %d msgTS: %s, %s", sender, msgSeq, fs.msgTS, msgTS)
 	} else {
 		res.Delayed = true
 	}

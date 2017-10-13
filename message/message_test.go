@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/google/cloudprober/logger"
 )
 
 // createMessage is a helper function for creating a message and fatally failing
@@ -58,7 +59,7 @@ func TestMessageEncodeDecode(t *testing.T) {
 	// Pre-create flow state on the rx side. So we expect success in every step.
 	rxFS := rxFSM.FlowState(nodeName)
 	rxFS.seq = seq - 1
-	res, err := ProcessMessage(rxFSM, msgBytes, ts.Add(time.Second))
+	res, err := ProcessMessage(rxFSM, msgBytes, ts.Add(time.Second), &logger.Logger{})
 	if err != nil {
 		t.Fatalf("Process message failure: %v", err)
 	}
@@ -101,7 +102,7 @@ func TestInvalidMessage(t *testing.T) {
 		t.Fatalf("Error marshalling message: %v", err)
 	}
 
-	if _, err := ProcessMessage(fss, msgBytes, ts.Add(time.Second)); err == nil {
+	if _, err := ProcessMessage(fss, msgBytes, ts.Add(time.Second), &logger.Logger{}); err == nil {
 		t.Error("ProcessMessage expected to fail due to invalid magic but did not fail")
 	}
 }
@@ -135,7 +136,8 @@ func TestSeqHandling(t *testing.T) {
 	// This will be the first message for the flow:
 	//		=> Flowstate should be created.
 	// 		=> We do not expect success in the result.
-	res, err := ProcessMessage(rxFSM, msgBytes, rxTS)
+	testLogger := &logger.Logger{}
+	res, err := ProcessMessage(rxFSM, msgBytes, rxTS, testLogger)
 	if err != nil {
 		t.Fatalf("Error processing message: %v", err)
 	}
@@ -172,7 +174,7 @@ func TestSeqHandling(t *testing.T) {
 	rxTS = rxTS.Add(time.Second + ipd)
 	txFS.seq = seq
 	msgBytes, msgSeq = createMessage(t, txFS, pktTS)
-	res, err = ProcessMessage(rxFSM, msgBytes, rxTS)
+	res, err = ProcessMessage(rxFSM, msgBytes, rxTS, testLogger)
 	if err != nil {
 		t.Fatalf("Error processing message: %v", err)
 	}
@@ -193,7 +195,7 @@ func TestSeqHandling(t *testing.T) {
 	pktTS = pktTS.Add(time.Second)
 	rxTS = rxTS.Add(time.Second)
 	msgBytes, msgSeq = createMessage(t, txFS, pktTS)
-	res, err = ProcessMessage(rxFSM, msgBytes, rxTS)
+	res, err = ProcessMessage(rxFSM, msgBytes, rxTS, testLogger)
 	if err != nil {
 		t.Fatalf("Error processing message: %v", err)
 	}
