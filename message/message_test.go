@@ -12,7 +12,6 @@ import (
 // if CreateMessage fails. This is for use in places where we don't expect
 // CreateMessage to fail.
 func createMessage(t *testing.T, fs *FlowState, ts time.Time) ([]byte, uint64) {
-	t.Helper()
 	maxLen := 1024
 	msgBytes, msgSeq, err := fs.CreateMessage(ts, maxLen)
 	if err != nil {
