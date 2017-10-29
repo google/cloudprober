@@ -98,7 +98,9 @@ func Init(ll *logger.Logger, userVars map[string]string) error {
 
 	// If on GCE, add GCE variables.
 	if metadata.OnGCE() {
-		return gceVars(sysVars)
+		if err := gceVars(sysVars); err != nil {
+			return err
+		}
 	}
 
 	for k, v := range userVars {
