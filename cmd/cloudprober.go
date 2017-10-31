@@ -37,22 +37,27 @@ import (
 )
 
 var (
-	configFile = flag.String("config_file", "", "Config file")
-	cpuprofile = flag.String("cpuprof", "", "Write cpu profile to file")
-	memprofile = flag.String("memprof", "", "Write heap profile to file")
-	configTest = flag.Bool("configtest", false, "Dry run to test config file")
+	configFile       = flag.String("config_file", "", "Config file")
+	cpuprofile       = flag.String("cpuprof", "", "Write cpu profile to file")
+	memprofile       = flag.String("memprof", "", "Write heap profile to file")
+	configTest       = flag.Bool("configtest", false, "Dry run to test config file")
+	testInstanceName = flag.String("test_instance_name", "ig-us-central1-a-01-0000", "Instance name example to be used in tests")
 
 	// configTestVars provides a sane set of sysvars for config testing.
+	configTestVars = map[string]string(nil)
+)
+
+func setupConfigTestVars() {
 	configTestVars = map[string]string{
 		"zone":              "us-central1-a",
 		"project":           "fake-domain.com:fake-project",
 		"project_id":        "12345678",
-		"instance":          "ig-us-central1-a-01-0000",
+		"instance":          *testInstanceName,
 		"internal_ip":       "192.168.0.10",
 		"external_ip":       "10.10.10.10",
 		"instance_template": "ig-us-central1-a-01",
 	}
-)
+}
 
 const (
 	configMetadataKeyName = "cloudprober_config"
@@ -128,6 +133,7 @@ func getConfig() string {
 
 func main() {
 	flag.Parse()
+	setupConfigTestVars()
 
 	if *configTest {
 		sysvars.Init(nil, configTestVars)
