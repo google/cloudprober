@@ -22,14 +22,17 @@ message DataNode {
 }
 
 // Message is a message sent over the network.
+// magic, seq, src and dst are required fields.
 message Message {
-  optional fixed64 magic = 1;
+  optional fixed64 magic = 1; // required.
 
   // 8 bytes of sequence in pcap-friendly network byte order.
-  optional bytes seq = 2;
+  optional bytes seq = 2; // required.
 
   // Datanodes seen by this message.
-  repeated DataNode nodes = 3;
+  optional DataNode src = 3; // required.
+  optional DataNode dst = 4; // required.
+  repeated DataNode nodes = 5; // Intermediate nodes.
 
   optional bytes pad = 99;
 }

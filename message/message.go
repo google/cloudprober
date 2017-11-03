@@ -22,13 +22,13 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/google/cloudprober/logger"
 )
 
-// FlowState maintains the state of flow on both the sender and receiver sides.
+// FlowState maintains the state of flow on both the src and dst sides.
 type FlowState struct {
-	mu     sync.Mutex
-	sender string
+	mu  sync.Mutex
+	src string
+	dst string
 
 	// largest sequence number received till now, except for resets.
 	seq uint64
@@ -47,14 +47,17 @@ type FlowStateMap struct {
 // Results captures the result of sequence number analysis after
 // processing the latest message.
 type Results struct {
-	FS        *FlowState
-	Msg       *Message
-	Sender    string
+	FS *FlowState
+
 	Success   bool
 	LostCount int
 	Delayed   bool
+	Dup       bool
 
-	// Inter-packet delay = delta_recv_ts - delta_send_ts.
+	// Delta of rxTS and src timestamp in message.
+	Latency time.Duration
+
+	// Inter-packet delay for one-way-packets = delta_recv_ts - delta_send_ts.
 	// delta_send_ts = sender_ts_for_seq - sender_ts_for_seq+1 (send_ts is in msg)
 	// delta_recv_ts = rcvr_ts_for_seq - rcvr_ts_for_seq+1 (ts at msg recv).
 	InterPktDelay time.Duration
@@ -62,9 +65,9 @@ type Results struct {
 
 const (
 	bytesInUint64 = 8
-	// If msgSeq - prevSeq is lesser than this number, assume sender restart.
+	// If msgSeq - prevSeq is lesser than this number, assume src restart.
 	delayedThreshold = 300
-	// If lost count is greater than seconds in a day, assume sender restart.
+	// If lost count is greater than seconds in a day, assume src restart.
 	lostThreshold = 3600 * 24
 )
 
@@ -100,6 +103,58 @@ func NetworkBytesToUint64(bytes []byte) uint64 {
 	return val
 }
 
+// Message is a wrapper struct for the message protobuf that provides
+// functions to access the most commonly accessed fields.
+type Message struct {
+	m *Message
+}
+
+// NewMessage parses a byte array into a message.
+func NewMessage(msgBytes []byte) (*Message, error) {
+	m := &Message{
+		m: &Message{},
+	}
+
+	msg := m.m
+	if err := proto.Unmarshal(msgBytes, msg); err != nil {
+		return nil, err
+	}
+
+	if msg.GetSrc() == nil {
+		return nil, fmt.Errorf("invalid message: no src node found")
+	}
+	if msg.GetDst() == nil {
+		return nil, fmt.Errorf("invalid message: no dst node found")
+	}
+
+	if msg.GetMagic() != constants.GetMagic() {
+		return nil, fmt.Errorf("invalid message from %s: got magic %x want %x", msg.GetSrc().GetName(), msg.GetMagic(), constants.GetMagic())
+	}
+
+	return m, nil
+}
+
+// Src returns the src node name.
+func (m *Message) Src() string {
+	return m.m.GetSrc().GetName()
+}
+
+// Dst returns the dst node name.
+func (m *Message) Dst() string {
+	return m.m.GetDst().GetName()
+}
+
+// Seq returns the sequence number.
+func (m *Message) Seq() uint64 {
+	return NetworkBytesToUint64(m.m.GetSeq())
+}
+
+// SrcTS returns the timestamp for the source.
+func (m *Message) SrcTS() time.Time {
+	tsVal := NetworkBytesToUint64(m.m.GetSrc().GetTimestampUsec())
+	return time.Unix(0, int64(tsVal)*1000)
+}
+
 // NewFlowStateMap returns a new FlowStateMap variable.
 func NewFlowStateMap() *FlowStateMap {
 	return &FlowStateMap{
@@ -107,38 +162,46 @@ func NewFlowStateMap() *FlowStateMap {
 	}
 }
 
-// FlowState returns the flow state for the sender, creating a new one
+// FlowState returns the flow state for the node, creating a new one
 // if necessary.
-func (fm *FlowStateMap) FlowState(sender string) *FlowState {
+func (fm *FlowStateMap) FlowState(src string, dst string) *FlowState {
 	fm.mu.Lock()
 	defer fm.mu.Unlock()
-	fs, ok := fm.flowState[sender]
+	idx := src + dst
+	fs, ok := fm.flowState[idx]
 	if !ok {
 		now := time.Now()
 		fs = &FlowState{
-			sender: sender,
-			msgTS:  now,
-			rxTS:   now,
+			src:   src,
+			dst:   dst,
+			msgTS: now,
+			rxTS:  now,
 		}
-		fm.flowState[sender] = fs
+		fm.flowState[idx] = fs
 	}
 	return fs
 }
 
 // CreateMessage creates a message for the flow and returns byte array
 // representation of the message and sequence number used on success.
-func (fs *FlowState) CreateMessage(ts time.Time, maxLen int) ([]byte, uint64, error) {
+// TODO: add Message.CreateMessage() fn and use it in FlowState.CreateMessage.
+func (fs *FlowState) CreateMessage(src string, dst string, ts time.Time, maxLen int) ([]byte, uint64, error) {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
-	srcNode := &DataNode{
-		Name:          proto.String(fs.sender),
-		TimestampUsec: Uint64ToNetworkBytes(uint64(ts.UnixNano()) / 1000),
-	}
+	dstType := DataNode_SERVER
 	msg := &Message{
 		Magic: proto.Uint64(constants.GetMagic()),
 		Seq:   Uint64ToNetworkBytes(fs.seq + 1),
-		Nodes: []*DataNode{srcNode},
+		Src: &DataNode{
+			Name:          proto.String(src),
+			TimestampUsec: Uint64ToNetworkBytes(uint64(ts.UnixNano()) / 1000),
+		},
+		Dst: &DataNode{
+			Name:          proto.String(dst),
+			TimestampUsec: Uint64ToNetworkBytes(uint64(0)),
+			Type:          &dstType,
+		},
 	}
 	bytes, err := proto.Marshal(msg)
 	if err != nil {
@@ -166,69 +229,51 @@ func (fs *FlowState) WithdrawMessage(seq uint64) bool {
 	return false
 }
 
-// ProcessMessage processes an incoming byte stream as a message.
+// ProcessOneWay processes a one-way message on the receiving end.
 // It updates FlowState for the sender seq|msgTS|rxTS and returns a
-// Results object with information on the message.
-func ProcessMessage(fsm *FlowStateMap, msgBytes []byte, rxTS time.Time, l *logger.Logger) (*Results, error) {
-	msg := &Message{}
-	if err := proto.Unmarshal(msgBytes, msg); err != nil {
-		return nil, err
+// Results object with metrics derived from the message.
+func (m *Message) ProcessOneWay(fsm *FlowStateMap, rxTS time.Time) *Results {
+	srcTS := m.SrcTS()
+	res := &Results{
+		Latency: rxTS.Sub(srcTS),
 	}
 
-	if len(msg.GetNodes()) == 0 {
-		return nil, fmt.Errorf("invalid message: no nodes found")
-	}
-	srcNode := msg.GetNodes()[0]
-	sender := srcNode.GetName()
-
-	if msg.GetMagic() != constants.GetMagic() {
-		return nil, fmt.Errorf("invalid message from %s: got magic %x want %x", sender, msg.GetMagic(), constants.GetMagic())
-	}
-
-	msgSeq := NetworkBytesToUint64(msg.GetSeq())
-	tsVal := NetworkBytesToUint64(srcNode.GetTimestampUsec())
-	msgTS := time.Unix(0, int64(tsVal)*1000)
-
-	fs := fsm.FlowState(sender)
+	fs := fsm.FlowState(m.Src(), m.Dst())
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
+	res.FS = fs
 
-	res := &Results{
-		Msg:    msg,
-		FS:     fs,
-		Sender: sender,
-	}
-
+	msgSeq := m.Seq()
 	seqDelta := int64(msgSeq - fs.seq)
 	// Reset flow state if any of the conditions are met.
 	// a) fs.seq == 0 => first packet in sequence.
-	// b) msgSeq is too far behind => sender might have been reset.
-	// c) msgSeq is too far ahead => receiver has gone out of sync for some reason.
+	// b) m.Seq is too far behind => src might have been reset.
+	// c) m.Seq is too far ahead => receiver has gone out of sync for some reason.
 	if fs.seq == 0 || seqDelta <= -delayedThreshold || seqDelta > lostThreshold {
 		fs.seq = msgSeq
-		fs.msgTS = msgTS
+		fs.msgTS = srcTS
 		fs.rxTS = rxTS
-		return res, nil
+		return res
 	}
 
 	if seqDelta > 0 {
 		res.LostCount = int(seqDelta - 1)
 		if res.LostCount == 0 {
 			res.Success = true
-			msgTSDelta := msgTS.Sub(fs.msgTS)
+			msgTSDelta := srcTS.Sub(fs.msgTS)
 			if msgTSDelta <= 0 {
 				msgTSDelta = 0
 			}
 			res.InterPktDelay = rxTS.Sub(fs.rxTS) - msgTSDelta
 		}
 		fs.seq = msgSeq
-		fs.msgTS = msgTS
+		fs.msgTS = srcTS
 		fs.rxTS = rxTS
 	} else if seqDelta == 0 {
 		// Repeat message !!!. Prober restart? or left over message?
-		l.Errorf("Duplicate seq from %s: seq %d msgTS: %s, %s", sender, msgSeq, fs.msgTS, msgTS)
+		res.Dup = true
 	} else {
 		res.Delayed = true
 	}
-	return res, nil
+	return res
 }
