@@ -106,13 +106,13 @@ func NetworkBytesToUint64(bytes []byte) uint64 {
 // Message is a wrapper struct for the message protobuf that provides
 // functions to access the most commonly accessed fields.
 type Message struct {
-	m *Message
+	m *Msg
 }
 
 // NewMessage parses a byte array into a message.
 func NewMessage(msgBytes []byte) (*Message, error) {
 	m := &Message{
-		m: &Message{},
+		m: &Msg{},
 	}
 
 	msg := m.m
@@ -190,7 +190,7 @@ func (fs *FlowState) CreateMessage(src string, dst string, ts time.Time, maxLen 
 	defer fs.mu.Unlock()
 
 	dstType := DataNode_SERVER
-	msg := &Message{
+	msg := &Msg{
 		Magic: proto.Uint64(constants.GetMagic()),
 		Seq:   Uint64ToNetworkBytes(fs.seq + 1),
 		Src: &DataNode{
