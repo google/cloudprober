@@ -21,9 +21,9 @@ message DataNode {
   optional bytes timestamp_usec = 3;
 }
 
-// Message is a message sent over the network.
+// Msg is a message sent over the network.
 // magic, seq, src and dst are required fields.
-message Message {
+message Msg {
   optional fixed64 magic = 1; // required.
 
   // 8 bytes of sequence in pcap-friendly network byte order.

@@ -91,7 +91,7 @@ func TestInvalidMessage(t *testing.T) {
 	}
 
 	// Invalid magic.
-	msg := &Message{
+	msg := &Msg{
 		Magic: proto.Uint64(constants.GetMagic() + 1),
 		Seq:   Uint64ToNetworkBytes(seq),
 		Src: &DataNode{
