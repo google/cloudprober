@@ -26,18 +26,36 @@ import (
 	"github.com/google/cloudprober/logger"
 )
 
+const (
+	// recv socket buffer size - we want to use a large value here, preferably
+	// the maximum allowed by the OS. 425984 is the max value in
+	// Container-Optimized OS version 9592.90.0.
+	readBufSize = 425984
+)
+
 // ListenAndServe launches an UDP echo server listening on the configured port.
 // This function returns only in case of an error.
 func ListenAndServe(ctx context.Context, c *ServerConf, l *logger.Logger) error {
-	conn, err := listen(c, l)
+	conn, err := Listen(int(c.GetPort()), l)
 	if err != nil {
 		return err
 	}
 	return serve(ctx, c, conn, l)
 }
 
-func listen(c *ServerConf, l *logger.Logger) (*net.UDPConn, error) {
-	return net.ListenUDP("udp", &net.UDPAddr{Port: int(c.GetPort())})
+// Listen opens a UDP socket on the given port. It also attempts to set recv
+// buffer to a large value so that we can have many oustanding UDP messages.
+func Listen(port int, l *logger.Logger) (*net.UDPConn, error) {
+	conn, err := net.ListenUDP("udp", &net.UDPAddr{Port: port})
+	if err != nil {
+		return nil, err
+	}
+	if err = conn.SetReadBuffer(readBufSize); err != nil {
+		// Non-fatal error if we are not able to set read socket buffer.
+		l.Errorf("Error setting UDP socket %v read buffer to %d: %s. Continuing...",
+			conn.LocalAddr(), readBufSize, err)
+	}
+	return conn, nil
 }
 
 func serve(ctx context.Context, c *ServerConf, conn *net.UDPConn, l *logger.Logger) error {
