@@ -9,4 +9,10 @@ message ProbeConf {
   // ProberConfig.udp_echo_server_port.
   // TODO: Can we just read this from ProberConfig?
   optional int32 port = 3 [default = 31122];
+
+  // Number of sending side ports to use.
+  optional int32 num_tx_ports = 4 [default = 16];
+
+  // message max to account for MTU.
+  optional int32 max_length = 5 [default = 1300];
 }

@@ -22,7 +22,6 @@ Queries to each target are sent in parallel.
 package udp
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -31,22 +30,40 @@ import (
 	"time"
 
 	"github.com/google/cloudprober/logger"
+	"github.com/google/cloudprober/message"
 	"github.com/google/cloudprober/metrics"
 	"github.com/google/cloudprober/probes/probeutils"
+	udpsrv "github.com/google/cloudprober/servers/udp"
+	"github.com/google/cloudprober/sysvars"
 	"github.com/google/cloudprober/targets"
+)
+
+const (
+	maxMsgSize = 65536
 )
 
 // Probe holds aggregate information about all probe runs, per-target.
 type Probe struct {
 	name     string
+	src      string
 	tgts     targets.Targets
 	interval time.Duration
 	timeout  time.Duration
 	c        *ProbeConf
 	l        *logger.Logger
 
-	// internal book-keeping
+	// List of UDP connections to use.
+	connList []*net.UDPConn
+	numConn  int32
+
+	// List of targets for a probe iteration.
 	targets []string
+	// map target name to flow state.
+	fsm *message.FlowStateMap
+
+	// Results by target. Uses mutex as send, recv threads modify it concurrently.
+	res map[string]*probeRunResult
+	mu  sync.Mutex
 }
 
 // probeRunResult captures the results of a single probe run. The way we work with
@@ -59,12 +76,7 @@ type probeRunResult struct {
 	success  metrics.Int
 	latency  metrics.Int // microseconds
 	timeouts metrics.Int
-}
-
-func newProbeRunResult(target string) probeRunResult {
-	return probeRunResult{
-		target: target,
-	}
+	delayed  metrics.Int
 }
 
 // Target returns the p.target.
@@ -78,7 +90,8 @@ func (prr probeRunResult) Metrics() *metrics.EventMetrics {
 		AddMetric("total", &prr.total).
 		AddMetric("success", &prr.success).
 		AddMetric("latency", &prr.latency).
-		AddMetric("timeouts", &prr.timeouts)
+		AddMetric("timeouts", &prr.timeouts).
+		AddMetric("delayed", &prr.delayed)
 }
 
 // Init initializes the probe with the given params.
@@ -91,14 +104,104 @@ func (p *Probe) Init(name string, tgts targets.Targets, interval, timeout time.D
 		return errors.New("not a UDP config")
 	}
 	p.name = name
+	p.src = sysvars.Vars()["hostname"]
 	p.tgts = tgts
 	p.interval = interval
 	p.timeout = timeout
 	p.c = c
 	p.l = l
-	p.targets = p.tgts.List()
+	p.fsm = message.NewFlowStateMap()
+	p.res = make(map[string]*probeRunResult)
 
+	// For one-way connections, we use a pool of sockets.
+	wantConn := p.c.GetNumTxPorts()
+	triesRemaining := wantConn * 2
+	p.numConn = 0
+	p.connList = make([]*net.UDPConn, wantConn)
+	for p.numConn < wantConn && triesRemaining > 0 {
+		triesRemaining--
+		udpConn, err := udpsrv.Listen(0, p.l)
+		if err != nil {
+			p.l.Warningf("Opening UDP socket failed: %v", err)
+			continue
+		}
+		p.l.Infof("UDP socket id %d, addr %v", p.numConn, udpConn.LocalAddr())
+		p.connList[p.numConn] = udpConn
+		p.numConn++
+	}
+	if p.numConn < wantConn {
+		for _, c := range p.connList {
+			c.Close()
+		}
+		return fmt.Errorf("UDP socket creation failed: got %d connections, want %d", p.numConn, wantConn)
+	}
 	return nil
+}
+
+// initProbeRunResults empties the current probe results objects, gets a list of
+// targets and builds a new result object for each target.
+func (p *Probe) initProbeRunResults() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	for k := range p.res {
+		delete(p.res, k)
+	}
+	for _, target := range p.targets {
+		p.res[target] = &probeRunResult{
+			target: target,
+		}
+	}
+}
+
+// flushProbeRunResults outputs results for the probe run to the resultsChan.
+func (p *Probe) flushProbeRunResults(resultsChan chan<- probeutils.ProbeResult) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	for _, result := range p.res {
+		resultsChan <- result
+	}
+}
+
+// updateSentCount is a helper function to increment total count for a target.
+func (p *Probe) updateSentCount(target string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	res, ok := p.res[target]
+	if !ok {
+		return
+	}
+	res.total.Inc()
+}
+
+// updateProbeResults takes a message.Result object and updates probe results.
+// NOTE: if latency > timeout, only the "delayed" counter (and not latency)
+// will be incremented.
+func (p *Probe) updateProbeResults(msg *message.Message, rxTS time.Time) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	res, ok := p.res[msg.Dst()]
+	if !ok {
+		return
+	}
+
+	latency := rxTS.Sub(msg.SrcTS())
+	if latency < 0 {
+		p.l.Errorf("Got negative time delta %v for %s->%s seq %d", latency, msg.Src(), msg.Dst(), msg.Seq())
+		return
+	}
+	if latency > p.timeout {
+		res.delayed.Inc()
+		return
+	}
+	res.success.Inc()
+	res.latency.IncBy(metrics.NewInt(latency.Nanoseconds() / 1000))
+}
+
+// send attempts to send data over UDP.
+func send(conn *net.UDPConn, raddr *net.UDPAddr, sendData []byte, timeout time.Duration) error {
+	conn.SetWriteDeadline(time.Now().Add(timeout))
+	_, _, err := conn.WriteMsgUDP(sendData, nil, raddr)
+	return err
 }
 
 // Return true if the underlying error indicates a udp.Client timeout.
@@ -108,82 +211,75 @@ func isClientTimeout(err error) bool {
 	return ok && e != nil && e.Timeout()
 }
 
-// Ping sends a UDP "ping" to addr.  Probe succeeds if the same data is returned within timeout.
-// TODO: Hide this once b/32340835 is fixed, that is, once nobody using it anymore.
-func Ping(addr string, timeout time.Duration) (success bool, latency time.Duration, err error) {
-	conn, err := net.DialTimeout("udp", addr, timeout)
-	if err != nil {
-		return false, latency, err
+// recvLoop receives all packets over a UDP socket and updates
+// flowStates accordingly.
+func (p *Probe) recvLoop(ctx context.Context, conn *net.UDPConn) {
+	b := make([]byte, maxMsgSize)
+	oob := make([]byte, maxMsgSize)
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
+		conn.SetReadDeadline(time.Now().Add(p.timeout))
+		msgLen, _, _, raddr, err := conn.ReadMsgUDP(b, oob)
+		if err != nil {
+			if !isClientTimeout(err) {
+				p.l.Errorf("Receive error on %s (from %v): %v", conn.LocalAddr(), raddr, err)
+			}
+			continue
+		}
+
+		rxTS := time.Now()
+		msg, err := message.NewMessage(b[:msgLen])
+		if err != nil {
+			p.l.Errorf("Incoming message error from %s: %v", raddr, err)
+			continue
+		}
+		p.updateProbeResults(msg, rxTS)
 	}
-
-	defer conn.Close()
-
-	t := time.Now()
-	conn.SetWriteDeadline(t.Add(timeout))
-	sendData := []byte(t.Format(time.RFC3339Nano))
-	if _, err = conn.Write(sendData); err != nil {
-		return false, latency, err
-	}
-
-	conn.SetReadDeadline(time.Now().Add(timeout))
-
-	b := make([]byte, 1024)
-	n, err := conn.Read(b)
-	latency = time.Since(t)
-
-	success = bytes.Equal(b[:n], sendData)
-
-	return success, latency, err
 }
 
 // runProbe performs a single probe run. The main thread launches one goroutine
 // per target to probe. It manages a sync.WaitGroup and Wait's until all probes
 // have finished, then exits the runProbe method.
 //
-// Each per-target goroutine writes its probe result to a channel connected to
-// the stats-keeper goroutine, and then exits. This channel is buffered so that
-// the per-target goroutines can exit quickly upon probe completion.
-func (p *Probe) runProbe(stats chan<- probeutils.ProbeResult) {
-	// Refresh the list of targets to probe.
-	p.targets = p.tgts.List()
-
+// Each per-target goroutine sends a UDP message and on success waits for
+// "timeout" duration before exiting. "recvLoop" function is expected to
+// capture the responses before "timeout" and the main loop will flush the
+// results.
+func (p *Probe) runProbe() {
+	maxLen := int(p.c.GetMaxLength())
 	wg := sync.WaitGroup{}
-
 	for _, target := range p.targets {
 		wg.Add(1)
 
-		// Launch a separate goroutine for each target.
-		// Write probe results to the "stats" channel.
-		go func(target string, stats chan<- probeutils.ProbeResult) {
+		// Launch a separate goroutine for each target. Wait for p.timeout before returning.
+		go func(target string) {
 			defer wg.Done()
+			flowState := p.fsm.FlowState(p.src, target)
 
-			result := probeRunResult{
-				target: target,
-			}
-
-			// Verified that each request will use different UDP ports.
 			fullTarget := net.JoinHostPort(target, fmt.Sprintf("%d", p.c.GetPort()))
-			result.total.Inc()
-			success, latency, err := Ping(fullTarget, p.timeout)
 
+			msg, seq, err := flowState.CreateMessage(p.src, target, time.Now(), maxLen)
+			conn := p.connList[seq%uint64(p.numConn)]
+
+			raddr, err := net.ResolveUDPAddr("udp", fullTarget)
 			if err != nil {
-				if isClientTimeout(err) {
-					p.l.Warningf("udpPing: Target(%s): Timeout error: %v", fullTarget, err)
-					result.timeouts.Inc()
-				} else {
-					p.l.Warningf("udpPing: Target(%s): %v", fullTarget, err)
-				}
-			} else {
-				if success {
-					result.success.Inc()
-					result.latency.IncBy(metrics.NewInt(latency.Nanoseconds() / 1000))
-				} else {
-					p.l.Warningf("Target(%s): Response is nil, but error is also nil", fullTarget)
-				}
+				p.l.Errorf("Unable to resolve %s: %v", fullTarget, err)
+				flowState.WithdrawMessage(seq)
+				return
 			}
-
-			stats <- result
-		}(target, stats)
+			if err = send(conn, raddr, msg, p.timeout); err != nil {
+				p.l.Errorf("Unable to send to %s(%v): %v", fullTarget, raddr, err)
+				flowState.WithdrawMessage(seq)
+				return
+			}
+			p.updateSentCount(target)
+			<-time.After(p.timeout)
+		}(target)
 	}
 
 	// Wait until all probes are done.
@@ -196,7 +292,25 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 	targetsFunc := func() []string {
 		return p.targets
 	}
-	go probeutils.StatsKeeper(ctx, "udp", p.name, time.Duration(p.c.GetStatsExportIntervalMsec())*time.Millisecond, targetsFunc, resultsChan, dataChan, p.l)
+	statsExportIntvl := time.Duration(p.c.GetStatsExportIntervalMsec()) * time.Millisecond
+	go probeutils.StatsKeeper(ctx, "udp", p.name, statsExportIntvl, targetsFunc, resultsChan, dataChan, p.l)
+
+	for _, conn := range p.connList {
+		go p.recvLoop(ctx, conn)
+	}
+
+	p.targets = p.tgts.List()
+	p.initProbeRunResults()
+
+	// Create a ticker more frequent than stats_export_interval. This will allow
+	// for aggregation of "delayed" packets without impacting probe results.
+	var ticker *time.Ticker
+	timeBuffer := time.Second * 5
+	if statsExportIntvl-timeBuffer > 0 {
+		ticker = time.NewTicker(statsExportIntvl - timeBuffer)
+	} else {
+		ticker = time.NewTicker(p.interval)
+	}
 
 	for range time.Tick(p.interval) {
 		// Don't run another probe if context is canceled already.
@@ -206,6 +320,15 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 		default:
 		}
 
-		p.runProbe(resultsChan)
+		p.runProbe()
+
+		// Use a ticker slower than stats export interval to output.
+		select {
+		case <-ticker.C:
+			p.flushProbeRunResults(resultsChan)
+			p.targets = p.tgts.List()
+			p.initProbeRunResults()
+		default:
+		}
 	}
 }

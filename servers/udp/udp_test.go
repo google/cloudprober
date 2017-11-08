@@ -101,7 +101,7 @@ func testServer(t *testing.T, testConfig *ServerConf) {
 	var serverAddr string
 	// Start server
 	go func() {
-		serverConn, err := listen(testConfig, l)
+		serverConn, err := Listen(int(testConfig.GetPort()), l)
 		if err != nil {
 			t.Fatal("Error starting listener for the server.")
 		}
