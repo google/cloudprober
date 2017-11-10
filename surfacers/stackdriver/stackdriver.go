@@ -400,6 +400,12 @@ func (s *SDSurfacer) recordEventMetrics(em *metrics.EventMetrics) (ts []*monitor
 			continue
 		}
 
+		// If metric value is of type Distribution.
+		if distValue, ok := val.(*metrics.Distribution); ok {
+			ts = append(ts, s.recordTimeSeries(metricKind, name, "DISTRIBUTION", mLabels, em.Timestamp, distValue.StackdriverTypedValue(), cacheKey))
+			continue
+		}
+
 		// We'll reach here only if encounter an unsupported value type.
 		s.l.Warningf("Unsupported value type: %v", val)
 	}
