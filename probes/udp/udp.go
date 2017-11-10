@@ -200,7 +200,7 @@ func (p *Probe) updateProbeResults(msg *message.Message, rxTS time.Time) {
 // send attempts to send data over UDP.
 func send(conn *net.UDPConn, raddr *net.UDPAddr, sendData []byte, timeout time.Duration) error {
 	conn.SetWriteDeadline(time.Now().Add(timeout))
-	_, _, err := conn.WriteMsgUDP(sendData, nil, raddr)
+	_, err := conn.WriteToUDP(sendData, raddr)
 	return err
 }
 
@@ -215,7 +215,6 @@ func isClientTimeout(err error) bool {
 // flowStates accordingly.
 func (p *Probe) recvLoop(ctx context.Context, conn *net.UDPConn) {
 	b := make([]byte, maxMsgSize)
-	oob := make([]byte, maxMsgSize)
 	for {
 		select {
 		case <-ctx.Done():
@@ -224,7 +223,7 @@ func (p *Probe) recvLoop(ctx context.Context, conn *net.UDPConn) {
 		}
 
 		conn.SetReadDeadline(time.Now().Add(p.timeout))
-		msgLen, _, _, raddr, err := conn.ReadMsgUDP(b, oob)
+		msgLen, raddr, err := conn.ReadFromUDP(b)
 		if err != nil {
 			if !isClientTimeout(err) {
 				p.l.Errorf("Receive error on %s (from %v): %v", conn.LocalAddr(), raddr, err)
