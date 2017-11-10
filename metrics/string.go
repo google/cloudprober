@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package metrics implements data types for probes generated data.
 package metrics
 
 import "errors"
