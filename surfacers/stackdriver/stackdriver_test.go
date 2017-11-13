@@ -67,7 +67,7 @@ func TestTimeSeries(t *testing.T) {
 			timeSeries: []*monitoring.TimeSeries{
 				&monitoring.TimeSeries{
 					Metric: &monitoring.Metric{
-						Type: "custom.googleapis.com/test-message",
+						Type: "custom.googleapis.com/cloudprober/test-message",
 					},
 					Resource: &monitoring.MonitoredResource{
 						Type: "gce_instance",
@@ -102,7 +102,7 @@ func TestTimeSeries(t *testing.T) {
 			timeSeries: []*monitoring.TimeSeries{
 				&monitoring.TimeSeries{
 					Metric: &monitoring.Metric{
-						Type: "custom.googleapis.com/version",
+						Type: "custom.googleapis.com/cloudprober/version",
 						Labels: map[string]string{
 							"keyA": "valueA",
 							"keyB": "valueB",
@@ -142,7 +142,7 @@ func TestTimeSeries(t *testing.T) {
 			timeSeries: []*monitoring.TimeSeries{
 				&monitoring.TimeSeries{
 					Metric: &monitoring.Metric{
-						Type: "custom.googleapis.com/version",
+						Type: "custom.googleapis.com/cloudprober/version",
 						Labels: map[string]string{
 							"keyA": "valueA",
 							"keyB": "valueB",
@@ -172,7 +172,7 @@ func TestTimeSeries(t *testing.T) {
 				},
 				&monitoring.TimeSeries{
 					Metric: &monitoring.Metric{
-						Type: "custom.googleapis.com/version",
+						Type: "custom.googleapis.com/cloudprober/version",
 						Labels: map[string]string{
 							"keyA": "valueA",
 							"keyB": "valueB",
