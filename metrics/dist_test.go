@@ -15,7 +15,11 @@
 package metrics
 
 import (
+	"math"
+	"reflect"
 	"testing"
+
+	"github.com/golang/protobuf/proto"
 )
 
 func verifyBucketCount(t *testing.T, d *Distribution, indices []int, counts []int64) {
@@ -24,6 +28,31 @@ func verifyBucketCount(t *testing.T, d *Distribution, indices []int, counts []in
 			t.Errorf("For bucket with index %d and lower bound: %f, expected count: %d, got: %d", i, d.lowerBounds[i], counts[i], d.bucketCounts[i])
 			t.Logf("Dist: %v", d.bucketCounts)
 		}
+	}
+}
+
+func protoToDist(t *testing.T, testDistProtoText string) *Distribution {
+	testDistProto := &Distribution{}
+	if err := proto.UnmarshalText(testDistProtoText, testDistProto); err != nil {
+		t.Errorf("Failed parsing distribution proto text: %s. Err: %v", testDistProtoText, err)
+		return nil
+	}
+	d, err := NewDistributionFromProto(testDistProto)
+	if err != nil {
+		t.Errorf("Error while creating distrubtion from the protobuf: %s. Err: %v", testDistProtoText, err)
+		return nil
+	}
+	return d
+}
+
+func TestNewDistributionFromProto(t *testing.T) {
+	testDistProtoText := `
+	  explicit_buckets: "1,2,4,8,16,32"
+	`
+	expectedLowerBounds := []float64{math.Inf(-1), 1, 2, 4, 8, 16, 32}
+	d := protoToDist(t, testDistProtoText)
+	if !reflect.DeepEqual(d.lowerBounds, expectedLowerBounds) {
+		t.Errorf("Unexpected lower bounds from proto. d.lowerBounds=%v, want=%v.", d.lowerBounds, expectedLowerBounds)
 	}
 }
 
@@ -73,7 +102,7 @@ func TestString(t *testing.T) {
 	}
 
 	s := d.String()
-	want := "dist:sum:21.500|count:3|lb:-Inf,1.000,5.000,15.000,30.000,45.000|bc:1,1,0,1,0,0"
+	want := "dist:sum:21.5|count:3|lb:-Inf,1,5,15,30,45|bc:1,1,0,1,0,0"
 	if s != want {
 		t.Errorf("String is not in expected format. d.String()=%s, want: %s", s, want)
 	}

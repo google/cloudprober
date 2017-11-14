@@ -13,7 +13,7 @@
 // limitations under the License.
 
 /*
-Probes package provides an interface to initialize probes using prober config.
+Package probes provides an interface to initialize probes using prober config.
 */
 package probes
 
@@ -105,9 +105,15 @@ func Init(probeProtobufs []*ProbeDef, globalTargetsOpts *targets.GlobalTargetsOp
 		if opts.Logger, err = newLogger(p.GetName()); err != nil {
 			glog.Exitf("Error in initializing logger for the probe %s. Err: %v", p.GetName(), err)
 		}
-
 		if opts.Targets, err = targets.New(p.GetTargets(), globalTargetsOpts, globalTargetsLogger, opts.Logger); err != nil {
 			glog.Exit(err)
+		}
+		if latencyDist := p.GetLatencyDistribution(); latencyDist != nil {
+			if d, err := metrics.NewDistributionFromProto(latencyDist); err != nil {
+				glog.Exitf("Error creating distribution from the specification: %v. Err: %v", latencyDist, err)
+			} else {
+				opts.LatencyDist = d
+			}
 		}
 		probes[p.GetName()] = initProbe(p, opts)
 	}

@@ -20,6 +20,7 @@ import (
 	"math"
 	"reflect"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -43,6 +44,27 @@ func NewDistribution(lowerBounds []float64) *Distribution {
 		lowerBounds:  append([]float64{math.Inf(-1)}, lowerBounds...),
 		bucketCounts: make([]int64, len(lowerBounds)+1),
 	}
+}
+
+// NewDistributionFromProto returns a new distribution based on the provided
+// protobuf.
+func NewDistributionFromProto(distProto *Distribution) (*Distribution, error) {
+	switch distProto.Buckets.(type) {
+	case *Distribution_ExplicitBuckets:
+		lbStringA := strings.Split(distProto.GetExplicitBuckets(), ",")
+		lowerBounds := make([]float64, len(lbStringA))
+		for i, tok := range lbStringA {
+			lb, err := strconv.ParseFloat(tok, 64)
+			if err != nil {
+				return nil, fmt.Errorf("invalid lower bound for bucket: %s. Err: %v", tok, err)
+			}
+			lowerBounds[i] = lb
+		}
+		return NewDistribution(lowerBounds), nil
+	case *Distribution_ExponentialBuckets:
+		return nil, errors.New("exponential buckets are not supported yet")
+	}
+	return nil, fmt.Errorf("unknown buckets type: %v", distProto.Buckets)
 }
 
 func (d *Distribution) bucketIndex(sample float64) int {
@@ -97,19 +119,19 @@ func (d *Distribution) Add(val Value) error {
 // For example for a distribution with lower bounds 0.5, 2.0, 7.5 and
 // bucket counts 34, 54, 121, 12, string representation will look like the
 // following:
-// dist:sum:899|count:221|lb:-Inf,0.500,2.000,7.5000|bc:34,54,121,12
+// dist:sum:899|count:221|lb:-Inf,0.5,2,7.5|bc:34,54,121,12
 func (d *Distribution) String() string {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
 	var tokens []string
 
-	tokens = append(tokens, fmt.Sprintf("sum:%.03f", d.sum))
+	tokens = append(tokens, fmt.Sprintf("sum:%s", strconv.FormatFloat(d.sum, 'f', -1, 64)))
 	tokens = append(tokens, fmt.Sprintf("count:%d", d.count))
 
 	tok := "lb:"
 	for _, lb := range d.lowerBounds {
-		tok = fmt.Sprintf("%s%.03f,", tok, lb)
+		tok = fmt.Sprintf("%s%s,", tok, strconv.FormatFloat(lb, 'f', -1, 64))
 	}
 	tok = tok[:len(tok)-1] // Remove last ","
 	tokens = append(tokens, tok)
@@ -133,7 +155,7 @@ func (d *Distribution) StackdriverTypedValue() *monitoring.TypedValue {
 		BucketCounts: googleapi.Int64s(append([]int64{}, d.bucketCounts...)),
 		BucketOptions: &monitoring.BucketOptions{
 			ExplicitBuckets: &monitoring.Explicit{
-				Bounds: append([]float64{}, d.lowerBounds...),
+				Bounds: append([]float64{}, d.lowerBounds[1:]...),
 			},
 		},
 		Count: d.count,
@@ -146,11 +168,16 @@ func (d *Distribution) StackdriverTypedValue() *monitoring.TypedValue {
 func (d *Distribution) clone() Value {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
-	newD := NewDistribution(d.lowerBounds)
+	newD := NewDistribution(d.lowerBounds[1:])
 	newD.sum = d.sum
 	newD.count = d.count
 	for i := range d.bucketCounts {
 		newD.bucketCounts[i] = d.bucketCounts[i]
 	}
 	return newD
+}
+
+// Clone returns a copy of the receiver distribution.
+func (d *Distribution) Clone() *Distribution {
+	return d.clone().(*Distribution)
 }
