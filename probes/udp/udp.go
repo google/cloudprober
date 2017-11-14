@@ -32,10 +32,10 @@ import (
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/message"
 	"github.com/google/cloudprober/metrics"
+	"github.com/google/cloudprober/probes/options"
 	"github.com/google/cloudprober/probes/probeutils"
 	udpsrv "github.com/google/cloudprober/servers/udp"
 	"github.com/google/cloudprober/sysvars"
-	"github.com/google/cloudprober/targets"
 )
 
 const (
@@ -44,13 +44,11 @@ const (
 
 // Probe holds aggregate information about all probe runs, per-target.
 type Probe struct {
-	name     string
-	src      string
-	tgts     targets.Targets
-	interval time.Duration
-	timeout  time.Duration
-	c        *ProbeConf
-	l        *logger.Logger
+	name string
+	opts *options.Options
+	src  string
+	c    *ProbeConf
+	l    *logger.Logger
 
 	// List of UDP connections to use.
 	connList []*net.UDPConn
@@ -95,21 +93,18 @@ func (prr probeRunResult) Metrics() *metrics.EventMetrics {
 }
 
 // Init initializes the probe with the given params.
-func (p *Probe) Init(name string, tgts targets.Targets, interval, timeout time.Duration, l *logger.Logger, v interface{}) error {
-	if l == nil {
-		l = &logger.Logger{}
-	}
-	c, ok := v.(*ProbeConf)
+func (p *Probe) Init(name string, opts *options.Options) error {
+	c, ok := opts.ProbeConf.(*ProbeConf)
 	if !ok {
 		return errors.New("not a UDP config")
 	}
 	p.name = name
+	p.opts = opts
+	if p.l = opts.Logger; p.l == nil {
+		p.l = &logger.Logger{}
+	}
 	p.src = sysvars.Vars()["hostname"]
-	p.tgts = tgts
-	p.interval = interval
-	p.timeout = timeout
 	p.c = c
-	p.l = l
 	p.fsm = message.NewFlowStateMap()
 	p.res = make(map[string]*probeRunResult)
 
@@ -189,7 +184,7 @@ func (p *Probe) updateProbeResults(msg *message.Message, rxTS time.Time) {
 		p.l.Errorf("Got negative time delta %v for %s->%s seq %d", latency, msg.Src(), msg.Dst(), msg.Seq())
 		return
 	}
-	if latency > p.timeout {
+	if latency > p.opts.Timeout {
 		res.delayed.Inc()
 		return
 	}
@@ -222,7 +217,7 @@ func (p *Probe) recvLoop(ctx context.Context, conn *net.UDPConn) {
 		default:
 		}
 
-		conn.SetReadDeadline(time.Now().Add(p.timeout))
+		conn.SetReadDeadline(time.Now().Add(p.opts.Timeout))
 		msgLen, raddr, err := conn.ReadFromUDP(b)
 		if err != nil {
 			if !isClientTimeout(err) {
@@ -255,7 +250,7 @@ func (p *Probe) runProbe() {
 	for _, target := range p.targets {
 		wg.Add(1)
 
-		// Launch a separate goroutine for each target. Wait for p.timeout before returning.
+		// Launch a separate goroutine for each target. Wait for p.opts.Timeout before returning.
 		go func(target string) {
 			defer wg.Done()
 			flowState := p.fsm.FlowState(p.src, target)
@@ -271,13 +266,13 @@ func (p *Probe) runProbe() {
 				flowState.WithdrawMessage(seq)
 				return
 			}
-			if err = send(conn, raddr, msg, p.timeout); err != nil {
+			if err = send(conn, raddr, msg, p.opts.Timeout); err != nil {
 				p.l.Errorf("Unable to send to %s(%v): %v", fullTarget, raddr, err)
 				flowState.WithdrawMessage(seq)
 				return
 			}
 			p.updateSentCount(target)
-			<-time.After(p.timeout)
+			<-time.After(p.opts.Timeout)
 		}(target)
 	}
 
@@ -298,7 +293,7 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 		go p.recvLoop(ctx, conn)
 	}
 
-	p.targets = p.tgts.List()
+	p.targets = p.opts.Targets.List()
 	p.initProbeRunResults()
 
 	// Create a ticker more frequent than stats_export_interval. This will allow
@@ -308,10 +303,10 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 	if statsExportIntvl-timeBuffer > 0 {
 		ticker = time.NewTicker(statsExportIntvl - timeBuffer)
 	} else {
-		ticker = time.NewTicker(p.interval)
+		ticker = time.NewTicker(p.opts.Interval)
 	}
 
-	for range time.Tick(p.interval) {
+	for range time.Tick(p.opts.Interval) {
 		// Don't run another probe if context is canceled already.
 		select {
 		case <-ctx.Done():
@@ -325,7 +320,7 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 		select {
 		case <-ticker.C:
 			p.flushProbeRunResults(resultsChan)
-			p.targets = p.tgts.List()
+			p.targets = p.opts.Targets.List()
 			p.initProbeRunResults()
 		default:
 		}

@@ -23,6 +23,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/logger"
+	"github.com/google/cloudprober/probes/options"
 	"github.com/google/cloudprober/sysvars"
 	"github.com/google/cloudprober/targets"
 )
@@ -85,17 +86,21 @@ func startUDPServer(ctx context.Context, t *testing.T, drop bool, delay time.Dur
 }
 
 func runProbe(ctx context.Context, t *testing.T, port int, interval, timeout time.Duration, pktsToSend int, scs *serverConnStats) *Probe {
-	tgts := targets.StaticTargets("localhost")
 	sysvars.Init(&logger.Logger{}, nil)
 	p := &Probe{}
-	if err := p.Init("udp", tgts, interval, timeout, nil,
-		&ProbeConf{
+	opts := &options.Options{
+		Targets:  targets.StaticTargets("localhost"),
+		Interval: interval,
+		Timeout:  timeout,
+		ProbeConf: &ProbeConf{
 			Port:       proto.Int32(int32(port)),
 			NumTxPorts: proto.Int32(2),
-		}); err != nil {
+		},
+	}
+	if err := p.Init("udp", opts); err != nil {
 		t.Fatalf("Error initialzing UDP probe")
 	}
-	p.targets = p.tgts.List()
+	p.targets = p.opts.Targets.List()
 	p.initProbeRunResults()
 	for _, conn := range p.connList {
 		go p.recvLoop(ctx, conn)

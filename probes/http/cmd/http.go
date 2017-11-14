@@ -28,6 +28,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/metrics"
 	"github.com/google/cloudprober/probes/http"
+	"github.com/google/cloudprober/probes/options"
 	"github.com/google/cloudprober/targets"
 )
 
@@ -54,12 +55,15 @@ func main() {
 		}
 	}
 
-	interval := *intervalF
-	timeout := *timeoutF
-	tgts := targets.StaticTargets(*targetsF)
+	opts := &options.Options{
+		Interval:  *intervalF,
+		Timeout:   *timeoutF,
+		Targets:   targets.StaticTargets(*targetsF),
+		ProbeConf: c,
+	}
 
 	hp := &http.Probe{}
-	if err := hp.Init("http_test", tgts, interval, timeout, nil, c); err != nil {
+	if err := hp.Init("http_test", opts); err != nil {
 		glog.Exitf("Error in initializing probe %s from the config. Err: %v", "http_test", err)
 	}
 	dataChan := make(chan *metrics.EventMetrics, 1000)

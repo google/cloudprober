@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/google/cloudprober/probes/options"
 	"github.com/google/cloudprober/probes/probeutils"
 	"github.com/google/cloudprober/targets"
 	"github.com/miekg/dns"
@@ -32,16 +33,18 @@ func (*mockClient) Exchange(*dns.Msg, string) (*dns.Msg, time.Duration, error) {
 func (*mockClient) SetReadTimeout(time.Duration) {}
 
 func TestRun(t *testing.T) {
-	c := &ProbeConf{
-		StatsExportIntervalMsec: proto.Int32(1000),
-	}
-
 	p := &Probe{}
-
-	tgts := targets.StaticTargets("8.8.8.8")
-	p.Init("dns_test", tgts, 2*time.Second, time.Second, nil, c)
+	opts := &options.Options{
+		Targets:  targets.StaticTargets("8.8.8.8"),
+		Interval: 2 * time.Second,
+		Timeout:  time.Second,
+		ProbeConf: &ProbeConf{
+			StatsExportIntervalMsec: proto.Int32(1000),
+		},
+	}
+	p.Init("dns_test", opts)
 	p.client = new(mockClient)
-	p.targets = p.tgts.List()
+	p.targets = p.opts.Targets.List()
 
 	resultsChan := make(chan probeutils.ProbeResult, len(p.targets))
 	p.runProbe(resultsChan)

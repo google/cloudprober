@@ -28,6 +28,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/metrics"
 	"github.com/google/cloudprober/probes/dns"
+	"github.com/google/cloudprober/probes/options"
 	"github.com/google/cloudprober/targets"
 )
 
@@ -54,12 +55,15 @@ func main() {
 		}
 	}
 
-	interval := *intervalF
-	timeout := *timeoutF
-	tgts := targets.StaticTargets(*targetsF)
+	opts := &options.Options{
+		Interval:  *intervalF,
+		Timeout:   *timeoutF,
+		Targets:   targets.StaticTargets(*targetsF),
+		ProbeConf: c,
+	}
 
 	dp := &dns.Probe{}
-	if err := dp.Init("dns_test", tgts, interval, timeout, nil, c); err != nil {
+	if err := dp.Init("dns_test", opts); err != nil {
 		glog.Exitf("Error in initializing probe %s from the config. Err: %v", "dns_test", err)
 	}
 	dataChan := make(chan *metrics.EventMetrics, 1000)

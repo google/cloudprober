@@ -27,8 +27,8 @@ import (
 
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
+	"github.com/google/cloudprober/probes/options"
 	"github.com/google/cloudprober/probes/probeutils"
-	"github.com/google/cloudprober/targets"
 )
 
 const (
@@ -37,13 +37,11 @@ const (
 
 // Probe holds aggregate information about all probe runs, per-target.
 type Probe struct {
-	name     string
-	tgts     targets.Targets
-	interval time.Duration
-	timeout  time.Duration
-	c        *ProbeConf
-	l        *logger.Logger
-	client   *http.Client
+	name   string
+	opts   *options.Options
+	c      *ProbeConf
+	l      *logger.Logger
+	client *http.Client
 
 	// book-keeping params
 	targets  []string
@@ -94,22 +92,19 @@ func (prr probeRunResult) Target() string {
 }
 
 // Init initializes the probe with the given params.
-func (p *Probe) Init(name string, tgts targets.Targets, interval, timeout time.Duration, l *logger.Logger, v interface{}) error {
-	if l == nil {
-		l = &logger.Logger{}
-	}
-	c, ok := v.(*ProbeConf)
+func (p *Probe) Init(name string, opts *options.Options) error {
+	c, ok := opts.ProbeConf.(*ProbeConf)
 	if !ok {
 		return fmt.Errorf("no http config")
 	}
 	p.name = name
-	p.tgts = tgts
-	p.interval = interval
-	p.timeout = timeout
+	p.opts = opts
+	if p.l = opts.Logger; p.l == nil {
+		p.l = &logger.Logger{}
+	}
 	p.c = c
-	p.l = l
 
-	p.targets = p.tgts.List()
+	p.targets = p.opts.Targets.List()
 
 	switch p.c.GetProtocol() {
 	case ProbeConf_HTTP:
@@ -135,7 +130,7 @@ func (p *Probe) Init(name string, tgts targets.Targets, interval, timeout time.D
 	// Clients are safe for concurrent use by multiple goroutines.
 	p.client = &http.Client{
 		Transport: transport,
-		Timeout:   p.timeout,
+		Timeout:   p.opts.Timeout,
 	}
 
 	return nil
@@ -156,7 +151,7 @@ func isClientTimeout(err error) bool {
 func (p *Probe) runProbe(resultsChan chan<- probeutils.ProbeResult) {
 
 	// Refresh the list of targets to probe.
-	p.targets = p.tgts.List()
+	p.targets = p.opts.Targets.List()
 
 	wg := sync.WaitGroup{}
 
@@ -172,7 +167,7 @@ func (p *Probe) runProbe(resultsChan chan<- probeutils.ProbeResult) {
 			// Prepare HTTP.Request for Client.Do
 			host := target
 			if p.c.GetResolveFirst() {
-				ip, err := p.tgts.Resolve(target, 4) // Support IPv4 for now, should be a config option.
+				ip, err := p.opts.Targets.Resolve(target, 4) // Support IPv4 for now, should be a config option.
 				if err != nil {
 					p.l.Errorf("Target:%s,  http.runProbe: error resolving the target: %v", target, err)
 					return
@@ -249,7 +244,7 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 	}
 	go probeutils.StatsKeeper(ctx, "http", p.name, time.Duration(p.c.GetStatsExportIntervalMsec())*time.Millisecond, targetsFunc, resultsChan, dataChan, p.l)
 
-	for _ = range time.Tick(p.interval) {
+	for _ = range time.Tick(p.opts.Interval) {
 		// Don't run another probe if context is canceled already.
 		select {
 		case <-ctx.Done():
