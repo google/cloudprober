@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/google/cloudprober/logger"
+	"github.com/google/cloudprober/metrics"
 	"github.com/google/cloudprober/targets"
 )
 
@@ -30,4 +31,5 @@ type Options struct {
 	Interval, Timeout time.Duration
 	Logger            *logger.Logger
 	ProbeConf         interface{} // Probe-type specific config
+	LatencyDist       *metrics.Distribution
 }

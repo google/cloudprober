@@ -1,5 +1,6 @@
 syntax = "proto2";
 
+import "github.com/google/cloudprober/metrics/dist.proto";
 import "github.com/google/cloudprober/probes/http/config.proto";
 import "github.com/google/cloudprober/probes/dns/config.proto";
 import "github.com/google/cloudprober/probes/external/config.proto";
@@ -34,6 +35,9 @@ message ProbeDef {
 
   // Targets for the probe
   required targets.TargetsDef targets = 6;
+
+  // Latency distribution. If specified, latency is stored as a distribution.
+  optional metrics.Distribution latency_distribution = 7;
 
   oneof probe {
     ping.ProbeConf ping_probe = 20;
