@@ -26,6 +26,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/metrics"
+	"github.com/google/cloudprober/probes/options"
 	"github.com/google/cloudprober/probes/ping"
 	"github.com/google/cloudprober/targets"
 )
@@ -38,8 +39,6 @@ var (
 func main() {
 	flag.Parse()
 
-	tgts := targets.StaticTargets(*targetsF)
-
 	probeConfig := &ping.ProbeConf{}
 	if *config != "" {
 		b, err := ioutil.ReadFile(*config)
@@ -50,8 +49,15 @@ func main() {
 			glog.Exitf("error while parsing config: %v", err)
 		}
 	}
+
+	opts := &options.Options{
+		Targets:   targets.StaticTargets(*targetsF),
+		Interval:  2 * time.Second,
+		Timeout:   time.Second,
+		ProbeConf: probeConfig,
+	}
 	p := &ping.Probe{}
-	if err := p.Init("ping", tgts, 2*time.Second, time.Second, nil, probeConfig); err != nil {
+	if err := p.Init("ping", opts); err != nil {
 		glog.Exitf("error initializing ping probe from config: %v", err)
 	}
 

@@ -19,7 +19,6 @@ package probes
 
 import (
 	"context"
-	"fmt"
 	"regexp"
 	"sync"
 	"time"
@@ -31,6 +30,7 @@ import (
 	"github.com/google/cloudprober/probes/dns"
 	"github.com/google/cloudprober/probes/external"
 	httpprobe "github.com/google/cloudprober/probes/http"
+	"github.com/google/cloudprober/probes/options"
 	"github.com/google/cloudprober/probes/ping"
 	"github.com/google/cloudprober/probes/udp"
 	"github.com/google/cloudprober/targets"
@@ -60,15 +60,14 @@ func runOnThisHost(runOn string, hostname string) bool {
 // Probe interface represents a probe.
 //
 // A probe is initilized using the Init() method. Init takes the name of the
-// probe, a targets.Targets object, interval (how often to run the probe),
-// timeout, a logger.Logger handle and the probe type specific config.
+// probe and probe options.
 //
 // Start() method starts the probe. Start is not expected to return for the
 // lifetime of the prober. It takes a data channel that it writes the probe
 // results on. Actual publishing of these results is handled by cloudprober
 // itself.
 type Probe interface {
-	Init(name string, tgts targets.Targets, interval, timeout time.Duration, l *logger.Logger, config interface{}) error
+	Init(name string, opts *options.Options) error
 	Start(ctx context.Context, dataChan chan *metrics.EventMetrics)
 }
 
@@ -98,56 +97,54 @@ func Init(probeProtobufs []*ProbeDef, globalTargetsOpts *targets.GlobalTargetsOp
 		if probes[p.GetName()] != nil {
 			glog.Exitf("Bad config: probe %s is already defined", p.GetName())
 		}
-		l, err := newLogger(p.GetName())
-		if err != nil {
+		opts := &options.Options{
+			Interval: time.Duration(p.GetIntervalMsec()) * time.Millisecond,
+			Timeout:  time.Duration(p.GetTimeoutMsec()) * time.Millisecond,
+		}
+		var err error
+		if opts.Logger, err = newLogger(p.GetName()); err != nil {
 			glog.Exitf("Error in initializing logger for the probe %s. Err: %v", p.GetName(), err)
 		}
 
-		interval := time.Duration(p.GetIntervalMsec()) * time.Millisecond
-		timeout := time.Duration(p.GetTimeoutMsec()) * time.Millisecond
-		tgts, err := targets.New(p.GetTargets(), globalTargetsOpts, globalTargetsLogger, l)
-		if err != nil {
+		if opts.Targets, err = targets.New(p.GetTargets(), globalTargetsOpts, globalTargetsLogger, opts.Logger); err != nil {
 			glog.Exit(err)
 		}
-		probes[p.GetName()] = initProbe(p, tgts, interval, timeout, l)
+		probes[p.GetName()] = initProbe(p, opts)
 	}
 	return probes
 }
 
-func initProbe(p *ProbeDef, tgts targets.Targets, interval, timeout time.Duration, l *logger.Logger) (probe Probe) {
+func initProbe(p *ProbeDef, opts *options.Options) (probe Probe) {
 	glog.Infof("Creating a %s probe: %s", p.GetType(), p.GetName())
-	var err error
 
 	switch p.GetType() {
 	case ProbeDef_PING:
 		probe = &ping.Probe{}
-		err = probe.Init(p.GetName(), tgts, interval, timeout, l, p.GetPingProbe())
+		opts.ProbeConf = p.GetPingProbe()
 	case ProbeDef_HTTP:
 		probe = &httpprobe.Probe{}
-		err = probe.Init(p.GetName(), tgts, interval, timeout, l, p.GetHttpProbe())
+		opts.ProbeConf = p.GetHttpProbe()
 	case ProbeDef_DNS:
 		probe = &dns.Probe{}
-		err = probe.Init(p.GetName(), tgts, interval, timeout, l, p.GetDnsProbe())
+		opts.ProbeConf = p.GetDnsProbe()
 	case ProbeDef_EXTERNAL:
 		probe = &external.Probe{}
-		err = probe.Init(p.GetName(), tgts, interval, timeout, l, p.GetExternalProbe())
+		opts.ProbeConf = p.GetExternalProbe()
 	case ProbeDef_UDP:
 		probe = &udp.Probe{}
-		err = probe.Init(p.GetName(), tgts, interval, timeout, l, p.GetUdpProbe())
+		opts.ProbeConf = p.GetUdpProbe()
 	case ProbeDef_USER_DEFINED:
 		userDefinedProbesMu.Lock()
 		defer userDefinedProbesMu.Unlock()
 		probe := userDefinedProbes[p.GetName()]
 		if probe == nil {
-			err = fmt.Errorf("unregistered user defined probe: %s", p.GetName())
-		} else {
-			err = probe.Init(p.GetName(), tgts, interval, timeout, l, p.GetUserDefinedProbe())
+			glog.Exitf("unregistered user defined probe: %s", p.GetName())
 		}
+		opts.ProbeConf = p.GetUserDefinedProbe()
 	default:
 		glog.Exitf("Unknown probe type: %s", p.GetType())
 	}
-
-	if err != nil {
+	if err := probe.Init(p.GetName(), opts); err != nil {
 		glog.Exitf("Error in initializing probe %s from the config. Err: %v", p.GetName(), err)
 	}
 	return

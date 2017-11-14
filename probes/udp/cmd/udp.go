@@ -27,6 +27,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/metrics"
+	"github.com/google/cloudprober/probes/options"
 	"github.com/google/cloudprober/probes/udp"
 	"github.com/google/cloudprober/targets"
 )
@@ -54,12 +55,15 @@ func main() {
 		}
 	}
 
-	interval := *intervalF
-	timeout := *timeoutF
-	tgts := targets.StaticTargets(*targetsF)
+	opts := &options.Options{
+		Targets:   targets.StaticTargets(*targetsF),
+		Interval:  *intervalF,
+		Timeout:   *timeoutF,
+		ProbeConf: c,
+	}
 
 	up := &udp.Probe{}
-	if err := up.Init("udp_test", tgts, interval, timeout, nil, c); err != nil {
+	if err := up.Init("udp_test", opts); err != nil {
 		glog.Exitf("Error in initializing probe %s from the config. Err: %v", "udp_test", err)
 	}
 	dataChan := make(chan *metrics.EventMetrics, 1000)

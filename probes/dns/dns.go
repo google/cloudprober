@@ -32,8 +32,8 @@ import (
 
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
+	"github.com/google/cloudprober/probes/options"
 	"github.com/google/cloudprober/probes/probeutils"
-	"github.com/google/cloudprober/targets"
 	"github.com/miekg/dns"
 )
 
@@ -56,12 +56,10 @@ func (c *ClientImpl) SetReadTimeout(d time.Duration) {
 
 // Probe holds aggregate information about all probe runs, per-target.
 type Probe struct {
-	name     string
-	tgts     targets.Targets
-	interval time.Duration
-	timeout  time.Duration
-	c        *ProbeConf
-	l        *logger.Logger
+	name string
+	opts *options.Options
+	c    *ProbeConf
+	l    *logger.Logger
 
 	// book-keeping params
 	targets []string
@@ -102,21 +100,18 @@ func (prr probeRunResult) Target() string {
 }
 
 // Init initializes the probe with the given params.
-func (p *Probe) Init(name string, tgts targets.Targets, interval, timeout time.Duration, l *logger.Logger, v interface{}) error {
-	if l == nil {
-		l = &logger.Logger{}
-	}
-	c, ok := v.(*ProbeConf)
+func (p *Probe) Init(name string, opts *options.Options) error {
+	c, ok := opts.ProbeConf.(*ProbeConf)
 	if !ok {
 		return errors.New("no dns config")
 	}
-	p.name = name
-	p.tgts = tgts
-	p.interval = interval
-	p.timeout = timeout
 	p.c = c
-	p.l = l
-	p.targets = p.tgts.List()
+	p.name = name
+	p.opts = opts
+	if p.l = opts.Logger; p.l == nil {
+		p.l = &logger.Logger{}
+	}
+	p.targets = p.opts.Targets.List()
 
 	// I believe these objects are safe for concurrent use by multiple goroutines
 	// (although the documentation doesn't explicitly say so). It uses locks
@@ -127,7 +122,7 @@ func (p *Probe) Init(name string, tgts targets.Targets, interval, timeout time.D
 
 	p.client = new(ClientImpl)
 	// Use ReadTimeout because DialTimeout for UDP is not the RTT.
-	p.client.SetReadTimeout(p.timeout)
+	p.client.SetReadTimeout(p.opts.Timeout)
 
 	return nil
 }
@@ -142,7 +137,7 @@ func isClientTimeout(err error) bool {
 func (p *Probe) runProbe(resultsChan chan<- probeutils.ProbeResult) {
 
 	// Refresh the list of targets to probe.
-	p.targets = p.tgts.List()
+	p.targets = p.opts.Targets.List()
 
 	wg := sync.WaitGroup{}
 
@@ -198,7 +193,7 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 	}
 	go probeutils.StatsKeeper(ctx, "dns", p.name, time.Duration(p.c.GetStatsExportIntervalMsec())*time.Millisecond, targetsFunc, resultsChan, dataChan, p.l)
 
-	for range time.Tick(p.interval) {
+	for range time.Tick(p.opts.Interval) {
 		// Don't run another probe if context is canceled already.
 		select {
 		case <-ctx.Done():

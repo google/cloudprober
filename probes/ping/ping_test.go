@@ -26,6 +26,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/logger"
+	"github.com/google/cloudprober/probes/options"
 	"github.com/google/cloudprober/targets"
 	"golang.org/x/net/icmp"
 	"golang.org/x/net/ipv4"
@@ -162,13 +163,14 @@ func sendAndCheckPackets(p *Probe, t *testing.T) {
 }
 
 func newProbe(c *ProbeConf, t []string) (*Probe, error) {
-	tgts := targets.StaticTargets(strings.Join(t, ","))
 	p := &Probe{
-		name:        "ping_test",
-		c:           c,
-		interval:    2 * time.Second,
-		timeout:     time.Second,
-		tgts:        tgts,
+		name: "ping_test",
+		c:    c,
+		opts: &options.Options{
+			Targets:  targets.StaticTargets(strings.Join(t, ",")),
+			Interval: 2 * time.Second,
+			Timeout:  time.Second,
+		},
 		ipVer:       int(c.GetIpVersion()),
 		l:           &logger.Logger{},
 		sent:        make(map[string]int64),
@@ -178,7 +180,7 @@ func newProbe(c *ProbeConf, t []string) (*Probe, error) {
 		target2addr: make(map[string]net.Addr),
 	}
 
-	p.targets = p.tgts.List()
+	p.targets = p.opts.Targets.List()
 	return p, p.setSourceFromConfig()
 }
 

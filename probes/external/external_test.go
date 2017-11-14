@@ -29,6 +29,7 @@ import (
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
 	"github.com/google/cloudprober/probes/external/serverutils"
+	"github.com/google/cloudprober/probes/options"
 	"github.com/google/cloudprober/targets"
 )
 
@@ -126,8 +127,10 @@ func TestProbeServer(t *testing.T) {
 	go startProbeServer(t, r1, w2)
 
 	p := &Probe{
-		tgts:       targets.StaticTargets("localhost"),
-		timeout:    5 * time.Second,
+		opts: &options.Options{
+			Targets: targets.StaticTargets("localhost"),
+			Timeout: 5 * time.Second,
+		},
 		l:          &logger.Logger{},
 		replyChan:  make(chan *serverutils.ProbeReply),
 		cmdRunning: true, // don't try to start the probe server
@@ -158,7 +161,7 @@ func TestProbeServer(t *testing.T) {
 	// Timeout
 	total++
 	// Reduce probe timeout to make this test pass quicker.
-	p.timeout = time.Second
+	p.opts.Timeout = time.Second
 	runAndVerifyProbe(t, p, "timeout", false, "", total, success)
 }
 
@@ -294,8 +297,10 @@ func TestSubstituteLabels(t *testing.T) {
 func TestSendRequest(t *testing.T) {
 	var buf bytes.Buffer
 	p := &Probe{
-		name:     "testprobe",
-		tgts:     targets.StaticTargets("localhost"),
+		name: "testprobe",
+		opts: &options.Options{
+			Targets: targets.StaticTargets("localhost"),
+		},
 		l:        &logger.Logger{},
 		cmdStdin: &buf,
 	}

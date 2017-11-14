@@ -40,21 +40,19 @@ import (
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
 	"github.com/google/cloudprober/probes/external/serverutils"
-	"github.com/google/cloudprober/targets"
+	"github.com/google/cloudprober/probes/options"
 )
 
 // Probe holds aggregate information about all probe runs, per-target.
 type Probe struct {
-	name     string
-	mode     string
-	interval time.Duration
-	timeout  time.Duration
-	cmdName  string
-	cmdArgs  []string
-	tgts     targets.Targets
-	c        *ProbeConf
-	l        *logger.Logger
-	ipVer    int
+	name    string
+	mode    string
+	cmdName string
+	cmdArgs []string
+	opts    *options.Options
+	c       *ProbeConf
+	l       *logger.Logger
+	ipVer   int
 
 	// book-keeping params
 	requestID  int32
@@ -69,20 +67,17 @@ type Probe struct {
 }
 
 // Init initializes the probe with the given params.
-func (p *Probe) Init(name string, tgts targets.Targets, interval, timeout time.Duration, l *logger.Logger, v interface{}) error {
-	if l == nil {
-		l = &logger.Logger{}
-	}
-	c, ok := v.(*ProbeConf)
+func (p *Probe) Init(name string, opts *options.Options) error {
+	c, ok := opts.ProbeConf.(*ProbeConf)
 	if !ok {
 		return fmt.Errorf("not external probe config")
 	}
 	p.name = name
-	p.interval = interval
-	p.timeout = timeout
-	p.tgts = tgts
+	p.opts = opts
+	if p.l = opts.Logger; p.l == nil {
+		p.l = &logger.Logger{}
+	}
 	p.c = c
-	p.l = l
 	p.replyChan = make(chan *serverutils.ProbeReply)
 	p.ipVer = int(p.c.GetIpVersion())
 
@@ -314,7 +309,7 @@ func (p *Probe) sendRequest(requestID int32, target string) error {
 		"probe":  p.name,
 		"target": target,
 	}
-	addr, err := p.tgts.Resolve(target, p.ipVer)
+	addr, err := p.opts.Targets.Resolve(target, p.ipVer)
 	if err != nil {
 		p.l.Warningf("Targets.Resolve(%v, %v) failed: %v ", target, p.ipVer, err)
 	} else if !addr.IsUnspecified() {
@@ -323,7 +318,7 @@ func (p *Probe) sendRequest(requestID int32, target string) error {
 
 	req := &serverutils.ProbeRequest{
 		RequestId: proto.Int32(requestID),
-		TimeLimit: proto.Int32(int32(p.timeout / time.Millisecond)),
+		TimeLimit: proto.Int32(int32(p.opts.Timeout / time.Millisecond)),
 		Options:   []*serverutils.ProbeRequest_Option{},
 	}
 	for _, opt := range p.c.GetOptions() {
@@ -340,7 +335,7 @@ func (p *Probe) sendRequest(requestID int32, target string) error {
 }
 
 func (p *Probe) runServerProbe(ctx context.Context, dataChan chan *metrics.EventMetrics) {
-	for _, target := range p.tgts.List() {
+	for _, target := range p.opts.Targets.List() {
 		// Run probe for the target. Note that we always return probe
 		// results regardless of the values of rep and err.
 		rep, err := p.runServerProbeForTarget(ctx, target)
@@ -372,7 +367,7 @@ func (p *Probe) runServerProbeForTarget(ctx context.Context, target string) (*se
 	p.requestID++
 	id := p.requestID
 
-	ctxTimeout, cancelFunc := context.WithTimeout(ctx, p.timeout)
+	ctxTimeout, cancelFunc := context.WithTimeout(ctx, p.opts.Timeout)
 	defer cancelFunc()
 
 	// TODO: We should use context for sending request as well.
@@ -397,9 +392,9 @@ func (p *Probe) runOnceProbe(ctx context.Context, dataChan chan *metrics.EventMe
 	labels := map[string]string{
 		"probe": p.name,
 	}
-	for _, target := range p.tgts.List() {
+	for _, target := range p.opts.Targets.List() {
 		labels["target"] = target
-		addr, err := p.tgts.Resolve(target, p.ipVer)
+		addr, err := p.opts.Targets.Resolve(target, p.ipVer)
 		if err != nil {
 			p.l.Warningf("Targets.Resolve(%v, %v) failed: %v ", target, p.ipVer, err)
 		} else if !addr.IsUnspecified() {
@@ -417,7 +412,7 @@ func (p *Probe) runOnceProbe(ctx context.Context, dataChan chan *metrics.EventMe
 		p.l.Infof("Running external command: %s %s", p.cmdName, strings.Join(args, " "))
 		p.total++
 		startTime := time.Now()
-		ctxTimeout, cancelFunc := context.WithTimeout(ctx, p.timeout)
+		ctxTimeout, cancelFunc := context.WithTimeout(ctx, p.opts.Timeout)
 		defer cancelFunc()
 		b, err := exec.CommandContext(ctxTimeout, p.cmdName, args...).Output()
 		if err != nil {
@@ -453,7 +448,7 @@ func (p *Probe) runProbe(ctx context.Context, dataChan chan *metrics.EventMetric
 
 // Start starts and runs the probe indefinitely.
 func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) {
-	for _ = range time.Tick(p.interval) {
+	for _ = range time.Tick(p.opts.Interval) {
 		// Don't run another probe if context is canceled already.
 		select {
 		case <-ctx.Done():

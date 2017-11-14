@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/google/cloudprober/probes/options"
 	"github.com/google/cloudprober/probes/probeutils"
 	"github.com/google/cloudprober/targets"
 )
@@ -49,14 +50,17 @@ func (tt *testTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 func (tt *testTransport) CancelRequest(req *http.Request) {}
 
 func TestRun(t *testing.T) {
-	c := &ProbeConf{
-		RequestsPerProbe:        proto.Int32(1),
-		StatsExportIntervalMsec: proto.Int32(1000),
-	}
-
 	p := &Probe{}
-	tgts := targets.StaticTargets("test.com")
-	p.Init("http_test", tgts, 2*time.Second, time.Second, nil, c)
+	opts := &options.Options{
+		Targets:  targets.StaticTargets("test.com"),
+		Interval: 2 * time.Second,
+		Timeout:  time.Second,
+		ProbeConf: &ProbeConf{
+			RequestsPerProbe:        proto.Int32(1),
+			StatsExportIntervalMsec: proto.Int32(1000),
+		},
+	}
+	p.Init("http_test", opts)
 	p.client.Transport = newTestTransport()
 
 	resultsChan := make(chan probeutils.ProbeResult, len(p.targets))

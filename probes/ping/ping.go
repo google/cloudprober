@@ -45,7 +45,7 @@ import (
 
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
-	"github.com/google/cloudprober/targets"
+	"github.com/google/cloudprober/probes/options"
 	"golang.org/x/net/icmp"
 	"golang.org/x/net/ipv4"
 	"golang.org/x/net/ipv6"
@@ -59,12 +59,10 @@ const (
 // Probe implements a ping probe type that sends ICMP ping packets to the targets and reports
 // back statistics on packets sent, received and the rtt.
 type Probe struct {
-	name     string
-	tgts     targets.Targets
-	interval time.Duration
-	timeout  time.Duration
-	c        *ProbeConf
-	l        *logger.Logger
+	name string
+	opts *options.Options
+	c    *ProbeConf
+	l    *logger.Logger
 
 	// book-keeping params
 	source      string
@@ -88,20 +86,17 @@ type addr interface {
 var interfaceByName = func(s string) (addr, error) { return net.InterfaceByName(s) }
 
 // Init initliazes the probe with the given params.
-func (p *Probe) Init(name string, tgts targets.Targets, interval, timeout time.Duration, l *logger.Logger, v interface{}) error {
-	if l == nil {
-		l = &logger.Logger{}
-	}
-	c, ok := v.(*ProbeConf)
+func (p *Probe) Init(name string, opts *options.Options) error {
+	c, ok := opts.ProbeConf.(*ProbeConf)
 	if !ok {
 		return fmt.Errorf("no ping config")
 	}
 	p.name = name
-	p.tgts = tgts
-	p.interval = interval
-	p.timeout = timeout
+	p.opts = opts
+	if p.l = opts.Logger; p.l == nil {
+		p.l = &logger.Logger{}
+	}
 	p.c = c
-	p.l = l
 	p.ipVer = int(p.c.GetIpVersion())
 	p.sent = make(map[string]int64)
 	p.received = make(map[string]int64)
@@ -161,7 +156,7 @@ func (p *Probe) listen() error {
 
 func (p *Probe) resolveTargets() {
 	for _, t := range p.targets {
-		ip, err := p.tgts.Resolve(t, p.ipVer)
+		ip, err := p.opts.Targets.Resolve(t, p.ipVer)
 		if err != nil {
 			p.l.Warningf("Bad target: %s. Err: %v", t, err)
 			p.target2addr[t] = nil
@@ -256,7 +251,7 @@ func (p *Probe) fetchPacket(pktbuf []byte) (net.IP, *icmp.Message, error) {
 func (p *Probe) recvPackets(runID uint16, tracker chan bool) {
 	received := make(map[string]bool)
 	outstandingPkts := 0
-	p.conn.setReadDeadline(time.Now().Add(p.timeout))
+	p.conn.setReadDeadline(time.Now().Add(p.opts.Timeout))
 	pktbuf := make([]byte, 1500)
 	for {
 		// To make sure that we have picked up all the packets sent by the sender, we
@@ -346,7 +341,7 @@ func (p *Probe) newRunID() uint16 {
 func (p *Probe) runProbe() {
 	// Resolve targets if target resolve interval has elapsed.
 	if (p.runCnt % uint64(p.c.GetResolveTargetsInterval())) == 0 {
-		p.targets = p.tgts.List()
+		p.targets = p.opts.Targets.List()
 		p.resolveTargets()
 	}
 	p.runCnt++
@@ -369,7 +364,7 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 		p.l.Critical("Probe has not been properly initialized yet.")
 	}
 	defer p.conn.close()
-	for ts := range time.Tick(p.interval) {
+	for ts := range time.Tick(p.opts.Interval) {
 		// Don't run another probe if context is canceled already.
 		select {
 		case <-ctx.Done():
