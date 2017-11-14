@@ -48,9 +48,9 @@ func NewDistribution(lowerBounds []float64) *Distribution {
 
 // NewDistributionFromProto returns a new distribution based on the provided
 // protobuf.
-func NewDistributionFromProto(distProto *Distribution) (*Distribution, error) {
+func NewDistributionFromProto(distProto *Dist) (*Distribution, error) {
 	switch distProto.Buckets.(type) {
-	case *Distribution_ExplicitBuckets:
+	case *Dist_ExplicitBuckets:
 		lbStringA := strings.Split(distProto.GetExplicitBuckets(), ",")
 		lowerBounds := make([]float64, len(lbStringA))
 		for i, tok := range lbStringA {
@@ -61,7 +61,7 @@ func NewDistributionFromProto(distProto *Distribution) (*Distribution, error) {
 			lowerBounds[i] = lb
 		}
 		return NewDistribution(lowerBounds), nil
-	case *Distribution_ExponentialBuckets:
+	case *Dist_ExponentialBuckets:
 		return nil, errors.New("exponential buckets are not supported yet")
 	}
 	return nil, fmt.Errorf("unknown buckets type: %v", distProto.Buckets)

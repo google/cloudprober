@@ -32,7 +32,7 @@ func verifyBucketCount(t *testing.T, d *Distribution, indices []int, counts []in
 }
 
 func protoToDist(t *testing.T, testDistProtoText string) *Distribution {
-	testDistProto := &Distribution{}
+	testDistProto := &Dist{}
 	if err := proto.UnmarshalText(testDistProtoText, testDistProto); err != nil {
 		t.Errorf("Failed parsing distribution proto text: %s. Err: %v", testDistProtoText, err)
 		return nil
