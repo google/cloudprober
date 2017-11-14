@@ -37,7 +37,7 @@ message ProbeDef {
   required targets.TargetsDef targets = 6;
 
   // Latency distribution. If specified, latency is stored as a distribution.
-  optional metrics.Distribution latency_distribution = 7;
+  optional metrics.Dist latency_distribution = 7;
 
   oneof probe {
     ping.ProbeConf ping_probe = 20;

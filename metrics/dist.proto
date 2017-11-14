@@ -2,7 +2,8 @@ syntax = "proto2";
 
 package cloudprober.metrics;
 
-message Distribution {
+// Dist defines a Distribution data type.
+message Dist {
   oneof buckets {
     // Comma-separated list of lower bounds, where each lower bound is a float
     // value. Example: 0.5,1,2,4,8.
