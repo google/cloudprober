@@ -175,7 +175,7 @@ func newProbe(c *ProbeConf, t []string) (*Probe, error) {
 		l:           &logger.Logger{},
 		sent:        make(map[string]int64),
 		received:    make(map[string]int64),
-		latencyUsec: make(map[string]int64),
+		latency:     make(map[string]time.Duration),
 		ip2target:   make(map[string]string),
 		target2addr: make(map[string]net.Addr),
 	}
@@ -344,7 +344,7 @@ func TestRunProbe(t *testing.T) {
 	p.conn = newTestICMPConn(c, p.targets)
 	p.runProbe()
 	for _, target := range p.targets {
-		glog.Infof("target: %s, sent: %d, received: %d, total_rtt: %dus", target, p.sent[target], p.received[target], p.latencyUsec[target])
+		glog.Infof("target: %s, sent: %d, received: %d, total_rtt: %s", target, p.sent[target], p.received[target], p.latency[target])
 		if p.sent[target] == 0 || (p.sent[target] != p.received[target]) {
 			t.Errorf("We are leaking packets. Sent: %d, Received: %d", p.sent[target], p.received[target])
 		}
@@ -363,7 +363,7 @@ func TestRunProbeIPv6(t *testing.T) {
 	p.conn = newTestICMPConn(c, p.targets)
 	p.runProbe()
 	for _, target := range p.targets {
-		glog.Infof("target: %s, sent: %d, received: %d, total_rtt: %dus", target, p.sent[target], p.received[target], p.latencyUsec[target])
+		glog.Infof("target: %s, sent: %d, received: %d, total_rtt: %s", target, p.sent[target], p.received[target], p.latency[target])
 		if p.sent[target] == 0 || (p.sent[target] != p.received[target]) {
 			t.Errorf("We are leaking packets. Sent: %d, Received: %d", p.sent[target], p.received[target])
 		}
@@ -382,7 +382,7 @@ func TestRunProbeDatagram(t *testing.T) {
 	p.conn = newTestICMPConn(c, p.targets)
 	p.runProbe()
 	for _, target := range p.targets {
-		glog.Infof("target: %s, sent: %d, received: %d, total_rtt: %dus", target, p.sent[target], p.received[target], p.latencyUsec[target])
+		glog.Infof("target: %s, sent: %d, received: %d, total_rtt: %s", target, p.sent[target], p.received[target], p.latency[target])
 		if p.sent[target] == 0 || (p.sent[target] != p.received[target]) {
 			t.Errorf("We are leaking packets. Sent: %d, Received: %d", p.sent[target], p.received[target])
 		}
@@ -402,7 +402,7 @@ func TestRunProbeIPv6Datagram(t *testing.T) {
 	p.conn = newTestICMPConn(c, p.targets)
 	p.runProbe()
 	for _, target := range p.targets {
-		glog.Infof("target: %s, sent: %d, received: %d, total_rtt: %dus", target, p.sent[target], p.received[target], p.latencyUsec[target])
+		glog.Infof("target: %s, sent: %d, received: %d, total_rtt: %s", target, p.sent[target], p.received[target], p.latency[target])
 		if p.sent[target] == 0 || (p.sent[target] != p.received[target]) {
 			t.Errorf("We are leaking packets. Sent: %d, Received: %d", p.sent[target], p.received[target])
 		}

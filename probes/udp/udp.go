@@ -72,7 +72,7 @@ type probeRunResult struct {
 	target   string
 	total    metrics.Int
 	success  metrics.Int
-	latency  metrics.Int // microseconds
+	latency  metrics.Float
 	timeouts metrics.Int
 	delayed  metrics.Int
 }
@@ -189,7 +189,7 @@ func (p *Probe) updateProbeResults(msg *message.Message, rxTS time.Time) {
 		return
 	}
 	res.success.Inc()
-	res.latency.IncBy(metrics.NewInt(latency.Nanoseconds() / 1000))
+	res.latency.AddFloat64(latency.Seconds() / p.opts.LatencyUnit.Seconds())
 }
 
 // send attempts to send data over UDP.

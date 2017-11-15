@@ -39,6 +39,10 @@ message ProbeDef {
   // Latency distribution. If specified, latency is stored as a distribution.
   optional metrics.Dist latency_distribution = 7;
 
+  // Latency unit. Any string that's parseable by time.ParseDuration.
+  // Valid values: "ns", "us" (or "µs"), "ms", "s", "m", "h".
+  optional string latency_unit = 8 [default = "us"];
+
   oneof probe {
     ping.ProbeConf ping_probe = 20;
     http.ProbeConf http_probe = 21;

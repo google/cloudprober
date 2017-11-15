@@ -88,5 +88,8 @@ func (f *Float) String() string {
 	if f.Str != nil {
 		return f.Str(f.Float64())
 	}
-	return strconv.FormatFloat(f.Float64(), 'f', -1, 64)
+	// Truncate the float to 3-digit precision.
+	// Example: 3.33333333333 -> 3.333
+	ff := float64(int(f.f*1000)) / 1000
+	return strconv.FormatFloat(ff, 'f', -1, 64)
 }

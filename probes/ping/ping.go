@@ -70,7 +70,7 @@ type Probe struct {
 	targets     []string
 	sent        map[string]int64
 	received    map[string]int64
-	latencyUsec map[string]int64
+	latency     map[string]time.Duration
 	conn        icmpConn
 	runCnt      uint64
 	target2addr map[string]net.Addr
@@ -100,7 +100,7 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	p.ipVer = int(p.c.GetIpVersion())
 	p.sent = make(map[string]int64)
 	p.received = make(map[string]int64)
-	p.latencyUsec = make(map[string]int64)
+	p.latency = make(map[string]time.Duration)
 	p.ip2target = make(map[string]string)
 	p.target2addr = make(map[string]net.Addr)
 
@@ -303,7 +303,7 @@ func (p *Probe) recvPackets(runID uint16, tracker chan bool) {
 		if !received[key] {
 			received[key] = true
 			p.received[target]++
-			p.latencyUsec[target] += rtt.Nanoseconds() / 1000
+			p.latency[target] += rtt
 			p.l.Debugf("Reply from=%s id=%d seq=%d rtt=%s", target, pkt.ID, pkt.Seq, rtt)
 			// read a "good" packet
 			outstandingPkts--
@@ -381,7 +381,7 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 			em := metrics.NewEventMetrics(ts).
 				AddMetric("total", metrics.NewInt(p.sent[t])).
 				AddMetric("success", metrics.NewInt(p.received[t])).
-				AddMetric("latency", metrics.NewInt(p.latencyUsec[t])).
+				AddMetric("latency", metrics.NewFloat(p.latency[t].Seconds()/p.opts.LatencyUnit.Seconds())).
 				AddLabel("ptype", "ping").
 				AddLabel("probe", p.name).
 				AddLabel("dst", t)

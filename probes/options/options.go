@@ -32,4 +32,5 @@ type Options struct {
 	Logger            *logger.Logger
 	ProbeConf         interface{} // Probe-type specific config
 	LatencyDist       *metrics.Distribution
+	LatencyUnit       time.Duration
 }

@@ -115,6 +115,16 @@ func Init(probeProtobufs []*ProbeDef, globalTargetsOpts *targets.GlobalTargetsOp
 				opts.LatencyDist = d
 			}
 		}
+		if opts.LatencyUnit, err = time.ParseDuration("1" + p.GetLatencyUnit()); err != nil {
+			glog.Exitf("Failed to parse the latency unit: %s. Err: %v", p.GetLatencyUnit(), err)
+		}
+		if latencyDist := p.GetLatencyDistribution(); latencyDist != nil {
+			if d, err := metrics.NewDistributionFromProto(latencyDist); err != nil {
+				glog.Exitf("Error creating distribution from the specification: %v. Err: %v", latencyDist, err)
+			} else {
+				opts.LatencyDist = d
+			}
+		}
 		probes[p.GetName()] = initProbe(p, opts)
 	}
 	return probes
