@@ -15,4 +15,7 @@ message ProbeConf {
 
   // message max to account for MTU.
   optional int32 max_length = 5 [default = 1300];
+
+  // IP proto: v4|v6. Temporary workaround till we add support in base probe proto.
+  optional int32 ip_version = 6 [default = 4];
 }

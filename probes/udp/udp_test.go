@@ -95,6 +95,7 @@ func runProbe(ctx context.Context, t *testing.T, port int, interval, timeout tim
 		ProbeConf: &ProbeConf{
 			Port:       proto.Int32(int32(port)),
 			NumTxPorts: proto.Int32(2),
+			IpVersion:  proto.Int32(6),
 		},
 	}
 	if err := p.Init("udp", opts); err != nil {
