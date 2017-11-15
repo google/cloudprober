@@ -75,7 +75,7 @@ type probeRunResult struct {
 	target   string
 	total    metrics.Int
 	success  metrics.Int
-	latency  metrics.Int // microseconds
+	latency  metrics.Float
 	timeouts metrics.Int
 }
 
@@ -171,7 +171,7 @@ func (p *Probe) runProbe(resultsChan chan<- probeutils.ProbeResult) {
 					p.l.Warningf("Target(%s): Response is nil, but error is also nil", fullTarget)
 				}
 				result.success.Inc()
-				result.latency.IncBy(metrics.NewInt(latency.Nanoseconds() / 1000))
+				result.latency.AddFloat64(latency.Seconds() / p.opts.LatencyUnit.Seconds())
 			}
 
 			resultsChan <- result

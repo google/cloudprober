@@ -58,7 +58,7 @@ type probeRunResult struct {
 	target     string
 	total      metrics.Int
 	success    metrics.Int
-	latency    metrics.Int // microseconds
+	latency    metrics.Float
 	timeouts   metrics.Int
 	respCodes  *metrics.Map
 	respBodies *metrics.Map
@@ -208,7 +208,7 @@ func (p *Probe) runProbe(resultsChan chan<- probeutils.ProbeResult) {
 					resp.Body.Close()
 					result.respCodes.IncKey(fmt.Sprintf("%d", resp.StatusCode))
 					result.success.Inc()
-					result.latency.IncBy(metrics.NewInt(latency.Nanoseconds() / 1000))
+					result.latency.AddFloat64(latency.Seconds() / p.opts.LatencyUnit.Seconds())
 					if p.c.GetExportResponseAsMetrics() {
 						if len(respBody) <= maxResponseSizeForMetrics {
 							result.respBodies.IncKey(string(respBody))

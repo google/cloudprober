@@ -61,9 +61,9 @@ type Probe struct {
 	cmdStdout  io.Reader
 	cmdStderr  io.Reader
 	replyChan  chan *serverutils.ProbeReply
-	success    int64 // toal probe successes
-	total      int64 // total number of probes
-	latency    int64 // cumulative probe latency, in microseconds.
+	success    int64         // toal probe successes
+	total      int64         // total number of probes
+	latency    time.Duration // cumulative probe latency
 }
 
 // Init initializes the probe with the given params.
@@ -220,7 +220,7 @@ func (p *Probe) defaultMetrics(target string) *metrics.EventMetrics {
 	return metrics.NewEventMetrics(time.Now()).
 		AddMetric("success", metrics.NewInt(p.success)).
 		AddMetric("total", metrics.NewInt(p.total)).
-		AddMetric("latency", metrics.NewInt(p.latency)).
+		AddMetric("latency", metrics.NewFloat(p.latency.Seconds()/p.opts.LatencyUnit.Seconds())).
 		AddLabel("ptype", "external").
 		AddLabel("probe", p.name).
 		AddLabel("dst", target)
@@ -384,7 +384,7 @@ func (p *Probe) runServerProbeForTarget(ctx context.Context, target string) (*se
 		return rep, fmt.Errorf("Probe failed with error message: %s", rep.GetErrorMessage())
 	}
 	p.success++
-	p.latency += int64(time.Since(startTime).Nanoseconds() / 1000)
+	p.latency += time.Since(startTime)
 	return rep, nil
 }
 
@@ -423,7 +423,7 @@ func (p *Probe) runOnceProbe(ctx context.Context, dataChan chan *metrics.EventMe
 			}
 		} else {
 			p.success++
-			p.latency += int64(time.Since(startTime).Nanoseconds() / 1000)
+			p.latency += time.Since(startTime)
 		}
 
 		em := p.defaultMetrics(target)
