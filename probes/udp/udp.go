@@ -53,6 +53,7 @@ type Probe struct {
 	// List of UDP connections to use.
 	connList []*net.UDPConn
 	numConn  int32
+	runID    uint64
 
 	// List of targets for a probe iteration.
 	targets []string
@@ -247,37 +248,42 @@ func (p *Probe) recvLoop(ctx context.Context, conn *net.UDPConn) {
 func (p *Probe) runProbe() {
 	maxLen := int(p.c.GetMaxLength())
 	wg := sync.WaitGroup{}
-	for _, target := range p.targets {
+	dstPort := int(p.c.GetPort())
+	ipVer := int(p.c.GetIpVersion())
+
+	for i, target := range p.targets {
 		wg.Add(1)
 
 		// Launch a separate goroutine for each target. Wait for p.opts.Timeout before returning.
-		go func(target string) {
+		go func(target string, connID uint64) {
 			defer wg.Done()
-			flowState := p.fsm.FlowState(p.src, target)
 
-			fullTarget := net.JoinHostPort(target, fmt.Sprintf("%d", p.c.GetPort()))
-
-			msg, seq, err := flowState.CreateMessage(p.src, target, time.Now(), maxLen)
-			conn := p.connList[seq%uint64(p.numConn)]
-
-			raddr, err := net.ResolveUDPAddr("udp", fullTarget)
+			ip, err := p.opts.Targets.Resolve(target, ipVer)
 			if err != nil {
-				p.l.Errorf("Unable to resolve %s: %v", fullTarget, err)
-				flowState.WithdrawMessage(seq)
+				p.l.Errorf("Unable to resolve %s: %v", target, err)
 				return
 			}
+			raddr := &net.UDPAddr{
+				IP:   ip,
+				Port: dstPort,
+			}
+
+			flowState := p.fsm.FlowState(p.src, target)
+			msg, seq, err := flowState.CreateMessage(p.src, target, time.Now(), maxLen)
+			conn := p.connList[connID%(uint64(p.numConn))]
 			if err = send(conn, raddr, msg, p.opts.Timeout); err != nil {
-				p.l.Errorf("Unable to send to %s(%v): %v", fullTarget, raddr, err)
+				p.l.Errorf("Unable to send to %s(%v): %v", target, raddr, err)
 				flowState.WithdrawMessage(seq)
 				return
 			}
 			p.updateSentCount(target)
 			<-time.After(p.opts.Timeout)
-		}(target)
+		}(target, p.runID+uint64(i))
 	}
 
 	// Wait until all probes are done.
 	wg.Wait()
+	p.runID++
 }
 
 // Start starts and runs the probe indefinitely.
