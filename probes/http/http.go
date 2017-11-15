@@ -58,18 +58,24 @@ type probeRunResult struct {
 	target     string
 	total      metrics.Int
 	success    metrics.Int
-	latency    metrics.Float
+	latency    metrics.Value
 	timeouts   metrics.Int
 	respCodes  *metrics.Map
 	respBodies *metrics.Map
 }
 
-func newProbeRunResult(target string) probeRunResult {
-	return probeRunResult{
+func newProbeRunResult(target string, opts *options.Options) probeRunResult {
+	prr := probeRunResult{
 		target:     target,
 		respCodes:  metrics.NewMap("code", &metrics.Int{}),
 		respBodies: metrics.NewMap("resp", &metrics.Int{}),
 	}
+	if opts.LatencyDist != nil {
+		prr.latency = opts.LatencyDist.Clone()
+	} else {
+		prr.latency = metrics.NewFloat(0)
+	}
+	return prr
 }
 
 // Metrics converts probeRunResult into a slice of the metrics that is suitable for
@@ -79,7 +85,7 @@ func (prr probeRunResult) Metrics() *metrics.EventMetrics {
 	return metrics.NewEventMetrics(time.Now()).
 		AddMetric("total", &prr.total).
 		AddMetric("success", &prr.success).
-		AddMetric("latency", &prr.latency).
+		AddMetric("latency", prr.latency).
 		AddMetric("timeouts", &prr.timeouts).
 		AddMetric("resp-code", prr.respCodes).
 		AddMetric("resp-body", prr.respBodies)
@@ -162,7 +168,7 @@ func (p *Probe) runProbe(resultsChan chan<- probeutils.ProbeResult) {
 		// Write probe results to the "stats" channel.
 		go func(target string, resultsChan chan<- probeutils.ProbeResult) {
 			defer wg.Done()
-			result := newProbeRunResult(target)
+			result := newProbeRunResult(target, p.opts)
 
 			// Prepare HTTP.Request for Client.Do
 			host := target
