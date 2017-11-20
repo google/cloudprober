@@ -56,7 +56,7 @@ func TestNewDistributionFromProto(t *testing.T) {
 	}
 }
 
-func TestAddSample(t *testing.T) {
+func TestDistAddSample(t *testing.T) {
 	lb := []float64{1, 5, 10, 15, 20, 30, 40, 50}
 	d := NewDistribution(lb)
 
@@ -74,7 +74,7 @@ func TestAddSample(t *testing.T) {
 	t.Log(d.String())
 }
 
-func TestAdd(t *testing.T) {
+func TestDistAdd(t *testing.T) {
 	lb := []float64{1, 5, 15, 30, 45}
 	d := NewDistribution(lb)
 
@@ -93,7 +93,27 @@ func TestAdd(t *testing.T) {
 	verifyBucketCount(t, d, []int{0, 1, 2, 3, 4, 5}, []int64{1, 2, 0, 2, 0, 1})
 }
 
-func TestString(t *testing.T) {
+func TestDistData(t *testing.T) {
+	lb := []float64{1, 5, 15, 30, 45}
+	d := NewDistribution(lb)
+
+	for _, s := range []float64{0.5, 4, 17} {
+		d.AddSample(s)
+	}
+
+	dd := d.Data()
+	want := &DistributionData{
+		LowerBounds:  []float64{math.Inf(-1), 1, 5, 15, 30, 45},
+		BucketCounts: []int64{1, 1, 0, 1, 0, 0},
+		Count:        3,
+		Sum:          21.5,
+	}
+	if !reflect.DeepEqual(dd, want) {
+		t.Errorf("Didn't get expected data. d.Data()=%v, want: %v", dd, want)
+	}
+}
+
+func TestDistString(t *testing.T) {
 	lb := []float64{1, 5, 15, 30, 45}
 	d := NewDistribution(lb)
 
