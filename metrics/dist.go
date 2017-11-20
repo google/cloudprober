@@ -146,6 +146,28 @@ func (d *Distribution) String() string {
 	return "dist:" + strings.Join(tokens, "|")
 }
 
+// DistributionData stuct, along with Data() function, provides a way to
+// readily share the Distribution data with other packages.
+type DistributionData struct {
+	LowerBounds  []float64 // bucket lower bounds
+	BucketCounts []int64
+	Count        int64   // count of all values
+	Sum          float64 // sum of all samples.
+}
+
+// Data returns a DistributionData object, built using Distribution's current
+// state.
+func (d *Distribution) Data() *DistributionData {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+	return &DistributionData{
+		LowerBounds:  d.lowerBounds,
+		BucketCounts: d.bucketCounts,
+		Count:        d.count,
+		Sum:          d.sum,
+	}
+}
+
 // StackdriverTypedValue returns a Stackdriver typed value corresponding to the
 // receiver distribution. This routine is used by stackdriver surfacer.
 func (d *Distribution) StackdriverTypedValue() *monitoring.TypedValue {

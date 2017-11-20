@@ -169,11 +169,15 @@ func TestScrapeOutput(t *testing.T) {
 	ps := newPromSurfacer(t)
 	respCodesVal := metrics.NewMap("code", metrics.NewInt(0))
 	respCodesVal.IncKeyBy("200", metrics.NewInt(19))
+	latencyVal := metrics.NewDistribution([]float64{1, 4})
+	latencyVal.AddSample(0.5)
+	latencyVal.AddSample(5)
 	ts := time.Now()
 	promTS := fmt.Sprintf("%d", ts.UnixNano()/(1000*1000))
 	ps.record(metrics.NewEventMetrics(ts).
 		AddMetric("sent", metrics.NewInt(32)).
 		AddMetric("rcvd", metrics.NewInt(22)).
+		AddMetric("latency", latencyVal).
 		AddMetric("resp_code", respCodesVal).
 		AddLabel("ptype", "http"))
 	var b bytes.Buffer
@@ -186,9 +190,14 @@ func TestScrapeOutput(t *testing.T) {
 		"sent{ptype=\"http\"} 32 " + promTS,
 		"rcvd{ptype=\"http\"} 22 " + promTS,
 		"resp_code{ptype=\"http\",code=\"200\"} 19 " + promTS,
+		"latency_sum{ptype=\"http\"} 5.5 " + promTS,
+		"latency_count{ptype=\"http\"} 2 " + promTS,
+		"latency_bucket{ptype=\"http\",le=\"1\"} 1 " + promTS,
+		"latency_bucket{ptype=\"http\",le=\"4\"} 1 " + promTS,
+		"latency_bucket{ptype=\"http\",le=\"+Inf\"} 2 " + promTS,
 	} {
 		if strings.Index(data, d) == -1 {
-			t.Errorf("String \"%s\" not found in output data", d)
+			t.Errorf("String \"%s\" not found in output data: %s", d, data)
 		}
 	}
 }

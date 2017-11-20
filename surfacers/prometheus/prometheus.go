@@ -38,6 +38,7 @@ import (
 	"io"
 	"net/http"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -53,6 +54,8 @@ const (
 	ValidMetricNameRegex = "^[a-zA-Z_:]([a-zA-Z0-9_:])*$"
 	ValidLabelNameRegex  = "^[a-zA-Z_]([a-zA-Z0-9_])*$"
 )
+
+const histogram = "histogram"
 
 // queriesQueueSize defines how many queries can we queue before we start
 // blocking on previous queries to finish.
@@ -165,7 +168,7 @@ func promTime(t time.Time) int64 {
 	return t.UnixNano() / (1000 * 1000)
 }
 
-func (ps *PromSurfacer) recordMetric(metricName string, labels []string, value string, em *metrics.EventMetrics) {
+func (ps *PromSurfacer) recordMetric(metricName string, labels []string, value string, em *metrics.EventMetrics, typ string) {
 	key := metricName + "{" + strings.Join(labels, ",") + "}"
 	// Recognized metric
 	if pm := ps.metrics[metricName]; pm != nil {
@@ -182,8 +185,11 @@ func (ps *PromSurfacer) recordMetric(metricName string, labels []string, value s
 		pm.dataKeys = append(pm.dataKeys, key)
 	} else {
 		// Newly discovered metric name.
+		if typ == "" {
+			typ = promType(em)
+		}
 		ps.metrics[metricName] = &promMetric{
-			typ: promType(em),
+			typ: typ,
 			data: map[string]*dataPoint{
 				key: &dataPoint{
 					value:     value,
@@ -289,19 +295,38 @@ func (ps *PromSurfacer) record(em *metrics.EventMetrics) {
 			}
 			for _, k := range mapVal.Keys() {
 				labelsWithMap := append(labels, labelName+"=\""+k+"\"")
-				ps.recordMetric(pMetricName, labelsWithMap, mapVal.GetKey(k).String(), em)
+				ps.recordMetric(pMetricName, labelsWithMap, mapVal.GetKey(k).String(), em, "")
+			}
+			continue
+		}
+		// Distribution values get expanded into metrics with extra label "le".
+		if distVal, ok := val.(*metrics.Distribution); ok {
+			d := distVal.Data()
+			var val int64
+			ps.recordMetric(pMetricName+"_sum", labels, strconv.FormatFloat(d.Sum, 'f', -1, 64), em, histogram)
+			ps.recordMetric(pMetricName+"_count", labels, strconv.FormatInt(d.Count, 10), em, histogram)
+			for i := range d.LowerBounds {
+				val += d.BucketCounts[i]
+				var lb string
+				if i == len(d.LowerBounds)-1 {
+					lb = "+Inf"
+				} else {
+					lb = strconv.FormatFloat(d.LowerBounds[i+1], 'f', -1, 64)
+				}
+				labelsWithBucket := append(labels, "le=\""+lb+"\"")
+				ps.recordMetric(pMetricName+"_bucket", labelsWithBucket, strconv.FormatInt(val, 10), em, histogram)
 			}
 			continue
 		}
 		// String values get converted into a label.
 		if _, ok := val.(metrics.String); ok {
 			newLabels := append(labels, "val="+val.String())
-			ps.recordMetric(pMetricName, newLabels, "1", em)
+			ps.recordMetric(pMetricName, newLabels, "1", em, "")
 			continue
 		}
 
 		// All other value types, mostly numerical types.
-		ps.recordMetric(pMetricName, labels, val.String(), em)
+		ps.recordMetric(pMetricName, labels, val.String(), em, "")
 	}
 }
 
