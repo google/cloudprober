@@ -17,6 +17,7 @@ package udp
 import (
 	"context"
 	"net"
+	"os"
 	"sync"
 	"testing"
 	"time"
@@ -88,6 +89,10 @@ func startUDPServer(ctx context.Context, t *testing.T, drop bool, delay time.Dur
 func runProbe(ctx context.Context, t *testing.T, port int, interval, timeout time.Duration, pktsToSend int, scs *serverConnStats) *Probe {
 	sysvars.Init(&logger.Logger{}, nil)
 	p := &Probe{}
+	ipVersion := int32(6)
+	if _, ok := os.LookupEnv("TRAVIS"); ok {
+		ipVersion = 4
+	}
 	opts := &options.Options{
 		Targets:  targets.StaticTargets("localhost"),
 		Interval: interval,
@@ -95,7 +100,7 @@ func runProbe(ctx context.Context, t *testing.T, port int, interval, timeout tim
 		ProbeConf: &ProbeConf{
 			Port:       proto.Int32(int32(port)),
 			NumTxPorts: proto.Int32(2),
-			IpVersion:  proto.Int32(6),
+			IpVersion:  proto.Int32(ipVersion),
 		},
 	}
 	if err := p.Init("udp", opts); err != nil {
