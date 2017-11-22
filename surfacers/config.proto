@@ -12,10 +12,14 @@ enum Type {
   PROMETHEUS = 1;
   STACKDRIVER = 2;
   FILE = 3;
+  USER_DEFINED = 99;
 }
 
 message SurfacerDef {
   // This name is used for logging. If not defined, it's derived from the type.
+  // Note that this field is required for the USER_DEFINED surfacer type and
+  // should match with the name that you used while registering the user defined
+  // surfacer.
   optional string name = 1;
 
   optional Type type = 2;

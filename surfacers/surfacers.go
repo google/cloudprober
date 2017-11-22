@@ -27,12 +27,18 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
 	"github.com/google/cloudprober/surfacers/file"
 	"github.com/google/cloudprober/surfacers/prometheus"
 	"github.com/google/cloudprober/surfacers/stackdriver"
+)
+
+var (
+	userDefinedSurfacers   = make(map[string]Surfacer)
+	userDefinedSurfacersMu sync.Mutex
 )
 
 // Default surfacers. These surfacers are enabled if no surfacer is defined.
@@ -66,6 +72,14 @@ func initSurfacer(s *SurfacerDef) (Surfacer, error) {
 		return stackdriver.New(s.GetStackdriverSurfacer(), l)
 	case Type_FILE:
 		return file.New(s.GetFileSurfacer(), l)
+	case Type_USER_DEFINED:
+		userDefinedSurfacersMu.Lock()
+		defer userDefinedSurfacersMu.Unlock()
+		surfacer := userDefinedSurfacers[s.GetName()]
+		if surfacer == nil {
+			return nil, fmt.Errorf("unregistered user defined surfacer: %s", s.GetName())
+		}
+		return surfacer, nil
 	default:
 		return nil, fmt.Errorf("unknown surfacer type: %s", s.GetType())
 	}
@@ -99,4 +113,23 @@ func Init(sDefs []*SurfacerDef) ([]Surfacer, error) {
 		result = append(result, s)
 	}
 	return result, nil
+}
+
+// Register allows you to register a user defined surfacer with cloudprober.
+// Example usage:
+//	import (
+//		"github.com/google/cloudprober"
+//		"github.com/google/cloudprober/surfacers"
+//	)
+//
+//	s := &FancySurfacer{}
+//	surfacers.Register("fancy_surfacer", s)
+//	pr, err := cloudprober.InitFromConfig(*configFile)
+//	if err != nil {
+//		log.Exitf("Error initializing cloudprober. Err: %v", err)
+//	}
+func Register(name string, s Surfacer) {
+	userDefinedSurfacersMu.Lock()
+	defer userDefinedSurfacersMu.Unlock()
+	userDefinedSurfacers[name] = s
 }
