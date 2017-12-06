@@ -13,6 +13,9 @@ go_import_path: github.com/google/cloudprober
 
 services:
  - docker
+ 
+script:
+ - go test -race -coverprofile=coverage.txt -covermode=atomic -v ./...
 
 after_success:
  - CGO_ENABLED=0 go build -ldflags '-extldflags "-static"' ./cmd/cloudprober.go
@@ -20,3 +23,4 @@ after_success:
  - DOCKER_VERSION=latest
  - test -n "$TRAVIS_TAG" && DOCKER_VERSION=$TRAVIS_TAG
  - test -n "$DOCKER_IMAGE" && test "$TRAVIS_OS_NAME" = "linux" && docker build -t ${DOCKER_IMAGE}:${DOCKER_VERSION} . && docker login -u ${DOCKER_USER} -p ${DOCKER_PASS} && docker push ${DOCKER_IMAGE}
+ - bash <(curl -s https://codecov.io/bash)
