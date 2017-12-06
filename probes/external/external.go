@@ -32,8 +32,8 @@ import (
 	"fmt"
 	"io"
 	"os/exec"
-	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -64,6 +64,11 @@ type Probe struct {
 	success    int64         // toal probe successes
 	total      int64         // total number of probes
 	latency    time.Duration // cumulative probe latency
+
+	// EventMetrics created from external probe process output
+	defaultPayloadMetrics *metrics.EventMetrics
+	payloadMetrics        map[string]*metrics.EventMetrics // Per-target metrics
+	payloadMetricsMu      sync.Mutex
 }
 
 // Init initializes the probe with the given params.
@@ -93,8 +98,8 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	cmdParts := strings.Split(p.c.GetCommand(), " ")
 	p.cmdName = cmdParts[0]
 	p.cmdArgs = cmdParts[1:len(cmdParts)]
-
-	return nil
+	p.payloadMetrics = make(map[string]*metrics.EventMetrics)
+	return p.initPayloadMetrics()
 }
 
 // substituteLabels replaces occurrences of @label@ with the values from
@@ -226,66 +231,6 @@ func (p *Probe) defaultMetrics(target string) *metrics.EventMetrics {
 		AddLabel("dst", target)
 }
 
-func (p *Probe) payloadToMetrics(target, payload string) *metrics.EventMetrics {
-	em := metrics.NewEventMetrics(time.Now()).
-		AddLabel("ptype", "external").
-		AddLabel("probe", p.name).
-		AddLabel("dst", target)
-
-	switch p.c.GetOutputMetricsKind() {
-	case ProbeConf_CUMULATIVE:
-		em.Kind = metrics.CUMULATIVE
-	case ProbeConf_GAUGE:
-		em.Kind = metrics.GAUGE
-	case ProbeConf_UNDEFINED:
-		if p.c.GetMode() == ProbeConf_ONCE {
-			em.Kind = metrics.GAUGE
-		} else {
-			em.Kind = metrics.CUMULATIVE
-		}
-	}
-
-	// Convert payload variables into metrics. Variables are specified in
-	// the following format:
-	// var1 value1
-	// var2 value2
-	for _, line := range strings.Split(payload, "\n") {
-		line = strings.TrimSpace(line)
-		if len(line) == 0 {
-			continue
-		}
-		varKV := strings.Fields(line)
-		if len(varKV) != 2 {
-			p.l.Warningf("Wrong var key-value format: %s", line)
-			continue
-		}
-		metricName := varKV[0]
-		switch metricName {
-		case "success", "total", "latency":
-			p.l.Warningf("Metric name (%s) in the output conflicts with standard metrics: (success,total,latency). Ignoring.", metricName)
-			continue
-		}
-		f, err := strconv.ParseFloat(varKV[1], 64)
-		if err != nil {
-			p.l.Warningf("Only float values are supported: %s", varKV[1])
-			continue
-		}
-		em.AddMetric(metricName, metrics.NewFloat(f))
-	}
-	// Labels are specified in the probe config.
-	if p.c.GetOutputMetricsLabels() != "" {
-		for _, label := range strings.Split(p.c.GetOutputMetricsLabels(), ",") {
-			labelKV := strings.Split(label, "=")
-			if len(labelKV) != 2 {
-				p.l.Warningf("Wrong label format: %s", labelKV)
-				continue
-			}
-			em.AddLabel(labelKV[0], labelKV[1])
-		}
-	}
-	return em
-}
-
 // replyForProbe looks for a reply on the replyChan, in a context bounded manner.
 func (p *Probe) replyForProbe(ctx context.Context, requestID int32) (*serverutils.ProbeReply, error) {
 	for {
@@ -296,7 +241,7 @@ func (p *Probe) replyForProbe(ctx context.Context, requestID int32) (*serverutil
 			if rep.GetRequestId() != requestID {
 				// Not our reply, could be from the last timedout probe. (it shouldn't happen if probe server
 				// is using the standard package).
-				p.l.Warningf("Got a reply that doesn't match with the request: Request id as per request: %d, as per reply:%s. Ignoring.", requestID, rep.GetRequestId())
+				p.l.Warningf("Got a reply that doesn't match with the request: Request id as per request: %d, as per reply:%d. Ignoring.", requestID, rep.GetRequestId())
 				continue
 			}
 			return rep, nil

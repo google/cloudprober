@@ -21,23 +21,19 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/logger"
-	"github.com/google/cloudprober/metrics"
 	"github.com/google/cloudprober/probes/external/serverutils"
 	"github.com/google/cloudprober/probes/options"
 	"github.com/google/cloudprober/targets"
 )
 
-const testPayload = "p90 45\n"
-
 // stratProbeServer starts a test probe server to work with the TestProbeServer
 // test below.
-func startProbeServer(t *testing.T, r io.Reader, w io.Writer) {
+func startProbeServer(t *testing.T, testPayload string, r io.Reader, w io.Writer) {
 	for {
 		req, err := serverutils.ReadProbeRequest(bufio.NewReader(r))
 		if err != nil {
@@ -123,8 +119,9 @@ func TestProbeServer(t *testing.T) {
 		t.Errorf("Error creating OS pipe. Err: %v", err)
 	}
 
+	testPayload := "p90 45\n"
 	// Start probe server in a goroutine
-	go startProbeServer(t, r1, w2)
+	go startProbeServer(t, testPayload, r1, w2)
 
 	p := &Probe{
 		opts: &options.Options{
@@ -163,27 +160,6 @@ func TestProbeServer(t *testing.T) {
 	// Reduce probe timeout to make this test pass quicker.
 	p.opts.Timeout = time.Second
 	runAndVerifyProbe(t, p, "timeout", false, "", total, success)
-}
-
-func TestPayloadToEventMetrics(t *testing.T) {
-	p := &Probe{
-		name: "testprobe",
-	}
-	payload := []string{
-		"time_to_running 10",
-		"time_to_ssh 30",
-	}
-	target := "target"
-	em := p.payloadToMetrics(target, strings.Join(payload, "\n"))
-	expectedEM := metrics.NewEventMetrics(em.Timestamp).
-		AddMetric("time_to_running", metrics.NewInt(10)).
-		AddMetric("time_to_ssh", metrics.NewInt(30)).
-		AddLabel("ptype", "external").
-		AddLabel("probe", "testprobe").
-		AddLabel("dst", "target")
-	if em.String() != expectedEM.String() {
-		t.Errorf("payload not parsed correctly.\nExpected: %s\n, Got: %s", expectedEM.String(), em.String())
-	}
 }
 
 func TestSubstituteLabels(t *testing.T) {
