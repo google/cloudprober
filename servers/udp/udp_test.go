@@ -98,18 +98,19 @@ func TestDiscardServer(t *testing.T) {
 
 func testServer(t *testing.T, testConfig *ServerConf) {
 	l := &logger.Logger{}
-	var serverAddr string
+	serverAddrC := make(chan string, 1)
 	// Start server
 	go func() {
 		serverConn, err := Listen(int(testConfig.GetPort()), l)
 		if err != nil {
 			t.Fatal("Error starting listener for the server.")
 		}
-		serverAddr = fmt.Sprintf("localhost:%d", serverConn.LocalAddr().(*net.UDPAddr).Port)
+		serverAddrC <- fmt.Sprintf("localhost:%d", serverConn.LocalAddr().(*net.UDPAddr).Port)
+
 		t.Fatal(serve(context.Background(), testConfig, serverConn, l))
 	}()
 
-	time.Sleep(time.Duration(500) * time.Millisecond) // Sleep 500ms to be sure that server is running
+	serverAddr := <-serverAddrC
 	// try 100 Samples
 	for i := 0; i < 100; i++ {
 		conn, err := net.Dial("udp", serverAddr)
