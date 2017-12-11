@@ -42,7 +42,7 @@ func TestListenAndServeInstanceURL(t *testing.T) {
 	}
 	dataChan := make(chan *metrics.EventMetrics, 10)
 	go func() {
-		t.Fatal(serve(context.Background(), ln, dataChan, testSysVars, &logger.Logger{}))
+		t.Fatal(serve(context.Background(), ln, dataChan, testSysVars, statsExportInterval, &logger.Logger{}))
 	}()
 	resp, err := http.Get(fmt.Sprintf("http://%s/instance", listenerAddr(ln)))
 	if err != nil {
@@ -67,12 +67,10 @@ func TestListenAndServeStats(t *testing.T) {
 	}
 	dataChan := make(chan *metrics.EventMetrics, 10)
 	testURLs := []string{"/", "/testURL1", "/", "/testURL2"}
-	// Set global variable statsExportInterval to a lower value to shorten the test
-	// run time.
-	statsExportInterval = 2 * time.Second
+	testExportInterval := 2 * time.Second
 
 	go func() {
-		t.Fatal(serve(context.Background(), ln, dataChan, make(map[string]string), &logger.Logger{}))
+		t.Fatal(serve(context.Background(), ln, dataChan, make(map[string]string), testExportInterval, &logger.Logger{}))
 	}()
 	for _, url := range testURLs {
 		resp, err := http.Get(fmt.Sprintf("http://%s/%s", listenerAddr(ln), url))
@@ -91,10 +89,9 @@ func TestListenAndServeStats(t *testing.T) {
 		}
 	}
 	// Sleep for the export interval and a second extra to allow for the stats to
-	// come in before closing the channel.
-	time.Sleep(statsExportInterval)
+	// come in.
+	time.Sleep(testExportInterval)
 	time.Sleep(time.Second)
-	close(dataChan)
 
 	// Build a map of expected URL stats
 	expectedURLStats := make(map[string]int64)

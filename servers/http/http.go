@@ -29,17 +29,18 @@ import (
 	"github.com/google/cloudprober/sysvars"
 )
 
-var statsExportInterval = 10 * time.Second
+const statsExportInterval = 10 * time.Second
+
 var defaultResponse = "ok"
 
 // statsKeeper manages the stats and exports those stats at a regular basis.
 // Currently we only maintain the number of requests received per URL.
-func statsKeeper(name string, statsChan <-chan string, dataChan chan<- *metrics.EventMetrics, l *logger.Logger) {
+func statsKeeper(name string, statsChan <-chan string, dataChan chan<- *metrics.EventMetrics, exportInterval time.Duration, l *logger.Logger) {
 	reqMetric := metrics.NewMap("url", metrics.NewInt(0))
 	em := metrics.NewEventMetrics(time.Now()).
 		AddMetric("req", reqMetric).
 		AddLabel("module", name)
-	doExport := time.Tick(statsExportInterval)
+	doExport := time.Tick(exportInterval)
 	for {
 		select {
 		case url := <-statsChan:
@@ -74,17 +75,17 @@ func ListenAndServe(ctx context.Context, c *ServerConf, dataChan chan<- *metrics
 	if err != nil {
 		return err
 	}
-	return serve(ctx, ln, dataChan, sysvars.Vars(), l)
+	return serve(ctx, ln, dataChan, sysvars.Vars(), statsExportInterval, l)
 }
 
-func serve(ctx context.Context, ln net.Listener, dataChan chan<- *metrics.EventMetrics, sysVars map[string]string, l *logger.Logger) error {
+func serve(ctx context.Context, ln net.Listener, dataChan chan<- *metrics.EventMetrics, sysVars map[string]string, statsExportInterval time.Duration, l *logger.Logger) error {
 	// 1000 outstanding stats update requests
 	statsChan := make(chan string, 1000)
 	urlResTable := make(map[string]string)
 	urlResTable["/instance"] = sysVars["instance"]
 
 	laddr := ln.Addr().String()
-	go statsKeeper(fmt.Sprintf("http-server-%s", laddr), statsChan, dataChan, l)
+	go statsKeeper(fmt.Sprintf("http-server-%s", laddr), statsChan, dataChan, statsExportInterval, l)
 
 	// Not using default server mux as we may run multiple HTTP servers, e.g. for testing.
 	serverMux := http.NewServeMux()
