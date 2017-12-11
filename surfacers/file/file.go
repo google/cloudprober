@@ -52,28 +52,33 @@ type FileSurfacer struct {
 // cloud logger because it is unlikely to fail reportably after the call to
 // New.
 func New(config *SurfacerConf, l *logger.Logger) (*FileSurfacer, error) {
-	// Create an empty surfacer to be returned, assign it an empty write
-	// channel to allow for asynch writes.
-	s := FileSurfacer{
-		writeChan: make(chan *metrics.EventMetrics, 1000),
-		c:         config,
-		l:         l,
-		// Get a unique id from the nano timestamp. This id is
-		// used to uniquely identify the data strings on the
-		// serial port. Only requirement for this id is that it
-		// should only go up for a particular instance. We don't
-		// call time.Now().UnixNano() for each string that we
-		// print as it's an expensive call and we don't really
-		// make use of its value.
-		id: time.Now().UnixNano(),
+	s := &FileSurfacer{
+		c: config,
+		l: l,
 	}
+
+	// Get a unique id from the nano timestamp. This id is
+	// used to uniquely identify the data strings on the
+	// serial port. Only requirement for this id is that it
+	// should only go up for a particular instance. We don't
+	// call time.Now().UnixNano() for each string that we
+	// print as it's an expensive call and we don't really
+	// make use of its value.
+	id := time.Now().UnixNano()
+
+	return s, s.init(id)
+}
+
+func (s *FileSurfacer) init(id int64) error {
+	s.writeChan = make(chan *metrics.EventMetrics, 1000)
+	s.id = id
 
 	// File handle for the output file
 	if s.c.GetFilePath() == "" {
 		s.outf = os.Stdout
 	} else {
 		if outf, err := os.Create(s.c.GetFilePath()); err != nil {
-			return nil, fmt.Errorf("failed to create file for writing: %v", err)
+			return fmt.Errorf("failed to create file for writing: %v", err)
 		} else {
 			s.outf = outf
 		}
@@ -92,7 +97,7 @@ func New(config *SurfacerConf, l *logger.Logger) (*FileSurfacer, error) {
 		}
 	}()
 
-	return &s, nil
+	return nil
 }
 
 // Write takes the data to be written to file (usually set as a GCE instance's
