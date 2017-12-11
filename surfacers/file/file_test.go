@@ -28,6 +28,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/kylelemons/godebug/pretty"
 
 	"github.com/google/cloudprober/metrics"
@@ -59,10 +60,11 @@ func TestRun(t *testing.T) {
 		}
 		defer os.Remove(f.Name())
 
-		// Create a new config using the file created above
-		path := f.Name()
-		conf := &SurfacerConf{FilePath: &path}
-		s, err := New(conf, nil)
+		s := &FileSurfacer{
+			c: &SurfacerConf{FilePath: proto.String(f.Name())},
+		}
+		id := time.Now().UnixNano()
+		err = s.init(id)
 		if err != nil {
 			t.Errorf("Unable to create a new file surfacer: %v\ntest description: %s", err, tt.description)
 		}
@@ -79,7 +81,7 @@ func TestRun(t *testing.T) {
 		if err != nil {
 			t.Errorf("Unable to open test output file for reading: %v\ntest description: %s", err, tt.description)
 		}
-		if diff := pretty.Compare(fmt.Sprintf("%s %d %s\n", s.c.GetPrefix(), s.id-1, tt.em.String()), string(dat)); diff != "" {
+		if diff := pretty.Compare(fmt.Sprintf("%s %d %s\n", s.c.GetPrefix(), id, tt.em.String()), string(dat)); diff != "" {
 			t.Errorf("Message written does not match expected output (-want +got):\n%s\ntest description: %s", diff, tt.description)
 		}
 	}
