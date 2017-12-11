@@ -82,9 +82,9 @@ func TestStatsKeeper(t *testing.T) {
 		resultsChan <- prr
 	}
 	time.Sleep(3 * time.Second)
-	close(dataChan)
 
-	for em := range dataChan {
+	for i := 0; i < len(dataChan); i++ {
+		em := <-dataChan
 		var foundTarget bool
 		for _, target := range targets {
 			if em.Label("dst") == target {
