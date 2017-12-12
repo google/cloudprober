@@ -9,6 +9,9 @@ language: go
 go:
  - 1.8
 
+script:
+ - go test -v -race -covermode=atomic ./...
+
 go_import_path: github.com/google/cloudprober
 
 services:
