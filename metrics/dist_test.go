@@ -17,6 +17,7 @@ package metrics
 import (
 	"math"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/golang/protobuf/proto"
@@ -125,5 +126,58 @@ func TestDistString(t *testing.T) {
 	want := "dist:sum:21.5|count:3|lb:-Inf,1,5,15,30,45|bc:1,1,0,1,0,0"
 	if s != want {
 		t.Errorf("String is not in expected format. d.String()=%s, want: %s", s, want)
+	}
+}
+
+func TestVerify(t *testing.T) {
+	d := &Distribution{}
+	if d.Verify() == nil {
+		t.Fatalf("Distribution verification didn't fail for an invalid distribution.")
+	}
+
+	// Now a valid distribution
+	lb := []float64{1, 5, 15, 30, 45}
+	d = NewDistribution(lb)
+	if d.Verify() != nil {
+		t.Fatalf("Distribution verification failed for a valid distribution: %s", d.String())
+	}
+
+	// Make it invalid by removing one element from the lower bounds.
+	d.lowerBounds = d.lowerBounds[1:]
+	if d.Verify() == nil {
+		t.Fatalf("Distribution verification didn't fail for an invalid distribution: %s.", d.String())
+	}
+
+	// Invalid distribution due to count mismatch.
+	d = NewDistribution(lb)
+	for _, s := range []float64{0.5, 4, 17} {
+		d.AddSample(s)
+	}
+	d.count--
+	if d.Verify() == nil {
+		t.Fatalf("Distribution verification didn't fail for an invalid distribution (count mismatch): %s.", d.String())
+	}
+}
+
+func TestParseDistFromString(t *testing.T) {
+	lb := []float64{1, 5, 15, 30, 45}
+	d := NewDistribution(lb)
+
+	for _, s := range []float64{0.5, 4, 17} {
+		d.AddSample(s)
+	}
+
+	s := d.String()
+	d1, err := ParseDistFromString(s)
+	if err != nil {
+		t.Fatalf("Error while parsing distribution from: %s. Err: %v", d.String(), err)
+	}
+	if d1.String() != d.String() {
+		t.Errorf("Didn't get the expected distribution. Got: %s, want: %s", d1.String(), d.String())
+	}
+
+	// Verify that parsing an invalid string results in error.
+	if _, err = ParseDistFromString(strings.Replace(s, "count:3", "count:a", 1)); err == nil {
+		t.Error("No error while parsing invalid distribution string.")
 	}
 }
