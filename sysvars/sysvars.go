@@ -137,12 +137,9 @@ func Start(ctx context.Context, dataChan chan *metrics.EventMetrics, interval ti
 		for _, k := range varsKeys {
 			em.AddMetric(k, metrics.NewString(vars[k]))
 		}
-
-		// Uptime is since this module started.
-		timeSince := time.Since(startTime).Seconds()
-		em.AddMetric("uptime", metrics.NewInt(int64(timeSince)))
-
 		dataChan <- em
 		l.Info(em.String())
+
+		runtimeVars(dataChan, l)
 	}
 }
