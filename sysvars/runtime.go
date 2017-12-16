@@ -6,13 +6,13 @@ import (
 
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
-	"google3/third_party/golang/go_sys/unix/unix"
 )
 
 func runtimeVars(dataChan chan *metrics.EventMetrics, l *logger.Logger) {
 	m := &runtime.MemStats{}
 	runtime.ReadMemStats(m)
 	ts := time.Now()
+	osRuntimeVars(dataChan, l)
 	counterRuntimeVars(dataChan, ts, m, l)
 	gaugeRuntimeVars(dataChan, ts, m, l)
 }
@@ -35,14 +35,6 @@ func counterRuntimeVars(dataChan chan *metrics.EventMetrics, ts time.Time, m *ru
 	em.AddMetric("gc_time_msec", metrics.NewFloat(float64(m.PauseTotalNs)/1e6))
 	em.AddMetric("mallocs", metrics.NewInt(int64(m.Mallocs)))
 	em.AddMetric("frees", metrics.NewInt(int64(m.Frees)))
-
-	// CPU usage
-	var timeSpec unix.Timespec
-	if err := unix.ClockGettime(unix.CLOCK_PROCESS_CPUTIME_ID, &timeSpec); err != nil {
-		l.Warningf("Error while trying to get CPU usage: %v", err)
-	} else {
-		em.AddMetric("cpu_usage_msec", metrics.NewFloat(float64(timeSpec.Nano())/1e6))
-	}
 
 	dataChan <- em
 	l.Info(em.String())
