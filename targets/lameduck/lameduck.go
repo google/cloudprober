@@ -174,8 +174,8 @@ func NewService(optsProto *Options, l *logger.Logger) (Service, error) {
 		return nil, fmt.Errorf("lameduck.Init: failed to construct lameduck Service: no lameDuckOptions given")
 	}
 
-	var proj string
-	if optsProto.GetRuntimeconfigProject() == "" {
+	proj := optsProto.GetRuntimeconfigProject()
+	if proj == "" {
 		var err error
 		proj, err = metadata.ProjectID()
 		if err != nil {
