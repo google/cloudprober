@@ -31,7 +31,58 @@ import (
 	"google.golang.org/api/runtimeconfig/v1beta1"
 )
 
-type lameDucksProvider struct {
+// Service is an interface for lameducking operations on VMs.
+type Service interface {
+	Lameduck(name string) error
+	Unlameduck(name string) error
+	IsLameducking(name string) (bool, error)
+	List() ([]string, error)
+}
+
+// A singletion like lameduck Service.
+var globalService Service
+var globalServiceMu sync.RWMutex
+
+// Package level functions.
+
+// Lameduck puts the target in lameduck mode.
+func Lameduck(name string) error {
+	ldSvc, err := getGlobalService()
+	if err != nil {
+		return err
+	}
+	return ldSvc.Lameduck(name)
+}
+
+// Unlameduck removes the target from lameduck mode.
+func Unlameduck(name string) error {
+	ldSvc, err := getGlobalService()
+	if err != nil {
+		return err
+	}
+	return ldSvc.Unlameduck(name)
+}
+
+// IsLameducking checks if the target is in lameduck mode.
+func IsLameducking(name string) (bool, error) {
+	ldSvc, err := getGlobalService()
+	if err != nil {
+		return false, err
+	}
+	return ldSvc.IsLameducking(name)
+}
+
+// List returns the targets that are in lameduck mode.
+func List() ([]string, error) {
+	ldSvc, err := getGlobalService()
+	if err != nil {
+		return nil, err
+	}
+	return ldSvc.List()
+}
+
+// Implements the Service interface.
+type service struct {
 	rtc            rtcservice.Config
 	opts           *Options
 	expirationTime time.Duration
@@ -41,39 +92,28 @@ type lameDucksProvider struct {
 	names []string
 }
 
-// globallameDucksProvider is a global lame ducks provider. It's created only once
-// and shared by various GCE targets that require lame duck detection.
-var globalLameDucksProvider *lameDucksProvider
-var onceLameDucksProvider sync.Once
-
-func (ldp *lameDucksProvider) list() []string {
-	ldp.mu.RLock()
-	defer ldp.mu.RUnlock()
-	return append([]string{}, ldp.names...)
-}
-
-// excludeLameDucks finds lame-duck targets by looking at runtimeconfig variables.
-func (ldp *lameDucksProvider) expand() {
-	resp, err := ldp.rtc.List()
+// Updates the list of lameduck targets' names.
+func (ldSvc *service) expand() {
+	resp, err := ldSvc.rtc.List()
 	if err != nil {
-		ldp.l.Errorf("targets: Error while getting the runtime config variables for lame-duck targets: %v", err)
+		ldSvc.l.Errorf("targets: Error while getting the runtime config variables for lame-duck targets: %v", err)
 		return
 	}
-
-	ldp.mu.Lock()
-	ldp.names = ldp.processVars(resp)
-	ldp.mu.Unlock()
+	ldSvc.mu.Lock()
+	ldSvc.names = ldSvc.processVars(resp)
+	ldSvc.mu.Unlock()
 }
 
-func (ldp *lameDucksProvider) processVars(vars []*runtimeconfig.Variable) []string {
+// Returns the list of un-expired names of lameduck targets.
+func (ldSvc *service) processVars(vars []*runtimeconfig.Variable) []string {
 	var result []string
 	for _, v := range vars {
-		ldp.l.Debugf("targets: Processing runtime-config var: %s", v.Name)
+		ldSvc.l.Debugf("targets: Processing runtime-config var: %s", v.Name)
 
 		// Variable names include the full path, including the config name.
 		varParts := strings.Split(v.Name, "/")
 		if len(varParts) == 0 {
-			ldp.l.Errorf("targets: Invalid variable name for lame-duck targets: %s", v.Name)
+			ldSvc.l.Errorf("targets: Invalid variable name for lame-duck targets: %s", v.Name)
 			continue
 		}
 		ldName := varParts[len(varParts)-1]
@@ -82,33 +122,37 @@ func (ldp *lameDucksProvider) processVars(vars []*runtimeconfig.Variable) []stri
 		// https://cloud.google.com/deployment-manager/runtime-configurator/reference/rest/v1beta1/projects.configs.variables
 		updateTime, err := time.Parse(time.RFC3339Nano, v.UpdateTime)
 		if err != nil {
-			ldp.l.Errorf("targets: Could not parse variable(%s) update time (%s): %v", v.Name, v.UpdateTime, err)
+			ldSvc.l.Errorf("targets: Could not parse variable(%s) update time (%s): %v", v.Name, v.UpdateTime, err)
 			continue
 		}
-		if time.Since(updateTime) < time.Duration(ldp.opts.GetExpirationSec())*time.Second {
-			ldp.l.Infof("targets: Marking target \"%s\" as lame duck.", ldName)
+		if time.Since(updateTime) < time.Duration(ldSvc.opts.GetExpirationSec())*time.Second {
+			ldSvc.l.Infof("targets: Marking target \"%s\" as lame duck.", ldName)
 			result = append(result, ldName)
 		} else {
-			ldp.l.Infof("targets: Ignoring the stale (%s) lame duck (%s) entry", time.Since(updateTime), ldName)
+			ldSvc.l.Infof("targets: Ignoring the stale (%s) lame duck (%s) entry", time.Since(updateTime), ldName)
 		}
 	}
 	return result
 }
 
-// List returns the targets that are in lameduck mode.
-func List() ([]string, error) {
-	if globalLameDucksProvider == nil {
-		return nil, errors.New("lameDucksProvider not initialised")
-	}
-	return globalLameDucksProvider.list(), nil
+// Lameduck puts the target in lameduck mode.
+func (ldSvc *service) Lameduck(name string) error {
+	return ldSvc.rtc.Write(name, []byte{})
+}
+
+// Unlameduck removes the target from lameduck mode.
+func (ldSvc *service) Unlameduck(name string) error {
+	err := ldSvc.rtc.Delete(name)
+	return err
 }
 
 // IsLameducking checks if the target is in lameduck mode.
-func IsLameducking(name string) (bool, error) {
-	names, err := List()
+func (ldSvc *service) IsLameducking(name string) (bool, error) {
+	names, err := ldSvc.List()
 	if err != nil {
 		return false, err
 	}
+
 	for _, n := range names {
 		if n == name {
 			return true, nil
@@ -117,29 +161,17 @@ func IsLameducking(name string) (bool, error) {
 	return false, nil
 }
 
-// Lameduck puts the target in lameduck mode.
-func Lameduck(name string) error {
-	if globalLameDucksProvider == nil {
-		return errors.New("lameDucksProvider not initialised")
-	}
-	return globalLameDucksProvider.rtc.Write(name, []byte{})
+// List returns the targets that are in lameduck mode.
+func (ldSvc *service) List() ([]string, error) {
+	ldSvc.mu.RLock()
+	defer ldSvc.mu.RUnlock()
+	return append([]string{}, ldSvc.names...), nil
 }
 
-// UnLameduck removes the target from lameduck mode.
-func UnLameduck(name string) error {
-	if globalLameDucksProvider == nil {
-		return errors.New("lameDucksProvider not initialised")
-	}
-	err := globalLameDucksProvider.rtc.Delete(name)
-	return err
-}
-
-// Init initialises the lameduck package.  It has to be called before
-// any other function of the package is called.
-// TODO: Should instead return an interface, so that this behavior is clear.
-func Init(optsProto *Options, l *logger.Logger) error {
+// NewService returns a new lameduck Service interface.
+func NewService(optsProto *Options, l *logger.Logger) (Service, error) {
 	if optsProto == nil {
-		return errors.New("lameduck.Init: No lameDuckOptions given")
+		return nil, fmt.Errorf("lameduck.Init: failed to construct lameduck Service: no lameDuckOptions given")
 	}
 
 	var proj string
@@ -147,29 +179,62 @@ func Init(optsProto *Options, l *logger.Logger) error {
 		var err error
 		proj, err = metadata.ProjectID()
 		if err != nil {
-			return fmt.Errorf("lameduck.Init: error while getting project id: %v", err)
+			return nil, fmt.Errorf("lameduck.Init: error while getting project id: %v", err)
 		}
 	}
 	cfg := optsProto.GetRuntimeconfigName()
 
-	onceLameDucksProvider.Do(func() {
-		rtc, err := rtcservice.New(proj, cfg)
-		if err != nil {
-			l.Errorf("targets: unable to build rtc config: %v", err)
-			return
-		}
-		globalLameDucksProvider = &lameDucksProvider{
-			rtc:  rtc,
-			opts: optsProto,
-			l:    l,
-		}
-		go func() {
-			globalLameDucksProvider.expand()
-			for _ = range time.Tick(time.Duration(globalLameDucksProvider.opts.GetReEvalSec()) * time.Second) {
-				globalLameDucksProvider.expand()
-			}
-		}()
-	})
+	rtc, err := rtcservice.New(proj, cfg)
+	if err != nil {
+		return nil, fmt.Errorf("lameduck.Init : rtcconfig service initialization failed : %v", err)
+	}
 
+	ldSvc := &service{
+		rtc:  rtc,
+		opts: optsProto,
+		l:    l,
+	}
+	ldSvc.expand()
+
+	// Update the lameduck targets every [opts.ReEvalSec] seconds.
+	go func() {
+		for _ = range time.Tick(time.Duration(ldSvc.opts.GetReEvalSec()) * time.Second) {
+			ldSvc.expand()
+		}
+	}()
+	return ldSvc, nil
+}
+
+// Init initializes the lameduck package.
+func Init(optsProto *Options, l *logger.Logger) error {
+	globalServiceMu.Lock()
+	defer globalServiceMu.Unlock()
+	// Make sure we only initialize globalService once.
+	if globalService != nil {
+		return nil
+	}
+
+	ldSvc, err := NewService(optsProto, l)
+	if err != nil {
+		return err
+	}
+	globalService = ldSvc
 	return nil
+}
+
+func getGlobalService() (Service, error) {
+	globalServiceMu.RLock()
+	defer globalServiceMu.RUnlock()
+	// Check if globvalService was initialized.
+	if globalService == nil {
+		return nil, errors.New("global lameduck service wasn't initialized")
+	}
+	return globalService, nil
+}
+
+// SetGlobalService overrides the global lameduck Service interface.
+func SetGlobalService(ldSvc Service) {
+	globalServiceMu.Lock()
+	defer globalServiceMu.Unlock()
+	globalService = ldSvc
 }
