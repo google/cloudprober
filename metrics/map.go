@@ -15,6 +15,7 @@
 package metrics
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"sort"
@@ -150,9 +151,12 @@ func (m *Map) AddFloat64(f float64) {
 func (m *Map) String() string {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	s := fmt.Sprintf("map:%s", m.MapName)
+
+	var buf bytes.Buffer
+	buf.WriteString(fmt.Sprintf("map:%s", m.MapName))
+
 	for _, k := range m.keys {
-		s = fmt.Sprintf("%s,%s:%s", s, k, m.m[k].String())
+		buf.WriteString(fmt.Sprintf(",%s:%s", k, m.m[k].String()))
 	}
-	return s
+	return buf.String()
 }
