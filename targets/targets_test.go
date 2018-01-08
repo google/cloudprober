@@ -40,27 +40,47 @@ func getMissing(elems []string, from []string) []string {
 	return missing
 }
 
+type mockLDLister struct {
+	list []string
+}
+
+func (mldl *mockLDLister) List() ([]string, error) {
+	return mldl.list, nil
+}
+
 // TestList does not test the targets.New function, and is specifically testing
 // the implementation of targets.targets directly
-// TODO: Cannot test lameduck until it is mockable.
 func TestList(t *testing.T) {
 	var rows = []struct {
 		hosts  []string
 		re     string
+		ldList []string
 		expect []string
 	}{
-		{[]string{"www.google.com", "127.0.0.1", "hostA", "hostB", "hostC"},
+		{
+			[]string{"www.google.com", "127.0.0.1", "hostA", "hostB", "hostC"},
 			"",
-			[]string{"www.google.com", "127.0.0.1", "hostA", "hostB", "hostC"}},
-		{[]string{"www.google.com", "127.0.0.1", "hostA", "hostB", "hostC"},
+			[]string{"hostB"}, // hostB is lameduck.
+			[]string{"www.google.com", "127.0.0.1", "hostA", "hostC"},
+		},
+		{
+			[]string{"www.google.com", "127.0.0.1", "hostA", "hostB", "hostC"},
 			".*",
-			[]string{"www.google.com", "127.0.0.1", "hostA", "hostB", "hostC"}},
-		{[]string{"www.google.com", "127.0.0.1", "hostA", "hostB", "hostC"},
+			nil,
+			[]string{"www.google.com", "127.0.0.1", "hostA", "hostB", "hostC"},
+		},
+		{
+			[]string{"www.google.com", "127.0.0.1", "hostA", "hostB", "hostC"},
 			"host.*",
-			[]string{"hostA", "hostB", "hostC"}},
-		{[]string{"www.google.com", "127.0.0.1", "hostA", "hostB", "hostC"},
+			[]string{"hostC"}, // hostC is lameduck.
+			[]string{"hostA", "hostB"},
+		},
+		{
+			[]string{"www.google.com", "127.0.0.1", "hostA", "hostB", "hostC"},
 			"empty.*",
-			[]string{}},
+			nil,
+			[]string{},
+		},
 	}
 
 	for id, r := range rows {
@@ -70,6 +90,9 @@ func TestList(t *testing.T) {
 		bt, err := baseTargets(targetsDef, nil, nil)
 		if err != nil {
 			t.Fatal("Unexpected error building baseTarget: ", err)
+		}
+		if r.ldList != nil {
+			bt.ldLister = &mockLDLister{r.ldList}
 		}
 		bt.l = &staticLister{list: r.hosts}
 		got := bt.List()
