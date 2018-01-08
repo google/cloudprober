@@ -104,17 +104,12 @@ func (d *dummy) Resolve(name string, ipVer int) (net.IP, error) {
 // lister and resolver. Essentially it provides a wrapper around the core lister,
 // providing various filtering options. Currently filtering by regex and lameduck
 // is supported.
-// TODO: Currently planning on refactoring lameduck. We want a lameduck
-//               interface which does the work (sortof passed as a singleton). By
-//               doing this, we can then test with rtcStub, and in general have
-//               better "config-from-above". If I change lameduck, we can remove
-//               excludeLameducks and just check if the provider is nil.
 type targets struct {
-	l                lister
-	r                resolver
-	log              *logger.Logger
-	re               *regexp.Regexp
-	excludeLameducks bool
+	l        lister
+	r        resolver
+	log      *logger.Logger
+	re       *regexp.Regexp
+	ldLister lameduck.Lister
 }
 
 // Resolve either resolves a target using the core resolver, or returns an error
@@ -154,8 +149,8 @@ func (t *targets) List() []string {
 	}
 
 	// Filter by lameduck
-	if t.excludeLameducks {
-		lameDucksList, err := lameduck.List()
+	if t.ldLister != nil {
+		lameDucksList, err := t.ldLister.List()
 		if err != nil {
 			t.log.Errorf("targets.List: Error getting list of lameducking targets: %v", err)
 			return list
@@ -183,19 +178,19 @@ func baseTargets(targetsDef *TargetsDef, targetOpts *GlobalTargetsOptions, l *lo
 		l = &logger.Logger{}
 	}
 
+	ldLister, err := lameduck.GetDefaultLister()
+	if err != nil {
+		l.Warningf("Error while getting default lameduck lister, lameduck behavior will be disabled. Err: %v", err)
+	}
+
 	tgts := &targets{
-		log: l,
-		r:   globalResolver,
+		log:      l,
+		r:        globalResolver,
+		ldLister: ldLister,
 	}
 
 	if targetsDef == nil {
 		return tgts, nil
-	}
-
-	tgts.excludeLameducks = targetsDef.GetExcludeLameducks()
-	if tgts.excludeLameducks && (targetOpts == nil || targetOpts.GetLameDuckOptions() == nil) {
-		l.Warningf("Disabling exclude_lameducks as lame_duck_options are not specified.")
-		tgts.excludeLameducks = false
 	}
 
 	if targetsDef.GetRegex() != "" {

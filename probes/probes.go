@@ -83,7 +83,7 @@ func Init(probeProtobufs []*ProbeDef, globalTargetsOpts *targets.GlobalTargetsOp
 	}
 	if globalTargetsOpts != nil {
 		if globalTargetsOpts.GetLameDuckOptions() != nil && metadata.OnGCE() {
-			if err := lameduck.Init(globalTargetsOpts.GetLameDuckOptions(), globalTargetsLogger); err != nil {
+			if err := lameduck.InitDefaultLister(globalTargetsOpts.GetLameDuckOptions(), nil, globalTargetsLogger); err != nil {
 				glog.Exitf("Error in initializing lameduck module. Err: %v", err)
 			}
 		}

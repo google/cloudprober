@@ -31,58 +31,21 @@ import (
 	"google.golang.org/api/runtimeconfig/v1beta1"
 )
 
-// Service is an interface for lameducking operations on VMs.
-type Service interface {
-	Lameduck(name string) error
-	Unlameduck(name string) error
-	IsLameducking(name string) (bool, error)
+// Lister is an interface for getting current lameducks.
+type Lister interface {
 	List() ([]string, error)
 }
 
-// A singletion like lameduck Service.
-var globalService Service
-var globalServiceMu sync.RWMutex
-
-// Package level functions.
-
-// Lameduck puts the target in lameduck mode.
-func Lameduck(name string) error {
-	ldSvc, err := getGlobalService()
-	if err != nil {
-		return err
-	}
-	return ldSvc.Lameduck(name)
+// global.lister is a singleton Lister. It caches data from the upstream config
+// service, allowing for multiple consumers to lookup for lameducks without
+// increasing load on the upstream service.
+var global struct {
+	mu     sync.RWMutex
+	lister Lister
 }
 
-// Unlameduck removes the target from lameduck mode.
-func Unlameduck(name string) error {
-	ldSvc, err := getGlobalService()
-	if err != nil {
-		return err
-	}
-	return ldSvc.Unlameduck(name)
-}
-
-// IsLameducking checks if the target is in lameduck mode.
-func IsLameducking(name string) (bool, error) {
-	ldSvc, err := getGlobalService()
-	if err != nil {
-		return false, err
-	}
-	return ldSvc.IsLameducking(name)
-}
-
-// List returns the targets that are in lameduck mode.
-func List() ([]string, error) {
-	ldSvc, err := getGlobalService()
-	if err != nil {
-		return nil, err
-	}
-	return ldSvc.List()
-}
-
-// Implements the Service interface.
-type service struct {
+// Service provides methods to do lameduck operations on VMs.
+type Service struct {
 	rtc            rtcservice.Config
 	opts           *Options
 	expirationTime time.Duration
@@ -93,7 +56,7 @@ type service struct {
 }
 
 // Updates the list of lameduck targets' names.
-func (ldSvc *service) expand() {
+func (ldSvc *Service) expand() {
 	resp, err := ldSvc.rtc.List()
 	if err != nil {
 		ldSvc.l.Errorf("targets: Error while getting the runtime config variables for lame-duck targets: %v", err)
@@ -105,7 +68,7 @@ func (ldSvc *service) expand() {
 }
 
 // Returns the list of un-expired names of lameduck targets.
-func (ldSvc *service) processVars(vars []*runtimeconfig.Variable) []string {
+func (ldSvc *Service) processVars(vars []*runtimeconfig.Variable) []string {
 	var result []string
 	for _, v := range vars {
 		ldSvc.l.Debugf("targets: Processing runtime-config var: %s", v.Name)
@@ -136,40 +99,25 @@ func (ldSvc *service) processVars(vars []*runtimeconfig.Variable) []string {
 }
 
 // Lameduck puts the target in lameduck mode.
-func (ldSvc *service) Lameduck(name string) error {
+func (ldSvc *Service) Lameduck(name string) error {
 	return ldSvc.rtc.Write(name, []byte{})
 }
 
 // Unlameduck removes the target from lameduck mode.
-func (ldSvc *service) Unlameduck(name string) error {
+func (ldSvc *Service) Unlameduck(name string) error {
 	err := ldSvc.rtc.Delete(name)
 	return err
 }
 
-// IsLameducking checks if the target is in lameduck mode.
-func (ldSvc *service) IsLameducking(name string) (bool, error) {
-	names, err := ldSvc.List()
-	if err != nil {
-		return false, err
-	}
-
-	for _, n := range names {
-		if n == name {
-			return true, nil
-		}
-	}
-	return false, nil
-}
-
 // List returns the targets that are in lameduck mode.
-func (ldSvc *service) List() ([]string, error) {
+func (ldSvc *Service) List() ([]string, error) {
 	ldSvc.mu.RLock()
 	defer ldSvc.mu.RUnlock()
 	return append([]string{}, ldSvc.names...), nil
 }
 
 // NewService returns a new lameduck Service interface.
-func NewService(optsProto *Options, l *logger.Logger) (Service, error) {
+func NewService(optsProto *Options, l *logger.Logger) (*Service, error) {
 	if optsProto == nil {
 		return nil, fmt.Errorf("lameduck.Init: failed to construct lameduck Service: no lameDuckOptions given")
 	}
@@ -189,7 +137,7 @@ func NewService(optsProto *Options, l *logger.Logger) (Service, error) {
 		return nil, fmt.Errorf("lameduck.Init : rtcconfig service initialization failed : %v", err)
 	}
 
-	ldSvc := &service{
+	ldSvc := &Service{
 		rtc:  rtc,
 		opts: optsProto,
 		l:    l,
@@ -205,12 +153,21 @@ func NewService(optsProto *Options, l *logger.Logger) (Service, error) {
 	return ldSvc, nil
 }
 
-// Init initializes the lameduck package.
-func Init(optsProto *Options, l *logger.Logger) error {
-	globalServiceMu.Lock()
-	defer globalServiceMu.Unlock()
-	// Make sure we only initialize globalService once.
-	if globalService != nil {
+// InitDefaultLister initializes the package using the given arguments. If a
+// lister is given in the arguments, global.lister is set to that, otherwise a
+// new lameduck service is created using the config options, and global.lister
+// is set to that service. Initiating the package from a given lister is useful
+// for testing pacakges that depend on this package.
+func InitDefaultLister(optsProto *Options, lister Lister, l *logger.Logger) error {
+	global.mu.Lock()
+	defer global.mu.Unlock()
+	// Make sure we only initialize global.lister once.
+	if global.lister != nil {
+		return nil
+	}
+
+	if lister != nil {
+		global.lister = lister
 		return nil
 	}
 
@@ -218,23 +175,17 @@ func Init(optsProto *Options, l *logger.Logger) error {
 	if err != nil {
 		return err
 	}
-	globalService = ldSvc
+	global.lister = ldSvc
 	return nil
 }
 
-func getGlobalService() (Service, error) {
-	globalServiceMu.RLock()
-	defer globalServiceMu.RUnlock()
-	// Check if globvalService was initialized.
-	if globalService == nil {
-		return nil, errors.New("global lameduck service wasn't initialized")
+// GetDefaultLister returns the global Lister. If global lister is
+// uninitialized, it returns an error.
+func GetDefaultLister() (Lister, error) {
+	global.mu.RLock()
+	defer global.mu.RUnlock()
+	if global.lister == nil {
+		return nil, errors.New("global lameduck service not initialized")
 	}
-	return globalService, nil
-}
-
-// SetGlobalService overrides the global lameduck Service interface.
-func SetGlobalService(ldSvc Service) {
-	globalServiceMu.Lock()
-	defer globalServiceMu.Unlock()
-	globalService = ldSvc
+	return global.lister, nil
 }
