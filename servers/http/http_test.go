@@ -66,11 +66,18 @@ func TestListenAndServeStats(t *testing.T) {
 		t.Fatalf("Listen error: %v.", err)
 	}
 	dataChan := make(chan *metrics.EventMetrics, 10)
-	testURLs := []string{"/", "/testURL1", "/", "/testURL2"}
+	testURLs := []string{"/", "/instance", "/"}
 	testExportInterval := 2 * time.Second
 
+	testSysVars := map[string]string{
+		"instance": "testInstance",
+	}
+	expectedResponse := map[string]string{
+		"/":         defaultResponse,
+		"/instance": "testInstance",
+	}
 	go func() {
-		t.Fatal(serve(context.Background(), ln, dataChan, make(map[string]string), testExportInterval, &logger.Logger{}))
+		t.Fatal(serve(context.Background(), ln, dataChan, testSysVars, testExportInterval, &logger.Logger{}))
 	}()
 	for _, url := range testURLs {
 		resp, err := http.Get(fmt.Sprintf("http://%s/%s", listenerAddr(ln), url))
@@ -84,7 +91,7 @@ func TestListenAndServeStats(t *testing.T) {
 			t.Errorf("Error while reading response for URL '%s': %v", url, err)
 			continue
 		}
-		if string(body) != defaultResponse {
+		if string(body) != expectedResponse[url] {
 			t.Errorf("Didn't get the expected response for URL '%s'. Got: %s, Expected: %s", url, string(body), defaultResponse)
 		}
 	}

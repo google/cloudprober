@@ -55,11 +55,11 @@ func statsKeeper(name string, statsChan <-chan string, dataChan chan<- *metrics.
 
 func handler(w http.ResponseWriter, r *http.Request, urlResTable map[string]string, statsChan chan<- string, l *logger.Logger) {
 	res, ok := urlResTable[r.URL.Path]
-	if ok {
-		fmt.Fprint(w, res)
-	} else {
-		fmt.Fprint(w, defaultResponse)
+	if !ok {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
 	}
+	fmt.Fprint(w, res)
 	select {
 	case statsChan <- r.URL.Path:
 	default:
@@ -81,8 +81,10 @@ func ListenAndServe(ctx context.Context, c *ServerConf, dataChan chan<- *metrics
 func serve(ctx context.Context, ln net.Listener, dataChan chan<- *metrics.EventMetrics, sysVars map[string]string, statsExportInterval time.Duration, l *logger.Logger) error {
 	// 1000 outstanding stats update requests
 	statsChan := make(chan string, 1000)
-	urlResTable := make(map[string]string)
-	urlResTable["/instance"] = sysVars["instance"]
+	urlResTable := map[string]string{
+		"/":         defaultResponse,
+		"/instance": sysVars["instance"],
+	}
 
 	laddr := ln.Addr().String()
 	go statsKeeper(fmt.Sprintf("http-server-%s", laddr), statsChan, dataChan, statsExportInterval, l)
