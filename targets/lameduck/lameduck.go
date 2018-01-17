@@ -100,7 +100,7 @@ func (ldSvc *Service) processVars(vars []*runtimeconfig.Variable) []string {
 
 // Lameduck puts the target in lameduck mode.
 func (ldSvc *Service) Lameduck(name string) error {
-	return ldSvc.rtc.Write(name, []byte{})
+	return ldSvc.rtc.Write(name, []byte{0})
 }
 
 // Unlameduck removes the target from lameduck mode.
