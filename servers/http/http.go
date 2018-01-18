@@ -27,11 +27,17 @@ import (
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
 	"github.com/google/cloudprober/sysvars"
+	"github.com/google/cloudprober/targets/lameduck"
 )
 
 const statsExportInterval = 10 * time.Second
 
-var defaultResponse = "ok"
+// OK a string returned as successful indication by "/", and "/healthcheck".
+const OK = "ok"
+
+var (
+	lameduckGetDefaultLister = lameduck.GetDefaultLister
+)
 
 // statsKeeper manages the stats and exports those stats at a regular basis.
 // Currently we only maintain the number of requests received per URL.
@@ -53,17 +59,66 @@ func statsKeeper(name string, statsChan <-chan string, dataChan chan<- *metrics.
 	}
 }
 
-func handler(w http.ResponseWriter, r *http.Request, urlResTable map[string]string, statsChan chan<- string, l *logger.Logger) {
-	res, ok := urlResTable[r.URL.Path]
-	if !ok {
+// lameduckStatus fetches the global list of lameduck targets and returns:
+// - (true, nil) if this machine is in that list
+// - (false, nil) if not
+// - (false, error) upon failure to fetch the list.
+func lameduckStatus(instanceName string) (bool, error) {
+	lameduckLister, err := lameduckGetDefaultLister()
+	if err != nil {
+		return false, fmt.Errorf("getting lameduck lister service: %v", err)
+	}
+
+	lameducksList, err := lameduckLister.List()
+	if err != nil {
+		return false, fmt.Errorf("getting list of lameducking targets: %v", err)
+	}
+	for _, lameduckName := range lameducksList {
+		if instanceName == lameduckName {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func lameduckHandler(w http.ResponseWriter, instanceName string, l *logger.Logger) {
+	if lameduck, err := lameduckStatus(instanceName); err != nil {
+		fmt.Fprintf(w, "HTTP Server: Error getting lameduck status: %v", err)
+	} else {
+		fmt.Fprint(w, lameduck)
+	}
+}
+
+func healthcheckHandler(w http.ResponseWriter, instanceName string, l *logger.Logger) {
+	lameduck, err := lameduckStatus(instanceName)
+	if err != nil {
+		l.Error(err)
+	}
+	if lameduck {
+		http.Error(w, "lameduck", http.StatusServiceUnavailable)
+	} else {
+		fmt.Fprint(w, OK)
+	}
+}
+
+func handler(w http.ResponseWriter, r *http.Request, instanceName string, statsChan chan<- string, l *logger.Logger) {
+	switch r.URL.Path {
+	case "/":
+		fmt.Fprint(w, OK)
+	case "/instance":
+		fmt.Fprint(w, instanceName)
+	case "/lameduck":
+		lameduckHandler(w, instanceName, l)
+	case "/healthcheck":
+		healthcheckHandler(w, instanceName, l)
+	default:
 		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}
-	fmt.Fprint(w, res)
 	select {
 	case statsChan <- r.URL.Path:
 	default:
-		l.Warning("Was not able to send a URL to the stats channel.")
+		l.Warning("was not able to send a URL to the stats channel")
 	}
 	return
 }
@@ -81,10 +136,6 @@ func ListenAndServe(ctx context.Context, c *ServerConf, dataChan chan<- *metrics
 func serve(ctx context.Context, ln net.Listener, dataChan chan<- *metrics.EventMetrics, sysVars map[string]string, statsExportInterval time.Duration, l *logger.Logger) error {
 	// 1000 outstanding stats update requests
 	statsChan := make(chan string, 1000)
-	urlResTable := map[string]string{
-		"/":         defaultResponse,
-		"/instance": sysVars["instance"],
-	}
 
 	laddr := ln.Addr().String()
 	go statsKeeper(fmt.Sprintf("http-server-%s", laddr), statsChan, dataChan, statsExportInterval, l)
@@ -92,9 +143,9 @@ func serve(ctx context.Context, ln net.Listener, dataChan chan<- *metrics.EventM
 	// Not using default server mux as we may run multiple HTTP servers, e.g. for testing.
 	serverMux := http.NewServeMux()
 	serverMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		handler(w, r, urlResTable, statsChan, l)
+		handler(w, r, sysVars["instance"], statsChan, l)
 	})
-	l.Infof("Starting HTTP server at: %s", laddr)
+	l.Infof("starting HTTP server at: %s", laddr)
 	srv := &http.Server{Addr: laddr, Handler: serverMux}
 
 	// Setup a background function to close server if context is canceled.
