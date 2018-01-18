@@ -30,6 +30,7 @@ import (
 	"strconv"
 	"time"
 
+	"cloud.google.com/go/compute/metadata"
 	"github.com/golang/glog"
 	"github.com/google/cloudprober/config"
 	"github.com/google/cloudprober/logger"
@@ -38,6 +39,7 @@ import (
 	"github.com/google/cloudprober/servers"
 	"github.com/google/cloudprober/surfacers"
 	"github.com/google/cloudprober/sysvars"
+	"github.com/google/cloudprober/targets/lameduck"
 	"github.com/google/cloudprober/targets/rtc/rtcreporter"
 )
 
@@ -103,6 +105,14 @@ func InitFromConfig(configFile string) (*Prober, error) {
 		return nil, err
 	}
 
+	// Initialize lameduck lister
+	globalTargetsOpts := pr.c.GetGlobalTargetsOptions()
+	if globalTargetsOpts.GetLameDuckOptions() != nil && metadata.OnGCE() {
+		if err := lameduck.InitDefaultLister(globalTargetsOpts.GetLameDuckOptions(), nil, l); err != nil {
+			glog.Exitf("Error in initializing lameduck module. Err: %v", err)
+		}
+	}
+
 	// Start default HTTP server. It's used for profile handlers and
 	// prometheus exporter.
 	if err := pr.initDefaultServer(); err != nil {
@@ -110,7 +120,7 @@ func InitFromConfig(configFile string) (*Prober, error) {
 	}
 
 	// Initiliaze probes
-	pr.Probes = probes.Init(pr.c.GetProbe(), pr.c.GetGlobalTargetsOptions(), sysvars.Vars())
+	pr.Probes = probes.Init(pr.c.GetProbe(), globalTargetsOpts, sysvars.Vars())
 
 	pr.surfacers, err = surfacers.Init(pr.c.GetSurfacer())
 	if err != nil {
