@@ -23,7 +23,6 @@ import (
 	"sync"
 	"time"
 
-	"cloud.google.com/go/compute/metadata"
 	"github.com/golang/glog"
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
@@ -34,7 +33,6 @@ import (
 	"github.com/google/cloudprober/probes/ping"
 	"github.com/google/cloudprober/probes/udp"
 	"github.com/google/cloudprober/targets"
-	"github.com/google/cloudprober/targets/lameduck"
 )
 
 const (
@@ -80,13 +78,6 @@ func Init(probeProtobufs []*ProbeDef, globalTargetsOpts *targets.GlobalTargetsOp
 	globalTargetsLogger, err := newLogger("globalTargets")
 	if err != nil {
 		glog.Exitf("Error in initializing logger for the global targets. Err: %v", err)
-	}
-	if globalTargetsOpts != nil {
-		if globalTargetsOpts.GetLameDuckOptions() != nil && metadata.OnGCE() {
-			if err := lameduck.InitDefaultLister(globalTargetsOpts.GetLameDuckOptions(), nil, globalTargetsLogger); err != nil {
-				glog.Exitf("Error in initializing lameduck module. Err: %v", err)
-			}
-		}
 	}
 
 	probes := make(map[string]Probe)
