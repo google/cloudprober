@@ -32,6 +32,7 @@ import (
 	"github.com/google/cloudprober/probes/options"
 	"github.com/google/cloudprober/probes/ping"
 	"github.com/google/cloudprober/probes/udp"
+	"github.com/google/cloudprober/probes/udplistener"
 	"github.com/google/cloudprober/targets"
 )
 
@@ -140,6 +141,9 @@ func initProbe(p *ProbeDef, opts *options.Options) (probe Probe) {
 	case ProbeDef_UDP:
 		probe = &udp.Probe{}
 		opts.ProbeConf = p.GetUdpProbe()
+	case ProbeDef_UDP_LISTENER:
+		probe = &udplistener.Probe{}
+		opts.ProbeConf = p.GetUdpListenerProbe()
 	case ProbeDef_USER_DEFINED:
 		userDefinedProbesMu.Lock()
 		defer userDefinedProbesMu.Unlock()
