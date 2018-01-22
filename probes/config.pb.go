@@ -117,9 +117,7 @@ const Default_ProbeDef_IntervalMsec int32 = 2000
 const Default_ProbeDef_TimeoutMsec int32 = 1000
 const Default_ProbeDef_LatencyUnit string = "us"
 
-type isProbeDef_Probe interface {
-	isProbeDef_Probe()
-}
+type isProbeDef_Probe interface{ isProbeDef_Probe() }
 
 type ProbeDef_PingProbe struct {
 	PingProbe *cloudprober_probes_ping.ProbeConf `protobuf:"bytes,20,opt,name=ping_probe,json=pingProbe,oneof"`
