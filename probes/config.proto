@@ -6,6 +6,7 @@ import "github.com/google/cloudprober/probes/dns/config.proto";
 import "github.com/google/cloudprober/probes/external/config.proto";
 import "github.com/google/cloudprober/probes/ping/config.proto";
 import "github.com/google/cloudprober/probes/udp/config.proto";
+import "github.com/google/cloudprober/probes/udplistener/config.proto";
 import "github.com/google/cloudprober/targets/targets.proto";
 
 package cloudprober.probes;
@@ -19,7 +20,8 @@ message ProbeDef {
     DNS = 2;
     EXTERNAL = 3;
     UDP = 4;
-    USER_DEFINED = 5;
+    UDP_LISTENER = 5;
+    USER_DEFINED = 99;
   }
   required Type type = 2;
 
@@ -49,6 +51,7 @@ message ProbeDef {
     dns.ProbeConf dns_probe = 22;
     external.ProbeConf external_probe = 23;
     udp.ProbeConf udp_probe = 24;
+    udplistener.ProbeConf udp_listener_probe = 25;
     // This field's contents are passed on to the user defined probe, registered
     // for this probe's name through probes.Register().
     string user_defined_probe = 99;

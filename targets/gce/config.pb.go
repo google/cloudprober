@@ -89,9 +89,7 @@ func (m *TargetsConf) String() string            { return proto.CompactTextStrin
 func (*TargetsConf) ProtoMessage()               {}
 func (*TargetsConf) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{0} }
 
-type isTargetsConf_Type interface {
-	isTargetsConf_Type()
-}
+type isTargetsConf_Type interface{ isTargetsConf_Type() }
 
 type TargetsConf_Instances struct {
 	Instances *Instances `protobuf:"bytes,2,opt,name=instances,oneof"`
