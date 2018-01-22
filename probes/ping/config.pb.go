@@ -73,9 +73,7 @@ const Default_ProbeConf_PayloadSize int32 = 56
 const Default_ProbeConf_IpVersion int32 = 4
 const Default_ProbeConf_UseDatagramSocket bool = true
 
-type isProbeConf_Source interface {
-	isProbeConf_Source()
-}
+type isProbeConf_Source interface{ isProbeConf_Source() }
 
 type ProbeConf_SourceIp struct {
 	SourceIp string `protobuf:"bytes,3,opt,name=source_ip,json=sourceIp,oneof"`
