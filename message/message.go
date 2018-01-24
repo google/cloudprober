@@ -182,6 +182,16 @@ func (fm *FlowStateMap) FlowState(src string, dst string) *FlowState {
 	return fs
 }
 
+// SetSeq sets internal state such that the next message will contain nextSeq.
+func (fs *FlowState) SetSeq(nextSeq uint64) {
+	fs.seq = nextSeq - 1
+}
+
+// NextSeq returns the next sequence number that will be used.
+func (fs *FlowState) NextSeq() uint64 {
+	return fs.seq + 1
+}
+
 // CreateMessage creates a message for the flow and returns byte array
 // representation of the message and sequence number used on success.
 // TODO: add Message.CreateMessage() fn and use it in FlowState.CreateMessage.

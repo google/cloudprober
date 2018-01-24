@@ -1,0 +1,19 @@
+syntax = "proto2";
+
+package cloudprober.probes.udplistener;
+
+message ProbeConf {
+  // Export stats after these many milliseconds
+  optional int32 stats_export_interval_msec = 2 [default = 10000];
+
+  // Port to listen.
+  optional int32 port = 3 [default = 32212];
+
+  // Probe response to an incoming packet: echo back or discard.
+  enum Type {
+    INVALID = 0;
+    ECHO = 1;
+    DISCARD = 2;
+  }
+  optional Type type = 4;
+}
