@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"os"
 	"reflect"
 	"sync"
 	"testing"
@@ -68,15 +67,9 @@ func sendPktsAndCollectReplies(ctx context.Context, t *testing.T, srvPort int, i
 		t.Fatalf("Starting UDP sender failed: %v", err)
 	}
 	t.Logf("Sender addr: %s", conn.LocalAddr().String())
-	var ip string
-	if _, ok := os.LookupEnv("TRAVIS"); ok {
-		ip = "127.0.0.1"
-	} else if _, ok := os.LookupEnv("APPVEYOR"); ok {
-		ip = "127.0.0.1"
-	}
-	srvAddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", ip, srvPort))
+	srvAddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("localhost:%d", srvPort))
 	if err != nil {
-		t.Fatalf("Error resolving udp addr for '%s:%d': %v", ip, srvPort, err)
+		t.Fatalf("Error resolving udp addr for 'localhost:%d': %v", srvPort, err)
 	}
 
 	// set default host to locahost.
