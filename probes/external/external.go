@@ -58,8 +58,8 @@ type Probe struct {
 	requestID  int32
 	cmdRunning bool
 	cmdStdin   io.Writer
-	cmdStdout  io.Reader
-	cmdStderr  io.Reader
+	cmdStdout  io.ReadCloser
+	cmdStderr  io.ReadCloser
 	replyChan  chan *serverutils.ProbeReply
 	success    int64         // toal probe successes
 	total      int64         // total number of probes
@@ -172,10 +172,11 @@ func (p *Probe) startCmdIfNotRunning() error {
 	if p.cmdStderr, err = cmd.StderrPipe(); err != nil {
 		return err
 	}
+
 	go func() {
 		scanner := bufio.NewScanner(p.cmdStderr)
 		for scanner.Scan() {
-			p.l.Infof("Stderr of %s: %s", cmd.Path, scanner.Text())
+			p.l.Warningf("Stderr of %s: %s", cmd.Path, scanner.Text())
 		}
 	}()
 
@@ -184,11 +185,11 @@ func (p *Probe) startCmdIfNotRunning() error {
 		return fmt.Errorf("error while starting the cmd: %s %s. Err: %v", cmd.Path, cmd.Args, err)
 	}
 
-	done := make(chan struct{})
+	doneChan := make(chan struct{})
 	// This goroutine waits for the process to terminate and sets cmdRunning to false when that happens.
 	go func() {
 		err := cmd.Wait()
-		close(done)
+		close(doneChan)
 		p.cmdRunning = false
 		if err != nil {
 			if exitErr, ok := err.(*exec.ExitError); ok {
@@ -196,7 +197,7 @@ func (p *Probe) startCmdIfNotRunning() error {
 			}
 		}
 	}()
-	go p.readProbeReplies(done)
+	go p.readProbeReplies(doneChan)
 	p.cmdRunning = true
 	return nil
 }
@@ -211,12 +212,13 @@ func (p *Probe) readProbeReplies(done chan struct{}) {
 		case <-done:
 			return
 		default:
-			rep, err := serverutils.ReadProbeReply(bufio.NewReader(p.cmdStdout))
-			if err != nil {
-				p.l.Error(err)
-			}
-			p.replyChan <- rep
 		}
+		rep, err := serverutils.ReadProbeReply(bufio.NewReader(p.cmdStdout))
+		if err != nil {
+			p.l.Error(err)
+			continue
+		}
+		p.replyChan <- rep
 	}
 
 }
