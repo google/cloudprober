@@ -296,9 +296,8 @@ func (p *Probe) echoLoop(ctx context.Context, msgChan chan *echoMsg) {
 // TODO: Move processMessage to the outputLoop and remove probe mutex.
 func (p *Probe) recvLoop(ctx context.Context, echoChan chan<- *echoMsg) {
 	conn := p.conn
-	// Accomodate the largest UDP message.
+	// Accommodate the largest UDP message.
 	b := make([]byte, maxMsgSize)
-	oob := make([]byte, maxMsgSize)
 
 	p.initProbeRunResults()
 
@@ -309,7 +308,7 @@ func (p *Probe) recvLoop(ctx context.Context, echoChan chan<- *echoMsg) {
 		default:
 		}
 		conn.SetReadDeadline(time.Now().Add(time.Second))
-		n, _, _, srcAddr, err := conn.ReadMsgUDP(b, oob)
+		n, srcAddr, err := conn.ReadFromUDP(b)
 		if err != nil {
 			p.l.Debugf("Error receiving on UDP socket: %v", err)
 			continue
