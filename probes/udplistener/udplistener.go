@@ -308,7 +308,7 @@ func (p *Probe) recvLoop(ctx context.Context, echoChan chan<- *echoMsg) {
 		default:
 		}
 		conn.SetReadDeadline(time.Now().Add(time.Second))
-		n, srcAddr, err := conn.ReadFromUDP(b, oob)
+		n, srcAddr, err := conn.ReadFromUDP(b)
 		if err != nil {
 			p.l.Debugf("Error receiving on UDP socket: %v", err)
 			continue
