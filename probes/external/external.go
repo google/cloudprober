@@ -31,6 +31,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
 	"strings"
 	"sync"
@@ -202,7 +203,8 @@ func (p *Probe) startCmdIfNotRunning() error {
 	return nil
 }
 
-func (p *Probe) readProbeReplies(done chan struct{}) {
+func (p *Probe) readProbeReplies(done chan struct{}) error {
+	bufReader := bufio.NewReader(p.cmdStdout)
 	// Start a background goroutine to read probe replies from the probe server
 	// process's stdout and put them on the probe's replyChan. Note that replyChan
 	// is a one element channel. Idea is that we won't need buffering other than the
@@ -210,12 +212,21 @@ func (p *Probe) readProbeReplies(done chan struct{}) {
 	for {
 		select {
 		case <-done:
-			return
+			return nil
 		default:
 		}
-		rep, err := serverutils.ReadProbeReply(bufio.NewReader(p.cmdStdout))
+		rep, err := serverutils.ReadProbeReply(bufReader)
 		if err != nil {
-			p.l.Error(err)
+			// Return if external probe process pipe has closed. We get:
+			//  io.EOF: when other process has closed the pipe.
+			//  os.ErrClosed: when we have closed the pipe (through cmd.Wait()).
+			// *os.PathError: deferred close of the pipe.
+			_, isPathError := err.(*os.PathError)
+			if err == os.ErrClosed || err == io.EOF || isPathError {
+				p.l.Errorf("External probe process pipe is closed. Err: %s", err.Error())
+				return err
+			}
+			p.l.Errorf("Error reading probe reply: %s", err.Error())
 			continue
 		}
 		p.replyChan <- rep
@@ -287,7 +298,7 @@ func (p *Probe) runServerProbe(ctx context.Context, dataChan chan *metrics.Event
 		// results regardless of the values of rep and err.
 		rep, err := p.runServerProbeForTarget(ctx, target)
 		if err != nil {
-			p.l.Error(err)
+			p.l.Error(err.Error())
 		}
 		em := p.defaultMetrics(target)
 		p.l.Info(em.String())
