@@ -33,7 +33,7 @@ import (
 
 // stratProbeServer starts a test probe server to work with the TestProbeServer
 // test below.
-func startProbeServer(t *testing.T, testPayload string, r io.Reader, w io.Writer) {
+func startProbeServer(t *testing.T, testPayload string, r io.Reader, w io.WriteCloser) {
 	for {
 		req, err := serverutils.ReadProbeRequest(bufio.NewReader(r))
 		if err != nil {
@@ -63,6 +63,10 @@ func startProbeServer(t *testing.T, testPayload string, r io.Reader, w io.Writer
 			},
 		}
 		t.Logf("Request id: %d, action: %s", id, action)
+		if action == "pipe_server_close" {
+			w.Close()
+			return
+		}
 		if res, ok := actionToResponse[action]; ok {
 			serverutils.WriteMessage(res, w)
 		}
@@ -83,13 +87,13 @@ func setProbeOptions(p *Probe, name, value string) {
 
 // runAndVerifyServerProbe executes a server probe and verifies the replies
 // received.
-func runAndVerifyProbe(t *testing.T, p *Probe, action string, wantError bool, payload string, total, success int64) {
+func runAndVerifyProbe(t *testing.T, p *Probe, action string, wantError bool, payload string, total, success int64) error {
 	setProbeOptions(p, "action", action)
 	rep, err := p.runServerProbeForTarget(context.Background(), "dummy")
-	if wantError && err != nil {
+	if !wantError && err != nil {
 		t.Errorf(err.Error())
 	}
-	if !wantError && err == nil {
+	if wantError && err == nil {
 		t.Error("Expected error, but didn't get one")
 	}
 	if rep.GetPayload() != payload {
@@ -101,9 +105,10 @@ func runAndVerifyProbe(t *testing.T, p *Probe, action string, wantError bool, pa
 	if p.success != success {
 		t.Errorf("p.success=%d, Want: %d", p.success, success)
 	}
+	return err
 }
 
-func TestProbeServer(t *testing.T) {
+func testProbeServerSetup(t *testing.T, readErrorCh chan error) (*Probe, string) {
 	// We create two pairs of pipes to establish communication between this prober
 	// and the test probe server (defined above).
 	// Test probe server input pipe. We writes on w1 and external command reads
@@ -137,29 +142,80 @@ func TestProbeServer(t *testing.T) {
 	// Start the goroutine that reads probe replies. We don't use the done
 	// channel here. It's only to satisfy the readProbeReplies interface.
 	done := make(chan struct{})
-	go p.readProbeReplies(done)
+	go func() {
+		err := p.readProbeReplies(done)
+		if readErrorCh != nil {
+			readErrorCh <- err
+			close(readErrorCh)
+		}
+	}()
+
+	return p, testPayload
+}
+
+func TestProbeServer(t *testing.T) {
+	p, testPayload := testProbeServerSetup(t, nil)
 
 	var total, success int64
 
 	// No payload
 	total++
 	success++
-	runAndVerifyProbe(t, p, "nopayload", true, "", total, success)
+	runAndVerifyProbe(t, p, "nopayload", false, "", total, success)
 
 	// Payload
 	total++
 	success++
-	runAndVerifyProbe(t, p, "payload", true, testPayload, total, success)
+	runAndVerifyProbe(t, p, "payload", false, testPayload, total, success)
 
 	// Payload with error
 	total++
-	runAndVerifyProbe(t, p, "payload_with_error", false, testPayload, total, success)
+	runAndVerifyProbe(t, p, "payload_with_error", true, testPayload, total, success)
 
 	// Timeout
 	total++
 	// Reduce probe timeout to make this test pass quicker.
 	p.opts.Timeout = time.Second
-	runAndVerifyProbe(t, p, "timeout", false, "", total, success)
+	runAndVerifyProbe(t, p, "timeout", true, "", total, success)
+}
+
+func TestProbeServerRemotePipeClose(t *testing.T) {
+	readErrorCh := make(chan error)
+	p, _ := testProbeServerSetup(t, readErrorCh)
+
+	var total, success int64
+	// Remote pipe close
+	total++
+	// Reduce probe timeout to make this test pass quicker.
+	p.opts.Timeout = time.Second
+	runAndVerifyProbe(t, p, "pipe_server_close", true, "", total, success)
+	readError := <-readErrorCh
+	if readError == nil {
+		t.Error("Didn't get error in reading pipe")
+	}
+	if readError != io.EOF {
+		t.Errorf("Didn't get correct error in reading pipe. Got: %v, wanted: %v", readError, io.EOF)
+	}
+}
+
+func TestProbeServerLocalPipeClose(t *testing.T) {
+	readErrorCh := make(chan error)
+	p, _ := testProbeServerSetup(t, readErrorCh)
+
+	var total, success int64
+	// Local pipe close
+	total++
+	// Reduce probe timeout to make this test pass quicker.
+	p.opts.Timeout = time.Second
+	p.cmdStdout.(*os.File).Close()
+	runAndVerifyProbe(t, p, "pipe_local_close", true, "", total, success)
+	readError := <-readErrorCh
+	if readError == nil {
+		t.Error("Didn't get error in reading pipe")
+	}
+	if _, ok := readError.(*os.PathError); !ok {
+		t.Errorf("Didn't get correct error in reading pipe. Got: %T, wanted: *os.PathError", readError)
+	}
 }
 
 func TestSubstituteLabels(t *testing.T) {
