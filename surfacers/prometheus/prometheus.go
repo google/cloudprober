@@ -99,6 +99,10 @@ type PromSurfacer struct {
 	queryChan   chan http.ResponseWriter   // Query channel
 	l           *logger.Logger
 
+	// A handler that takes a promMetric and a dataKey and writes the
+	// corresponding metric string to the provided io.Writer.
+	dataWriter func(w io.Writer, pm *promMetric, dataKey string)
+
 	// Regexes for metric and label names.
 	metricNameRe *regexp.Regexp
 	labelNameRe  *regexp.Regexp
@@ -119,6 +123,16 @@ func New(config *SurfacerConf, l *logger.Logger) (*PromSurfacer, error) {
 		metricNameRe: regexp.MustCompile(ValidMetricNameRegex),
 		labelNameRe:  regexp.MustCompile(ValidLabelNameRegex),
 		l:            l,
+	}
+
+	if ps.c.GetIncludeTimestamp() {
+		ps.dataWriter = func(w io.Writer, pm *promMetric, k string) {
+			fmt.Fprintf(w, "%s %s %d\n", k, pm.data[k].value, pm.data[k].timestamp)
+		}
+	} else {
+		ps.dataWriter = func(w io.Writer, pm *promMetric, k string) {
+			fmt.Fprintf(w, "%s %s\n", k, pm.data[k].value)
+		}
 	}
 
 	done := make(chan interface{}, 1)
@@ -336,7 +350,7 @@ func (ps *PromSurfacer) writeData(w io.Writer) {
 		pm := ps.metrics[name]
 		fmt.Fprintf(w, "#TYPE %s %s\n", name, pm.typ)
 		for _, k := range pm.dataKeys {
-			fmt.Fprintf(w, "%s %s %d\n", k, pm.data[k].value, pm.data[k].timestamp)
+			ps.dataWriter(w, pm, k)
 		}
 	}
 }
