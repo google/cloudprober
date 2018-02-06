@@ -79,12 +79,13 @@ type testData struct {
 	value      string
 }
 
-func newPromSurfacer(t *testing.T) *PromSurfacer {
+func newPromSurfacer(t *testing.T, writeTimestamp bool) *PromSurfacer {
 	c := &SurfacerConf{
 		// Attach a random integer to metrics URL so that multiple
 		// tests can run in parallel without handlers clashing with
 		// each other.
-		MetricsUrl: proto.String(fmt.Sprintf("/metrics_%d", rand.Int())),
+		MetricsUrl:       proto.String(fmt.Sprintf("/metrics_%d", rand.Int())),
+		IncludeTimestamp: proto.Bool(writeTimestamp),
 	}
 	l, _ := logger.New(context.TODO(), "promtheus_test")
 	ps, err := New(c, l)
@@ -95,7 +96,7 @@ func newPromSurfacer(t *testing.T) *PromSurfacer {
 }
 
 func TestRecord(t *testing.T) {
-	ps := newPromSurfacer(t)
+	ps := newPromSurfacer(t, true)
 
 	// Record first EventMetrics
 	ps.record(newEventMetrics(32, 22, map[string]int64{
@@ -144,7 +145,7 @@ func TestRecord(t *testing.T) {
 }
 
 func TestInvalidNames(t *testing.T) {
-	ps := newPromSurfacer(t)
+	ps := newPromSurfacer(t, true)
 	respCodesVal := metrics.NewMap("resp-code", metrics.NewInt(0))
 	respCodesVal.IncKeyBy("200", metrics.NewInt(19))
 	ps.record(metrics.NewEventMetrics(time.Now()).
@@ -166,7 +167,7 @@ func TestInvalidNames(t *testing.T) {
 }
 
 func TestScrapeOutput(t *testing.T) {
-	ps := newPromSurfacer(t)
+	ps := newPromSurfacer(t, true)
 	respCodesVal := metrics.NewMap("code", metrics.NewInt(0))
 	respCodesVal.IncKeyBy("200", metrics.NewInt(19))
 	latencyVal := metrics.NewDistribution([]float64{1, 4})
@@ -195,6 +196,41 @@ func TestScrapeOutput(t *testing.T) {
 		"latency_bucket{ptype=\"http\",le=\"1\"} 1 " + promTS,
 		"latency_bucket{ptype=\"http\",le=\"4\"} 1 " + promTS,
 		"latency_bucket{ptype=\"http\",le=\"+Inf\"} 2 " + promTS,
+	} {
+		if strings.Index(data, d) == -1 {
+			t.Errorf("String \"%s\" not found in output data: %s", d, data)
+		}
+	}
+}
+
+func TestScrapeOutputNoTimestamp(t *testing.T) {
+	ps := newPromSurfacer(t, false)
+	respCodesVal := metrics.NewMap("code", metrics.NewInt(0))
+	respCodesVal.IncKeyBy("200", metrics.NewInt(19))
+	latencyVal := metrics.NewDistribution([]float64{1, 4})
+	latencyVal.AddSample(0.5)
+	latencyVal.AddSample(5)
+	ps.record(metrics.NewEventMetrics(time.Now()).
+		AddMetric("sent", metrics.NewInt(32)).
+		AddMetric("rcvd", metrics.NewInt(22)).
+		AddMetric("latency", latencyVal).
+		AddMetric("resp_code", respCodesVal).
+		AddLabel("ptype", "http"))
+	var b bytes.Buffer
+	ps.writeData(&b)
+	data := b.String()
+	for _, d := range []string{
+		"#TYPE sent counter",
+		"#TYPE rcvd counter",
+		"#TYPE resp_code counter",
+		"sent{ptype=\"http\"} 32",
+		"rcvd{ptype=\"http\"} 22",
+		"resp_code{ptype=\"http\",code=\"200\"} 19",
+		"latency_sum{ptype=\"http\"} 5.5",
+		"latency_count{ptype=\"http\"} 2",
+		"latency_bucket{ptype=\"http\",le=\"1\"} 1",
+		"latency_bucket{ptype=\"http\",le=\"4\"} 1",
+		"latency_bucket{ptype=\"http\",le=\"+Inf\"} 2",
 	} {
 		if strings.Index(data, d) == -1 {
 			t.Errorf("String \"%s\" not found in output data: %s", d, data)
