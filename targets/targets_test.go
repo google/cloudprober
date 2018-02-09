@@ -15,12 +15,15 @@
 package targets
 
 import (
+	"errors"
+	"net"
 	"reflect"
 	"strings"
 	"testing"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/logger"
+	"github.com/google/cloudprober/targets/testdata"
 )
 
 // getMissing returns a list of items in "elems" missing from "from". Cannot
@@ -145,5 +148,48 @@ func TestStaticTargets(t *testing.T) {
 	tgts := StaticTargets(testHosts)
 	if !reflect.DeepEqual(tgts.List(), strings.Split(testHosts, ",")) {
 		t.Errorf("StaticTargets not working as expected. Got list: %q, Expected: %s", tgts.List(), strings.Split(testHosts, ","))
+	}
+}
+
+type testTargetsType struct {
+	names []string
+}
+
+func (tgts *testTargetsType) List() []string {
+	return tgts.names
+}
+
+func (tgts *testTargetsType) Resolve(name string, ipVer int) (net.IP, error) {
+	return nil, errors.New("resolve not implemented")
+}
+
+func TestGetExtensionTargets(t *testing.T) {
+	targetsDef := &TargetsDef{}
+
+	// This has the same effect as using the following in your config:
+	// targets {
+	//    [cloudprober.targets.testdata.fancy_targets] {
+	//      name: "fancy"
+	//    }
+	// }
+	err := proto.SetExtension(targetsDef, testdata.E_FancyTargets, &testdata.FancyTargets{Name: proto.String("fancy")})
+	if err != nil {
+		t.Fatalf("error setting up extension in test targets proto: %v", err)
+	}
+	tgts, err := getExtensionTargets(targetsDef, &logger.Logger{})
+	if err == nil {
+		t.Errorf("Expected error in building targets from extensions, got nil. targets: %v", tgts)
+	}
+	testTargets := []string{"a", "b"}
+	RegisterTargetsType(200, func(conf interface{}, l *logger.Logger) (Targets, error) {
+		return &testTargetsType{names: testTargets}, nil
+	})
+	tgts, err = getExtensionTargets(targetsDef, &logger.Logger{})
+	if err != nil {
+		t.Errorf("Got error in building targets from extensions: %v.", err)
+	}
+	tgtsList := tgts.List()
+	if !reflect.DeepEqual(tgtsList, testTargets) {
+		t.Errorf("Extended targets: tgts.List()=%v, expected=%v", tgtsList, testTargets)
 	}
 }

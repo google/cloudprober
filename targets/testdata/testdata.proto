@@ -1,0 +1,13 @@
+syntax = "proto2";
+
+import "github.com/google/cloudprober/targets/targets.proto";
+
+package cloudprober.targets.testdata;
+
+message FancyTargets {
+  required string name = 1;
+}
+
+extend targets.TargetsDef {
+  optional FancyTargets fancy_targets = 200;
+}
