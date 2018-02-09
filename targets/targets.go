@@ -28,8 +28,10 @@ import (
 	"net"
 	"regexp"
 	"strings"
+	"sync"
 
 	"cloud.google.com/go/compute/metadata"
+	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/targets/gce"
 	"github.com/google/cloudprober/targets/lameduck"
@@ -42,6 +44,14 @@ import (
 // cache layer that is best shared by all probes.
 var (
 	globalResolver *dnsRes.Resolver
+)
+
+// extensionMap is a map of targets-types extensions. While creating new
+// targets, if it's not a known targets type, we lookup this map to check if
+// it matches with a registered extension.
+var (
+	extensionMap   = make(map[int]func(interface{}, *logger.Logger) (Targets, error))
+	extensionMapMu sync.Mutex
 )
 
 // Targets are able to list and resolve targets with their List and Resolve
@@ -269,10 +279,54 @@ func New(targetsDef *TargetsDef, targetOpts *GlobalTargetsOptions, globalTargets
 		t.l = dummy
 		t.r = dummy
 	default:
-		return nil, errors.New("unknown targets type")
+		extT, err := getExtensionTargets(targetsDef, t.log)
+		if err != nil {
+			return nil, fmt.Errorf("targets.New(): %v", err)
+		}
+		t.l = extT
+		t.r = extT
 	}
 
 	return t, nil
+}
+
+func getExtensionTargets(pb *TargetsDef, l *logger.Logger) (Targets, error) {
+	extensions := proto.RegisteredExtensions(pb)
+	if len(extensions) > 1 {
+		return nil, fmt.Errorf("only one extension is allowed per targets definition, got %d extensions", len(extensions))
+	}
+	var field int
+	var desc *proto.ExtensionDesc
+	// There should be only one extension in one protobuf message.
+	for f, d := range extensions {
+		field = int(f)
+		desc = d
+	}
+	if desc == nil {
+		return nil, errors.New("unrecognized target type")
+	}
+	value, err := proto.GetExtension(pb, desc)
+	if err != nil {
+		return nil, err
+	}
+	l.Infof("Extension field: %d, value: %v", field, value)
+	extensionMapMu.Lock()
+	defer extensionMapMu.Unlock()
+	newTargetsFunc, ok := extensionMap[field]
+	if !ok {
+		return nil, fmt.Errorf("no targets type registered for the extension: %d", field)
+	}
+	return newTargetsFunc(value, l)
+}
+
+// RegisterTargetsType registers a new targets type. New targets types are
+// integrated with the config subsystem using the protobuf extensions.
+//
+// TODO: Add a full example of using extensions.
+func RegisterTargetsType(extensionFieldNo int, newTargetsFunc func(interface{}, *logger.Logger) (Targets, error)) {
+	extensionMapMu.Lock()
+	defer extensionMapMu.Unlock()
+	extensionMap[extensionFieldNo] = newTargetsFunc
 }
 
 // init initializes the package by creating a new global resolver.
