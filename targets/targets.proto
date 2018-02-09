@@ -1,4 +1,4 @@
-// Provides all configuration necesary to list targets for a cloudprober probe.
+// Provides all configuration necessary to list targets for a cloudprober probe.
 syntax = "proto2";
 
 import "github.com/google/cloudprober/targets/lameduck/config.proto";
@@ -29,6 +29,10 @@ message TargetsDef {
   // (specifically GCE instances/forwarding rules). This does not impact those
   // caches.
   optional int32 re_eval_sec = 6 [default = 0];
+
+  // Extensions allow users to to add new targets types (for example, a targets
+  // type that utilizes a custom protocol) in a systematic manner.
+  extensions 200 to max;
 }
 
 // DummyTargets represent empty targets, which are useful for external
