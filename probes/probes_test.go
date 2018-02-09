@@ -15,13 +15,13 @@
 package probes
 
 import (
+	"context"
 	"testing"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/metrics"
 	"github.com/google/cloudprober/probes/options"
 	"github.com/google/cloudprober/probes/testdata"
-	"google3/go/context/context"
 )
 
 type testProbe struct{}
