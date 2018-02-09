@@ -21,6 +21,15 @@ message ProbeDef {
     EXTERNAL = 3;
     UDP = 4;
     UDP_LISTENER = 5;
+
+    // One of the extension probe types. See "extensions" below for more
+    // details.
+    EXTENSION = 98;
+
+    // USER_DEFINED probe type is for a one off probe that you want to compile
+    // into cloudprober, but you don't expect it to be reused. If you expect
+    // it to be reused, you should consider adding it using the extensions
+    // mechanism.
     USER_DEFINED = 99;
   }
   required Type type = 2;
@@ -53,7 +62,11 @@ message ProbeDef {
     udp.ProbeConf udp_probe = 24;
     udplistener.ProbeConf udp_listener_probe = 25;
     // This field's contents are passed on to the user defined probe, registered
-    // for this probe's name through probes.Register().
+    // for this probe's name through probes.RegisterUserDefined().
     string user_defined_probe = 99;
   }
+
+  // Extensions allow users to to add new probe types (for example, a probe type
+  // that utilizes a custom protocol) in a systematic manner.
+  extensions 200 to max;
 }
