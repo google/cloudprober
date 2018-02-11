@@ -54,7 +54,7 @@ func New(pb *RtcReportOptions, sysVars map[string]string, l *logger.Logger) (*Re
 
 	var cfgs []rtcservice.Config
 	for _, name := range pb.GetCfgs() {
-		c, err := rtcservice.New(proj, name)
+		c, err := rtcservice.New(proj, name, nil)
 		if err != nil {
 			return nil, err
 		}
