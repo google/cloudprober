@@ -21,6 +21,7 @@ package lameduck
 import (
 	"errors"
 	"fmt"
+	"net/http"
 	"strings"
 	"sync"
 	"time"
@@ -116,8 +117,10 @@ func (ldSvc *Service) List() ([]string, error) {
 	return append([]string{}, ldSvc.names...), nil
 }
 
-// NewService returns a new lameduck Service interface.
-func NewService(optsProto *Options, l *logger.Logger) (*Service, error) {
+// NewService creates a new lameduck Service using the provided config options
+// and an oauth2 enabled *http.Client; if the client is set to nil, an oauth
+// enabled client is created automatically using GCP default credentials.
+func NewService(optsProto *Options, c *http.Client, l *logger.Logger) (*Service, error) {
 	if optsProto == nil {
 		return nil, fmt.Errorf("lameduck.Init: failed to construct lameduck Service: no lameDuckOptions given")
 	}
@@ -132,7 +135,7 @@ func NewService(optsProto *Options, l *logger.Logger) (*Service, error) {
 	}
 	cfg := optsProto.GetRuntimeconfigName()
 
-	rtc, err := rtcservice.New(proj, cfg)
+	rtc, err := rtcservice.New(proj, cfg, c)
 	if err != nil {
 		return nil, fmt.Errorf("lameduck.Init : rtcconfig service initialization failed : %v", err)
 	}
@@ -171,7 +174,7 @@ func InitDefaultLister(optsProto *Options, lister Lister, l *logger.Logger) erro
 		return nil
 	}
 
-	ldSvc, err := NewService(optsProto, l)
+	ldSvc, err := NewService(optsProto, nil, l)
 	if err != nil {
 		return err
 	}

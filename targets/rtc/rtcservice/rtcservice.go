@@ -31,10 +31,11 @@
 package rtcservice
 
 import (
+	"context"
 	"encoding/base64"
 	"fmt"
+	"net/http"
 
-	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/googleapi"
 	"google.golang.org/api/runtimeconfig/v1beta1"
@@ -75,8 +76,12 @@ type impl struct {
 // project string and cfg string are reachable. If not, an error will be returned.
 // Note that this means New cannot be used to establish a new RTC configuration ---
 // the configuration must already exist.
-func New(proj string, cfg string) (Config, error) {
-	svc, err := getService()
+//
+// New also takes an OAuth2.0 enabled *http.Client for API access. If a nil
+// *http.Client is provided, a new http.Client is created using
+// google.DefaultClient, which uses default credentials.
+func New(proj string, cfg string, c *http.Client) (Config, error) {
+	svc, err := getService(c)
 	if err != nil {
 		return nil, err
 	}
@@ -89,13 +94,16 @@ func New(proj string, cfg string) (Config, error) {
 	return s, nil
 }
 
-// This helper function is used to actually connect to an RTC client
-func getService() (*runtimeconfig.ProjectsConfigsVariablesService, error) {
-	client, err := google.DefaultClient(oauth2.NoContext, runtimeconfig.CloudruntimeconfigScope)
-	if err != nil {
-		return nil, err
+// This helper function is used to actually connect to an RTC client.
+func getService(c *http.Client) (*runtimeconfig.ProjectsConfigsVariablesService, error) {
+	if c == nil {
+		var err error
+		c, err = google.DefaultClient(context.TODO(), runtimeconfig.CloudruntimeconfigScope)
+		if err != nil {
+			return nil, err
+		}
 	}
-	rtcService, err := runtimeconfig.New(client)
+	rtcService, err := runtimeconfig.New(c)
 	if err != nil {
 		return nil, err
 	}
