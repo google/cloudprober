@@ -97,7 +97,9 @@ func (m *SurfacerDef) String() string            { return proto.CompactTextStrin
 func (*SurfacerDef) ProtoMessage()               {}
 func (*SurfacerDef) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{0} }
 
-type isSurfacerDef_Surfacer interface{ isSurfacerDef_Surfacer() }
+type isSurfacerDef_Surfacer interface {
+	isSurfacerDef_Surfacer()
+}
 
 type SurfacerDef_PrometheusSurfacer struct {
 	PrometheusSurfacer *cloudprober_surfacer_prometheus.SurfacerConf `protobuf:"bytes,10,opt,name=prometheus_surfacer,json=prometheusSurfacer,oneof"`

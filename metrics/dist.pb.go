@@ -42,7 +42,9 @@ func (m *Dist) String() string            { return proto.CompactTextString(m) }
 func (*Dist) ProtoMessage()               {}
 func (*Dist) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{0} }
 
-type isDist_Buckets interface{ isDist_Buckets() }
+type isDist_Buckets interface {
+	isDist_Buckets()
+}
 
 type Dist_ExplicitBuckets struct {
 	ExplicitBuckets string `protobuf:"bytes,1,opt,name=explicit_buckets,json=explicitBuckets,oneof"`

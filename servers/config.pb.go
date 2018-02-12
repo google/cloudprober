@@ -77,7 +77,9 @@ func (m *Server) String() string            { return proto.CompactTextString(m) 
 func (*Server) ProtoMessage()               {}
 func (*Server) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{0} }
 
-type isServer_Server interface{ isServer_Server() }
+type isServer_Server interface {
+	isServer_Server()
+}
 
 type Server_HttpServer struct {
 	HttpServer *cloudprober_servers_http.ServerConf `protobuf:"bytes,2,opt,name=http_server,json=httpServer,oneof"`
