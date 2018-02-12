@@ -71,7 +71,9 @@ func (*TargetsDef) ExtensionRangeArray() []proto.ExtensionRange {
 const Default_TargetsDef_ExcludeLameducks bool = true
 const Default_TargetsDef_ReEvalSec int32 = 0
 
-type isTargetsDef_Type interface{ isTargetsDef_Type() }
+type isTargetsDef_Type interface {
+	isTargetsDef_Type()
+}
 
 type TargetsDef_HostNames struct {
 	HostNames string `protobuf:"bytes,1,opt,name=host_names,json=hostNames,oneof"`
