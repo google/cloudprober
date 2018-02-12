@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package targets
+package targets_test
 
 import (
 	"errors"
@@ -23,6 +23,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/logger"
+	"github.com/google/cloudprober/targets"
 	"github.com/google/cloudprober/targets/testdata"
 )
 
@@ -89,15 +90,14 @@ func TestList(t *testing.T) {
 	for id, r := range rows {
 		targetsDef := &TargetsDef{
 			Regex: proto.String(r.re),
+			Type: &TargetsDef_HostNames{
+				HostNames: strings.Join(r.hosts, ","),
+			},
 		}
-		bt, err := baseTargets(targetsDef, nil, nil)
+		bt, err := targets.New(targetsDef, &mockLDLister{r.ldList}, nil, nil, nil)
 		if err != nil {
-			t.Fatal("Unexpected error building baseTarget: ", err)
+			t.Fatalf("Unexpected error building targets: %v", err)
 		}
-		if r.ldList != nil {
-			bt.ldLister = &mockLDLister{r.ldList}
-		}
-		bt.l = &staticLister{list: r.hosts}
 		got := bt.List()
 
 		// Got \subset Expected
@@ -120,7 +120,7 @@ func TestDummyTargets(t *testing.T) {
 		},
 	}
 	l := &logger.Logger{}
-	tgts, err := New(targetsDef, nil, nil, l)
+	tgts, err := targets.New(targetsDef, nil, nil, nil, l)
 	if err != nil {
 		t.Fatalf("targets.New(...) Unexpected errors %v", err)
 	}
@@ -145,7 +145,7 @@ func TestDummyTargets(t *testing.T) {
 
 func TestStaticTargets(t *testing.T) {
 	testHosts := "host1,host2"
-	tgts := StaticTargets(testHosts)
+	tgts := targets.StaticTargets(testHosts)
 	if !reflect.DeepEqual(tgts.List(), strings.Split(testHosts, ",")) {
 		t.Errorf("StaticTargets not working as expected. Got list: %q, Expected: %s", tgts.List(), strings.Split(testHosts, ","))
 	}
@@ -176,15 +176,15 @@ func TestGetExtensionTargets(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error setting up extension in test targets proto: %v", err)
 	}
-	tgts, err := getExtensionTargets(targetsDef, &logger.Logger{})
+	tgts, err := targets.New(targetsDef, nil, nil, nil, nil)
 	if err == nil {
 		t.Errorf("Expected error in building targets from extensions, got nil. targets: %v", tgts)
 	}
 	testTargets := []string{"a", "b"}
-	RegisterTargetsType(200, func(conf interface{}, l *logger.Logger) (Targets, error) {
+	targets.RegisterTargetsType(200, func(conf interface{}, l *logger.Logger) (targets.Targets, error) {
 		return &testTargetsType{names: testTargets}, nil
 	})
-	tgts, err = getExtensionTargets(targetsDef, &logger.Logger{})
+	tgts, err = targets.New(targetsDef, nil, nil, nil, nil)
 	if err != nil {
 		t.Errorf("Got error in building targets from extensions: %v.", err)
 	}

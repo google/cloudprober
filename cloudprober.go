@@ -105,12 +105,25 @@ func InitFromConfig(configFile string) (*Prober, error) {
 		return nil, err
 	}
 
+	// Create a global logger. Each component gets its own logger on successful
+	// creation. For everything else, we use a global logger.
+	globalLogger, err := pr.newLogger("global")
+	if err != nil {
+		return nil, fmt.Errorf("error in initializing global logger: %v", err)
+	}
+
 	// Initialize lameduck lister
 	globalTargetsOpts := pr.c.GetGlobalTargetsOptions()
 	if globalTargetsOpts.GetLameDuckOptions() != nil && metadata.OnGCE() {
-		if err := lameduck.InitDefaultLister(globalTargetsOpts.GetLameDuckOptions(), nil, l); err != nil {
-			glog.Exitf("Error in initializing lameduck module. Err: %v", err)
+		if err := lameduck.InitDefaultLister(globalTargetsOpts.GetLameDuckOptions(), nil, globalLogger); err != nil {
+			return nil, err
 		}
+	}
+
+	// Initiliaze probes
+	pr.Probes, err = probes.Init(pr.c.GetProbe(), globalTargetsOpts, globalLogger, sysvars.Vars())
+	if err != nil {
+		return nil, err
 	}
 
 	// Start default HTTP server. It's used for profile handlers and
@@ -118,9 +131,6 @@ func InitFromConfig(configFile string) (*Prober, error) {
 	if err := pr.initDefaultServer(); err != nil {
 		return nil, err
 	}
-
-	// Initiliaze probes
-	pr.Probes = probes.Init(pr.c.GetProbe(), globalTargetsOpts, sysvars.Vars())
 
 	pr.surfacers, err = surfacers.Init(pr.c.GetSurfacer())
 	if err != nil {

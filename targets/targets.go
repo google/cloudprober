@@ -183,14 +183,9 @@ func (t *targets) List() []string {
 
 // baseTargets constructs a targets instance with no lister or resolver. It
 // provides essentially everything that the targets type wraps over its lister.
-func baseTargets(targetsDef *TargetsDef, targetOpts *GlobalTargetsOptions, l *logger.Logger) (*targets, error) {
+func baseTargets(targetsDef *TargetsDef, ldLister lameduck.Lister, l *logger.Logger) (*targets, error) {
 	if l == nil {
 		l = &logger.Logger{}
-	}
-
-	ldLister, err := lameduck.GetDefaultLister()
-	if err != nil {
-		l.Warningf("Error while getting default lameduck lister, lameduck behavior will be disabled. Err: %v", err)
 	}
 
 	tgts := &targets{
@@ -234,15 +229,15 @@ func StaticTargets(hosts string) Targets {
 // rules, RTC targets) by an optional regex or with the lameduck mechanism.
 //
 // All information related to creating the Target instance will be logged to
-// globalTargetsLogger. The logger "l" will be given to the new Targets instance
+// globalLogger. The logger "l" will be given to the new Targets instance
 // for future logging. If "l" is not provided, a default instance will be given.
 //
 // See cloudprober/targets/targets.proto for more information on the possible
 // configurations of Targets.
-func New(targetsDef *TargetsDef, targetOpts *GlobalTargetsOptions, globalTargetsLogger, l *logger.Logger) (Targets, error) {
-	t, err := baseTargets(targetsDef, targetOpts, l)
+func New(targetsDef *TargetsDef, ldLister lameduck.Lister, targetOpts *GlobalTargetsOptions, globalLogger, l *logger.Logger) (Targets, error) {
+	t, err := baseTargets(targetsDef, ldLister, l)
 	if err != nil {
-		globalTargetsLogger.Error("Unable to produce the base target lister")
+		globalLogger.Error("Unable to produce the base target lister")
 		return nil, fmt.Errorf("targets.New(): Error making baseTargets: %v", err)
 	}
 
@@ -255,7 +250,7 @@ func New(targetsDef *TargetsDef, targetOpts *GlobalTargetsOptions, globalTargets
 		t.l = sl
 		t.r = globalResolver
 	case *TargetsDef_GceTargets:
-		s, err := gce.New(targetsDef.GetGceTargets(), targetOpts.GetGlobalGceTargetsOptions(), globalResolver, globalTargetsLogger)
+		s, err := gce.New(targetsDef.GetGceTargets(), targetOpts.GetGlobalGceTargetsOptions(), globalResolver, globalLogger)
 		if err != nil {
 			l.Error("Unable to build GCE targets")
 			return nil, fmt.Errorf("targets.New(): Error building GCE targets: %v", err)
