@@ -115,21 +115,21 @@ func (d *dummy) Resolve(name string, ipVer int) (net.IP, error) {
 // providing various filtering options. Currently filtering by regex and lameduck
 // is supported.
 type targets struct {
-	l        lister
-	r        resolver
-	log      *logger.Logger
+	lister   lister
+	resolver resolver
 	re       *regexp.Regexp
 	ldLister lameduck.Lister
+	l        *logger.Logger
 }
 
 // Resolve either resolves a target using the core resolver, or returns an error
 // if no core resolver was provided. Currently all target types provide a
 // resolver.
 func (t *targets) Resolve(name string, ipVer int) (net.IP, error) {
-	if t.r == nil {
+	if t.resolver == nil {
 		return nil, errors.New("no Resolver provided by this target type")
 	}
-	return t.r.Resolve(name, ipVer)
+	return t.resolver.Resolve(name, ipVer)
 }
 
 // List returns the list of targets. It gets the list of targets from the
@@ -140,12 +140,12 @@ func (t *targets) Resolve(name string, ipVer int) (net.IP, error) {
 // variables and doesn't rely on multiple accesses to same variable being
 // consistent.
 func (t *targets) List() []string {
-	if t.l == nil {
-		t.log.Error("List(): Lister t.l is nil")
+	if t.lister == nil {
+		t.l.Error("List(): Lister t.lister is nil")
 		return []string{}
 	}
 
-	list := t.l.List()
+	list := t.lister.List()
 
 	// Filter by regexp
 	if t.re != nil {
@@ -162,7 +162,7 @@ func (t *targets) List() []string {
 	if t.ldLister != nil {
 		lameDucksList, err := t.ldLister.List()
 		if err != nil {
-			t.log.Errorf("targets.List: Error getting list of lameducking targets: %v", err)
+			t.l.Errorf("targets.List: Error getting list of lameducking targets: %v", err)
 			return list
 		}
 		lameDuckMap := make(map[string]bool)
@@ -189,8 +189,8 @@ func baseTargets(targetsDef *TargetsDef, ldLister lameduck.Lister, l *logger.Log
 	}
 
 	tgts := &targets{
-		log:      l,
-		r:        globalResolver,
+		l:        l,
+		resolver: globalResolver,
 		ldLister: ldLister,
 	}
 
@@ -218,8 +218,8 @@ func StaticTargets(hosts string) Targets {
 	for _, name := range strings.Split(hosts, ",") {
 		sl.list = append(sl.list, strings.TrimSpace(name))
 	}
-	t.l = sl
-	t.r = globalResolver
+	t.lister = sl
+	t.resolver = globalResolver
 	return t
 }
 
@@ -247,15 +247,15 @@ func New(targetsDef *TargetsDef, ldLister lameduck.Lister, targetOpts *GlobalTar
 		for _, name := range strings.Split(targetsDef.GetHostNames(), ",") {
 			sl.list = append(sl.list, strings.TrimSpace(name))
 		}
-		t.l = sl
-		t.r = globalResolver
+		t.lister = sl
+		t.resolver = globalResolver
 	case *TargetsDef_GceTargets:
 		s, err := gce.New(targetsDef.GetGceTargets(), targetOpts.GetGlobalGceTargetsOptions(), globalResolver, globalLogger)
 		if err != nil {
 			l.Error("Unable to build GCE targets")
 			return nil, fmt.Errorf("targets.New(): Error building GCE targets: %v", err)
 		}
-		t.l, t.r = s, s
+		t.lister, t.resolver = s, s
 	case *TargetsDef_RtcTargets:
 		// TODO: we should really consolidate all these metadata calls
 		// to one place.
@@ -267,19 +267,19 @@ func New(targetsDef *TargetsDef, ldLister lameduck.Lister, targetOpts *GlobalTar
 		if err != nil {
 			return nil, fmt.Errorf("targets.New(): Error building RTC resolver: %v", err)
 		}
-		t.l = li
-		t.r = li
+		t.lister = li
+		t.resolver = li
 	case *TargetsDef_DummyTargets:
 		dummy := &dummy{}
-		t.l = dummy
-		t.r = dummy
+		t.lister = dummy
+		t.resolver = dummy
 	default:
-		extT, err := getExtensionTargets(targetsDef, t.log)
+		extT, err := getExtensionTargets(targetsDef, t.l)
 		if err != nil {
 			return nil, fmt.Errorf("targets.New(): %v", err)
 		}
-		t.l = extT
-		t.r = extT
+		t.lister = extT
+		t.resolver = extT
 	}
 
 	return t, nil
