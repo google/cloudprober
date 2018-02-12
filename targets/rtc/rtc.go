@@ -214,7 +214,7 @@ func (t *Targets) targsFromVar(v *runtimeconfig.Variable) (string, error) {
 
 // New returns an rtc resolver / lister, given a defining protobuf.
 func New(pb *TargetsConf, proj string, l *logger.Logger) (*Targets, error) {
-	rtc, err := rtcservice.New(proj, pb.GetCfg())
+	rtc, err := rtcservice.New(proj, pb.GetCfg(), nil)
 	if err != nil {
 		err = fmt.Errorf("newRTC: Error building rtc client %v for targets: %v", pb.GetCfg(), err)
 		return nil, err

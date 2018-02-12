@@ -1,0 +1,13 @@
+syntax = "proto2";
+
+import "github.com/google/cloudprober/probes/config.proto";
+
+package cloudprober.probes.testdata;
+
+message FancyProbe {
+  required string name = 1;
+}
+
+extend probes.ProbeDef {
+  optional FancyProbe fancy_probe = 200;
+}

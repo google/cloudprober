@@ -12,15 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package targets
+package targets_test
 
 import (
+	"errors"
+	"net"
 	"reflect"
 	"strings"
 	"testing"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/logger"
+	"github.com/google/cloudprober/targets"
+	"github.com/google/cloudprober/targets/testdata"
 )
 
 // getMissing returns a list of items in "elems" missing from "from". Cannot
@@ -86,15 +90,14 @@ func TestList(t *testing.T) {
 	for id, r := range rows {
 		targetsDef := &TargetsDef{
 			Regex: proto.String(r.re),
+			Type: &TargetsDef_HostNames{
+				HostNames: strings.Join(r.hosts, ","),
+			},
 		}
-		bt, err := baseTargets(targetsDef, nil, nil)
+		bt, err := targets.New(targetsDef, &mockLDLister{r.ldList}, nil, nil, nil)
 		if err != nil {
-			t.Fatal("Unexpected error building baseTarget: ", err)
+			t.Fatalf("Unexpected error building targets: %v", err)
 		}
-		if r.ldList != nil {
-			bt.ldLister = &mockLDLister{r.ldList}
-		}
-		bt.l = &staticLister{list: r.hosts}
 		got := bt.List()
 
 		// Got \subset Expected
@@ -117,7 +120,7 @@ func TestDummyTargets(t *testing.T) {
 		},
 	}
 	l := &logger.Logger{}
-	tgts, err := New(targetsDef, nil, nil, l)
+	tgts, err := targets.New(targetsDef, nil, nil, nil, l)
 	if err != nil {
 		t.Fatalf("targets.New(...) Unexpected errors %v", err)
 	}
@@ -142,8 +145,51 @@ func TestDummyTargets(t *testing.T) {
 
 func TestStaticTargets(t *testing.T) {
 	testHosts := "host1,host2"
-	tgts := StaticTargets(testHosts)
+	tgts := targets.StaticTargets(testHosts)
 	if !reflect.DeepEqual(tgts.List(), strings.Split(testHosts, ",")) {
 		t.Errorf("StaticTargets not working as expected. Got list: %q, Expected: %s", tgts.List(), strings.Split(testHosts, ","))
+	}
+}
+
+type testTargetsType struct {
+	names []string
+}
+
+func (tgts *testTargetsType) List() []string {
+	return tgts.names
+}
+
+func (tgts *testTargetsType) Resolve(name string, ipVer int) (net.IP, error) {
+	return nil, errors.New("resolve not implemented")
+}
+
+func TestGetExtensionTargets(t *testing.T) {
+	targetsDef := &TargetsDef{}
+
+	// This has the same effect as using the following in your config:
+	// targets {
+	//    [cloudprober.targets.testdata.fancy_targets] {
+	//      name: "fancy"
+	//    }
+	// }
+	err := proto.SetExtension(targetsDef, testdata.E_FancyTargets, &testdata.FancyTargets{Name: proto.String("fancy")})
+	if err != nil {
+		t.Fatalf("error setting up extension in test targets proto: %v", err)
+	}
+	tgts, err := targets.New(targetsDef, nil, nil, nil, nil)
+	if err == nil {
+		t.Errorf("Expected error in building targets from extensions, got nil. targets: %v", tgts)
+	}
+	testTargets := []string{"a", "b"}
+	targets.RegisterTargetsType(200, func(conf interface{}, l *logger.Logger) (targets.Targets, error) {
+		return &testTargetsType{names: testTargets}, nil
+	})
+	tgts, err = targets.New(targetsDef, nil, nil, nil, nil)
+	if err != nil {
+		t.Errorf("Got error in building targets from extensions: %v.", err)
+	}
+	tgtsList := tgts.List()
+	if !reflect.DeepEqual(tgtsList, testTargets) {
+		t.Errorf("Extended targets: tgts.List()=%v, expected=%v", tgtsList, testTargets)
 	}
 }
