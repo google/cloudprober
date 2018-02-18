@@ -59,27 +59,29 @@ func startUDPServer(ctx context.Context, t *testing.T, drop bool, delay time.Dur
 
 			conn.SetReadDeadline(time.Now().Add(timeout))
 			msgLen, addr, err := conn.ReadFromUDP(b)
-			t.Logf("Message from %d %s %v", msgLen, addr.String(), err)
 			if err != nil {
 				if !isClientTimeout(err) {
 					t.Logf("Error receiving message: %v", err)
 				}
 				continue
 			}
+			t.Logf("Message from %s, size: %d", addr.String(), msgLen)
 			scs.Lock()
 			scs.msgCt[addr.String()]++
 			scs.Unlock()
 			if drop {
 				continue
 			}
-			if delay != 0 {
-				time.Sleep(delay)
-			}
-			conn.SetWriteDeadline(time.Now().Add(timeout))
-			if _, err := conn.WriteToUDP(b[:msgLen], addr); err != nil {
-				t.Logf("Error sending message %s: %v", b[:msgLen], err)
-			}
-			t.Logf("Sent message to %s", addr.String())
+			go func(b []byte, addr *net.UDPAddr) {
+				if delay != 0 {
+					time.Sleep(delay)
+				}
+				conn.SetWriteDeadline(time.Now().Add(timeout))
+				if _, err := conn.WriteToUDP(b, addr); err != nil {
+					t.Logf("Error sending message %s: %v", b, err)
+				}
+				t.Logf("Sent message to %s", addr.String())
+			}(append([]byte{}, b[:msgLen]...), addr)
 		}
 	}()
 
@@ -104,72 +106,111 @@ func runProbe(ctx context.Context, t *testing.T, port int, interval, timeout tim
 		},
 	}
 	if err := p.Init("udp", opts); err != nil {
-		t.Fatalf("Error initialzing UDP probe")
+		t.Fatalf("Error initializing UDP probe: %v", err)
 	}
 	p.targets = p.opts.Targets.List()
 	p.initProbeRunResults()
+
 	for _, conn := range p.connList {
 		go p.recvLoop(ctx, conn)
 	}
 
 	time.Sleep(time.Second)
+	go func() {
+		flushTicker := time.NewTicker(p.flushIntv)
+		for {
+			select {
+			case <-ctx.Done():
+				flushTicker.Stop()
+				return
+			case <-flushTicker.C:
+				p.processPackets()
+			}
+		}
+	}()
+
+	time.Sleep(interval)
 	for i := 0; i < pktsToSend; i++ {
 		p.runProbe()
-		time.Sleep(time.Second)
+		time.Sleep(interval)
 	}
+
+	// Sleep for 2*statsExportIntv, to make sure that stats are updated and
+	// exported.
+	time.Sleep(2 * interval)
+	time.Sleep(2 * timeout)
 
 	scs.Lock()
 	defer scs.Unlock()
+	if len(scs.msgCt) != len(p.connList) {
+		t.Errorf("Got packets over %d connections, required %d", len(scs.msgCt), p.connList)
+	}
 	t.Logf("Echo server stats: %v", scs.msgCt)
 
 	return p
 }
 
-func TestSuccess(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	port, scs := startUDPServer(ctx, t, false, 0)
-	t.Logf("Will send to UDP port %d", port)
-	var pktCount int64 = 2
-	p := runProbe(ctx, t, port, time.Second*2, time.Second, int(pktCount), scs)
-
-	scs.Lock()
-	defer scs.Unlock()
-	if len(scs.msgCt) != int(pktCount) {
-		t.Errorf("Got packets over %d connections, required %d", len(scs.msgCt), pktCount)
+func TestSuccessMultipleCases(t *testing.T) {
+	cases := []struct {
+		name     string
+		interval time.Duration
+		timeout  time.Duration
+		delay    time.Duration
+		pktCount int64
+	}{
+		// 10 packets, at the interval of 100ms, with 50ms timeout and 40ms delay on server.
+		{"success_normal", time.Second / 10, time.Second / 20, time.Second / 25, 10},
+		// 20 packets, at the interval of 100ms, with 1000ms timeout and 50ms delay on server.
+		{"success_timeout_larger_than_interval_1", time.Second / 10, time.Second, time.Second / 20, 20},
+		// 20 packets, at the interval of 100ms, with 1000ms timeout and 200ms delay on server.
+		{"success_timeout_larger_than_interval_2", time.Second / 10, time.Second, time.Second / 5, 20},
 	}
 
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	res := p.res["localhost"]
-	if res.total.Int64() != pktCount || res.success.Int64() != pktCount {
-		t.Errorf("Got total=%d, success=%d, want both to be %d", res.total.Int64(), res.success.Int64(), pktCount)
+	for _, c := range cases {
+		ctx, cancelCtx := context.WithCancel(context.Background())
+		port, scs := startUDPServer(ctx, t, false, c.delay)
+		t.Logf("Case(%s): started server on port %d with delay %v", c.name, port, c.delay)
+		p := runProbe(ctx, t, port, c.interval, c.timeout, int(c.pktCount), scs)
+		cancelCtx()
+
+		res := p.res["localhost"]
+		if res.total.Int64() != c.pktCount {
+			t.Errorf("Case(%s): got total=%d, want %d", c.name, res.total.Int64(), c.pktCount)
+		}
+		if res.success.Int64() != c.pktCount {
+			t.Errorf("Case(%s): got success=%d want %d", c.name, res.success.Int64(), c.pktCount)
+		}
+		if res.delayed.Int64() != 0 {
+			t.Errorf("Case(%s): got delayed=%d, want 0", c.name, res.delayed.Int64())
+		}
 	}
 }
 
 func TestLossAndDelayed(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	var pktCount int64 = 2
+	var pktCount int64 = 10
 	cases := []struct {
 		name     string
 		drop     bool
-		delay    time.Duration
 		interval time.Duration
+		timeout  time.Duration
+		delay    time.Duration
 		delayCt  int64
 	}{
-		{"loss", true, 0, time.Second, 0},
-		{"delayed", false, time.Second, time.Second / 2, pktCount},
+		// 10 packets, at the interval of 100ms, with 50ms timeout and drop on server.
+		{"loss", true, time.Second / 10, time.Second / 20, 0, 0},
+		// 10 packets, at the interval of 100ms, with 50ms timeout and 67ms delay on server.
+		{"delayed_1", false, time.Second / 10, time.Second / 20, time.Second / 15, pktCount},
+		// 10 packets, at the interval of 100ms, with 250ms timeout and 333ms delay on server.
+		{"delayed_2", false, time.Second / 10, time.Second / 4, time.Second / 3, pktCount},
 	}
 
 	for _, c := range cases {
+		ctx, cancelCtx := context.WithCancel(context.Background())
 		port, scs := startUDPServer(ctx, t, c.drop, c.delay)
 		t.Logf("Case(%s): started server on port %d with loss %v delay %v", c.name, port, c.drop, c.delay)
-		p := runProbe(ctx, t, port, time.Second*2, c.interval, int(pktCount), scs)
+		p := runProbe(ctx, t, port, c.interval, c.timeout, int(pktCount), scs)
+		cancelCtx()
 
-		p.mu.Lock()
-		defer p.mu.Unlock()
 		res := p.res["localhost"]
 		if res.total.Int64() != pktCount {
 			t.Errorf("Case(%s): got total=%d, want %d", c.name, res.total.Int64(), pktCount)
