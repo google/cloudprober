@@ -98,8 +98,8 @@ func DefaultConfig() string {
 	return proto.MarshalTextString(&ProberConfig{})
 }
 
-// Parse processes a config file as a Go text template and parses it into a ProberConfig proto.
-func Parse(config string, sysVars map[string]string) (*ProberConfig, error) {
+// ParseTemplate processes a config file as a Go text template.
+func ParseTemplate(config string, sysVars map[string]string) (string, error) {
 	funcMap := map[string]interface{}{
 		// mkSlice makes a slice from its arguments.
 		"mkSlice": func(args ...interface{}) []interface{} {
@@ -121,14 +121,23 @@ func Parse(config string, sysVars map[string]string) (*ProberConfig, error) {
 	}
 	configTmpl, err := template.New("cloudprober_cfg").Funcs(funcMap).Parse(config)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	var b bytes.Buffer
 	if err := configTmpl.Execute(&b, sysVars); err != nil {
+		return "", err
+	}
+	return b.String(), nil
+}
+
+// Parse processes a config file as a Go text template and parses it into a ProberConfig proto.
+func Parse(config string, sysVars map[string]string) (*ProberConfig, error) {
+	textConfig, err := ParseTemplate(config, sysVars)
+	if err != nil {
 		return nil, err
 	}
 	cfg := &ProberConfig{}
-	if err = proto.UnmarshalText(b.String(), cfg); err != nil {
+	if err = proto.UnmarshalText(textConfig, cfg); err != nil {
 		return nil, err
 	}
 	return cfg, nil

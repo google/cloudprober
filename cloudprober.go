@@ -28,10 +28,12 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"sync"
 	"time"
 
 	"cloud.google.com/go/compute/metadata"
 	"github.com/golang/glog"
+	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/config"
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
@@ -54,6 +56,9 @@ const (
 	ServerPortEnvVar  = "CLOUDPROBER_PORT"
 )
 
+var prober *Prober
+var proberMu sync.Mutex
+
 // Prober represents a collection of probes where each probe implements the Probe interface.
 type Prober struct {
 	Probes         map[string]probes.Probe
@@ -61,6 +66,9 @@ type Prober struct {
 	rtcReporter    *rtcreporter.Reporter
 	surfacers      []surfacers.Surfacer
 	serverListener net.Listener
+
+	// Used by GetConfig for /config handler.
+	textConfig string
 }
 
 func (pr *Prober) newLogger(probeName string) (*logger.Logger, error) {
@@ -88,48 +96,69 @@ func (pr *Prober) initDefaultServer() error {
 		return fmt.Errorf("error while creating listener for default HTTP server. Err: %v", err)
 	}
 	pr.serverListener = ln
+
 	return nil
 }
 
 // InitFromConfig initializes Cloudprober using the provided config.
-func InitFromConfig(configFile string) (*Prober, error) {
+func InitFromConfig(configFile string) error {
+	proberMu.Lock()
+	defer proberMu.Unlock()
+	if prober != nil {
+		return nil
+	}
+
 	pr := &Prober{}
 	// Initialize sysvars module
 	l, err := pr.newLogger(sysvarsModuleName)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	sysvars.Init(l, nil)
 
-	if pr.c, err = config.Parse(configFile, sysvars.Vars()); err != nil {
-		return nil, err
+	if pr.textConfig, err = config.ParseTemplate(configFile, sysvars.Vars()); err != nil {
+		return err
 	}
+
+	if err := pr.init(); err != nil {
+		return err
+	}
+	prober = pr
+	return nil
+}
+
+func (pr *Prober) init() error {
+	cfg := &config.ProberConfig{}
+	if err := proto.UnmarshalText(pr.textConfig, cfg); err != nil {
+		return err
+	}
+	pr.c = cfg
 
 	// Create a global logger. Each component gets its own logger on successful
 	// creation. For everything else, we use a global logger.
 	globalLogger, err := pr.newLogger("global")
 	if err != nil {
-		return nil, fmt.Errorf("error in initializing global logger: %v", err)
+		return fmt.Errorf("error in initializing global logger: %v", err)
 	}
 
 	// Initialize lameduck lister
 	globalTargetsOpts := pr.c.GetGlobalTargetsOptions()
 	if globalTargetsOpts.GetLameDuckOptions() != nil && metadata.OnGCE() {
 		if err := lameduck.InitDefaultLister(globalTargetsOpts.GetLameDuckOptions(), nil, globalLogger); err != nil {
-			return nil, err
+			return err
 		}
 	}
 
 	// Initiliaze probes
 	pr.Probes, err = probes.Init(pr.c.GetProbe(), globalTargetsOpts, globalLogger, sysvars.Vars())
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// Start default HTTP server. It's used for profile handlers and
 	// prometheus exporter.
 	if err := pr.initDefaultServer(); err != nil {
-		return nil, err
+		return err
 	}
 
 	pr.surfacers, err = surfacers.Init(pr.c.GetSurfacer())
@@ -147,17 +176,17 @@ func InitFromConfig(configFile string) (*Prober, error) {
 			goto cleanupInit
 		}
 	}
-	return pr, nil
+	return nil
 
 cleanupInit:
 	if pr.serverListener != nil {
 		pr.serverListener.Close()
 	}
-	return nil, err
+	return err
 }
 
-// Start starts a previously initialized Cloudprober.
-func (pr *Prober) Start(ctx context.Context) {
+// start starts a previously initialized Cloudprober.
+func (pr *Prober) start(ctx context.Context) {
 	// Start the default server
 	srv := &http.Server{}
 	go func() {
@@ -205,7 +234,21 @@ func (pr *Prober) Start(ctx context.Context) {
 	for _, p := range pr.Probes {
 		go p.Start(ctx, dataChan)
 	}
+}
 
-	// Wait forever
-	select {}
+// Start starts a previously initialized Cloudprober.
+func Start(ctx context.Context) {
+	proberMu.Lock()
+	defer proberMu.Unlock()
+	if prober == nil {
+		panic("Prober is not initialized. Did you call cloudprober.InitFromConfig first?")
+	}
+	prober.start(ctx)
+}
+
+// GetConfig returns the prober config.
+func GetConfig() string {
+	proberMu.Lock()
+	defer proberMu.Unlock()
+	return prober.textConfig
 }

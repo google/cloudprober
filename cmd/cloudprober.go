@@ -34,6 +34,7 @@ import (
 	"github.com/google/cloudprober"
 	"github.com/google/cloudprober/config"
 	"github.com/google/cloudprober/sysvars"
+	"github.com/google/cloudprober/web"
 )
 
 var (
@@ -146,9 +147,16 @@ func main() {
 
 	setupProfiling()
 
-	pr, err := cloudprober.InitFromConfig(getConfig())
+	err := cloudprober.InitFromConfig(getConfig())
 	if err != nil {
 		glog.Exitf("Error initializing cloudprober. Err: %v", err)
 	}
-	pr.Start(context.Background())
+
+	// web.Init sets up web UI for cloudprober.
+	web.Init()
+
+	cloudprober.Start(context.Background())
+
+	// Wait forever
+	select {}
 }
