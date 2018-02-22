@@ -15,9 +15,10 @@
 package metrics
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
-	"strings"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -183,18 +184,44 @@ func (em *EventMetrics) Update(in *EventMetrics) error {
 	}
 }
 
+var bufPool = sync.Pool{
+	New: func() interface{} {
+		// The Pool's New function should generally only return pointer
+		// types, since a pointer can be put into the return interface
+		// value without an allocation:
+		return new(bytes.Buffer)
+	},
+}
+
 // String returns the string representation of the EventMetrics.
 // Note that this is compatible with what vmwatcher understands.
+// Example output string:
+// 1519084040 labels=ptype=http sent=62 rcvd=52 resp-code=map:code,200:44,204:8
 func (em *EventMetrics) String() string {
 	em.mu.RLock()
-	defer em.mu.RUnlock()
-	var labels []string
-	for _, key := range em.labelsKeys {
-		labels = append(labels, fmt.Sprintf("%s=%s", key, em.labels[key]))
+	b := bufPool.Get().(*bytes.Buffer)
+
+	b.Reset()
+	b.WriteString(strconv.FormatInt(em.Timestamp.Unix(), 10))
+	// Labels section: labels=ptype=http,probe=homepage
+	b.WriteString(" labels=")
+	for i, key := range em.labelsKeys {
+		if i != 0 {
+			b.WriteByte(',')
+		}
+		b.WriteString(key)
+		b.WriteByte('=')
+		b.WriteString(em.labels[key])
 	}
-	var vars []string
+	// Values section: " sent=62 rcvd=52 resp-code=map:code,200:44,204:8"
 	for _, name := range em.metricsKeys {
-		vars = append(vars, fmt.Sprintf("%s=%s", name, em.metrics[name].String()))
+		b.WriteByte(' ')
+		b.WriteString(name)
+		b.WriteByte('=')
+		b.WriteString(em.metrics[name].String())
 	}
-	return fmt.Sprintf("%d labels=%s %s", em.Timestamp.Unix(), strings.Join(labels, ","), strings.Join(vars, " "))
+	s := b.String()
+	bufPool.Put(b)
+	em.mu.RUnlock()
+	return s
 }
