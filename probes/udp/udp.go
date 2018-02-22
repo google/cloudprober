@@ -74,19 +74,17 @@ type Probe struct {
 // stats makes sure that probeResult and its fields are not accessed concurrently
 // That's the reason we use metrics.Int types instead of metrics.AtomicInt.
 type probeResult struct {
-	total   metrics.Int
-	success metrics.Int
-	latency metrics.Value
-	delayed metrics.Int
+	total, success, delayed int64
+	latency                 metrics.Value
 }
 
 // Metrics converts probeResult into metrics.EventMetrics object
 func (prr probeResult) EventMetrics(probeName, target string) *metrics.EventMetrics {
 	return metrics.NewEventMetrics(time.Now()).
-		AddMetric("total", &prr.total).
-		AddMetric("success", &prr.success).
-		AddMetric("latency", prr.latency).
-		AddMetric("delayed", &prr.delayed).
+		AddMetric("total", metrics.NewInt(prr.total)).
+		AddMetric("success", metrics.NewInt(prr.success)).
+		AddMetric("latency", prr.latency.Clone()).
+		AddMetric("delayed", metrics.NewInt(prr.delayed)).
 		AddLabel("ptype", "udp").
 		AddLabel("probe", probeName).
 		AddLabel("dst", target)
@@ -188,10 +186,10 @@ func (p *Probe) processRcvdPacket(rpkt packetID) {
 	}
 	if latency > p.opts.Timeout {
 		p.l.Debugf("Packet delayed. Seq: %d, target: %s, delay: %v", rpkt.seq, rpkt.target, latency)
-		res.delayed.Inc()
+		res.delayed++
 		return
 	}
-	res.success.Inc()
+	res.success++
 	res.latency.AddFloat64(latency.Seconds() / p.opts.LatencyUnit.Seconds())
 }
 
@@ -201,7 +199,7 @@ func (p *Probe) processSentPacket(spkt packetID) {
 	if !ok {
 		return
 	}
-	res.total.Inc()
+	res.total++
 }
 
 // processPackets processes packets on the sentPackets and rcvdPackets
@@ -304,6 +302,9 @@ func (p *Probe) recvLoop(ctx context.Context, conn *net.UDPConn) {
 // capture the responses before "timeout" and the main loop will flush the
 // results.
 func (p *Probe) runProbe() {
+	if len(p.targets) == 0 {
+		return
+	}
 	maxLen := int(p.c.GetMaxLength())
 	dstPort := int(p.c.GetPort())
 	ipVer := int(p.c.GetIpVersion())

@@ -17,7 +17,7 @@ package metrics
 
 // Value represents any metric value
 type Value interface {
-	clone() Value
+	Clone() Value
 	Add(delta Value) error
 	AddInt64(i int64)
 	AddFloat64(f float64)

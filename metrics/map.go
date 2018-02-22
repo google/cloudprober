@@ -53,19 +53,19 @@ func (m *Map) GetKey(key string) NumValue {
 	return m.m[key]
 }
 
-// clone creates a clone of the Map. clone makes sure that underlying data
+// Clone creates a clone of the Map. Clone makes sure that underlying data
 // storage is properly cloned.
-func (m *Map) clone() Value {
+func (m *Map) Clone() Value {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	newMap := &Map{
 		MapName:         m.MapName,
-		defaultKeyValue: m.defaultKeyValue.clone().(NumValue),
+		defaultKeyValue: m.defaultKeyValue.Clone().(NumValue),
 		m:               make(map[string]NumValue),
 	}
 	newMap.keys = make([]string, len(m.keys))
 	for i, k := range m.keys {
-		newMap.m[k] = m.m[k].clone().(NumValue)
+		newMap.m[k] = m.m[k].Clone().(NumValue)
 		newMap.keys[i] = m.keys[i]
 	}
 	return newMap
@@ -84,7 +84,7 @@ func (m *Map) Keys() []string {
 func (m *Map) newKey(key string) {
 	m.keys = append(m.keys, key)
 	sort.Strings(m.keys)
-	m.m[key] = m.defaultKeyValue.clone().(NumValue)
+	m.m[key] = m.defaultKeyValue.Clone().(NumValue)
 }
 
 // IncKey increments the given key's value by one.

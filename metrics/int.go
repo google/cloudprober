@@ -33,7 +33,8 @@ func NewInt(i int64) *Int {
 	return &Int{i: i}
 }
 
-func (i *Int) clone() Value {
+// Clone returns a copy the receiver Int
+func (i *Int) Clone() Value {
 	return &Int{
 		i:   i.i,
 		Str: i.Str,
@@ -105,7 +106,8 @@ func NewAtomicInt(i int64) *AtomicInt {
 	return &AtomicInt{i: i}
 }
 
-func (i *AtomicInt) clone() Value {
+// Clone returns a copy the receiver AtomicInt
+func (i *AtomicInt) Clone() Value {
 	return &AtomicInt{
 		i:   i.Int64(),
 		Str: i.Str,

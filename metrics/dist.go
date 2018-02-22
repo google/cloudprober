@@ -264,7 +264,8 @@ func (d *Distribution) StackdriverTypedValue() *monitoring.TypedValue {
 	}
 }
 
-func (d *Distribution) clone() Value {
+// Clone returns a copy of the receiver distribution.
+func (d *Distribution) Clone() Value {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 	newD := NewDistribution(d.lowerBounds[1:])
@@ -274,9 +275,4 @@ func (d *Distribution) clone() Value {
 		newD.bucketCounts[i] = d.bucketCounts[i]
 	}
 	return newD
-}
-
-// Clone returns a copy of the receiver distribution.
-func (d *Distribution) Clone() *Distribution {
-	return d.clone().(*Distribution)
 }

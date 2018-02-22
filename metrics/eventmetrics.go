@@ -148,7 +148,7 @@ func (em *EventMetrics) Clone() *EventMetrics {
 		newEM.labelsKeys = append(newEM.labelsKeys, lk)
 	}
 	for _, mk := range em.metricsKeys {
-		newEM.metrics[mk] = em.metrics[mk].clone()
+		newEM.metrics[mk] = em.metrics[mk].Clone()
 		newEM.metricsKeys = append(newEM.metricsKeys, mk)
 	}
 	return newEM
@@ -166,7 +166,7 @@ func (em *EventMetrics) Update(in *EventMetrics) error {
 			if !ok {
 				return fmt.Errorf("receiver EventMetrics doesn't have %s metric", name)
 			}
-			em.metrics[name] = newVal.clone()
+			em.metrics[name] = newVal.Clone()
 		}
 		return nil
 	case CUMULATIVE:

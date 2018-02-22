@@ -174,14 +174,14 @@ func TestSuccessMultipleCases(t *testing.T) {
 		cancelCtx()
 
 		res := p.res["localhost"]
-		if res.total.Int64() != c.pktCount {
-			t.Errorf("Case(%s): got total=%d, want %d", c.name, res.total.Int64(), c.pktCount)
+		if res.total != c.pktCount {
+			t.Errorf("Case(%s): got total=%d, want %d", c.name, res.total, c.pktCount)
 		}
-		if res.success.Int64() != c.pktCount {
-			t.Errorf("Case(%s): got success=%d want %d", c.name, res.success.Int64(), c.pktCount)
+		if res.success != c.pktCount {
+			t.Errorf("Case(%s): got success=%d want %d", c.name, res.success, c.pktCount)
 		}
-		if res.delayed.Int64() != 0 {
-			t.Errorf("Case(%s): got delayed=%d, want 0", c.name, res.delayed.Int64())
+		if res.delayed != 0 {
+			t.Errorf("Case(%s): got delayed=%d, want 0", c.name, res.delayed)
 		}
 	}
 }
@@ -212,14 +212,14 @@ func TestLossAndDelayed(t *testing.T) {
 		cancelCtx()
 
 		res := p.res["localhost"]
-		if res.total.Int64() != pktCount {
-			t.Errorf("Case(%s): got total=%d, want %d", c.name, res.total.Int64(), pktCount)
+		if res.total != pktCount {
+			t.Errorf("Case(%s): got total=%d, want %d", c.name, res.total, pktCount)
 		}
-		if res.success.Int64() != 0 {
-			t.Errorf("Case(%s): got success=%d want 0", c.name, res.success.Int64())
+		if res.success != 0 {
+			t.Errorf("Case(%s): got success=%d want 0", c.name, res.success)
 		}
-		if res.delayed.Int64() != c.delayCt {
-			t.Errorf("Case(%s): got delayed=%d, want %d", c.name, res.delayed.Int64(), c.delayCt)
+		if res.delayed != c.delayCt {
+			t.Errorf("Case(%s): got delayed=%d, want %d", c.name, res.delayed, c.delayCt)
 		}
 	}
 }
