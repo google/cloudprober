@@ -32,7 +32,8 @@ func NewFloat(f float64) *Float {
 	return &Float{f: f}
 }
 
-func (f *Float) clone() Value {
+// Clone returns a copy the receiver Float
+func (f *Float) Clone() Value {
 	return &Float{
 		f:   f.f,
 		Str: f.Str,

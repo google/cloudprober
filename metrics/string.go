@@ -50,6 +50,7 @@ func (s String) String() string {
 	return "\"" + s.s + "\""
 }
 
-func (s String) clone() Value {
+// Clone returns the copy of receiver String.
+func (s String) Clone() Value {
 	return String{s: s.s}
 }

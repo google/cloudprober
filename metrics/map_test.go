@@ -51,7 +51,7 @@ func TestMap(t *testing.T) {
 	})
 
 	// Clone m for verification later
-	m1 := m.clone().(*Map)
+	m1 := m.Clone().(*Map)
 
 	// Verify add works as expected
 	m2 := NewMap("code", NewInt(0))
