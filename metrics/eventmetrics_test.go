@@ -104,5 +104,21 @@ func TestEventMetricsUpdate(t *testing.T) {
 	})
 
 	// Log metrics in string format
-	t.Log(m.String())
+	// t.Log(m.String())
+
+	expectedString := fmt.Sprintf("%d labels=ptype=http sent=62 rcvd=52 rtt=520200 resp-code=map:code,200:44,204:8", m.Timestamp.Unix())
+	s := m.String()
+	if s != expectedString {
+		t.Errorf("em.String()=%s, want=%s", s, expectedString)
+	}
+}
+
+func BenchmarkEventMetricsStringer(b *testing.B) {
+	em := newEventMetrics(32, 22, 220100, map[string]int64{
+		"200": 22,
+	})
+	// run the em.String() function b.N times
+	for n := 0; n < b.N; n++ {
+		em.String()
+	}
 }
