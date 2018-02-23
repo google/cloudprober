@@ -159,8 +159,8 @@ func TestSuccessMultipleCases(t *testing.T) {
 		delay    time.Duration
 		pktCount int64
 	}{
-		// 10 packets, at the interval of 100ms, with 50ms timeout and 20ms delay on server.
-		{"success_normal", time.Second / 10, time.Second / 20, time.Second / 50, 10},
+		// 10 packets, at the interval of 200ms, with 200ms timeout and 20ms delay on server.
+		{"success_normal", time.Second / 2, time.Second / 5, time.Second / 50, 5},
 		// 20 packets, at the interval of 100ms, with 1000ms timeout and 50ms delay on server.
 		{"success_timeout_larger_than_interval_1", time.Second / 10, time.Second, time.Second / 20, 20},
 		// 20 packets, at the interval of 100ms, with 1000ms timeout and 200ms delay on server.
