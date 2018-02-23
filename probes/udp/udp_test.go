@@ -158,19 +158,19 @@ func TestSuccessMultipleCases(t *testing.T) {
 		delay    time.Duration
 		pktCount int64
 	}{
-		// 10 packets, at the interval of 100ms, with 50ms timeout and 40ms delay on server.
-		{"success_normal", time.Second / 10, time.Second / 20, time.Second / 25, 10},
+		// 10 packets, at the interval of 200ms, with 100ms timeout and 10ms delay on server.
+		{"success_normal", 200, 100, 10, 10},
 		// 20 packets, at the interval of 100ms, with 1000ms timeout and 50ms delay on server.
-		{"success_timeout_larger_than_interval_1", time.Second / 10, time.Second, time.Second / 20, 20},
+		{"success_timeout_larger_than_interval_1", 100, 1000, 50, 20},
 		// 20 packets, at the interval of 100ms, with 1000ms timeout and 200ms delay on server.
-		{"success_timeout_larger_than_interval_2", time.Second / 10, time.Second, time.Second / 5, 20},
+		{"success_timeout_larger_than_interval_2", 100, 1000, 200, 20},
 	}
 
 	for _, c := range cases {
 		ctx, cancelCtx := context.WithCancel(context.Background())
-		port, scs := startUDPServer(ctx, t, false, c.delay)
+		port, scs := startUDPServer(ctx, t, false, c.delay*time.Millisecond)
 		t.Logf("Case(%s): started server on port %d with delay %v", c.name, port, c.delay)
-		p := runProbe(ctx, t, port, c.interval, c.timeout, int(c.pktCount), scs)
+		p := runProbe(ctx, t, port, c.interval*time.Millisecond, c.timeout*time.Millisecond, int(c.pktCount), scs)
 		cancelCtx()
 
 		res := p.res["localhost"]
@@ -197,18 +197,18 @@ func TestLossAndDelayed(t *testing.T) {
 		delayCt  int64
 	}{
 		// 10 packets, at the interval of 100ms, with 50ms timeout and drop on server.
-		{"loss", true, time.Second / 10, time.Second / 20, 0, 0},
+		{"loss", true, 100, 50, 0, 0},
 		// 10 packets, at the interval of 100ms, with 50ms timeout and 67ms delay on server.
-		{"delayed_1", false, time.Second / 10, time.Second / 20, time.Second / 15, pktCount},
-		// 10 packets, at the interval of 100ms, with 250ms timeout and 333ms delay on server.
-		{"delayed_2", false, time.Second / 10, time.Second / 4, time.Second / 3, pktCount},
+		{"delayed_1", false, 100, 50, 67, pktCount},
+		// 10 packets, at the interval of 100ms, with 250ms timeout and 300ms delay on server.
+		{"delayed_2", false, 100, 250, 300, pktCount},
 	}
 
 	for _, c := range cases {
 		ctx, cancelCtx := context.WithCancel(context.Background())
-		port, scs := startUDPServer(ctx, t, c.drop, c.delay)
+		port, scs := startUDPServer(ctx, t, c.drop, c.delay*time.Millisecond)
 		t.Logf("Case(%s): started server on port %d with loss %v delay %v", c.name, port, c.drop, c.delay)
-		p := runProbe(ctx, t, port, c.interval, c.timeout, int(pktCount), scs)
+		p := runProbe(ctx, t, port, c.interval*time.Millisecond, c.timeout*time.Millisecond, int(pktCount), scs)
 		cancelCtx()
 
 		res := p.res["localhost"]
