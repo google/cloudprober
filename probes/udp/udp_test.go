@@ -89,6 +89,7 @@ func startUDPServer(ctx context.Context, t *testing.T, drop bool, delay time.Dur
 }
 
 func runProbe(ctx context.Context, t *testing.T, port int, interval, timeout time.Duration, pktsToSend int, scs *serverConnStats) *Probe {
+	os.SetEnv("DEBUG", "true")
 	sysvars.Init(&logger.Logger{}, nil)
 	p := &Probe{}
 	ipVersion := int32(6)
