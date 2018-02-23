@@ -201,7 +201,7 @@ func TestLossAndDelayed(t *testing.T) {
 		// 10 packets, at the interval of 100ms, with 50ms timeout and 67ms delay on server.
 		{"delayed_1", false, time.Second / 10, time.Second / 20, time.Second / 15, pktCount},
 		// 10 packets, at the interval of 100ms, with 250ms timeout and 300ms delay on server.
-		{"delayed_2", false, time.Second / 10, time.Second / 4, time.Second / 3.3, pktCount},
+		{"delayed_2", false, time.Second / 10, time.Second / 4, 300*time.Millisecond, pktCount},
 	}
 
 	for _, c := range cases {
