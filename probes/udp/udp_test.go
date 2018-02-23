@@ -89,6 +89,7 @@ func startUDPServer(ctx context.Context, t *testing.T, drop bool, delay time.Dur
 }
 
 func runProbe(ctx context.Context, t *testing.T, port int, interval, timeout time.Duration, pktsToSend int, scs *serverConnStats) *Probe {
+	os.Setenv("DEBUG", "true")
 	sysvars.Init(&logger.Logger{}, nil)
 	p := &Probe{}
 	ipVersion := int32(6)
@@ -158,8 +159,8 @@ func TestSuccessMultipleCases(t *testing.T) {
 		delay    time.Duration
 		pktCount int64
 	}{
-		// 10 packets, at the interval of 100ms, with 50ms timeout and 40ms delay on server.
-		{"success_normal", time.Second / 10, time.Second / 20, time.Second / 25, 10},
+		// 10 packets, at the interval of 200ms, with 200ms timeout and 20ms delay on server.
+		{"success_normal", time.Second / 2, time.Second / 5, time.Second / 50, 5},
 		// 20 packets, at the interval of 100ms, with 1000ms timeout and 50ms delay on server.
 		{"success_timeout_larger_than_interval_1", time.Second / 10, time.Second, time.Second / 20, 20},
 		// 20 packets, at the interval of 100ms, with 1000ms timeout and 200ms delay on server.
@@ -200,8 +201,8 @@ func TestLossAndDelayed(t *testing.T) {
 		{"loss", true, time.Second / 10, time.Second / 20, 0, 0},
 		// 10 packets, at the interval of 100ms, with 50ms timeout and 67ms delay on server.
 		{"delayed_1", false, time.Second / 10, time.Second / 20, time.Second / 15, pktCount},
-		// 10 packets, at the interval of 100ms, with 250ms timeout and 333ms delay on server.
-		{"delayed_2", false, time.Second / 10, time.Second / 4, time.Second / 3, pktCount},
+		// 10 packets, at the interval of 100ms, with 250ms timeout and 300ms delay on server.
+		{"delayed_2", false, time.Second / 10, time.Second / 4, 300*time.Millisecond, pktCount},
 	}
 
 	for _, c := range cases {
