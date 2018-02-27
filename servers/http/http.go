@@ -181,7 +181,13 @@ func (s *Server) Start(ctx context.Context, dataChan chan<- *metrics.EventMetric
 		s.handler(w, r, statsChan)
 	})
 	s.l.Infof("Starting HTTP server at: %s", laddr)
-	srv := &http.Server{Addr: laddr, Handler: serverMux}
+	srv := &http.Server{
+		Addr:         laddr,
+		Handler:      serverMux,
+		ReadTimeout:  time.Duration(s.c.GetReadTimeoutMs()) * time.Millisecond,
+		WriteTimeout: time.Duration(s.c.GetWriteTimeoutMs()) * time.Millisecond,
+		IdleTimeout:  time.Duration(s.c.GetIdleTimeoutMs()) * time.Millisecond,
+	}
 
 	// Setup a background function to close server if context is canceled.
 	go func() {
