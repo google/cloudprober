@@ -13,7 +13,8 @@
 // limitations under the License.
 
 /*
-This binary implements a stand-alone UDP server using the cloudprober/servers/udp/udp package.
+This binary implements a stand-alone UDP server using the
+cloudprober/servers/udp/udp package.
 */
 package main
 
@@ -45,8 +46,9 @@ func main() {
 		Port: proto.Int32(int32(*port)),
 		Type: udp.ServerConf_DISCARD.Enum(),
 	}
-	err = udp.ListenAndServe(context.Background(), config, l)
+	server, err := udp.New(context.Background(), config, l)
 	if err != nil {
-		glog.Fatal(err)
+		glog.Fatalf("Error creating a new UDP server: %v", err)
 	}
+	glog.Fatal(server.Start(context.Background(), nil))
 }
