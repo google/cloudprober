@@ -25,11 +25,11 @@ message ProberConfig {
 
   // Servers to run inside cloudprober. These servers can serve as targets for
   // other probes.
-  repeated servers.Server server = 3;
+  repeated servers.ServerDef server = 3;
 
   // Port for the default HTTP server. This port is also used for prometheus
   // exporter (URL /metrics). Default port is 9313. If not specified in the
-  // config, default port can be overriden by the environment variable
+  // config, default port can be overridden by the environment variable
   // CLOUDPROBER_PORT.
   optional int32 port = 96;
 

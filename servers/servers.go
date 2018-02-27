@@ -40,19 +40,19 @@ type Server interface {
 }
 
 // Init initializes cloudprober servers, based on the provided config.
-func Init(initCtx context.Context, serverProtobufs []*Server) (servers []Server, err error) {
-	for _, s := range serverProtobufs {
+func Init(initCtx context.Context, serverDefs []*ServerDef) (servers []Server, err error) {
+	for _, serverDef := range serverDefs {
 		var l *logger.Logger
-		l, err = newLogger(initCtx, s.GetType().String())
+		l, err = newLogger(initCtx, serverDef.GetType().String())
 		if err != nil {
 			return
 		}
 		var server Server
-		switch s.GetType() {
-		case Server_HTTP:
-			server, err = http.New(initCtx, s.GetHttpServer(), l)
-		case Server_UDP:
-			server, err = udp.New(initCtx, s.GetUdpServer(), l)
+		switch serverDef.GetType() {
+		case ServerDef_HTTP:
+			server, err = http.New(initCtx, serverDef.GetHttpServer(), l)
+		case ServerDef_UDP:
+			server, err = udp.New(initCtx, serverDef.GetUdpServer(), l)
 		}
 		if err != nil {
 			return
