@@ -15,6 +15,7 @@
 package http
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -28,7 +29,6 @@ import (
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
 	"github.com/google/cloudprober/targets/lameduck"
-	"google3/go/context/context"
 )
 
 const testExportInterval = 2 * time.Second
