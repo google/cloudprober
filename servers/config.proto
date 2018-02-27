@@ -5,7 +5,7 @@ import "github.com/google/cloudprober/servers/udp/config.proto";
 
 package cloudprober.servers;
 
-message Server {
+message ServerDef {
   enum Type {
     HTTP = 0;
     UDP = 1;
