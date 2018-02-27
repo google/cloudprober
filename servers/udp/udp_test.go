@@ -16,6 +16,7 @@ package udp
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"math/rand"
 	"net"
@@ -24,7 +25,6 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/logger"
-	"google3/go/context/context"
 )
 
 // Return true if the underlying error indicates a udp.Client timeout.
