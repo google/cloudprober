@@ -13,14 +13,13 @@
 // limitations under the License.
 
 /*
-servers package provides an interface to initialize cloudprober servers using servers config.
+Package servers provides an interface to initialize cloudprober servers using servers config.
 */
 package servers
 
 import (
 	"context"
 
-	"github.com/golang/glog"
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
 	"github.com/google/cloudprober/servers/http"
@@ -35,26 +34,30 @@ func newLogger(ctx context.Context, logName string) (*logger.Logger, error) {
 	return logger.New(ctx, logsNamePrefix+"."+logName)
 }
 
-// Start initializes and starts cloudprober servers, based on the provided config.
-func Start(ctx context.Context, serverProtobufs []*Server, dataChan chan<- *metrics.EventMetrics) {
-	for _, s := range serverProtobufs {
-		runServer(ctx, s, dataChan)
-	}
+// Server interface has only one method: Start.
+type Server interface {
+	Start(ctx context.Context, dataChan chan<- *metrics.EventMetrics) error
 }
 
-func runServer(ctx context.Context, s *Server, dataChan chan<- *metrics.EventMetrics) {
-	l, err := newLogger(ctx, s.GetType().String())
-	if err != nil {
-		glog.Exitf("Error initializing logger for %s. Err: %v", s.GetType().String(), err)
+// Init initializes cloudprober servers, based on the provided config.
+func Init(initCtx context.Context, serverProtobufs []*Server) (servers []Server, err error) {
+	for _, s := range serverProtobufs {
+		var l *logger.Logger
+		l, err = newLogger(initCtx, s.GetType().String())
+		if err != nil {
+			return
+		}
+		var server Server
+		switch s.GetType() {
+		case Server_HTTP:
+			server, err = http.New(initCtx, s.GetHttpServer(), l)
+		case Server_UDP:
+			server, err = udp.New(initCtx, s.GetUdpServer(), l)
+		}
+		if err != nil {
+			return
+		}
+		servers = append(servers, server)
 	}
-	switch s.GetType() {
-	case Server_HTTP:
-		go func() {
-			glog.Exit(http.ListenAndServe(ctx, s.GetHttpServer(), dataChan, l))
-		}()
-	case Server_UDP:
-		go func() {
-			glog.Exit(udp.ListenAndServe(ctx, s.GetUdpServer(), l))
-		}()
-	}
+	return
 }
