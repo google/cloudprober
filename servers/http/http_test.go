@@ -42,36 +42,34 @@ func (f *fakeLameduckLister) List() ([]string, error) {
 	return f.lameducked, f.err
 }
 
-func setLameduckDefaultLister(l []string, e error) {
-	lameduckGetDefaultLister = func() (lameduck.Lister, error) {
-		return &fakeLameduckLister{lameducked: l, err: e}, nil
-	}
-}
-
 func TestMain(m *testing.M) {
-	setLameduckDefaultLister(nil, nil)
 	os.Exit(m.Run())
 }
 
-func setupLocalHTTPServerWithChan(t *testing.T, dataChan chan *metrics.EventMetrics) net.Listener {
-	t.Helper()
+func testServer(ctx context.Context, t *testing.T, insName string, ldLister lameduck.Lister) (*Server, chan *metrics.EventMetrics) {
 	ln, err := net.Listen("tcp", ":0")
 	if err != nil {
 		t.Fatalf("Listen error: %v.", err)
 	}
-	testSysVars := map[string]string{
-		"instance": "testInstance",
+
+	dataChan := make(chan *metrics.EventMetrics, 10)
+	s := &Server{
+		l:             &logger.Logger{},
+		ln:            ln,
+		statsInterval: 2 * time.Second,
+		instanceName:  insName,
+		ldLister:      ldLister,
+		staticURLResTable: map[string]string{
+			"/":         OK,
+			"/instance": insName,
+		},
 	}
+
 	go func() {
-		serve(context.Background(), ln, dataChan, testSysVars, testExportInterval, &logger.Logger{})
+		s.Start(ctx, dataChan)
 	}()
 
-	return ln
-}
-
-func setupLocalHTTPServer(t *testing.T) net.Listener {
-	t.Helper()
-	return setupLocalHTTPServerWithChan(t, make(chan *metrics.EventMetrics, 10))
+	return s, dataChan
 }
 
 // get preforms HTTP GET request and return the response body and status
@@ -97,9 +95,10 @@ func listenerAddr(ln net.Listener) string {
 }
 
 func TestListenAndServeStats(t *testing.T) {
-	dataChan := make(chan *metrics.EventMetrics, 10)
-
-	ln := setupLocalHTTPServerWithChan(t, dataChan)
+	testIns := "testInstance"
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	s, dataChan := testServer(ctx, t, testIns, &fakeLameduckLister{})
+	defer cancelFunc()
 
 	urlsAndExpectedResponse := map[string]string{
 		"/":            OK,
@@ -108,18 +107,18 @@ func TestListenAndServeStats(t *testing.T) {
 		"/healthcheck": OK,
 	}
 	for url, expectedResponse := range urlsAndExpectedResponse {
-		if response, _ := get(t, ln, url); response != expectedResponse {
+		if response, _ := get(t, s.ln, url); response != expectedResponse {
 			t.Errorf("Didn't get the expected response for URL '%s'. Got: %s, Expected: %s", url, response, expectedResponse)
 		}
 	}
 	// Sleep for the export interval and a second extra to allow for the stats to
 	// come in.
-	time.Sleep(testExportInterval)
+	time.Sleep(s.statsInterval)
 	time.Sleep(time.Second)
 
 	// Build a map of expected URL stats
 	expectedURLStats := make(map[string]int64)
-	for url, _ := range urlsAndExpectedResponse {
+	for url := range urlsAndExpectedResponse {
 		expectedURLStats[url]++
 	}
 	if len(dataChan) != 1 {
@@ -137,59 +136,53 @@ func TestListenAndServeStats(t *testing.T) {
 }
 
 func TestLameduckingTestInstance(t *testing.T) {
-	ln := setupLocalHTTPServer(t)
-	defer ln.Close()
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	s, _ := testServer(ctx, t, "testInstance", &fakeLameduckLister{})
+	defer cancelFunc()
 
-	if resp, _ := get(t, ln, "lameduck"); !strings.Contains(resp, "false") {
-		t.Errorf("Didn't get the expected reponse for the URL '/lameduck'. got: %q, want it to contain: %q", resp, "false")
+	if resp, _ := get(t, s.ln, "lameduck"); !strings.Contains(resp, "false") {
+		t.Errorf("Didn't get the expected response for the URL '/lameduck'. got: %q, want it to contain: %q", resp, "false")
 	}
-	if resp, status := get(t, ln, "healthcheck"); resp != OK || status != "200 OK" {
-		t.Errorf("Didn't get the expected reponse for the URL '/healthcheck'. got: %q, %q , want: %q, %q", resp, status, OK, "200 OK")
+	if resp, status := get(t, s.ln, "healthcheck"); resp != OK || status != "200 OK" {
+		t.Errorf("Didn't get the expected response for the URL '/healthcheck'. got: %q, %q , want: %q, %q", resp, status, OK, "200 OK")
 	}
 
-	setLameduckDefaultLister([]string{"testInstance"}, nil)
-	defer setLameduckDefaultLister(nil, nil)
+	s.ldLister = &fakeLameduckLister{[]string{"testInstance"}, nil}
 
-	if resp, _ := get(t, ln, "lameduck"); !strings.Contains(resp, "true") {
-		t.Errorf("Didn't get the expected reponse for the URL '/lameduck'. got: %q, want it to contain: %q", resp, "true")
+	if resp, _ := get(t, s.ln, "lameduck"); !strings.Contains(resp, "true") {
+		t.Errorf("Didn't get the expected response for the URL '/lameduck'. got: %q, want it to contain: %q", resp, "true")
 	}
-	if _, status := get(t, ln, "healthcheck"); status != "503 Service Unavailable" {
-		t.Errorf("Didn't get the expected reponse for the URL '/healthcheck'. got: %q , want: %q", status, "200 OK")
+	if _, status := get(t, s.ln, "healthcheck"); status != "503 Service Unavailable" {
+		t.Errorf("Didn't get the expected response for the URL '/healthcheck'. got: %q , want: %q", status, "200 OK")
 	}
 }
 
-func TestErrorToGetLameduckService(t *testing.T) {
-	expectedErrMsg := "fake lameduck error message"
+func TestLameduckListerNil(t *testing.T) {
+	expectedErrMsg := "not initialized"
 
-	lameduckGetDefaultLister = func() (lameduck.Lister, error) {
-		return nil, errors.New(expectedErrMsg)
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	s, _ := testServer(ctx, t, "testInstance", nil)
+	defer cancelFunc()
+
+	if resp, status := get(t, s.ln, "lameduck"); !strings.Contains(resp, expectedErrMsg) || status != "200 OK" {
+		t.Errorf("Didn't get the expected response for the URL '/lameduck'. got: %q, %q. want it to contain: %q, %q", resp, status, expectedErrMsg, "200 OK")
 	}
-	defer setLameduckDefaultLister(nil, nil)
-
-	ln := setupLocalHTTPServer(t)
-	defer ln.Close()
-
-	if resp, status := get(t, ln, "lameduck"); !strings.Contains(resp, expectedErrMsg) || status != "200 OK" {
-		t.Errorf("Didn't get the expected reponse for the URL '/lameduck'. got: %q, %q. want it to contain: %q, %q", resp, status, expectedErrMsg, "200 OK")
-	}
-	if resp, status := get(t, ln, "healthcheck"); resp != OK || status != "200 OK" {
-		t.Errorf("Didn't get the expected reponse for the URL '/healthcheck'. got: %q, %q , want: %q, %q", resp, status, OK, "200 OK")
+	if resp, status := get(t, s.ln, "healthcheck"); resp != OK || status != "200 OK" {
+		t.Errorf("Didn't get the expected response for the URL '/healthcheck'. got: %q, %q , want: %q, %q", resp, status, OK, "200 OK")
 	}
 }
 
 func TestErrorToGetLameduckList(t *testing.T) {
 	expectedErrMsg := "fake lameduck error message"
 
-	setLameduckDefaultLister(nil, errors.New(expectedErrMsg))
-	defer setLameduckDefaultLister(nil, nil)
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	s, _ := testServer(ctx, t, "testInstance", &fakeLameduckLister{nil, errors.New(expectedErrMsg)})
+	defer cancelFunc()
 
-	ln := setupLocalHTTPServer(t)
-	defer ln.Close()
-
-	if resp, status := get(t, ln, "lameduck"); !strings.Contains(resp, expectedErrMsg) || status != "200 OK" {
-		t.Errorf("Didn't get the expected reponse for the URL '/lameduck'. got: %q, %q. want it to contain: %q, %q", resp, status, expectedErrMsg, "200 OK")
+	if resp, status := get(t, s.ln, "lameduck"); !strings.Contains(resp, expectedErrMsg) || status != "200 OK" {
+		t.Errorf("Didn't get the expected response for the URL '/lameduck'. got: %q, %q. want it to contain: %q, %q", resp, status, expectedErrMsg, "200 OK")
 	}
-	if resp, status := get(t, ln, "healthcheck"); resp != OK || status != "200 OK" {
-		t.Errorf("Didn't get the expected reponse for the URL '/healthcheck'. got: %q, %q , want: %q, %q", resp, status, OK, "200 OK")
+	if resp, status := get(t, s.ln, "healthcheck"); resp != OK || status != "200 OK" {
+		t.Errorf("Didn't get the expected response for the URL '/healthcheck'. got: %q, %q , want: %q, %q", resp, status, OK, "200 OK")
 	}
 }

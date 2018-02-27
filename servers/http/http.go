@@ -19,6 +19,7 @@ package http
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -35,26 +36,22 @@ const statsExportInterval = 10 * time.Second
 // OK a string returned as successful indication by "/", and "/healthcheck".
 const OK = "ok"
 
-var (
-	lameduckGetDefaultLister = lameduck.GetDefaultLister
-)
-
 // statsKeeper manages the stats and exports those stats at a regular basis.
 // Currently we only maintain the number of requests received per URL.
-func statsKeeper(name string, statsChan <-chan string, dataChan chan<- *metrics.EventMetrics, exportInterval time.Duration, l *logger.Logger) {
+func (s *Server) statsKeeper(name string, statsChan <-chan string) {
 	reqMetric := metrics.NewMap("url", metrics.NewInt(0))
 	em := metrics.NewEventMetrics(time.Now()).
 		AddMetric("req", reqMetric).
 		AddLabel("module", name)
-	doExport := time.Tick(exportInterval)
+	doExport := time.Tick(s.statsInterval)
 	for {
 		select {
 		case url := <-statsChan:
 			reqMetric.IncKey(url)
 		case ts := <-doExport:
 			em.Timestamp = ts
-			dataChan <- em.Clone()
-			l.Info(em.String())
+			s.dataChan <- em.Clone()
+			s.l.Info(em.String())
 		}
 	}
 }
@@ -63,36 +60,35 @@ func statsKeeper(name string, statsChan <-chan string, dataChan chan<- *metrics.
 // - (true, nil) if this machine is in that list
 // - (false, nil) if not
 // - (false, error) upon failure to fetch the list.
-func lameduckStatus(instanceName string) (bool, error) {
-	lameduckLister, err := lameduckGetDefaultLister()
-	if err != nil {
-		return false, fmt.Errorf("getting lameduck lister service: %v", err)
+func (s *Server) lameduckStatus() (bool, error) {
+	if s.ldLister == nil {
+		return false, errors.New("lameduck lister not initialized")
 	}
 
-	lameducksList, err := lameduckLister.List()
+	lameducksList, err := s.ldLister.List()
 	if err != nil {
-		return false, fmt.Errorf("getting list of lameducking targets: %v", err)
+		return false, fmt.Errorf("error getting list of lameducking targets: %v", err)
 	}
 	for _, lameduckName := range lameducksList {
-		if instanceName == lameduckName {
+		if s.instanceName == lameduckName {
 			return true, nil
 		}
 	}
 	return false, nil
 }
 
-func lameduckHandler(w http.ResponseWriter, instanceName string, l *logger.Logger) {
-	if lameduck, err := lameduckStatus(instanceName); err != nil {
+func (s *Server) lameduckHandler(w http.ResponseWriter) {
+	if lameduck, err := s.lameduckStatus(); err != nil {
 		fmt.Fprintf(w, "HTTP Server: Error getting lameduck status: %v", err)
 	} else {
 		fmt.Fprint(w, lameduck)
 	}
 }
 
-func healthcheckHandler(w http.ResponseWriter, instanceName string, l *logger.Logger) {
-	lameduck, err := lameduckStatus(instanceName)
+func (s *Server) healthcheckHandler(w http.ResponseWriter) {
+	lameduck, err := s.lameduckStatus()
 	if err != nil {
-		l.Error(err)
+		s.l.Error(err)
 	}
 	if lameduck {
 		http.Error(w, "lameduck", http.StatusServiceUnavailable)
@@ -101,51 +97,90 @@ func healthcheckHandler(w http.ResponseWriter, instanceName string, l *logger.Lo
 	}
 }
 
-func handler(w http.ResponseWriter, r *http.Request, instanceName string, statsChan chan<- string, l *logger.Logger) {
+func (s *Server) handler(w http.ResponseWriter, r *http.Request, statsChan chan<- string) {
 	switch r.URL.Path {
-	case "/":
-		fmt.Fprint(w, OK)
-	case "/instance":
-		fmt.Fprint(w, instanceName)
 	case "/lameduck":
-		lameduckHandler(w, instanceName, l)
+		s.lameduckHandler(w)
 	case "/healthcheck":
-		healthcheckHandler(w, instanceName, l)
+		s.healthcheckHandler(w)
 	default:
-		http.Error(w, "not found", http.StatusNotFound)
-		return
+		res, ok := s.staticURLResTable[r.URL.Path]
+		if !ok {
+			http.Error(w, "not found", http.StatusNotFound)
+			return
+		}
+		fmt.Fprint(w, res)
 	}
 	select {
 	case statsChan <- r.URL.Path:
 	default:
-		l.Warning("was not able to send a URL to the stats channel")
+		s.l.Warning("Was not able to send a URL to the stats channel.")
 	}
 	return
 }
 
-// ListenAndServe starts a simple HTTP server on a given port. This function never returns
-// unless there is an error.
-func ListenAndServe(ctx context.Context, c *ServerConf, dataChan chan<- *metrics.EventMetrics, l *logger.Logger) error {
-	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", int(c.GetPort())))
-	if err != nil {
-		return err
-	}
-	return serve(ctx, ln, dataChan, sysvars.Vars(), statsExportInterval, l)
+// Server implements a basic single-threaded, fast response web server.
+type Server struct {
+	c                 *ServerConf
+	ln                net.Listener
+	instanceName      string
+	staticURLResTable map[string]string
+	dataChan          chan<- *metrics.EventMetrics
+	statsInterval     time.Duration
+	ldLister          lameduck.Lister // Lameduck lister
+	l                 *logger.Logger
 }
 
-func serve(ctx context.Context, ln net.Listener, dataChan chan<- *metrics.EventMetrics, sysVars map[string]string, statsExportInterval time.Duration, l *logger.Logger) error {
-	// 1000 outstanding stats update requests
-	statsChan := make(chan string, 1000)
+// New returns a Server.
+func New(initCtx context.Context, c *ServerConf, l *logger.Logger) (*Server, error) {
+	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", int(c.GetPort())))
+	if err != nil {
+		return nil, err
+	}
 
-	laddr := ln.Addr().String()
-	go statsKeeper(fmt.Sprintf("http-server-%s", laddr), statsChan, dataChan, statsExportInterval, l)
+	// If we are not able get the default lameduck lister, we only log a warning.
+	ldLister, err := lameduck.GetDefaultLister()
+	if err != nil {
+		l.Warning(err)
+	}
+
+	// Cleanup listener if initCtx is canceled.
+	go func() {
+		<-initCtx.Done()
+		ln.Close()
+	}()
+
+	return &Server{
+		c:             c,
+		l:             l,
+		ln:            ln,
+		ldLister:      ldLister,
+		statsInterval: statsExportInterval,
+		instanceName:  sysvars.Vars()["instance"],
+		staticURLResTable: map[string]string{
+			"/":         OK,
+			"/instance": sysvars.Vars()["instance"],
+		},
+	}, nil
+}
+
+// Start starts a simple HTTP server on a given port. This function returns
+// only if there is an error.
+func (s *Server) Start(ctx context.Context, dataChan chan<- *metrics.EventMetrics) error {
+	s.dataChan = dataChan
+
+	// 100 outstanding stats update requests
+	statsChan := make(chan string, 100)
+
+	laddr := s.ln.Addr().String()
+	go s.statsKeeper(fmt.Sprintf("http-server-%s", laddr), statsChan)
 
 	// Not using default server mux as we may run multiple HTTP servers, e.g. for testing.
 	serverMux := http.NewServeMux()
 	serverMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		handler(w, r, sysVars["instance"], statsChan, l)
+		s.handler(w, r, statsChan)
 	})
-	l.Infof("starting HTTP server at: %s", laddr)
+	s.l.Infof("Starting HTTP server at: %s", laddr)
 	srv := &http.Server{Addr: laddr, Handler: serverMux}
 
 	// Setup a background function to close server if context is canceled.
@@ -155,5 +190,5 @@ func serve(ctx context.Context, ln net.Listener, dataChan chan<- *metrics.EventM
 	}()
 
 	// Following returns only in case of an error.
-	return srv.Serve(ln)
+	return srv.Serve(s.ln)
 }
