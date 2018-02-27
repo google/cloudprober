@@ -62,6 +62,7 @@ var proberMu sync.Mutex
 // Prober represents a collection of probes where each probe implements the Probe interface.
 type Prober struct {
 	Probes         map[string]probes.Probe
+	Servers        []servers.Server
 	c              *config.ProberConfig
 	rtcReporter    *rtcreporter.Reporter
 	surfacers      []surfacers.Surfacer
@@ -161,6 +162,15 @@ func (pr *Prober) init() error {
 		return err
 	}
 
+	// Initialize servers
+	// TODO: Plumb init context from cmd/cloudprober.
+	initCtx, cancelFunc := context.WithCancel(context.TODO())
+	pr.Servers, err = servers.Init(initCtx, pr.c.GetServer())
+	if err != nil {
+		cancelFunc()
+		goto cleanupInit
+	}
+
 	pr.surfacers, err = surfacers.Init(pr.c.GetSurfacer())
 	if err != nil {
 		goto cleanupInit
@@ -223,7 +233,10 @@ func (pr *Prober) start(ctx context.Context) {
 	// Start a goroutine to export system variables
 	go sysvars.Start(ctx, dataChan, time.Millisecond*time.Duration(pr.c.GetSysvarsIntervalMsec()), pr.c.GetSysvarsEnvVar())
 
-	servers.Start(ctx, pr.c.GetServer(), dataChan)
+	// Start servers, each in its own goroutine
+	for _, s := range pr.Servers {
+		go s.Start(ctx, dataChan)
+	}
 
 	// Start RTC reporter if configured.
 	if pr.rtcReporter != nil {

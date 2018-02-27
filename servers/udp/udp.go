@@ -24,6 +24,7 @@ import (
 	"net"
 
 	"github.com/google/cloudprober/logger"
+	"github.com/google/cloudprober/metrics"
 )
 
 const (
@@ -33,18 +34,33 @@ const (
 	readBufSize = 425984
 )
 
-// ListenAndServe launches an UDP echo server listening on the configured port.
-// This function returns only in case of an error.
-func ListenAndServe(ctx context.Context, c *ServerConf, l *logger.Logger) error {
+// Server implements a basic UDP server.
+type Server struct {
+	c    *ServerConf
+	conn *net.UDPConn
+	l    *logger.Logger
+}
+
+// New returns an UDP server.
+func New(initCtx context.Context, c *ServerConf, l *logger.Logger) (*Server, error) {
 	conn, err := Listen(int(c.GetPort()), l)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return serve(ctx, c, conn, l)
+	go func() {
+		<-initCtx.Done()
+		conn.Close()
+	}()
+	return &Server{
+		c:    c,
+		conn: conn,
+		l:    l,
+	}, nil
 }
 
 // Listen opens a UDP socket on the given port. It also attempts to set recv
 // buffer to a large value so that we can have many oustanding UDP messages.
+// Listen is exported only because it's used by udp probe tests.
 func Listen(port int, l *logger.Logger) (*net.UDPConn, error) {
 	conn, err := net.ListenUDP("udp", &net.UDPAddr{Port: port})
 	if err != nil {
@@ -58,27 +74,28 @@ func Listen(port int, l *logger.Logger) (*net.UDPConn, error) {
 	return conn, nil
 }
 
-func serve(ctx context.Context, c *ServerConf, conn *net.UDPConn, l *logger.Logger) error {
-	switch c.GetType() {
+// Start starts the UDP server. It returns only when context is canceled.
+func (s *Server) Start(ctx context.Context, dataChan chan<- *metrics.EventMetrics) error {
+	switch s.c.GetType() {
 	case ServerConf_ECHO:
-		l.Infof("Starting UDP ECHO server on port %d", int(c.GetPort()))
+		s.l.Infof("Starting UDP ECHO server on port %d", int(s.c.GetPort()))
 		for {
 			select {
 			case <-ctx.Done():
-				return conn.Close()
+				return s.conn.Close()
 			default:
 			}
-			readAndEcho(conn, l)
+			readAndEcho(s.conn, s.l)
 		}
 	case ServerConf_DISCARD:
-		l.Infof("Starting UDP DISCARD server on port %d", int(c.GetPort()))
+		s.l.Infof("Starting UDP DISCARD server on port %d", int(s.c.GetPort()))
 		for {
 			select {
 			case <-ctx.Done():
-				return conn.Close()
+				return s.conn.Close()
 			default:
 			}
-			readAndDiscard(conn, l)
+			readAndDiscard(s.conn, s.l)
 		}
 	}
 	return nil
