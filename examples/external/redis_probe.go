@@ -34,26 +34,66 @@ cloudprober 1519..1 1519583408 labels=ptype=external,probe=redis_probe,dst= set_
 cloudprober 1519..2 1519583410 labels=ptype=external,probe=redis_probe,dst= success=2 total=2 latency=30585.915
 cloudprober 1519..3 1519583410 labels=ptype=external,probe=redis_probe,dst= set_latency_ms=0.636 get_latency_ms=0.994
 cloudprober 1519..4 1519583412 labels=ptype=external,probe=redis_probe,dst= success=3 total=3 latency=42621.871
+
+You can also run this probe in server mode by providing "--server" command line
+flag.
 */
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
+	"github.com/golang/protobuf/proto"
+	"github.com/google/cloudprober/probes/external/serverutils"
 	"github.com/hoisie/redis"
 )
 
-func main() {
+var server = flag.Bool("server", false, "Whether to run in server mode")
+
+func probe() (string, error) {
+	var payload []string
 	var client redis.Client
+
+	// Measure set latency
 	var key = "hello"
 	startTime := time.Now()
-	client.Set(key, []byte("world"))
-	fmt.Printf("set_latency_ms %f\n", float64(time.Since(startTime).Nanoseconds())/1e6)
+	err := client.Set(key, []byte("world"))
+	if err != nil {
+		return "", err
+	}
 
+	payload = append(payload, fmt.Sprintf("set_latency_ms %f", float64(time.Since(startTime).Nanoseconds())/1e6))
+
+	// Measure get latency
 	startTime = time.Now()
-	val, _ := client.Get("hello")
+	val, err := client.Get("hello")
+	if err != nil {
+		return strings.Join(payload, "\n"), err
+	}
+	payload = append(payload, fmt.Sprintf("get_latency_ms %f", float64(time.Since(startTime).Nanoseconds())/1e6))
+
 	log.Printf("%s=%s", key, string(val))
-	fmt.Printf("get_latency_ms %f\n", float64(time.Since(startTime).Nanoseconds())/1e6)
+	return strings.Join(payload, "\n"), nil
+}
+
+func main() {
+	flag.Parse()
+	if *server {
+		serverutils.Serve(func(request *serverutils.ProbeRequest, reply *serverutils.ProbeReply) {
+			payload, err := probe()
+			reply.Payload = proto.String(payload)
+			if err != nil {
+				reply.ErrorMessage = proto.String(err.Error())
+			}
+		})
+	}
+	payload, err := probe()
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(payload)
 }
