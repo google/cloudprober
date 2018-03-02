@@ -22,6 +22,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
 	_ "net/http/pprof"
 	"os"
@@ -39,6 +40,7 @@ import (
 
 var (
 	configFile       = flag.String("config_file", "", "Config file")
+	versionFlag      = flag.Bool("version", false, "Print version and exit")
 	cpuprofile       = flag.String("cpuprof", "", "Write cpu profile to file")
 	memprofile       = flag.String("memprof", "", "Write heap profile to file")
 	configTest       = flag.Bool("configtest", false, "Dry run to test config file")
@@ -47,6 +49,10 @@ var (
 	// configTestVars provides a sane set of sysvars for config testing.
 	configTestVars = map[string]string(nil)
 )
+
+// This gets overwritten by using -ldflags="-X main.version=${VERSION}" at
+// the build time.
+var version = "undefined"
 
 func setupConfigTestVars() {
 	configTestVars = map[string]string{
@@ -134,6 +140,12 @@ func getConfig() string {
 
 func main() {
 	flag.Parse()
+
+	if *versionFlag {
+		fmt.Println(version)
+		return
+	}
+
 	setupConfigTestVars()
 
 	if *configTest {
