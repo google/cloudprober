@@ -8,6 +8,9 @@ language: go
 
 go:
  - 1.9
+ 
+install:
+ - go get -t ./...
 
 script:
  - go test -v -race -covermode=atomic ./...
