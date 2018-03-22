@@ -21,11 +21,12 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/google/cloudprober/logger"
+	"github.com/google/cloudprober/metrics"
 	"github.com/google/cloudprober/probes/external/serverutils"
 	"github.com/google/cloudprober/probes/options"
 	"github.com/google/cloudprober/targets"
@@ -40,12 +41,16 @@ func startProbeServer(t *testing.T, testPayload string, r io.Reader, w io.WriteC
 			t.Errorf("Error reading probe request. Err: %v", err)
 			return
 		}
-		var action string
+		var action, target string
 		opts := req.GetOptions()
 		for _, opt := range opts {
 			if opt.GetName() == "action" {
 				action = opt.GetValue()
-				break
+				continue
+			}
+			if opt.GetName() == "target" {
+				target = opt.GetValue()
+				continue
 			}
 		}
 		id := req.GetRequestId()
@@ -62,7 +67,7 @@ func startProbeServer(t *testing.T, testPayload string, r io.Reader, w io.WriteC
 				ErrorMessage: proto.String("error"),
 			},
 		}
-		t.Logf("Request id: %d, action: %s", id, action)
+		t.Logf("Request id: %d, action: %s, target: %s", id, action, target)
 		if action == "pipe_server_close" {
 			w.Close()
 			return
@@ -74,38 +79,32 @@ func startProbeServer(t *testing.T, testPayload string, r io.Reader, w io.WriteC
 }
 
 func setProbeOptions(p *Probe, name, value string) {
-	if p.c == nil {
-		p.c = &ProbeConf{}
-	}
-	p.c.Options = []*ProbeConf_Option{
-		{
-			Name:  proto.String(name),
-			Value: proto.String(value),
-		},
+	for _, opt := range p.c.Options {
+		if opt.GetName() == name {
+			opt.Value = proto.String(value)
+			break
+		}
 	}
 }
 
 // runAndVerifyServerProbe executes a server probe and verifies the replies
 // received.
-func runAndVerifyProbe(t *testing.T, p *Probe, action string, wantError bool, payload string, total, success int64) error {
+func runAndVerifyProbe(t *testing.T, p *Probe, action string, tgts []string, total, success map[string]int64) error {
 	setProbeOptions(p, "action", action)
-	rep, err := p.runServerProbeForTarget(context.Background(), "dummy")
-	if !wantError && err != nil {
-		t.Errorf(err.Error())
+	p.opts.Targets = targets.StaticTargets(strings.Join(tgts, ","))
+
+	dataChan := make(chan *metrics.EventMetrics, 10)
+	p.runProbe(context.Background(), dataChan)
+
+	for _, tgt := range p.opts.Targets.List() {
+		if p.total[tgt] != total[tgt] {
+			t.Errorf("p.total[%s]=%d, Want: %d", tgt, p.total[tgt], total[tgt])
+		}
+		if p.success[tgt] != success[tgt] {
+			t.Errorf("p.success[%s]=%d, Want: %d", tgt, p.success[tgt], success[tgt])
+		}
 	}
-	if wantError && err == nil {
-		t.Error("Expected error, but didn't get one")
-	}
-	if rep.GetPayload() != payload {
-		t.Errorf("Got payload=%s, Want: %s", rep.GetPayload(), payload)
-	}
-	if p.total != total {
-		t.Errorf("p.total=%d, Want: %d", p.total, total)
-	}
-	if p.success != success {
-		t.Errorf("p.success=%d, Want: %d", p.success, success)
-	}
-	return err
+	return nil
 }
 
 func testProbeServerSetup(t *testing.T, readErrorCh chan error) (*Probe, string) {
@@ -128,17 +127,28 @@ func testProbeServerSetup(t *testing.T, readErrorCh chan error) (*Probe, string)
 	// Start probe server in a goroutine
 	go startProbeServer(t, testPayload, r1, w2)
 
-	p := &Probe{
-		opts: &options.Options{
-			Targets: targets.StaticTargets("localhost"),
-			Timeout: 5 * time.Second,
+	p := &Probe{}
+	p.Init("testProbe", &options.Options{
+		ProbeConf: &ProbeConf{
+			Options: []*ProbeConf_Option{
+				{
+					Name:  proto.String("target"),
+					Value: proto.String("@target@"),
+				},
+				{
+					Name:  proto.String("action"),
+					Value: proto.String(""),
+				},
+			},
 		},
-		l:          &logger.Logger{},
-		replyChan:  make(chan *serverutils.ProbeReply),
-		cmdRunning: true, // don't try to start the probe server
-		cmdStdin:   w1,
-		cmdStdout:  r2,
-	}
+		Interval: 10 * time.Second,
+		Timeout:  5 * time.Second,
+	})
+	p.cmdRunning = true // don't try to start the probe server
+	p.cmdStdin = w1
+	p.cmdStdout = r2
+	p.mode = "server"
+
 	// Start the goroutine that reads probe replies. We don't use the done
 	// channel here. It's only to satisfy the readProbeReplies interface.
 	done := make(chan struct{})
@@ -154,41 +164,56 @@ func testProbeServerSetup(t *testing.T, readErrorCh chan error) (*Probe, string)
 }
 
 func TestProbeServer(t *testing.T) {
-	p, testPayload := testProbeServerSetup(t, nil)
+	p, _ := testProbeServerSetup(t, nil)
 
-	var total, success int64
+	total, success := make(map[string]int64), make(map[string]int64)
 
 	// No payload
-	total++
-	success++
-	runAndVerifyProbe(t, p, "nopayload", false, "", total, success)
+	tgts := []string{"target1", "target2", "target3"}
+	for _, tgt := range tgts {
+		total[tgt]++
+		success[tgt]++
+	}
+	runAndVerifyProbe(t, p, "nopayload", tgts, total, success)
 
 	// Payload
-	total++
-	success++
-	runAndVerifyProbe(t, p, "payload", false, testPayload, total, success)
+	tgts = []string{"target3"}
+	for _, tgt := range tgts {
+		total[tgt]++
+		success[tgt]++
+	}
+	runAndVerifyProbe(t, p, "payload", tgts, total, success)
 
 	// Payload with error
-	total++
-	runAndVerifyProbe(t, p, "payload_with_error", true, testPayload, total, success)
+	tgts = []string{"target2", "target3"}
+	for _, tgt := range tgts {
+		total[tgt]++
+	}
+	runAndVerifyProbe(t, p, "payload_with_error", tgts, total, success)
 
 	// Timeout
-	total++
+	tgts = []string{"target1", "target2", "target3"}
+	for _, tgt := range tgts {
+		total[tgt]++
+	}
 	// Reduce probe timeout to make this test pass quicker.
 	p.opts.Timeout = time.Second
-	runAndVerifyProbe(t, p, "timeout", true, "", total, success)
+	runAndVerifyProbe(t, p, "timeout", tgts, total, success)
 }
 
 func TestProbeServerRemotePipeClose(t *testing.T) {
 	readErrorCh := make(chan error)
 	p, _ := testProbeServerSetup(t, readErrorCh)
 
-	var total, success int64
+	total, success := make(map[string]int64), make(map[string]int64)
 	// Remote pipe close
-	total++
+	tgts := []string{"target"}
+	for _, tgt := range tgts {
+		total[tgt]++
+	}
 	// Reduce probe timeout to make this test pass quicker.
 	p.opts.Timeout = time.Second
-	runAndVerifyProbe(t, p, "pipe_server_close", true, "", total, success)
+	runAndVerifyProbe(t, p, "pipe_server_close", tgts, total, success)
 	readError := <-readErrorCh
 	if readError == nil {
 		t.Error("Didn't get error in reading pipe")
@@ -202,13 +227,16 @@ func TestProbeServerLocalPipeClose(t *testing.T) {
 	readErrorCh := make(chan error)
 	p, _ := testProbeServerSetup(t, readErrorCh)
 
-	var total, success int64
+	total, success := make(map[string]int64), make(map[string]int64)
 	// Local pipe close
-	total++
+	tgts := []string{"target"}
+	for _, tgt := range tgts {
+		total[tgt]++
+	}
 	// Reduce probe timeout to make this test pass quicker.
 	p.opts.Timeout = time.Second
 	p.cmdStdout.(*os.File).Close()
-	runAndVerifyProbe(t, p, "pipe_local_close", true, "", total, success)
+	runAndVerifyProbe(t, p, "pipe_local_close", tgts, total, success)
 	readError := <-readErrorCh
 	if readError == nil {
 		t.Error("Didn't get error in reading pipe")
@@ -327,16 +355,21 @@ func TestSubstituteLabels(t *testing.T) {
 // TestSendRequest verifies that sendRequest sends appropriatly populated
 // ProbeRequest.
 func TestSendRequest(t *testing.T) {
-	var buf bytes.Buffer
-	p := &Probe{
-		name: "testprobe",
-		opts: &options.Options{
-			Targets: targets.StaticTargets("localhost"),
+	p := &Probe{}
+	p.Init("testprobe", &options.Options{
+		ProbeConf: &ProbeConf{
+			Options: []*ProbeConf_Option{
+				{
+					Name:  proto.String("target"),
+					Value: proto.String("@target@"),
+				},
+			},
 		},
-		l:        &logger.Logger{},
-		cmdStdin: &buf,
-	}
-	setProbeOptions(p, "target", "@target@")
+		Targets: targets.StaticTargets("localhost"),
+	})
+	var buf bytes.Buffer
+	p.cmdStdin = &buf
+
 	requestID := int32(1234)
 	target := "localhost"
 

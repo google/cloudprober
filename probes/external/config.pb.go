@@ -183,9 +183,9 @@ func (m *ProbeConf) GetIpVersion() int32 {
 	return Default_ProbeConf_IpVersion
 }
 
-// Options for the SERVER mode probe requests. These options are passed on the
-// external probe server as part of the ProbeRequest. Values are substituted
-// similar to command arguments for the ONCE mode probes.
+// Options for the SERVER mode probe requests. These options are passed on to
+// the external probe server as part of the ProbeRequest. Values are
+// substituted similar to command arguments for the ONCE mode probes.
 type ProbeConf_Option struct {
 	Name             *string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
 	Value            *string `protobuf:"bytes,2,opt,name=value" json:"value,omitempty"`

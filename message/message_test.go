@@ -67,7 +67,7 @@ func TestMessageEncodeDecode(t *testing.T) {
 	}
 	res := msg.ProcessOneWay(rxFSM, ts.Add(time.Second))
 	if rxFS.seq != seq {
-		t.Errorf("Seq number mismatch. got %d want %d. %s %s", rxFS.seq, seq, rxFS, res)
+		t.Errorf("Seq number mismatch. got %d want %d. %v %v", rxFS.seq, seq, rxFS, res)
 	}
 	if !res.Success || res.LostCount > 0 || res.Delayed {
 		t.Errorf("Success, lostCount, delayed mismatch. got (%v %v %v) want (%v %v %v)",
