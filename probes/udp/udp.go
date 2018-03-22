@@ -112,7 +112,7 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		p.flushIntv = 2 * p.opts.Timeout
 	}
 	if p.c.GetStatsExportIntervalMsec() < int32(p.flushIntv.Seconds()*1000) {
-		return fmt.Errorf("UDP probe: stats_export_interval (%s ms) is too low. It should be at least twice of the interval (%s) and timeout (%s), whichever is bigger", p.c.GetStatsExportIntervalMsec(), p.opts.Interval, p.opts.Timeout)
+		return fmt.Errorf("UDP probe: stats_export_interval (%d ms) is too low. It should be at least twice of the interval (%s) and timeout (%s), whichever is bigger", p.c.GetStatsExportIntervalMsec(), p.opts.Interval, p.opts.Timeout)
 	}
 	minChanLen := maxTargets * int(p.flushIntv/p.opts.Interval)
 	p.l.Infof("Creating sent, rcvd channels of length: %d", 2*minChanLen)
