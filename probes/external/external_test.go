@@ -141,7 +141,8 @@ func testProbeServerSetup(t *testing.T, readErrorCh chan error) (*Probe, string)
 				},
 			},
 		},
-		Timeout: 5 * time.Second,
+		Interval: 10 * time.Second,
+		Timeout:  5 * time.Second,
 	})
 	p.cmdRunning = true // don't try to start the probe server
 	p.cmdStdin = w1
@@ -168,7 +169,7 @@ func TestProbeServer(t *testing.T) {
 	total, success := make(map[string]int64), make(map[string]int64)
 
 	// No payload
-	tgts := []string{"target1", "target2"}
+	tgts := []string{"target1", "target2", "target3"}
 	for _, tgt := range tgts {
 		total[tgt]++
 		success[tgt]++

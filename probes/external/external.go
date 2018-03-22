@@ -304,7 +304,7 @@ func (p *Probe) sendRequest(requestID int32, target string) error {
 		})
 	}
 
-	p.l.Infof("Sending a probe request %v to the external probe server for target %v", requestID, target)
+	p.l.Debugf("Sending probe request %v to the external probe server for target %v", requestID, target)
 	return serverutils.WriteMessage(req, p.cmdStdin)
 }
 
@@ -317,6 +317,7 @@ func (p *Probe) runServerProbe(ctx context.Context, dataChan chan *metrics.Event
 	requests := make(map[int32]requestInfo)
 	var requestsMu sync.RWMutex
 	doneChan := make(chan struct{})
+	var numRequests, numReplies int
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -328,8 +329,8 @@ func (p *Probe) runServerProbe(ctx context.Context, dataChan chan *metrics.Event
 		for {
 			_, ok := <-doneChan
 			if !ok {
-				p.l.Debugf("Number of outstanding requests: %d", len(requests))
-				if len(requests) == 0 {
+				p.l.Debugf("numReplies=%d, numRequests=%d", numReplies, numRequests)
+				if numReplies == numRequests {
 					return
 				}
 			}
@@ -349,6 +350,7 @@ func (p *Probe) runServerProbe(ctx context.Context, dataChan chan *metrics.Event
 					p.l.Warningf("Got a reply that doesn't match any outstading request: Request id from reply: %v. Ignoring.", rep.GetRequestId())
 					continue
 				}
+				numReplies++
 				if rep.GetErrorMessage() != "" {
 					p.l.Errorf("Probe for target %v failed with error message: %s", reqInfo.target, rep.GetErrorMessage())
 				} else {
@@ -369,7 +371,8 @@ func (p *Probe) runServerProbe(ctx context.Context, dataChan chan *metrics.Event
 	}()
 
 	// Send probe requests
-	for _, target := range p.opts.Targets.List() {
+	targets := p.opts.Targets.List()
+	for _, target := range targets {
 		p.requestID++
 		p.total[target]++
 		requestsMu.Lock()
@@ -379,6 +382,8 @@ func (p *Probe) runServerProbe(ctx context.Context, dataChan chan *metrics.Event
 		}
 		requestsMu.Unlock()
 		p.sendRequest(p.requestID, target)
+		numRequests++
+		time.Sleep(time.Microsecond)
 	}
 
 	// Send signal to receiver loop that we are done sending request.
