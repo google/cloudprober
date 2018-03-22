@@ -143,7 +143,7 @@ func runProbe(ctx context.Context, t *testing.T, port int, interval, timeout tim
 	scs.Lock()
 	defer scs.Unlock()
 	if len(scs.msgCt) != len(p.connList) {
-		t.Errorf("Got packets over %d connections, required %d", len(scs.msgCt), p.connList)
+		t.Errorf("Got packets over %d connections, required %d", len(scs.msgCt), len(p.connList))
 	}
 	t.Logf("Echo server stats: %v", scs.msgCt)
 
