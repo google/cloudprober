@@ -56,15 +56,16 @@ type Probe struct {
 	ipVer   int
 
 	// book-keeping params
+	labelKeys  map[string]bool // Labels for substitution
 	requestID  int32
 	cmdRunning bool
 	cmdStdin   io.Writer
 	cmdStdout  io.ReadCloser
 	cmdStderr  io.ReadCloser
 	replyChan  chan *serverutils.ProbeReply
-	success    int64         // toal probe successes
-	total      int64         // total number of probes
-	latency    time.Duration // cumulative probe latency
+	success    map[string]int64         // total probe successes
+	total      map[string]int64         // total number of probes
+	latency    map[string]time.Duration // cumulative probe latency, in microseconds.
 
 	// EventMetrics created from external probe process output
 	defaultPayloadMetrics *metrics.EventMetrics
@@ -85,7 +86,22 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	}
 	p.c = c
 	p.replyChan = make(chan *serverutils.ProbeReply)
-	p.ipVer = int(p.c.GetIpVersion())
+
+	// Figure out labels we are interested in
+	p.labelKeys = make(map[string]bool)
+	validLabels := []string{"@target@", "@address@", "@probe"}
+	for _, l := range validLabels {
+		for _, opt := range p.c.GetOptions() {
+			if strings.Contains(opt.GetValue(), l) {
+				p.labelKeys[l] = true
+			}
+		}
+		for _, arg := range p.cmdArgs {
+			if strings.Contains(arg, l) {
+				p.labelKeys[l] = true
+			}
+		}
+	}
 
 	switch p.c.GetMode() {
 	case ProbeConf_ONCE:
@@ -99,14 +115,21 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	cmdParts := strings.Split(p.c.GetCommand(), " ")
 	p.cmdName = cmdParts[0]
 	p.cmdArgs = cmdParts[1:len(cmdParts)]
+	p.success = make(map[string]int64)
+	p.total = make(map[string]int64)
+	p.latency = make(map[string]time.Duration)
+
 	p.payloadMetrics = make(map[string]*metrics.EventMetrics)
 	return p.initPayloadMetrics()
 }
 
 // substituteLabels replaces occurrences of @label@ with the values from
-// abels.  It returns the substituted string and a bool indicating if there
+// labels.  It returns the substituted string and a bool indicating if there
 // was a @label@ that did not exist in the labels map.
 func substituteLabels(in string, labels map[string]string) (string, bool) {
+	if len(labels) == 0 {
+		return in, !strings.Contains(in, "@")
+	}
 	delimiter := "@"
 	output := ""
 	words := strings.Split(in, delimiter)
@@ -187,7 +210,8 @@ func (p *Probe) startCmdIfNotRunning() error {
 	}
 
 	doneChan := make(chan struct{})
-	// This goroutine waits for the process to terminate and sets cmdRunning to false when that happens.
+	// This goroutine waits for the process to terminate and sets cmdRunning to
+	// false when that happens.
 	go func() {
 		err := cmd.Wait()
 		close(doneChan)
@@ -207,8 +231,8 @@ func (p *Probe) readProbeReplies(done chan struct{}) error {
 	bufReader := bufio.NewReader(p.cmdStdout)
 	// Start a background goroutine to read probe replies from the probe server
 	// process's stdout and put them on the probe's replyChan. Note that replyChan
-	// is a one element channel. Idea is that we won't need buffering other than the
-	// one provided by Unix pipes.
+	// is a one element channel. Idea is that we won't need buffering other than
+	// the one provided by Unix pipes.
 	for {
 		select {
 		case <-done:
@@ -236,51 +260,41 @@ func (p *Probe) readProbeReplies(done chan struct{}) error {
 
 func (p *Probe) defaultMetrics(target string) *metrics.EventMetrics {
 	return metrics.NewEventMetrics(time.Now()).
-		AddMetric("success", metrics.NewInt(p.success)).
-		AddMetric("total", metrics.NewInt(p.total)).
-		AddMetric("latency", metrics.NewFloat(p.latency.Seconds()/p.opts.LatencyUnit.Seconds())).
+		AddMetric("success", metrics.NewInt(p.success[target])).
+		AddMetric("total", metrics.NewInt(p.total[target])).
+		AddMetric("latency", metrics.NewFloat(p.latency[target].Seconds()/p.opts.LatencyUnit.Seconds())).
 		AddLabel("ptype", "external").
 		AddLabel("probe", p.name).
 		AddLabel("dst", target)
 }
 
-// replyForProbe looks for a reply on the replyChan, in a context bounded manner.
-func (p *Probe) replyForProbe(ctx context.Context, requestID int32) (*serverutils.ProbeReply, error) {
-	for {
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		case rep := <-p.replyChan:
-			if rep.GetRequestId() != requestID {
-				// Not our reply, could be from the last timedout probe. (it shouldn't happen if probe server
-				// is using the standard package).
-				p.l.Warningf("Got a reply that doesn't match with the request: Request id as per request: %d, as per reply:%d. Ignoring.", requestID, rep.GetRequestId())
-				continue
-			}
-			return rep, nil
+func (p *Probe) labels(target string) map[string]string {
+	labels := make(map[string]string)
+	if p.labelKeys["@probe@"] {
+		labels["probe"] = p.name
+	}
+	if p.labelKeys["@target@"] {
+		labels["target"] = target
+	}
+	if p.labelKeys["@address@"] {
+		addr, err := p.opts.Targets.Resolve(target, p.ipVer)
+		if err != nil {
+			p.l.Warningf("Targets.Resolve(%v, %v) failed: %v ", target, p.ipVer, err)
+		} else if !addr.IsUnspecified() {
+			labels["address"] = addr.String()
 		}
 	}
+	return labels
 }
 
 func (p *Probe) sendRequest(requestID int32, target string) error {
-	labels := map[string]string{
-		"probe":  p.name,
-		"target": target,
-	}
-	addr, err := p.opts.Targets.Resolve(target, p.ipVer)
-	if err != nil {
-		p.l.Warningf("Targets.Resolve(%v, %v) failed: %v ", target, p.ipVer, err)
-	} else if !addr.IsUnspecified() {
-		labels["address"] = addr.String()
-	}
-
 	req := &serverutils.ProbeRequest{
 		RequestId: proto.Int32(requestID),
 		TimeLimit: proto.Int32(int32(p.opts.Timeout / time.Millisecond)),
 		Options:   []*serverutils.ProbeRequest_Option{},
 	}
 	for _, opt := range p.c.GetOptions() {
-		value, found := substituteLabels(opt.GetValue(), labels)
+		value, found := substituteLabels(opt.GetValue(), p.labels(target))
 		if !found {
 			p.l.Warningf("Missing substitution in option %q", value)
 		}
@@ -289,119 +303,143 @@ func (p *Probe) sendRequest(requestID int32, target string) error {
 			Value: proto.String(value),
 		})
 	}
+
+	p.l.Infof("Sending a probe request %v to the external probe server for target %v", requestID, target)
 	return serverutils.WriteMessage(req, p.cmdStdin)
 }
 
-func (p *Probe) runServerProbe(ctx context.Context, dataChan chan *metrics.EventMetrics) {
-	for _, target := range p.opts.Targets.List() {
-		// Run probe for the target. Note that we always return probe
-		// results regardless of the values of rep and err.
-		rep, err := p.runServerProbeForTarget(ctx, target)
-		if err != nil {
-			p.l.Error(err.Error())
-		}
-		em := p.defaultMetrics(target)
-		p.l.Info(em.String())
-		dataChan <- em
-
-		// If we got a non-nil probe reply and probe is configured to use
-		// the reply payload as metrics.
-		if rep != nil && p.c.GetOutputAsMetrics() {
-			em = p.payloadToMetrics(target, rep.GetPayload())
-			p.l.Info(em.String())
-			dataChan <- em
-		}
-	}
+type requestInfo struct {
+	target    string
+	timestamp time.Time
 }
 
-// runServerProbeForTarget runs a "server" probe for a single target and
-// returns the ProbeReply and error if any.
-func (p *Probe) runServerProbeForTarget(ctx context.Context, target string) (*serverutils.ProbeReply, error) {
-	p.total++
-	startTime := time.Now()
-	if err := p.startCmdIfNotRunning(); err != nil {
-		return nil, err
-	}
-	p.requestID++
-	id := p.requestID
+func (p *Probe) runServerProbe(ctx context.Context, dataChan chan *metrics.EventMetrics) {
+	requests := make(map[int32]requestInfo)
+	var requestsMu sync.RWMutex
+	doneChan := make(chan struct{})
 
-	ctxTimeout, cancelFunc := context.WithTimeout(ctx, p.opts.Timeout)
-	defer cancelFunc()
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
 
-	// TODO: We should use context for sending request as well.
-	p.l.Debugf("Sending a probe request to the external probe server for target %v", target)
-	if err := p.sendRequest(id, target); err != nil {
-		return nil, fmt.Errorf("Error sending request to probe server: %v", err)
+		// Read probe replies until we have no outstanding requests or context has
+		// run out.
+		for {
+			_, ok := <-doneChan
+			if !ok {
+				p.l.Debugf("Number of outstanding requests: %d", len(requests))
+				if len(requests) == 0 {
+					return
+				}
+			}
+			select {
+			case <-ctx.Done():
+				p.l.Error(ctx.Err().Error())
+				return
+			case rep := <-p.replyChan:
+				requestsMu.Lock()
+				reqInfo, ok := requests[rep.GetRequestId()]
+				if ok {
+					delete(requests, rep.GetRequestId())
+				}
+				requestsMu.Unlock()
+				if !ok {
+					// Not our reply, could be from the last timed out probe.
+					p.l.Warningf("Got a reply that doesn't match any outstading request: Request id from reply: %v. Ignoring.", rep.GetRequestId())
+					continue
+				}
+				if rep.GetErrorMessage() != "" {
+					p.l.Errorf("Probe for target %v failed with error message: %s", reqInfo.target, rep.GetErrorMessage())
+				} else {
+					p.success[reqInfo.target]++
+					p.latency[reqInfo.target] += time.Since(reqInfo.timestamp)
+				}
+				em := p.defaultMetrics(reqInfo.target)
+				dataChan <- em
+
+				// If we got a non-nil probe reply and probe is configured to use
+				// the reply payload as metrics.
+				if rep != nil && p.c.GetOutputAsMetrics() {
+					em = p.payloadToMetrics(reqInfo.target, rep.GetPayload())
+					dataChan <- em
+				}
+			}
+		}
+	}()
+
+	// Send probe requests
+	for _, target := range p.opts.Targets.List() {
+		p.requestID++
+		p.total[target]++
+		requestsMu.Lock()
+		requests[p.requestID] = requestInfo{
+			target:    target,
+			timestamp: time.Now(),
+		}
+		requestsMu.Unlock()
+		p.sendRequest(p.requestID, target)
 	}
 
-	rep, err := p.replyForProbe(ctxTimeout, id)
-	if err != nil {
-		return nil, fmt.Errorf("Error reading reply from probe server: %v", err)
-	}
-	if rep.GetErrorMessage() != "" {
-		return rep, fmt.Errorf("Probe failed with error message: %s", rep.GetErrorMessage())
-	}
-	p.success++
-	p.latency += time.Since(startTime)
-	return rep, nil
+	// Send signal to receiver loop that we are done sending request.
+	close(doneChan)
+
+	// Wait for receiver goroutine to exit.
+	wg.Wait()
 }
 
 func (p *Probe) runOnceProbe(ctx context.Context, dataChan chan *metrics.EventMetrics) {
-	labels := map[string]string{
-		"probe": p.name,
-	}
+	var wg sync.WaitGroup
 	for _, target := range p.opts.Targets.List() {
-		labels["target"] = target
-		addr, err := p.opts.Targets.Resolve(target, p.ipVer)
-		if err != nil {
-			p.l.Warningf("Targets.Resolve(%v, %v) failed: %v ", target, p.ipVer, err)
-		} else if !addr.IsUnspecified() {
-			labels["address"] = addr.String()
-		}
-		args := make([]string, len(p.cmdArgs))
-		for i, arg := range p.cmdArgs {
-			res, found := substituteLabels(arg, labels)
-			if !found {
-				p.l.Warningf("Substitution not found in %q", arg)
+		wg.Add(1)
+		go func(target string) {
+			defer wg.Done()
+			args := make([]string, len(p.cmdArgs))
+			for i, arg := range p.cmdArgs {
+				res, found := substituteLabels(arg, p.labels(target))
+				if !found {
+					p.l.Warningf("Substitution not found in %q", arg)
+				}
+				args[i] = res
 			}
-			args[i] = res
-		}
 
-		p.l.Infof("Running external command: %s %s", p.cmdName, strings.Join(args, " "))
-		p.total++
-		startTime := time.Now()
-		ctxTimeout, cancelFunc := context.WithTimeout(ctx, p.opts.Timeout)
-		defer cancelFunc()
-		b, err := exec.CommandContext(ctxTimeout, p.cmdName, args...).Output()
-		if err != nil {
-			if exitErr, ok := err.(*exec.ExitError); ok {
-				p.l.Errorf("external probe process died with the status: %s. Stderr: %s", exitErr.Error(), exitErr.Stderr)
+			p.l.Infof("Running external command: %s %s", p.cmdName, strings.Join(args, " "))
+			p.total[target]++
+			startTime := time.Now()
+			b, err := exec.CommandContext(ctx, p.cmdName, args...).Output()
+			if err != nil {
+				if exitErr, ok := err.(*exec.ExitError); ok {
+					p.l.Errorf("external probe process died with the status: %s. Stderr: %s", exitErr.Error(), exitErr.Stderr)
+				} else {
+					p.l.Errorf("Error executing the external program. Err: %v", err)
+				}
 			} else {
-				p.l.Errorf("Error executing the external program. Err: %v", err)
+				p.success[target]++
+				p.latency[target] += time.Since(startTime)
 			}
-		} else {
-			p.success++
-			p.latency += time.Since(startTime)
-		}
 
-		em := p.defaultMetrics(target)
-		p.l.Info(em.String())
-		dataChan <- em
-
-		if p.c.GetOutputAsMetrics() {
-			em = p.payloadToMetrics(target, string(b))
+			em := p.defaultMetrics(target)
 			p.l.Info(em.String())
 			dataChan <- em
-		}
+
+			if p.c.GetOutputAsMetrics() {
+				em = p.payloadToMetrics(target, string(b))
+				p.l.Info(em.String())
+				dataChan <- em
+			}
+		}(target)
 	}
+	wg.Wait()
 }
 
 func (p *Probe) runProbe(ctx context.Context, dataChan chan *metrics.EventMetrics) {
+	ctxTimeout, cancelFunc := context.WithTimeout(ctx, p.opts.Timeout)
+	defer cancelFunc()
 	if p.mode == "server" {
-		p.runServerProbe(ctx, dataChan)
+		p.runServerProbe(ctxTimeout, dataChan)
 		return
 	}
-	p.runOnceProbe(ctx, dataChan)
+	p.runOnceProbe(ctxTimeout, dataChan)
 }
 
 // Start starts and runs the probe indefinitely.
