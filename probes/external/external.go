@@ -44,6 +44,21 @@ import (
 	"github.com/google/cloudprober/probes/options"
 )
 
+var (
+	// TimeBetweenRequests is the time interval between probe requests for
+	// multiple targets. In server mode, probe requests for multiple targets are
+	// sent to the same external probe process. Sleeping between requests provides
+	// some time buffer for the probe process to dequeue the incoming requests and
+	// avoids filling up the communication pipe.
+	//
+	// Note that this value impacts the effective timeout for a target as timeout
+	// is applied for all the targets in aggregate. For example, 100th target in
+	// the targets list will have the effective timeout of (timeout - 1ms).
+	// TODO: Make sure that the last target in the list has an impact of
+	// less than 1% on its timeout.
+	TimeBetweenRequests = 10 * time.Microsecond
+)
+
 // Probe holds aggregate information about all probe runs, per-target.
 type Probe struct {
 	name    string
@@ -328,6 +343,8 @@ func (p *Probe) runServerProbe(ctx context.Context, dataChan chan *metrics.Event
 		for {
 			_, ok := <-doneChan
 			if !ok {
+				// It is safe to access requests without lock here as it won't be accessed
+				// by the send loop after doneChan is closed.
 				p.l.Debugf("Number of outstanding requests: %d", len(requests))
 				if len(requests) == 0 {
 					return
@@ -379,6 +396,7 @@ func (p *Probe) runServerProbe(ctx context.Context, dataChan chan *metrics.Event
 		}
 		requestsMu.Unlock()
 		p.sendRequest(p.requestID, target)
+		time.Sleep(TimeBetweenRequests)
 	}
 
 	// Send signal to receiver loop that we are done sending request.
