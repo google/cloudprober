@@ -19,11 +19,11 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"time"
 
-	"flag"
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/metrics"
