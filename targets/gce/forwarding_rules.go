@@ -25,7 +25,7 @@ import (
 	"github.com/google/cloudprober/logger"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
-	"google.golang.org/api/compute/v1"
+	compute "google.golang.org/api/compute/v1"
 )
 
 // globalForwardingRules is a singleton instance of the forwardingRules struct.

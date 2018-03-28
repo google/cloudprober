@@ -22,7 +22,7 @@ import (
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
 	"github.com/kylelemons/godebug/pretty"
-	"google.golang.org/api/monitoring/v3"
+	monitoring "google.golang.org/api/monitoring/v3"
 )
 
 var (

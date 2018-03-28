@@ -28,7 +28,7 @@ import (
 	"cloud.google.com/go/compute/metadata"
 	"github.com/google/cloudprober/logger"
 	"golang.org/x/oauth2/google"
-	"google.golang.org/api/monitoring/v3"
+	monitoring "google.golang.org/api/monitoring/v3"
 
 	"github.com/google/cloudprober/metrics"
 )

@@ -19,7 +19,7 @@ import (
 	"errors"
 	"fmt"
 
-	"google.golang.org/api/runtimeconfig/v1beta1"
+	runtimeconfig "google.golang.org/api/runtimeconfig/v1beta1"
 )
 
 // Stub provides a stubbed version of RTC that can be used for testing larger

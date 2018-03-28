@@ -38,7 +38,7 @@ import (
 
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/googleapi"
-	"google.golang.org/api/runtimeconfig/v1beta1"
+	runtimeconfig "google.golang.org/api/runtimeconfig/v1beta1"
 )
 
 // The Config interface provides communication to the Runtime Configurator API.

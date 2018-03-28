@@ -25,7 +25,7 @@ import (
 	"sync"
 
 	"google.golang.org/api/googleapi"
-	"google.golang.org/api/monitoring/v3"
+	monitoring "google.golang.org/api/monitoring/v3"
 )
 
 // Distribution metrics type implements a histogram of values distributed over
