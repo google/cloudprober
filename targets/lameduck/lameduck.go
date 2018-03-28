@@ -29,7 +29,7 @@ import (
 	"cloud.google.com/go/compute/metadata"
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/targets/rtc/rtcservice"
-	"google.golang.org/api/runtimeconfig/v1beta1"
+	runtimeconfig "google.golang.org/api/runtimeconfig/v1beta1"
 )
 
 // Lister is an interface for getting current lameducks.

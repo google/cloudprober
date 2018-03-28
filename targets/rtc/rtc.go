@@ -26,7 +26,7 @@ import (
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/targets/rtc/rtcreporter"
 	"github.com/google/cloudprober/targets/rtc/rtcservice"
-	"google.golang.org/api/runtimeconfig/v1beta1"
+	runtimeconfig "google.golang.org/api/runtimeconfig/v1beta1"
 )
 
 // Targets implements the lister interface to provide RTC based target listing.

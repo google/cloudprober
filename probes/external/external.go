@@ -333,6 +333,11 @@ func (p *Probe) runServerProbe(ctx context.Context, dataChan chan *metrics.Event
 	var requestsMu sync.RWMutex
 	doneChan := make(chan struct{})
 
+	if err := p.startCmdIfNotRunning(); err != nil {
+		p.l.Error(err.Error())
+		return
+	}
+
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
