@@ -226,14 +226,11 @@
 
 
 
-<a class="current" title="External Probe" href="https://google.github.io/cloudprober/how-to/external-probe/">
+<a  title="External Probe" href="https://google.github.io/cloudprober/how-to/external-probe/">
 	
 	External Probe
 </a>
 
-
-<ul id="scrollspy">
-</ul>
 
 
       
@@ -373,7 +370,7 @@ cloudprober 1519..4 1519583412 labels=ptype=external,probe=redis_probe,dst= succ
 for these metrics. We can import this data in Stackdriver or Prometheus and get the percentiles of the &ldquo;get&rdquo; and &ldquo;set&rdquo; latencies. Following screenshot shows the
 grafana dashboard built using these metrics.</p>
 
-<p><a href="/diagrams/redis_probe_screenshot.png"><img style="float: center;" width=300px src="/diagrams/redis_probe_screenshot.png"></a></p>
+<p><a href="https://google.github.io/cloudprober/diagrams/redis_probe_screenshot.png"><img style="float: center;" width=300px src="https://google.github.io/cloudprober/diagrams/redis_probe_screenshot.png"></a></p>
 
 <h2 id="server-mode">Server Mode</h2>
 
@@ -383,7 +380,7 @@ everytime makes keeping state impossible.</p>
 
 <p>External probe&rsquo;s server mode provides a way to run the external probe process in daemon mode. Cloudprober communicates with this process over stdout/stdin (connected with OS pipes), using serialized protobuf messages. Cloudprober comes with a serverutils package that makes it easy to build external probe servers in Go.</p>
 
-<p><img src="/diagrams/external_probe_server.svg" alt="External Probe Server" /></p>
+<p><img src="https://google.github.io/cloudprober/diagrams/external_probe_server.svg" alt="External Probe Server" /></p>
 
 <p>Please see the code at
 <a href="https://github.com/google/cloudprober/blob/master/examples/external/redis_probe.go">examples/external/redis_probe.go</a> for server mode implementation of the above probe. Here is the corresponding
