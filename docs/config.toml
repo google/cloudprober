@@ -1,0 +1,14 @@
+baseURL = "https://cloudprober.github.io/"
+languageCode = "en-us"
+title = "Cloudprober"
+theme = "hugo-material-docs"
+googleAnalytics = "UA-79661-8"
+pygmentsUseClassic = true
+pygmentsStyle = "default"
+
+[params]
+  provider = "GitHub"
+  repo_url = "https://github.com/google/cloudprober"
+
+
+
