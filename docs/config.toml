@@ -1,10 +1,11 @@
-baseURL = "https://cloudprober.github.io/"
+baseURL = "https://google.github.io/cloudprober/"
 languageCode = "en-us"
 title = "Cloudprober"
 theme = "hugo-material-docs"
 googleAnalytics = "UA-79661-8"
 pygmentsUseClassic = true
 pygmentsStyle = "default"
+canonifyURLs = true
 
 [params]
   provider = "GitHub"

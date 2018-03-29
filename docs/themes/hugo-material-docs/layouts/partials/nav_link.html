@@ -1,5 +1,5 @@
 {{ $currentMenuEntry := .Scratch.Get "currentMenuEntry" }}
-{{ $isCurrent := eq .Permalink ($currentMenuEntry.URL | absURL | printf "%s") }}
+{{ $isCurrent := eq (.Permalink | relURL) ($currentMenuEntry.URL | relURL) }}
 
 
 <a {{ if $isCurrent }}class="current"{{ end }} title="{{ $currentMenuEntry.Name }}" href="{{ $currentMenuEntry.URL | relURL}}">
