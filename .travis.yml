@@ -25,4 +25,4 @@ after_success:
  - cp /etc/ssl/certs/ca-certificates.crt .
  - test "$TRAVIS_BRANCH" = "master" && test "$TRAVIS_EVENT_TYPE" = "push" && DOCKER_VERSION=latest
  - test -n "$TRAVIS_TAG" && DOCKER_VERSION=$TRAVIS_TAG
- - test -n "$DOCKER_IMAGE" && test -n "$DOCKER_VERSION" && test "$TRAVIS_OS_NAME" = "linux" && docker build -t ${DOCKER_IMAGE}:${DOCKER_VERSION} . && docker login -u ${DOCKER_USER} -p ${DOCKER_PASS} && docker push ${DOCKER_IMAGE}
+ - test -n "$DOCKER_IMAGE" && test -n "$DOCKER_VERSION" && test "$TRAVIS_OS_NAME" = "linux" && DOCKER_VERSION=${DOCKER_VERSION} make docker_build && docker login -u ${DOCKER_USER} -p ${DOCKER_PASS} && docker push ${DOCKER_IMAGE}
