@@ -1,4 +1,5 @@
 VERSION ?= $(shell git describe --tags)
+DOCKER_VERSION ?= $(VERSION)
 GIT_COMMIT = $(strip $(shell git rev-parse --short HEAD))
 GOBIN ?= ${GOPATH}/bin
 BINARY ?= cloudprober
@@ -12,16 +13,17 @@ test:
 $(BINARY): $(SOURCES)
 	CGO_ENABLED=0 go build -o cloudprober -ldflags "-X main.version=$(VERSION) -extldflags -static" ./cmd/cloudprober.go
 
-docker_build: $(BINARY) Dockerfile
-	cp $(CACERTS) .
+ca-certificates.crt: $(CACERTS)
+	cp $(CACERTS) ca-certificates.crt
+
+docker_build: $(BINARY) ca-certificates.crt Dockerfile
 	docker build \
 		--build-arg BUILD_DATE=`date -u +"%Y-%m-%dT%H:%M:%SZ"` \
 		--build-arg VERSION=$(VERSION) \
 		--build-arg VCS_REF=$(GIT_COMMIT) \
-		-t $(DOCKER_IMAGE):$(VERSION) .
+		-t $(DOCKER_IMAGE):$(DOCKER_VERSION) .
 
 docker_push:
-	docker tag $(DOCKER_IMAGE):$(VERSION) $(DOCKER_IMAGE):latest
 	docker login -u ${DOCKER_USER} -p ${DOCKER_PASS}
 	docker push $(DOCKER_IMAGE):$(VERSION)
 	docker push $(DOCKER_IMAGE):latest
