@@ -21,7 +21,7 @@ services:
  - docker
 
 after_success:
- - CGO_ENABLED=0 go build -ldflags '-extldflags "-static"' ./cmd/cloudprober.go
+ - make cloudprober
  - cp /etc/ssl/certs/ca-certificates.crt .
  - DOCKER_VERSION=latest
  - test -n "$TRAVIS_TAG" && DOCKER_VERSION=$TRAVIS_TAG
