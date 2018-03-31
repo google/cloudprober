@@ -11,13 +11,13 @@ against a set of targets, to verify that the systems are working as expected fro
 
 A probe is defined as a set of the following fields:
 
- Field   | Description
----------|---------
-type     | Probe type, for example: HTTP, PING or UDP
-name     | Probe name. Each probe should have a unique name.
-interval | How often to run the probe (in milliseconds).
-timeout  | Probe timeout (in milliseconds).
-targets  | Targets to run probe against.
+ Field        | Description
+--------------|---------
+type          | Probe type, for example: HTTP, PING or UDP
+name          | Probe name. Each probe should have a unique name.
+interval_msec | How often to run the probe (in milliseconds).
+timeout_msec  | Probe timeout (in milliseconds).
+targets       | Targets to run probe against.
 
 Each probe also has optional probe-type specific config, for example,
 relative_url for HTTP probes. All probe types export following metrics at a
