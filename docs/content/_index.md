@@ -36,8 +36,8 @@ what's broken in your system.
     Cloudprober exports probe results as counter based metrics that work well
     with Prometheus and Grafana.
 *   Built-in implementations for the most common probe types: PING, HTTP, UDP,
-    DNS.    
-*   Abritrary, complex probes can be run through the external probe type. For
+    DNS.
+*   Arbitrary, complex probes can be run through the external probe type. For
     example, you could write a simple script to insert and delete a row in your
     database, and execute this script through the 'EXTERNAL' probe type.
 *   Standard metrics - _total_, _success_, _latency_. Latency can be configured     to be a distribution (histogram) metric, allowing calculations of               percentiles.

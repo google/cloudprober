@@ -32,7 +32,7 @@ Case](https://cloudprober.github.io/diagrams/cloudprober_use_case.svg)
     with Prometheus and Grafana.
 *   Built-in implementations for the most common probe types: PING, HTTP, UDP,
     DNS.
-*   Abritrary, complex probes can be run through the external probe type. For
+*   Arbitrary, complex probes can be run through the external probe type. For
     example, you could write a simple script to insert and delete a row in your
     database, and execute this script through the 'EXTERNAL' probe type.
 *   Fast and efficient ping prober implementation that allows probing thousands
