@@ -63,7 +63,7 @@ enable them by running the following command:
 options`](http://github.com/google/cloudprober/tree/master/probes/http/config.proto)
 
 HTTP probe is be used to send HTTP(s) requests to a target and verify that a
-reponse is received. Apart from core probe mertrics (total, success and
+response is received. Apart from core probe mertrics (total, success and
 latency), HTTP probes also export a map of response code counts. Requests are
 marked as failed if there is a timeout.
 
