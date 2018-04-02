@@ -13,40 +13,40 @@
     <meta name="generator" content="Hugo 0.37.1" />
 
     
-    <link rel="canonical" href="https://google.github.io/cloudprober/how-to/external-probe/">
+    <link rel="canonical" href="https://cloudprober.org/how-to/external-probe/">
     
 
-    <meta property="og:url" content="https://google.github.io/cloudprober/how-to/external-probe/">
+    <meta property="og:url" content="https://cloudprober.org/how-to/external-probe/">
     <meta property="og:title" content="Cloudprober">
     
     <meta name="apple-mobile-web-app-title" content="Cloudprober">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
-    <link rel="shortcut icon" type="image/x-icon" href="https://google.github.io/cloudprober/images/favicon.ico">
-    <link rel="icon" type="image/x-icon" href="https://google.github.io/cloudprober/images/favicon.ico">
+    <link rel="shortcut icon" type="image/x-icon" href="https://cloudprober.org/images/favicon.ico">
+    <link rel="icon" type="image/x-icon" href="https://cloudprober.org/images/favicon.ico">
 
     <style>
       @font-face {
         font-family: 'Icon';
-        src: url('https://google.github.io/cloudprober/fonts/icon.eot');
-        src: url('https://google.github.io/cloudprober/fonts/icon.eot')
+        src: url('https://cloudprober.org/fonts/icon.eot');
+        src: url('https://cloudprober.org/fonts/icon.eot')
                format('embedded-opentype'),
-             url('https://google.github.io/cloudprober/fonts/icon.woff')
+             url('https://cloudprober.org/fonts/icon.woff')
                format('woff'),
-             url('https://google.github.io/cloudprober/fonts/icon.ttf')
+             url('https://cloudprober.org/fonts/icon.ttf')
                format('truetype'),
-             url('https://google.github.io/cloudprober/fonts/icon.svg')
+             url('https://cloudprober.org/fonts/icon.svg')
                format('svg');
         font-weight: normal;
         font-style: normal;
       }
     </style>
 
-    <link rel="stylesheet" href="https://google.github.io/cloudprober/stylesheets/application.css">
-    <link rel="stylesheet" href="https://google.github.io/cloudprober/stylesheets/temporary.css">
-    <link rel="stylesheet" href="https://google.github.io/cloudprober/stylesheets/palettes.css">
-    <link rel="stylesheet" href="https://google.github.io/cloudprober/stylesheets/highlight/highlight.css">
+    <link rel="stylesheet" href="https://cloudprober.org/stylesheets/application.css">
+    <link rel="stylesheet" href="https://cloudprober.org/stylesheets/temporary.css">
+    <link rel="stylesheet" href="https://cloudprober.org/stylesheets/palettes.css">
+    <link rel="stylesheet" href="https://cloudprober.org/stylesheets/highlight/highlight.css">
 
     
     
@@ -62,7 +62,7 @@
     </style>
 
     
-    <script src="https://google.github.io/cloudprober/javascripts/modernizr.js"></script>
+    <script src="https://cloudprober.org/javascripts/modernizr.js"></script>
 
     
 
@@ -168,7 +168,7 @@
 
 
 
-<a  title="Overview" href="https://google.github.io/cloudprober/">
+<a  title="Overview" href="https://cloudprober.org/">
 	
 	Overview
 </a>
@@ -186,7 +186,7 @@
 
 
 
-<a  title="Getting Started" href="https://google.github.io/cloudprober/getting-started/">
+<a  title="Getting Started" href="https://cloudprober.org/getting-started/">
 	
 	Getting Started
 </a>
@@ -204,7 +204,7 @@
 
 
 
-<a  title="What is a Probe" href="https://google.github.io/cloudprober/concepts/probe/">
+<a  title="What is a Probe" href="https://cloudprober.org/concepts/probe/">
 	
 	What is a Probe
 </a>
@@ -226,7 +226,7 @@
 
 
 
-<a class="current" title="External Probe" href="https://google.github.io/cloudprober/how-to/external-probe/">
+<a class="current" title="External Probe" href="https://cloudprober.org/how-to/external-probe/">
 	
 	External Probe
 </a>
@@ -339,7 +339,7 @@ cloudprober 1519..4 1519583412 labels=ptype=external,probe=redis_probe,dst= succ
 </code></pre>
 
 <p>You can import this data in prometheus following the process outlined at:
-<a href="https://google.github.io/cloudprober/getting-started/#running-prometheus">Running Prometheus</a>. Before doing that, let&rsquo;s make it more interesting.</p>
+<a href="https://cloudprober.org/getting-started/#running-prometheus">Running Prometheus</a>. Before doing that, let&rsquo;s make it more interesting.</p>
 
 <h2 id="distributions">Distributions</h2>
 
@@ -373,7 +373,7 @@ cloudprober 1519..4 1519583412 labels=ptype=external,probe=redis_probe,dst= succ
 for these metrics. We can import this data in Stackdriver or Prometheus and get the percentiles of the &ldquo;get&rdquo; and &ldquo;set&rdquo; latencies. Following screenshot shows the
 grafana dashboard built using these metrics.</p>
 
-<p><a href="https://google.github.io/cloudprober/diagrams/redis_probe_screenshot.png"><img style="float: center;" width=300px src="https://google.github.io/cloudprober/diagrams/redis_probe_screenshot.png"></a></p>
+<p><a href="https://cloudprober.org/diagrams/redis_probe_screenshot.png"><img style="float: center;" width=300px src="https://cloudprober.org/diagrams/redis_probe_screenshot.png"></a></p>
 
 <h2 id="server-mode">Server Mode</h2>
 
@@ -383,7 +383,7 @@ everytime makes keeping state impossible.</p>
 
 <p>External probe&rsquo;s server mode provides a way to run the external probe process in daemon mode. Cloudprober communicates with this process over stdout/stdin (connected with OS pipes), using serialized protobuf messages. Cloudprober comes with a serverutils package that makes it easy to build external probe servers in Go.</p>
 
-<p><img src="https://google.github.io/cloudprober/diagrams/external_probe_server.svg" alt="External Probe Server" /></p>
+<p><img src="https://cloudprober.org/diagrams/external_probe_server.svg" alt="External Probe Server" /></p>
 
 <p>Please see the code at
 <a href="https://github.com/google/cloudprober/blob/master/examples/external/redis_probe.go">examples/external/redis_probe.go</a> for server mode implementation of the above probe. Here is the corresponding
@@ -418,12 +418,12 @@ cloudprober config to run this probe in server mode: <a href="https://github.com
 
     <script>
     
-      var base_url = 'https:\/\/google.github.io\/cloudprober\/';
+      var base_url = 'https:\/\/cloudprober.org\/';
       var repo_id  = 'google\/cloudprober';
     
     </script>
 
-    <script src="https://google.github.io/cloudprober/javascripts/application.js"></script>
+    <script src="https://cloudprober.org/javascripts/application.js"></script>
     
 
     <script>
