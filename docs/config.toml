@@ -1,4 +1,4 @@
-baseURL = "https://google.github.io/cloudprober/"
+baseURL = "https://cloudprober.org/"
 languageCode = "en-us"
 title = "Cloudprober"
 theme = "hugo-material-docs"

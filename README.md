@@ -53,8 +53,8 @@ Case](https://cloudprober.github.io/diagrams/cloudprober_use_case.svg)
     (e.g. Graphite, Amazon Cloudwatch) and even a new probe type, is
     straight-forward and fairly easy.
 
-Visit Cloudprober's website at [cloudprober.github.io](https://cloudprober.github.io)
-to get started with Cloudprober.
+Visit Cloudprober's website at [cloudprober.org](https://cloudprober.org) to get
+started with Cloudprober.
 
 Join [Cloudprober Group](https://groups.google.com/forum/#!forum/cloudprober) for
 discussion and release announcements.
