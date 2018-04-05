@@ -73,7 +73,7 @@ type Probe struct {
 	targets []string
 	fsm     *message.FlowStateMap
 
-	// Process and output results synchronization.
+	// Proccess and output results synchronization.
 	mu   sync.Mutex
 	errs probeErr
 	res  map[string]*probeRunResult
