@@ -36,6 +36,7 @@ package ping
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/rand"
 	"net"
@@ -89,7 +90,7 @@ var interfaceByName = func(s string) (addr, error) { return net.InterfaceByName(
 func (p *Probe) Init(name string, opts *options.Options) error {
 	c, ok := opts.ProbeConf.(*ProbeConf)
 	if !ok {
-		return fmt.Errorf("no ping config")
+		return errors.New("no ping config")
 	}
 	p.name = name
 	p.opts = opts
@@ -97,6 +98,10 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		p.l = &logger.Logger{}
 	}
 	p.c = c
+
+	if p.c.GetPayloadSize() < 8 {
+		return fmt.Errorf("payload_size (%d) cannot be smaller than 8", p.c.GetPayloadSize())
+	}
 	p.ipVer = int(p.c.GetIpVersion())
 	p.sent = make(map[string]int64)
 	p.received = make(map[string]int64)
@@ -192,7 +197,7 @@ func (p *Probe) packetToSend(runID, seq uint16) []byte {
 		Type: typ, Code: 0,
 		Body: &icmp.Echo{
 			ID: int(runID), Seq: int(seq),
-			Data: timeToBytes(time.Now(), p.c.GetPayloadSize()),
+			Data: timeToBytes(time.Now(), int(p.c.GetPayloadSize())),
 		},
 	}).Marshal(nil)
 	if err != nil {
@@ -300,17 +305,29 @@ func (p *Probe) recvPackets(runID uint16, tracker chan bool) {
 		}
 
 		key := fmt.Sprintf("%s_%d", target, pkt.Seq)
-		if !received[key] {
-			received[key] = true
-			p.received[target]++
-			p.latency[target] += rtt
-			p.l.Debugf("Reply from=%s id=%d seq=%d rtt=%s", target, pkt.ID, pkt.Seq, rtt)
-			// read a "good" packet
-			outstandingPkts--
-		} else {
-			// Duplicate packet.
+		// Check if we have already seen this packet.
+		if received[key] {
 			p.l.Infof("Duplicate reply from=%s id=%d seq=%d rtt=%s (DUP)", target, pkt.ID, pkt.Seq, rtt)
+			continue
 		}
+		received[key] = true
+
+		// Read a "good" packet, where good means that it's one of the replies that
+		// we were looking for.
+		outstandingPkts--
+
+		// Check payload integrity unless disabled.
+		if !p.c.GetDisableIntegrityCheck() {
+			if err := verifyPayload(pkt.Data); err != nil {
+				p.l.Errorf("Data corruption error: %v", err)
+				// For data corruption, we skip updating the received and latency metrics.
+				// This means data corruption problems will show as packet loss.
+				continue
+			}
+		}
+		p.received[target]++
+		p.latency[target] += rtt
+		p.l.Debugf("Reply from=%s id=%d seq=%d rtt=%s", target, pkt.ID, pkt.Seq, rtt)
 	}
 }
 

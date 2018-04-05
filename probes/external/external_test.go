@@ -351,7 +351,7 @@ func TestSubstituteLabels(t *testing.T) {
 	}
 }
 
-// TestSendRequest verifies that sendRequest sends appropriately populated
+// TestSendRequest verifies that sendRequest sends appropriatly populated
 // ProbeRequest.
 func TestSendRequest(t *testing.T) {
 	p := &Probe{}

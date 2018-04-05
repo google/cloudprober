@@ -152,7 +152,7 @@ func (d *Distribution) Verify() error {
 		return errors.New("no distribution buckets found")
 	}
 	if len(d.lowerBounds) != len(d.bucketCounts) {
-		return fmt.Errorf("size mismatch between buckets array (%v) and bucket counts array (%v)", d.lowerBounds, d.bucketCounts)
+		return fmt.Errorf("size mismatch between buckets array (%v) and bucket counts arrary (%v)", d.lowerBounds, d.bucketCounts)
 	}
 	var countSum int64
 	for _, c := range d.bucketCounts {
