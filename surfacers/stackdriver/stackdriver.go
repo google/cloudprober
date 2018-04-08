@@ -232,7 +232,7 @@ func (s *SDSurfacer) writeBatch() {
 // StackDriver Object Creation and Helper Functions
 //-----------------------------------------------------------------------------
 
-// recordTimeSeries forms a timeseries object from the given arugments, records
+// recordTimeSeries forms a timeseries object from the given arguments, records
 // it in the cache if batch processing is enabled, and returns it.
 //
 // More information on the object and specific fields can be found here:
