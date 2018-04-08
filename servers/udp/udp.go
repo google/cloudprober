@@ -59,7 +59,7 @@ func New(initCtx context.Context, c *ServerConf, l *logger.Logger) (*Server, err
 }
 
 // Listen opens a UDP socket on the given port. It also attempts to set recv
-// buffer to a large value so that we can have many oustanding UDP messages.
+// buffer to a large value so that we can have many outstanding UDP messages.
 // Listen is exported only because it's used by udp probe tests.
 func Listen(port int, l *logger.Logger) (*net.UDPConn, error) {
 	conn, err := net.ListenUDP("udp", &net.UDPAddr{Port: port})
