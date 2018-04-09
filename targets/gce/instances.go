@@ -52,7 +52,8 @@ type instances struct {
 
 // newInstances returns a new instances object. It will initialize
 // globalInstancesProvider if needed.
-func newInstances(project string, reEvalInterval time.Duration, ipb *Instances, globalResolver *dnsRes.Resolver, l *logger.Logger) (*instances, error) {
+func newInstances(project string, opts *GlobalOptions, ipb *Instances, globalResolver *dnsRes.Resolver, l *logger.Logger) (*instances, error) {
+	reEvalInterval := time.Duration(opts.GetReEvalSec()) * time.Second
 	if ipb.GetNetworkInterface() != nil && ipb.GetUseDnsToResolve() {
 		return nil, errors.New("network_intf and use_dns_to_resolve are mutually exclusive")
 	}
@@ -60,7 +61,7 @@ func newInstances(project string, reEvalInterval time.Duration, ipb *Instances, 
 		return nil, errors.New("use_dns_to_resolve configured, but globalResolver is nil")
 	}
 	// Initialize global instances provider if not already initialized.
-	if err := initGlobalInstancesProvider(project, reEvalInterval, l); err != nil {
+	if err := initGlobalInstancesProvider(project, opts.GetApiVersion(), reEvalInterval, l); err != nil {
 		return nil, err
 	}
 	return &instances{
@@ -128,6 +129,7 @@ func (i *instances) Resolve(name string, ipVer int) (net.IP, error) {
 // only returns the current contents of that cache.
 type instancesProvider struct {
 	project      string
+	apiVersion   string
 	thisInstance string
 	l            *logger.Logger
 
@@ -136,7 +138,7 @@ type instancesProvider struct {
 	cache map[string]*compute.Instance
 }
 
-func initGlobalInstancesProvider(project string, reEvalInterval time.Duration, l *logger.Logger) error {
+func initGlobalInstancesProvider(project, apiVersion string, reEvalInterval time.Duration, l *logger.Logger) error {
 	globalInstancesProviderMu.Lock()
 	defer globalInstancesProviderMu.Unlock()
 
@@ -155,6 +157,7 @@ func initGlobalInstancesProvider(project string, reEvalInterval time.Duration, l
 	}
 	globalInstancesProvider = &instancesProvider{
 		project:      project,
+		apiVersion:   apiVersion,
 		thisInstance: thisInstance,
 		cache:        make(map[string]*compute.Instance),
 		l:            l,
@@ -189,7 +192,7 @@ func (ip *instancesProvider) list() []string {
 
 // listInstances runs equivalent API calls as "gcloud compute instances list",
 // and is what is used to populate the cache.
-func listInstances(project string, reEvalInterval time.Duration) ([]*compute.Instance, error) {
+func listInstances(project, apiVersion string, reEvalInterval time.Duration) ([]*compute.Instance, error) {
 	client, err := google.DefaultClient(oauth2.NoContext, compute.ComputeScope)
 	if err != nil {
 		return nil, err
@@ -198,6 +201,7 @@ func listInstances(project string, reEvalInterval time.Duration) ([]*compute.Ins
 	if err != nil {
 		return nil, err
 	}
+	cs.BasePath = "https://www.googleapis.com/compute/" + apiVersion + "/projects/"
 	zonesList, err := cs.Zones.List(project).Do()
 	if err != nil {
 		return nil, err
@@ -230,7 +234,7 @@ func listInstances(project string, reEvalInterval time.Duration) ([]*compute.Ins
 func (ip *instancesProvider) expand(reEvalInterval time.Duration) {
 	ip.l.Infof("gce.instances.expand: expanding GCE targets")
 
-	computeInstances, err := listInstances(ip.project, reEvalInterval)
+	computeInstances, err := listInstances(ip.project, ip.apiVersion, reEvalInterval)
 	if err != nil {
 		ip.l.Errorf("gce.instances.expand: error while getting list of all instances: %v", err)
 		return

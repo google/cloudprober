@@ -57,6 +57,7 @@ type forwardingRules struct {
 	names       []string
 	localRegion string
 	cache       map[string]*compute.ForwardingRule
+	apiVersion  string
 	l           *logger.Logger
 }
 
@@ -79,7 +80,7 @@ func (frp *forwardingRules) Resolve(name string, ipVer int) (net.IP, error) {
 
 // listForwardingRules runs equivalent API calls as "gcloud compute
 // forwarding-rules list", and is what is used to populate the cache.
-func listForwardingRules(project, region string) ([]*compute.ForwardingRule, error) {
+func listForwardingRules(project, apiVersion, region string) ([]*compute.ForwardingRule, error) {
 	client, err := google.DefaultClient(oauth2.NoContext, compute.ComputeScope)
 	if err != nil {
 		return nil, err
@@ -88,6 +89,7 @@ func listForwardingRules(project, region string) ([]*compute.ForwardingRule, err
 	if err != nil {
 		return nil, err
 	}
+	cs.BasePath = "https://www.googleapis.com/compute/" + apiVersion + "/projects/"
 	l, err := cs.ForwardingRules.List(project, region).Do()
 	if err != nil {
 		return nil, err
@@ -99,7 +101,7 @@ func listForwardingRules(project, region string) ([]*compute.ForwardingRule, err
 func (frp *forwardingRules) expand() {
 	frp.l.Infof("gce.forwardingRules.expand: expanding GCE targets")
 
-	forwardingRules, err := listForwardingRules(frp.project, frp.localRegion)
+	forwardingRules, err := listForwardingRules(frp.project, frp.apiVersion, frp.localRegion)
 	if err != nil {
 		frp.l.Errorf("gce.forwardingRules.expand: error while getting list of all forwardingRules: %v", err)
 		return
@@ -126,7 +128,9 @@ func getLocalRegion() (string, error) {
 
 // newForwardingrules will (if needed) initialize and return the
 // globalForwardingRules singleton.
-func newForwardingRules(project string, reEvalInterval time.Duration, l *logger.Logger) (*forwardingRules, error) {
+func newForwardingRules(project string, opts *GlobalOptions, l *logger.Logger) (*forwardingRules, error) {
+	reEvalInterval := time.Duration(opts.GetReEvalSec()) * time.Second
+
 	var localRegion string
 	var err error
 	// Initialize forwardingRules provider only once
@@ -141,6 +145,7 @@ func newForwardingRules(project string, reEvalInterval time.Duration, l *logger.
 			project:     project,
 			localRegion: localRegion,
 			cache:       make(map[string]*compute.ForwardingRule),
+			apiVersion:  opts.GetApiVersion(),
 			l:           l,
 		}
 		go func() {
