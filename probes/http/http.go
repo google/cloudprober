@@ -29,6 +29,7 @@ import (
 	"github.com/google/cloudprober/metrics"
 	"github.com/google/cloudprober/probes/options"
 	"github.com/google/cloudprober/probes/probeutils"
+	configpb "github/google.com/cloudprober/probes/http/proto"
 )
 
 const (
@@ -39,7 +40,7 @@ const (
 type Probe struct {
 	name   string
 	opts   *options.Options
-	c      *ProbeConf
+	c      *configpb.ProbeConf
 	l      *logger.Logger
 	client *http.Client
 
@@ -99,7 +100,7 @@ func (prr probeRunResult) Target() string {
 
 // Init initializes the probe with the given params.
 func (p *Probe) Init(name string, opts *options.Options) error {
-	c, ok := opts.ProbeConf.(*ProbeConf)
+	c, ok := opts.ProbeConf.(*configpb.ProbeConf)
 	if !ok {
 		return fmt.Errorf("no http config")
 	}
@@ -113,9 +114,9 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	p.targets = p.opts.Targets.List()
 
 	switch p.c.GetProtocol() {
-	case ProbeConf_HTTP:
+	case configpb.ProbeConf_HTTP:
 		p.protocol = "http"
-	case ProbeConf_HTTPS:
+	case configpb.ProbeConf_HTTPS:
 		p.protocol = "https"
 	default:
 		p.l.Errorf("Invalid Protocol: %s", p.c.GetProtocol())

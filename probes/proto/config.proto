@@ -1,10 +1,10 @@
 syntax = "proto2";
 
 import "github.com/google/cloudprober/metrics/dist.proto";
-import "github.com/google/cloudprober/probes/http/config.proto";
+import "github.com/google/cloudprober/probes/http/proto/config.proto";
 import "github.com/google/cloudprober/probes/dns/config.proto";
 import "github.com/google/cloudprober/probes/external/config.proto";
-import "github.com/google/cloudprober/probes/ping/config.proto";
+import "github.com/google/cloudprober/probes/ping/proto/config.proto";
 import "github.com/google/cloudprober/probes/udp/config.proto";
 import "github.com/google/cloudprober/probes/udplistener/config.proto";
 import "github.com/google/cloudprober/targets/targets.proto";

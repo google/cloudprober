@@ -37,6 +37,7 @@ import (
 	"github.com/google/cloudprober/probes/udplistener"
 	"github.com/google/cloudprober/targets"
 	"github.com/google/cloudprober/targets/lameduck"
+	configpb "github/google.com/cloudprober/probes/proto"
 )
 
 const (
