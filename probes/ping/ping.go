@@ -13,23 +13,25 @@
 // limitations under the License.
 
 /*
-Package ping implements a fast ping prober. It sends ICMP pings to a list of targets
-and reports statistics on packets sent, received and latency experienced.
+Package ping implements a fast ping prober. It sends ICMP pings to a list of
+targets and reports statistics on packets sent, received and latency
+experienced.
 
-This ping implementation supports two types of sockets: Raw and datagram ICMP sockets.
+This ping implementation supports two types of sockets: Raw and datagram ICMP
+sockets.
 
-Raw sockets require root privileges and all the ICMP noise is copied on all raw sockets
-opened for ICMP. We have to deal with the unwanted ICMP noise.
+Raw sockets require root privileges and all the ICMP noise is copied on all raw
+sockets opened for ICMP. We have to deal with the unwanted ICMP noise.
 
-On the other hand, datagram ICMP sockets are unprivileged and implemented in such a way
-that kernel copies only relevant packets on them. Kernel assigns a local port for such
-sockets and rewrites ICMP id of the outgoing packets to match that port number. Incoming
-ICMP packets' ICMP id is matched with the local port to find the correct destination
-socket.
+On the other hand, datagram ICMP sockets are unprivileged and implemented in
+such a way that kernel copies only relevant packets on them. Kernel assigns a
+local port for such sockets and rewrites ICMP id of the outgoing packets to
+match that port number. Incoming ICMP packets' ICMP id is matched with the
+local port to find the correct destination socket.
 
 More about these sockets: http://lwn.net/Articles/420800/
-Note: On some linux distributions these sockets are not enabled by default; you can enable
-them by doing something like the following:
+Note: On some linux distributions these sockets are not enabled by default; you
+can enable them by doing something like the following:
       sudo sysctl -w net.ipv4.ping_group_range="0 5000"
 */
 package ping
@@ -47,6 +49,7 @@ import (
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
 	"github.com/google/cloudprober/probes/options"
+	configpb "github.com/google/cloudprober/probes/ping/proto"
 	"golang.org/x/net/icmp"
 	"golang.org/x/net/ipv4"
 	"golang.org/x/net/ipv6"
@@ -62,7 +65,7 @@ const (
 type Probe struct {
 	name string
 	opts *options.Options
-	c    *ProbeConf
+	c    *configpb.ProbeConf
 	l    *logger.Logger
 
 	// book-keeping params
@@ -88,7 +91,7 @@ var interfaceByName = func(s string) (addr, error) { return net.InterfaceByName(
 
 // Init initliazes the probe with the given params.
 func (p *Probe) Init(name string, opts *options.Options) error {
-	c, ok := opts.ProbeConf.(*ProbeConf)
+	c, ok := opts.ProbeConf.(*configpb.ProbeConf)
 	if !ok {
 		return errors.New("no ping config")
 	}
@@ -119,9 +122,9 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 // for the replies.
 func (p *Probe) setSourceFromConfig() error {
 	switch p.c.Source.(type) {
-	case *ProbeConf_SourceIp:
+	case *configpb.ProbeConf_SourceIp:
 		p.source = p.c.GetSourceIp()
-	case *ProbeConf_SourceInterface:
+	case *configpb.ProbeConf_SourceInterface:
 		s, err := resolveIntfAddr(p.c.GetSourceInterface())
 		if err != nil {
 			return err
