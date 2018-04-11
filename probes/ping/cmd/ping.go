@@ -12,8 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// This program implements a stand-alone ping prober binary using the cloudprober/ping package. It's intended
-// to help prototype the ping package quickly and doesn't provide the facilities that cloudprober provides.
+// This program implements a stand-alone ping prober binary using the
+// cloudprober/ping package. It's intended to help prototype the ping package
+// quickly and doesn't provide the facilities that cloudprober provides.
 package main
 
 import (
@@ -28,6 +29,7 @@ import (
 	"github.com/google/cloudprober/metrics"
 	"github.com/google/cloudprober/probes/options"
 	"github.com/google/cloudprober/probes/ping"
+	configpb "github.com/google/cloudprober/probes/ping/proto"
 	"github.com/google/cloudprober/targets"
 )
 

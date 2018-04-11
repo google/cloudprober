@@ -23,6 +23,7 @@ import (
 	"github.com/google/cloudprober/metrics"
 	"github.com/google/cloudprober/probes"
 	"github.com/google/cloudprober/probes/options"
+	configpb "github.com/google/cloudprober/probes/proto"
 	"github.com/google/cloudprober/probes/testdata"
 	"github.com/google/cloudprober/targets"
 )

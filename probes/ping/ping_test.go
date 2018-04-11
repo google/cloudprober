@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 2017-2018 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/probes/options"
+	configpb "github.com/google/cloudprober/probes/ping/proto"
 	"github.com/google/cloudprober/targets"
 	"golang.org/x/net/icmp"
 	"golang.org/x/net/ipv4"
@@ -59,10 +60,10 @@ func replyPkt(pkt []byte, ipVersion int) []byte {
 
 type testICMPConn struct {
 	sentPackets map[string](chan []byte)
-	c           *ProbeConf
+	c           *configpb.ProbeConf
 }
 
-func newTestICMPConn(c *ProbeConf, targets []string) *testICMPConn {
+func newTestICMPConn(c *configpb.ProbeConf, targets []string) *testICMPConn {
 	tic := &testICMPConn{
 		c:           c,
 		sentPackets: make(map[string](chan []byte)),
@@ -162,7 +163,7 @@ func sendAndCheckPackets(p *Probe, t *testing.T) {
 	}
 }
 
-func newProbe(c *ProbeConf, t []string) (*Probe, error) {
+func newProbe(c *configpb.ProbeConf, t []string) (*Probe, error) {
 	p := &Probe{
 		name: "ping_test",
 		c:    c,
@@ -243,11 +244,11 @@ func TestInitSourceIP(t *testing.T) {
 	}
 
 	for _, r := range rows {
-		c := &ProbeConf{}
+		c := &configpb.ProbeConf{}
 		if r.sourceIP != "" {
-			c.Source = &ProbeConf_SourceIp{r.sourceIP}
+			c.Source = &configpb.ProbeConf_SourceIp{r.sourceIP}
 		} else {
-			c.Source = &ProbeConf_SourceInterface{r.sourceIntf}
+			c.Source = &configpb.ProbeConf_SourceInterface{r.sourceIntf}
 			mockInterfaceByName(r.intf, r.intfAddrs)
 		}
 		p, err := newProbe(c, []string{})
@@ -266,8 +267,8 @@ func TestInitSourceIP(t *testing.T) {
 
 // Test sendPackets IPv4, raw sockets
 func TestSendPackets(t *testing.T) {
-	c := &ProbeConf{}
-	c.Source = &ProbeConf_SourceIp{"1.1.1.1"}
+	c := &configpb.ProbeConf{}
+	c.Source = &configpb.ProbeConf_SourceIp{"1.1.1.1"}
 	p, err := newProbe(c, []string{"2.2.2.2", "3.3.3.3"})
 	if err != nil {
 		t.Fatalf("Got error from newProbe: %v", err)
@@ -277,9 +278,9 @@ func TestSendPackets(t *testing.T) {
 
 // Test sendPackets IPv6, raw sockets
 func TestSendPacketsIPv6(t *testing.T) {
-	c := &ProbeConf{}
+	c := &configpb.ProbeConf{}
 	c.IpVersion = proto.Int32(6)
-	c.Source = &ProbeConf_SourceIp{"::1"}
+	c.Source = &configpb.ProbeConf_SourceIp{"::1"}
 	p, err := newProbe(c, []string{"::2", "::3"})
 	if err != nil {
 		t.Fatalf("Got error from newProbe: %v", err)
@@ -289,9 +290,9 @@ func TestSendPacketsIPv6(t *testing.T) {
 
 // Test sendPackets IPv6, raw sockets, no packets should come on IPv4 target
 func TestSendPacketsIPv6ToIPv4Hosts(t *testing.T) {
-	c := &ProbeConf{}
+	c := &configpb.ProbeConf{}
 	c.IpVersion = proto.Int32(6)
-	c.Source = &ProbeConf_SourceIp{"::1"}
+	c.Source = &configpb.ProbeConf_SourceIp{"::1"}
 	p, err := newProbe(c, []string{"2.2.2.2"})
 	if err != nil {
 		t.Fatalf("Got error from newProbe: %v", err)
@@ -310,9 +311,9 @@ func TestSendPacketsIPv6ToIPv4Hosts(t *testing.T) {
 
 // Test sendPackets IPv4, datagram sockets
 func TestSendPacketsDatagramSocket(t *testing.T) {
-	c := &ProbeConf{}
+	c := &configpb.ProbeConf{}
 	c.UseDatagramSocket = proto.Bool(true)
-	c.Source = &ProbeConf_SourceIp{"1.1.1.1"}
+	c.Source = &configpb.ProbeConf_SourceIp{"1.1.1.1"}
 	p, err := newProbe(c, []string{"2.2.2.2", "3.3.3.3"})
 	if err != nil {
 		t.Fatalf("Got error from newProbe: %v", err)
@@ -322,10 +323,10 @@ func TestSendPacketsDatagramSocket(t *testing.T) {
 
 // Test sendPackets IPv6, datagram sockets
 func TestSendPacketsIPv6DatagramSocket(t *testing.T) {
-	c := &ProbeConf{}
+	c := &configpb.ProbeConf{}
 	c.UseDatagramSocket = proto.Bool(true)
 	c.IpVersion = proto.Int32(6)
-	c.Source = &ProbeConf_SourceIp{"::1"}
+	c.Source = &configpb.ProbeConf_SourceIp{"::1"}
 	p, err := newProbe(c, []string{"::2", "::3"})
 	if err != nil {
 		t.Fatalf("Got error from newProbe: %v", err)
@@ -335,8 +336,8 @@ func TestSendPacketsIPv6DatagramSocket(t *testing.T) {
 
 // Test runProbe IPv4, raw sockets
 func TestRunProbe(t *testing.T) {
-	c := &ProbeConf{}
-	c.Source = &ProbeConf_SourceIp{"1.1.1.1"}
+	c := &configpb.ProbeConf{}
+	c.Source = &configpb.ProbeConf_SourceIp{"1.1.1.1"}
 	p, err := newProbe(c, []string{"2.2.2.2", "3.3.3.3"})
 	if err != nil {
 		t.Fatalf("Got error from newProbe: %v", err)
@@ -353,9 +354,9 @@ func TestRunProbe(t *testing.T) {
 
 // Test runProbe IPv6, raw sockets
 func TestRunProbeIPv6(t *testing.T) {
-	c := &ProbeConf{}
+	c := &configpb.ProbeConf{}
 	c.IpVersion = proto.Int32(6)
-	c.Source = &ProbeConf_SourceIp{"::1"}
+	c.Source = &configpb.ProbeConf_SourceIp{"::1"}
 	p, err := newProbe(c, []string{"::2", "::3"})
 	if err != nil {
 		t.Fatalf("Got error from newProbe: %v", err)
@@ -372,9 +373,9 @@ func TestRunProbeIPv6(t *testing.T) {
 
 // Test runProbe IPv4, datagram sockets
 func TestRunProbeDatagram(t *testing.T) {
-	c := &ProbeConf{}
+	c := &configpb.ProbeConf{}
 	c.UseDatagramSocket = proto.Bool(true)
-	c.Source = &ProbeConf_SourceIp{"1.1.1.1"}
+	c.Source = &configpb.ProbeConf_SourceIp{"1.1.1.1"}
 	p, err := newProbe(c, []string{"2.2.2.2", "3.3.3.3"})
 	if err != nil {
 		t.Fatalf("Got error from newProbe: %v", err)
@@ -391,10 +392,10 @@ func TestRunProbeDatagram(t *testing.T) {
 
 // Test runProbe IPv6, datagram sockets
 func TestRunProbeIPv6Datagram(t *testing.T) {
-	c := &ProbeConf{}
+	c := &configpb.ProbeConf{}
 	c.UseDatagramSocket = proto.Bool(true)
 	c.IpVersion = proto.Int32(6)
-	c.Source = &ProbeConf_SourceIp{"::1"}
+	c.Source = &configpb.ProbeConf_SourceIp{"::1"}
 	p, err := newProbe(c, []string{"::2", "::3"})
 	if err != nil {
 		t.Fatalf("Got error from newProbe: %v", err)

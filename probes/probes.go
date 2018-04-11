@@ -33,6 +33,7 @@ import (
 	httpprobe "github.com/google/cloudprober/probes/http"
 	"github.com/google/cloudprober/probes/options"
 	"github.com/google/cloudprober/probes/ping"
+	configpb "github.com/google/cloudprober/probes/proto"
 	"github.com/google/cloudprober/probes/udp"
 	"github.com/google/cloudprober/probes/udplistener"
 	"github.com/google/cloudprober/targets"
