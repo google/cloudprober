@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 2017-2018 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,6 +28,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/metrics"
 	"github.com/google/cloudprober/probes/http"
+	configpb "github.com/google/cloudprober/probes/http/proto"
 	"github.com/google/cloudprober/probes/options"
 	"github.com/google/cloudprober/targets"
 )
@@ -42,7 +43,7 @@ var (
 func main() {
 	flag.Parse()
 
-	c := &http.ProbeConf{}
+	c := &configpb.ProbeConf{}
 
 	// If we are given a config file, read it. If not, use defaults.
 	if *config != "" {

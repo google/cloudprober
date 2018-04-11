@@ -23,6 +23,7 @@ import (
 	"github.com/google/cloudprober/metrics"
 	"github.com/google/cloudprober/probes"
 	"github.com/google/cloudprober/probes/options"
+	configpb "github.com/google/cloudprober/probes/proto"
 	"github.com/google/cloudprober/probes/testdata"
 	"github.com/google/cloudprober/targets"
 )
@@ -39,9 +40,9 @@ func (p *testProbe) Init(name string, opts *options.Options) error {
 func (p *testProbe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) {}
 
 func TestGetExtensionProbe(t *testing.T) {
-	probeDef := &probes.ProbeDef{
+	probeDef := &configpb.ProbeDef{
 		Name: proto.String("ext-probe"),
-		Type: probes.ProbeDef_EXTENSION.Enum(),
+		Type: configpb.ProbeDef_EXTENSION.Enum(),
 		Targets: &targets.TargetsDef{
 			Type: &targets.TargetsDef_DummyTargets{},
 		},
@@ -60,7 +61,7 @@ func TestGetExtensionProbe(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error setting up extension in test probe proto: %v", err)
 	}
-	probeMap, err := probes.Init([]*probes.ProbeDef{probeDef}, nil, &logger.Logger{}, make(map[string]string))
+	probeMap, err := probes.Init([]*configpb.ProbeDef{probeDef}, nil, &logger.Logger{}, make(map[string]string))
 	if err == nil {
 		t.Errorf("Expected error in building probe from extensions, got nil. Probes map: %v", probeMap)
 	}
@@ -71,7 +72,7 @@ func TestGetExtensionProbe(t *testing.T) {
 		return &testProbe{}
 	})
 
-	probeMap, err = probes.Init([]*probes.ProbeDef{probeDef}, nil, &logger.Logger{}, make(map[string]string))
+	probeMap, err = probes.Init([]*configpb.ProbeDef{probeDef}, nil, &logger.Logger{}, make(map[string]string))
 	if err != nil {
 		t.Errorf("Got error in building probe from extensions: %v", err)
 	}

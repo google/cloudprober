@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 2017-2018 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
+	msgpb "github.com/google/cloudprober/message/proto"
 )
 
 // FlowState maintains the state of flow on both the src and dst sides.
@@ -71,7 +72,7 @@ const (
 	lostThreshold = 3600 * 24
 )
 
-var constants Constants
+var constants msgpb.Constants
 
 // Uint64ToNetworkBytes converts a 64bit unsigned integer to an 8-byte slice.
 // in network byte order.
@@ -106,13 +107,13 @@ func NetworkBytesToUint64(bytes []byte) uint64 {
 // Message is a wrapper struct for the message protobuf that provides
 // functions to access the most commonly accessed fields.
 type Message struct {
-	m *Msg
+	m *msgpb.Msg
 }
 
 // NewMessage parses a byte array into a message.
 func NewMessage(msgBytes []byte) (*Message, error) {
 	m := &Message{
-		m: &Msg{},
+		m: &msgpb.Msg{},
 	}
 
 	msg := m.m
@@ -199,15 +200,15 @@ func (fs *FlowState) CreateMessage(src string, dst string, ts time.Time, maxLen 
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
-	dstType := DataNode_SERVER
-	msg := &Msg{
+	dstType := msgpb.DataNode_SERVER
+	msg := &msgpb.Msg{
 		Magic: proto.Uint64(constants.GetMagic()),
 		Seq:   Uint64ToNetworkBytes(fs.seq + 1),
-		Src: &DataNode{
+		Src: &msgpb.DataNode{
 			Name:          proto.String(src),
 			TimestampUsec: Uint64ToNetworkBytes(uint64(ts.UnixNano()) / 1000),
 		},
-		Dst: &DataNode{
+		Dst: &msgpb.DataNode{
 			Name:          proto.String(dst),
 			TimestampUsec: Uint64ToNetworkBytes(uint64(0)),
 			Type:          &dstType,
