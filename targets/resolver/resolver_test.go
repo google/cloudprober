@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net"
 	"runtime"
+	"runtime/debug"
 	"sync"
 	"testing"
 	"time"
@@ -54,6 +55,18 @@ func verify(testCase string, t *testing.T, ip, expectedIP net.IP, backendCalls, 
 	}
 }
 
+// waitForChannelOrFail reads the result from the channel and fails if it
+// wasn't received within the timeout.
+func waitForChannelOrFail(t *testing.T, c <-chan bool, timeout time.Duration) bool {
+	select {
+	case b := <-c:
+		return b
+	case <-time.After(timeout):
+		t.Error("Channel didn't close. Stack-trace: ", debug.Stack())
+		return false
+	}
+}
+
 func TestResolveWithMaxAge(t *testing.T) {
 	b := &resolveBackendWithTracking{
 		nameToIP: make(map[string][]net.IP),
@@ -69,28 +82,43 @@ func TestResolveWithMaxAge(t *testing.T) {
 
 	// Resolve a host, there is no cache, a backend call should be made
 	expectedBackendCalls := 1
-	ip, err := r.ResolveWithMaxAge(testHost, 4, 60*time.Second)
+	refreshed := make(chan bool, 2)
+	ip, err := r.resolveWithMaxAge(testHost, 4, 60*time.Second, refreshed)
 	verify("first-run-no-cache", t, ip, expectedIP, b.calls(), expectedBackendCalls, err)
+	// First Resolve calls refresh twice. Once for init (which succeeds), and
+	// then again for refreshing, which is not needed. Hence the results are true
+	// and then false.
+	if !waitForChannelOrFail(t, refreshed, time.Second) {
+		t.Errorf("refreshed returned false, want true")
+	}
+	if waitForChannelOrFail(t, refreshed, time.Second) {
+		t.Errorf("refreshed returned true, want false")
+	}
 
 	// Resolve same host again, it should come from cache, no backend call
 	newExpectedIP := net.ParseIP("1.2.3.6")
 	b.nameToIP[testHost] = []net.IP{newExpectedIP}
-	ip, err = r.ResolveWithMaxAge(testHost, 4, 60*time.Second)
+	ip, err = r.resolveWithMaxAge(testHost, 4, 60*time.Second, refreshed)
 	verify("second-run-from-cache", t, ip, expectedIP, b.calls(), expectedBackendCalls, err)
+	if waitForChannelOrFail(t, refreshed, time.Second) {
+		t.Errorf("refreshed returned true, want false")
+	}
 
 	// Resolve same host again with maxAge=0, it will issue an asynchronous (hence no increment
 	// in expectedBackenddCalls) backend call
-	ip, err = r.ResolveWithMaxAge(testHost, 4, 0*time.Second)
+	ip, err = r.resolveWithMaxAge(testHost, 4, 0*time.Second, refreshed)
 	verify("third-run-expire-cache", t, ip, expectedIP, b.calls(), expectedBackendCalls, err)
-
-	// Give other goroutines a chance.
-	runtime.Gosched()
-	time.Sleep(1 * time.Millisecond)
-	// Resolve same host again, we should see new IP now.
+	if !waitForChannelOrFail(t, refreshed, time.Second) {
+		t.Errorf("refreshed returned false, want true")
+	}
+	// Now that refresh has happened, we should see a new IP.
 	expectedIP = newExpectedIP
 	expectedBackendCalls++
-	ip, err = r.ResolveWithMaxAge(testHost, 4, 60*time.Second)
+	ip, err = r.resolveWithMaxAge(testHost, 4, 60*time.Second, refreshed)
 	verify("fourth-run-new-result", t, ip, expectedIP, b.calls(), expectedBackendCalls, err)
+	if waitForChannelOrFail(t, refreshed, time.Second) {
+		t.Errorf("refreshed returned true, want false")
+	}
 }
 
 func TestResolveErr(t *testing.T) {
@@ -99,40 +127,56 @@ func TestResolveErr(t *testing.T) {
 		cache: make(map[string]*cacheRecord),
 		resolve: func(name string) ([]net.IP, error) {
 			cnt++
-			if cnt == 2 || cnt == 3 {
+			if cnt == 2 {
 				return nil, fmt.Errorf("time to return error, cnt: %d", cnt)
 			}
 			return []net.IP{net.ParseIP("0.0.0.0")}, nil
 		},
 	}
-	// Backend resolve called, cnt = 1
-	_, err := r.ResolveWithMaxAge("testHost", 4, 0*time.Second)
+	refreshed := make(chan bool, 2)
+	// cnt=0; returning 0.0.0.0.
+	_, err := r.resolveWithMaxAge("testHost", 4, 60*time.Second, refreshed)
 	if err != nil {
 		t.Logf("Err: %v\n", err)
 		t.Errorf("Expected no error, got error")
 	}
-	// Backend resolve not called yet, old result, cnt = 1
-	_, err = r.ResolveWithMaxAge("testHost", 4, 0*time.Second)
+	// First Resolve calls refresh twice. Once for init (which succeeds), and
+	// then again for refreshing, which is not needed. Hence the results are true
+	// and then false.
+	if !waitForChannelOrFail(t, refreshed, time.Second) {
+		t.Errorf("refreshed returned false, want true")
+	}
+	if waitForChannelOrFail(t, refreshed, time.Second) {
+		t.Errorf("refreshed returned true, want false")
+	}
+	// cnt=1, returning 0.0.0.0, but updating the cache record asynchronously to contain the
+	// error returned for cnt=2.
+	_, err = r.resolveWithMaxAge("testHost", 4, 0*time.Second, refreshed)
 	if err != nil {
 		t.Logf("Err: %v\n", err)
 		t.Errorf("Expected no error, got error")
 	}
-	// Give offline update goroutines a chance.
-	runtime.Gosched()
-	time.Sleep(1 * time.Millisecond)
-
-	// Backend's resolve has been called (with cnt = 2), cr.err is set right now.
-	// An error resets the cache record, causing next resolve call to reach out to
-	// backend's resolver again and wait for it before returning.
-	// However backend resolver will again return an error as cnt=3.
-	_, err = r.ResolveWithMaxAge("testHost", 4, 0*time.Second)
+	if !waitForChannelOrFail(t, refreshed, time.Second) {
+		t.Errorf("refreshed returned false, want true")
+	}
+	// cache record contains an error, and we should therefore expect an error.
+	// This call for resolve will have cnt=2, and the asynchronous call to update the cache will
+	// therefore update it to contain 0.0.0.0, which should be returned by the next call.
+	_, err = r.resolveWithMaxAge("testHost", 4, 0*time.Second, refreshed)
 	if err == nil {
 		t.Errorf("Expected error, got no error")
 	}
-	_, err = r.ResolveWithMaxAge("testHost", 4, 0*time.Second)
+	if !waitForChannelOrFail(t, refreshed, time.Second) {
+		t.Errorf("refreshed returned false, want true")
+	}
+	// cache record now contains 0.0.0.0 again.
+	_, err = r.resolveWithMaxAge("testHost", 4, 0*time.Second, refreshed)
 	if err != nil {
 		t.Logf("Err: %v\n", err)
 		t.Errorf("Expected no error, got error")
+	}
+	if !waitForChannelOrFail(t, refreshed, time.Second) {
+		t.Errorf("refreshed returned false, want true")
 	}
 }
 
@@ -172,6 +216,57 @@ func TestResolveIPv6(t *testing.T) {
 	// This will come from cache this time, so no new backend calls.
 	ip, err = r.Resolve(testHost, 6)
 	verify("ipv6-address-not-as-expected", t, ip, expectedIPv6, b.calls(), expectedBackendCalls, err)
+}
+
+// TestConcurrentInit tests that multiple Resolves in parallel on the same
+// target all return the same answer, and cause just 1 call to resolve.
+func TestConcurrentInit(t *testing.T) {
+	cnt := 0
+	resolveWait := make(chan bool)
+	r := &Resolver{
+		cache: make(map[string]*cacheRecord),
+		resolve: func(name string) ([]net.IP, error) {
+			cnt++
+			// The first call should be blocked on resolveWait.
+			if cnt == 1 {
+				<-resolveWait
+				return []net.IP{net.ParseIP("0.0.0.0")}, nil
+			}
+			// The 2nd call should never happen.
+			return nil, fmt.Errorf("resolve should be called just once, cnt: %d", cnt)
+		},
+	}
+	// 5 because first resolve calls refresh twice.
+	refreshed := make(chan bool, 5)
+	var wg sync.WaitGroup
+	for i := 0; i < 4; i++ {
+		wg.Add(1)
+		go func() {
+			_, err := r.resolveWithMaxAge("testHost", 4, 60*time.Second, refreshed)
+			if err != nil {
+				t.Logf("Err: %v\n", err)
+				t.Errorf("Expected no error, got error")
+			}
+			wg.Done()
+		}()
+	}
+	// Give offline update goroutines a chance.
+	// If we call resolve more than once, this will make those resolves fail.
+	runtime.Gosched()
+	time.Sleep(1 * time.Millisecond)
+	// Makes one of the resolve goroutines unblock refresh.
+	resolveWait <- true
+	resolvedCount := 0
+	// 5 because first resolve calls refresh twice.
+	for i := 0; i < 5; i++ {
+		if waitForChannelOrFail(t, refreshed, time.Second) {
+			resolvedCount++
+		}
+	}
+	if resolvedCount != 1 {
+		t.Errorf("resolvedCount=%v, want 1", resolvedCount)
+	}
+	wg.Wait()
 }
 
 // Set up benchmarks. Apart from performance stats it verifies the library's behavior during concurrent
@@ -220,7 +315,7 @@ func BenchmarkResolve(b *testing.B) {
 	b.RunParallel(func(pb *testing.PB) {
 		// Next() returns true if there are more iterations to execute.
 		for pb.Next() {
-			r.ResolveWithMaxAge("test", 4, 500*time.Millisecond)
+			r.resolveWithMaxAge("test", 4, 500*time.Millisecond, nil)
 			time.Sleep(10 * time.Millisecond)
 		}
 	})
