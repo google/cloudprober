@@ -24,7 +24,7 @@ import (
 	"github.com/google/cloudprober/probes"
 	"github.com/google/cloudprober/probes/options"
 	configpb "github.com/google/cloudprober/probes/proto"
-	"github.com/google/cloudprober/probes/testdata"
+	testdatapb "github.com/google/cloudprober/probes/testdata"
 	targetspb "github.com/google/cloudprober/targets/proto"
 )
 
@@ -57,7 +57,7 @@ func TestGetExtensionProbe(t *testing.T) {
 	//      name: "fancy"
 	//    }
 	// }
-	err := proto.SetExtension(probeDef, testdata.E_FancyProbe, &testdata.FancyProbe{Name: proto.String("fancy")})
+	err := proto.SetExtension(probeDef, testdatapb.E_FancyProbe, &testdatapb.FancyProbe{Name: proto.String("fancy")})
 	if err != nil {
 		t.Fatalf("error setting up extension in test probe proto: %v", err)
 	}
