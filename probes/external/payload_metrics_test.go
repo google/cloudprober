@@ -22,12 +22,13 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/metrics"
+	configpb "github.com/google/cloudprober/probes/external/proto"
 )
 
 func testProbe(t *testing.T, agg bool) *Probe {
 	p := &Probe{
 		name:           "testprobe",
-		c:              &ProbeConf{},
+		c:              &configpb.ProbeConf{},
 		payloadMetrics: make(map[string]*metrics.EventMetrics),
 	}
 	testConf := `
