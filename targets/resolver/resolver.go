@@ -25,6 +25,7 @@ import (
 	"time"
 )
 
+// The max age and the timeout for resolving a target.
 const defaultMaxAge = 5 * time.Minute
 
 type cacheRecord struct {
@@ -34,6 +35,7 @@ type cacheRecord struct {
 	err              error
 	mu               sync.Mutex
 	updateInProgress bool
+	callInit         sync.Once
 }
 
 // Resolver provides an asynchronous caching DNS resolver.
@@ -55,16 +57,40 @@ func ipVersion(ip net.IP) int {
 	return 0
 }
 
-// Resolve returns IP address for a name. It's same as ResolveWithMaxAge, except for that it uses
-// DefaultMaxAge for validating the cache record.
+// resolveOrTimeout tries to resolve, but times out and returns an error if it
+// takes more than defaultMaxAge.
+// Has the potential of creating a bunch of pending goroutines if backend
+// resolve call has a tendency of indefinitely hanging.
+func (r *Resolver) resolveOrTimeout(name string) ([]net.IP, error) {
+	var ips []net.IP
+	var err error
+	doneChan := make(chan struct{})
+
+	go func() {
+		ips, err = r.resolve(name)
+		close(doneChan)
+	}()
+
+	select {
+	case <-doneChan:
+		return ips, err
+	case <-time.After(defaultMaxAge):
+		return nil, fmt.Errorf("timed out after %v", defaultMaxAge)
+	}
+}
+
+// Resolve returns IP address for a name.
+// Issues an update call for the cache record if it's older than defaultMaxAge.
 func (r *Resolver) Resolve(name string, ipVer int) (net.IP, error) {
 	maxAge := r.DefaultMaxAge
 	if maxAge == 0 {
 		maxAge = defaultMaxAge
 	}
-	return r.ResolveWithMaxAge(name, ipVer, maxAge)
+	return r.resolveWithMaxAge(name, ipVer, maxAge, nil)
 }
 
+// getCacheRecord returns the cache record for the target.
+// It must be kept light, as it blocks the main mutex of the map.
 func (r *Resolver) getCacheRecord(name string) *cacheRecord {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -78,11 +104,14 @@ func (r *Resolver) getCacheRecord(name string) *cacheRecord {
 	return cr
 }
 
-// ResolveWithMaxAge returns IP address for a name, issuing an update call for the cache record if
-// it's older than the argument maxAge.
-func (r *Resolver) ResolveWithMaxAge(name string, ipVer int, maxAge time.Duration) (net.IP, error) {
+// resolveWithMaxAge returns IP address for a name, issuing an update call for
+// the cache record if it's older than the argument maxAge.
+// refreshed channel is primarily used for testing. Method pushes true to
+// refreshed channel once and if the value is refreshed, or false, if it
+// doesn't need refreshing.
+func (r *Resolver) resolveWithMaxAge(name string, ipVer int, maxAge time.Duration, refreshed chan<- bool) (net.IP, error) {
 	cr := r.getCacheRecord(name)
-	cr.refreshIfRequired(name, r.resolve, maxAge)
+	cr.refreshIfRequired(name, r.resolveOrTimeout, maxAge, refreshed)
 	cr.mu.Lock()
 	defer cr.mu.Unlock()
 	ip := cr.ip4
@@ -95,66 +124,54 @@ func (r *Resolver) ResolveWithMaxAge(name string, ipVer int, maxAge time.Duratio
 	return ip, cr.err
 }
 
-// refreshIfRequired does most of the work. Overall goal is to minimize the lock period of the cache record. To that
-// end, if the cache record needs updating, we do that with the mutex unlocked.
-//
-// If cache record is already being updated or fresh enough it returns immediately.
-// if cache record needs updating, we kick off refresh in a new goroutine. If this is not the first update, we immediately
-// return whatever is in the cache. However, if it's the first update, we wait for the refresh to finish, before returning.
-//
-// TODO: See if this whole magic will be simpler to reason-about if we use channels.
-func (cr *cacheRecord) refreshIfRequired(name string, resolve func(string) ([]net.IP, error), maxAge time.Duration) {
-	cr.mu.Lock()
+// refresh refreshes the cacheRecord by making a call to the provided "resolve" function.
+func (cr *cacheRecord) refresh(name string, resolve func(string) ([]net.IP, error), refreshed chan<- bool) {
+	// Note that we call backend's resolve outside of the mutex locks and take the lock again
+	// to update the cache record once we have the results from the backend.
+	ips, err := resolve(name)
 
-	// If no need to refresh or update in progress
-	if cr.updateInProgress || time.Since(cr.lastUpdatedAt) < maxAge {
-		cr.mu.Unlock()
+	cr.mu.Lock()
+	defer cr.mu.Unlock()
+	if refreshed != nil {
+		refreshed <- true
+	}
+	cr.err = err
+	cr.lastUpdatedAt = time.Now()
+	cr.updateInProgress = false
+	if err != nil {
 		return
 	}
+	cr.ip4 = nil
+	cr.ip6 = nil
+	for _, ip := range ips {
+		switch ipVersion(ip) {
+		case 4:
+			cr.ip4 = ip
+		case 6:
+			cr.ip6 = ip
+		}
+	}
+}
+
+// refreshIfRequired does most of the work. Overall goal is to minimize the
+// lock period of the cache record. To that end, if the cache record needs
+// updating, we do that with the mutex unlocked.
+//
+// If cache record is new, blocks until it's resolved for the first time.
+// If cache record needs updating, kicks off refresh asynchronously.
+// If cache record is already being updated or fresh enough, returns immediately.
+func (cr *cacheRecord) refreshIfRequired(name string, resolve func(string) ([]net.IP, error), maxAge time.Duration, refreshed chan<- bool) {
+	cr.callInit.Do(func() { cr.refresh(name, resolve, refreshed) })
+	cr.mu.Lock()
+	defer cr.mu.Unlock()
 
 	// Cache record is old and no update in progress, issue a request to update.
-	cr.updateInProgress = true
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		// Note that we call backend's resolve outside of the mutex locks and take the lock again
-		// to update the cache record once we have the results from the backend.
-		ips, err := resolve(name)
-		cr.mu.Lock()
-		defer cr.mu.Unlock()
-		cr.err = err
-		if err != nil {
-			// Reset cache record time so it's updated inline next time.
-			cr.lastUpdatedAt = time.Time{}
-			cr.updateInProgress = false
-			return
-		}
-		// Reset error state
-		cr.err = nil
-		var ip4, ip6 net.IP
-		for _, ip := range ips {
-			switch ipVersion(ip) {
-			case 4:
-				ip4 = ip
-			case 6:
-				ip6 = ip
-			}
-		}
-		cr.ip4 = ip4
-		cr.ip6 = ip6
-		cr.lastUpdatedAt = time.Now()
-		cr.updateInProgress = false
-	}()
-
-	// Wait if this is first update
-	if cr.lastUpdatedAt.IsZero() {
-		cr.mu.Unlock()
-		wg.Wait()
-	} else {
-		cr.mu.Unlock()
+	if !cr.updateInProgress && time.Since(cr.lastUpdatedAt) >= maxAge {
+		cr.updateInProgress = true
+		go cr.refresh(name, resolve, refreshed)
+	} else if refreshed != nil {
+		refreshed <- false
 	}
-	return
 }
 
 // New returns a new Resolver.
