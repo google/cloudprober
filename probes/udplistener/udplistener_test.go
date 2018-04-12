@@ -31,6 +31,8 @@ import (
 	"github.com/google/cloudprober/probes/probeutils"
 	"github.com/google/cloudprober/sysvars"
 	"github.com/google/cloudprober/targets"
+
+	configpb "github.com/google/cloudprober/probes/udplistener/proto"
 )
 
 type serverConnStats struct {
@@ -51,7 +53,7 @@ const (
 	localhost            = "localhost"
 	interval             = time.Second
 	timeout              = time.Second
-	defaultServerType    = ProbeConf_DISCARD
+	defaultServerType    = configpb.ProbeConf_DISCARD
 	defaultStatsInterval = int32(3600000)
 )
 
@@ -152,7 +154,7 @@ func runProbe(ctx context.Context, t *testing.T, inp *inputState) ([]int, chan p
 	// Default server mode is echo.
 	srvType := defaultServerType
 	if inp.echoMode {
-		srvType = ProbeConf_ECHO
+		srvType = configpb.ProbeConf_ECHO
 	}
 	// force stats to be kept without reset.
 	statsInterval := defaultStatsInterval
@@ -163,7 +165,7 @@ func runProbe(ctx context.Context, t *testing.T, inp *inputState) ([]int, chan p
 		Targets:  targets.StaticTargets("localhost"),
 		Interval: interval,
 		Timeout:  timeout,
-		ProbeConf: &ProbeConf{
+		ProbeConf: &configpb.ProbeConf{
 			Port: proto.Int32(0),
 			Type: &srvType,
 			StatsExportIntervalMsec: proto.Int32(statsInterval),

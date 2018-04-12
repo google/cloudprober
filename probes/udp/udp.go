@@ -32,6 +32,7 @@ import (
 	"github.com/google/cloudprober/message"
 	"github.com/google/cloudprober/metrics"
 	"github.com/google/cloudprober/probes/options"
+	configpb "github.com/google/cloudprober/probes/udp/proto"
 	udpsrv "github.com/google/cloudprober/servers/udp"
 	"github.com/google/cloudprober/sysvars"
 )
@@ -51,7 +52,7 @@ type Probe struct {
 	name string
 	opts *options.Options
 	src  string
-	c    *ProbeConf
+	c    *configpb.ProbeConf
 	l    *logger.Logger
 
 	// List of UDP connections to use.
@@ -92,7 +93,7 @@ func (prr probeResult) EventMetrics(probeName, target string) *metrics.EventMetr
 
 // Init initializes the probe with the given params.
 func (p *Probe) Init(name string, opts *options.Options) error {
-	c, ok := opts.ProbeConf.(*ProbeConf)
+	c, ok := opts.ProbeConf.(*configpb.ProbeConf)
 	if !ok {
 		return errors.New("not a UDP config")
 	}
