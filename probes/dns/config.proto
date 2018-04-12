@@ -8,4 +8,8 @@ message ProbeConf {
 
   // Export stats after these many milliseconds
   optional int32 stats_export_interval_msec = 2 [default = 10000];
+
+  // Set type of dns record you need to check against 15 corresponds to MX records, A corresponds to 1
+  // for more details on all supported kinds refer https://github.com/miekg/dns/blob/master/types.go
+  optional uint32 record_type = 3 [default= 15];
 }

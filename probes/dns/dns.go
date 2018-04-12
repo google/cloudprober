@@ -75,6 +75,7 @@ type probeRunResult struct {
 	target   string
 	total    metrics.Int
 	success  metrics.Int
+	resolved metrics.Int
 	latency  metrics.Float
 	timeouts metrics.Int
 }
@@ -91,7 +92,8 @@ func (prr probeRunResult) Metrics() *metrics.EventMetrics {
 		AddMetric("total", &prr.total).
 		AddMetric("success", &prr.success).
 		AddMetric("latency", &prr.latency).
-		AddMetric("timeouts", &prr.timeouts)
+		AddMetric("timeouts", &prr.timeouts).
+		AddMetric("resolved", &prr.resolved)
 }
 
 // Target returns the p.target.
@@ -112,13 +114,16 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		p.l = &logger.Logger{}
 	}
 	p.targets = p.opts.Targets.List()
+	// Lets get the record type here
+
+	record_type := uint16(p.c.GetRecordType())
 
 	// I believe these objects are safe for concurrent use by multiple goroutines
 	// (although the documentation doesn't explicitly say so). It uses locks
 	// internally and the underlying net.Conn declares that multiple goroutines
 	// may invoke methods on a net.Conn simultaneously.
 	p.msg = new(dns.Msg)
-	p.msg.SetQuestion(dns.Fqdn(p.c.GetResolvedDomain()), dns.TypeMX)
+	p.msg.SetQuestion(dns.Fqdn(p.c.GetResolvedDomain()), record_type)
 
 	p.client = new(ClientImpl)
 	// Use ReadTimeout because DialTimeout for UDP is not the RTT.
@@ -169,6 +174,9 @@ func (p *Probe) runProbe(resultsChan chan<- probeutils.ProbeResult) {
 			} else {
 				if resp == nil {
 					p.l.Warningf("Target(%s): Response is nil, but error is also nil", fullTarget)
+				}
+				if len(resp.Answer) > 0 {
+					result.resolved.Inc()
 				}
 				result.success.Inc()
 				result.latency.AddFloat64(latency.Seconds() / p.opts.LatencyUnit.Seconds())
