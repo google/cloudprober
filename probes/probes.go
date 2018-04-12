@@ -33,6 +33,7 @@ import (
 	httpprobe "github.com/google/cloudprober/probes/http"
 	"github.com/google/cloudprober/probes/options"
 	"github.com/google/cloudprober/probes/ping"
+	configpb "github.com/google/cloudprober/probes/proto"
 	"github.com/google/cloudprober/probes/udp"
 	"github.com/google/cloudprober/probes/udplistener"
 	"github.com/google/cloudprober/targets"
@@ -79,7 +80,7 @@ func newLogger(probeName string) (*logger.Logger, error) {
 	return logger.New(context.Background(), logsNamePrefix+"."+probeName)
 }
 
-func getExtensionProbe(p *ProbeDef) (Probe, interface{}, error) {
+func getExtensionProbe(p *configpb.ProbeDef) (Probe, interface{}, error) {
 	extensions := proto.RegisteredExtensions(p)
 	if len(extensions) > 1 {
 		return nil, nil, fmt.Errorf("only one probe extension is allowed per probe, got %d extensions", len(extensions))
@@ -108,7 +109,7 @@ func getExtensionProbe(p *ProbeDef) (Probe, interface{}, error) {
 }
 
 // Init initializes the probes defined in the config.
-func Init(probeProtobufs []*ProbeDef, globalTargetsOpts *targets.GlobalTargetsOptions, l *logger.Logger, sysVars map[string]string) (map[string]Probe, error) {
+func Init(probeProtobufs []*configpb.ProbeDef, globalTargetsOpts *targets.GlobalTargetsOptions, l *logger.Logger, sysVars map[string]string) (map[string]Probe, error) {
 	ldLister, err := lameduck.GetDefaultLister()
 	if err != nil {
 		l.Warningf("Error while getting default lameduck lister, lameduck behavior will be disabled. Err: %v", err)
@@ -162,32 +163,32 @@ func Init(probeProtobufs []*ProbeDef, globalTargetsOpts *targets.GlobalTargetsOp
 	return probes, nil
 }
 
-func initProbe(p *ProbeDef, opts *options.Options) (probe Probe, err error) {
+func initProbe(p *configpb.ProbeDef, opts *options.Options) (probe Probe, err error) {
 	switch p.GetType() {
-	case ProbeDef_PING:
+	case configpb.ProbeDef_PING:
 		probe = &ping.Probe{}
 		opts.ProbeConf = p.GetPingProbe()
-	case ProbeDef_HTTP:
+	case configpb.ProbeDef_HTTP:
 		probe = &httpprobe.Probe{}
 		opts.ProbeConf = p.GetHttpProbe()
-	case ProbeDef_DNS:
+	case configpb.ProbeDef_DNS:
 		probe = &dns.Probe{}
 		opts.ProbeConf = p.GetDnsProbe()
-	case ProbeDef_EXTERNAL:
+	case configpb.ProbeDef_EXTERNAL:
 		probe = &external.Probe{}
 		opts.ProbeConf = p.GetExternalProbe()
-	case ProbeDef_UDP:
+	case configpb.ProbeDef_UDP:
 		probe = &udp.Probe{}
 		opts.ProbeConf = p.GetUdpProbe()
-	case ProbeDef_UDP_LISTENER:
+	case configpb.ProbeDef_UDP_LISTENER:
 		probe = &udplistener.Probe{}
 		opts.ProbeConf = p.GetUdpListenerProbe()
-	case ProbeDef_EXTENSION:
+	case configpb.ProbeDef_EXTENSION:
 		probe, opts.ProbeConf, err = getExtensionProbe(p)
 		if err != nil {
 			return
 		}
-	case ProbeDef_USER_DEFINED:
+	case configpb.ProbeDef_USER_DEFINED:
 		userDefinedProbesMu.Lock()
 		defer userDefinedProbesMu.Unlock()
 		probe = userDefinedProbes[p.GetName()]
