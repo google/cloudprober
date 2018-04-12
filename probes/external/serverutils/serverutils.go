@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
+	serverpb "github.com/google/cloudprober/probes/external/proto"
 )
 
 func readPayload(r *bufio.Reader) ([]byte, error) {
@@ -66,23 +67,23 @@ func readPayload(r *bufio.Reader) ([]byte, error) {
 
 // ReadProbeReply reads ProbeReply from the supplied bufio.Reader and returns it to
 // the caller.
-func ReadProbeReply(r *bufio.Reader) (*ProbeReply, error) {
+func ReadProbeReply(r *bufio.Reader) (*serverpb.ProbeReply, error) {
 	buf, err := readPayload(r)
 	if err != nil {
 		return nil, err
 	}
-	rep := new(ProbeReply)
+	rep := new(serverpb.ProbeReply)
 	return rep, proto.Unmarshal(buf, rep)
 }
 
 // ReadProbeRequest reads and parses ProbeRequest protocol buffers from the given
 // bufio.Reader.
-func ReadProbeRequest(r *bufio.Reader) (*ProbeRequest, error) {
+func ReadProbeRequest(r *bufio.Reader) (*serverpb.ProbeRequest, error) {
 	buf, err := readPayload(r)
 	if err != nil {
 		return nil, err
 	}
-	req := new(ProbeRequest)
+	req := new(serverpb.ProbeRequest)
 	return req, proto.Unmarshal(buf, req)
 }
 
@@ -109,17 +110,17 @@ func WriteMessage(pb proto.Message, w io.Writer) error {
 //	func runProbe(opts []*cppb.ProbeRequest_Option) {
 //  	...
 //	}
-//	serverutils.Serve(func(req *ProbeRequest, reply *ProbeReply) {
+//	serverutils.Serve(func(req *serverpb.ProbeRequest, reply *serverpb.ProbeReply) {
 // 		payload, errMsg, _ := runProbe(req.GetOptions())
 //		reply.Payload = proto.String(payload)
 //		if errMsg != "" {
 //			reply.ErrorMessage = proto.String(errMsg)
 //		}
 //	})
-func Serve(probeFunc func(*ProbeRequest, *ProbeReply)) {
+func Serve(probeFunc func(*serverpb.ProbeRequest, *serverpb.ProbeReply)) {
 	stdin := bufio.NewReader(os.Stdin)
 
-	repliesChan := make(chan *ProbeReply)
+	repliesChan := make(chan *serverpb.ProbeReply)
 
 	// Write replies to stdout. These are not required to be in-order.
 	go func() {
@@ -138,7 +139,7 @@ func Serve(probeFunc func(*ProbeRequest, *ProbeReply)) {
 			log.Fatalf("Failed reading request: %v", err)
 		}
 		go func() {
-			reply := &ProbeReply{
+			reply := &serverpb.ProbeReply{
 				RequestId: request.RequestId,
 			}
 			done := make(chan bool, 1)
