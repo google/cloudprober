@@ -35,6 +35,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/config"
+	configpb "github.com/google/cloudprober/config/proto"
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
 	"github.com/google/cloudprober/probes"
@@ -63,7 +64,7 @@ var proberMu sync.Mutex
 type Prober struct {
 	Probes         map[string]probes.Probe
 	Servers        []servers.Server
-	c              *config.ProberConfig
+	c              *configpb.ProberConfig
 	rtcReporter    *rtcreporter.Reporter
 	surfacers      []surfacers.Surfacer
 	serverListener net.Listener
@@ -129,7 +130,7 @@ func InitFromConfig(configFile string) error {
 }
 
 func (pr *Prober) init() error {
-	cfg := &config.ProberConfig{}
+	cfg := &configpb.ProberConfig{}
 	if err := proto.UnmarshalText(pr.textConfig, cfg); err != nil {
 		return err
 	}

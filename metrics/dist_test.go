@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/golang/protobuf/proto"
+	distpb "github.com/google/cloudprober/metrics/proto"
 )
 
 func verifyBucketCount(t *testing.T, d *Distribution, indices []int, counts []int64) {
@@ -33,7 +34,7 @@ func verifyBucketCount(t *testing.T, d *Distribution, indices []int, counts []in
 }
 
 func protoToDist(t *testing.T, testDistProtoText string) *Distribution {
-	testDistProto := &Dist{}
+	testDistProto := &distpb.Dist{}
 	if err := proto.UnmarshalText(testDistProtoText, testDistProto); err != nil {
 		t.Errorf("Failed parsing distribution proto text: %s. Err: %v", testDistProtoText, err)
 		return nil

@@ -1,7 +1,7 @@
 syntax = "proto2";
 
 import "github.com/google/cloudprober/probes/proto/config.proto";
-import "github.com/google/cloudprober/servers/config.proto";
+import "github.com/google/cloudprober/servers/proto/config.proto";
 import "github.com/google/cloudprober/targets/proto/targets.proto";
 import "github.com/google/cloudprober/surfacers/proto/config.proto";
 import "github.com/google/cloudprober/targets/rtc/rtcreporter/proto/rtcreporter.proto";
