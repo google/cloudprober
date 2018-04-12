@@ -30,6 +30,8 @@ import (
 	configpb "github.com/google/cloudprober/probes/http/proto"
 	"github.com/google/cloudprober/probes/options"
 	"github.com/google/cloudprober/probes/probeutils"
+	"crypto/tls"
+	"crypto/x509"
 )
 
 const (
@@ -129,10 +131,23 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 
 	// Needs to be non-nil so we can set parameters on it.
 	transport := http.DefaultTransport
-
 	// Keep idle connections open until we explicitly close them.
 	// This allows us to send multiple requests over the same connection.
 	transport.(*http.Transport).MaxIdleConnsPerHost = 1
+	if p.protocol == "https" {
+		tlsConfig := &tls.Config{}
+		tlsConfig.InsecureSkipVerify = p.c.GetAllowInsecureTls()
+		if p.c.TlsCaPath != nil {
+			caCert, err := ioutil.ReadFile(p.c.GetTlsCaPath())
+			if err != nil {
+				p.l.Errorf("Invalide Path for Ca Certs %s", p.c.GetTlsCaPath())
+			}
+			caCertPool := x509.NewCertPool()
+			caCertPool.AppendCertsFromPEM(caCert)
+			tlsConfig.RootCAs = caCertPool
+		}
+		transport.(*http.Transport).TLSClientConfig = tlsConfig
+	}
 
 	// Clients are safe for concurrent use by multiple goroutines.
 	p.client = &http.Client{
@@ -251,7 +266,7 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 	}
 	go probeutils.StatsKeeper(ctx, "http", p.name, time.Duration(p.c.GetStatsExportIntervalMsec())*time.Millisecond, targetsFunc, resultsChan, dataChan, p.l)
 
-	for _ = range time.Tick(p.opts.Interval) {
+	for range time.Tick(p.opts.Interval) {
 		// Don't run another probe if context is canceled already.
 		select {
 		case <-ctx.Done():
