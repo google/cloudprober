@@ -51,6 +51,7 @@ import (
 	"github.com/google/cloudprober/probes/options"
 	"github.com/google/cloudprober/probes/probeutils"
 
+	configpb "github.com/google/cloudprober/probes/udplistener/proto"
 	udpsrv "github.com/google/cloudprober/servers/udp"
 )
 
@@ -64,7 +65,7 @@ const (
 type Probe struct {
 	name     string
 	opts     *options.Options
-	c        *ProbeConf
+	c        *configpb.ProbeConf
 	l        *logger.Logger
 	conn     *net.UDPConn
 	echoMode bool
@@ -145,7 +146,7 @@ func (prr probeRunResult) Metrics() *metrics.EventMetrics {
 
 // Init initializes the probe with the given params.
 func (p *Probe) Init(name string, opts *options.Options) error {
-	c, ok := opts.ProbeConf.(*ProbeConf)
+	c, ok := opts.ProbeConf.(*configpb.ProbeConf)
 	if !ok {
 		return fmt.Errorf("not a UDP Listener config: %v", opts.ProbeConf)
 	}
@@ -155,7 +156,7 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		p.l = &logger.Logger{}
 	}
 	p.c = c
-	p.echoMode = p.c.GetType() == ProbeConf_ECHO
+	p.echoMode = p.c.GetType() == configpb.ProbeConf_ECHO
 
 	if time.Duration(c.GetStatsExportIntervalMsec())*time.Millisecond < p.opts.Interval {
 		return fmt.Errorf("statsexportinterval %dms smaller than probe interval %v",

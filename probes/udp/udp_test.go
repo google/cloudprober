@@ -25,6 +25,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/probes/options"
+	configpb "github.com/google/cloudprober/probes/udp/proto"
 	"github.com/google/cloudprober/sysvars"
 	"github.com/google/cloudprober/targets"
 )
@@ -99,7 +100,7 @@ func runProbe(ctx context.Context, t *testing.T, port int, interval, timeout tim
 		Targets:  targets.StaticTargets("localhost"),
 		Interval: interval,
 		Timeout:  timeout,
-		ProbeConf: &ProbeConf{
+		ProbeConf: &configpb.ProbeConf{
 			Port:       proto.Int32(int32(port)),
 			NumTxPorts: proto.Int32(2),
 			IpVersion:  proto.Int32(ipVersion),
