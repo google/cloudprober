@@ -25,7 +25,7 @@ import (
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/targets"
 	targetspb "github.com/google/cloudprober/targets/proto"
-	"github.com/google/cloudprober/targets/testdata"
+	testdatapb "google3/third_party/cloudprober/targets/testdata/testdata_go_proto"
 )
 
 // getMissing returns a list of items in "elems" missing from "from". Cannot
@@ -173,7 +173,7 @@ func TestGetExtensionTargets(t *testing.T) {
 	//      name: "fancy"
 	//    }
 	// }
-	err := proto.SetExtension(targetsDef, testdata.E_FancyTargets, &testdata.FancyTargets{Name: proto.String("fancy")})
+	err := proto.SetExtension(targetsDef, testdatapb.E_FancyTargets, &testdatapb.FancyTargets{Name: proto.String("fancy")})
 	if err != nil {
 		t.Fatalf("error setting up extension in test targets proto: %v", err)
 	}

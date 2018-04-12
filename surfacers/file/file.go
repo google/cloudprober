@@ -24,6 +24,8 @@ import (
 
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
+
+	configpb "github.com/google/cloudprober/surfacers/file/proto"
 )
 
 // FileSurfacer structures for writing onto a GCE instance's serial port. Keeps
@@ -31,7 +33,7 @@ import (
 // per line).
 type FileSurfacer struct {
 	// Configuration
-	c *SurfacerConf
+	c *configpb.SurfacerConf
 
 	// Channel for incoming data.
 	writeChan chan *metrics.EventMetrics
@@ -51,7 +53,7 @@ type FileSurfacer struct {
 // as a GCE instance's serial port). This Surfacer does not utilize the Google
 // cloud logger because it is unlikely to fail reportably after the call to
 // New.
-func New(config *SurfacerConf, l *logger.Logger) (*FileSurfacer, error) {
+func New(config *configpb.SurfacerConf, l *logger.Logger) (*FileSurfacer, error) {
 	s := &FileSurfacer{
 		c: config,
 		l: l,

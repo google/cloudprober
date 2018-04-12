@@ -44,6 +44,7 @@ import (
 
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
+	configpb "github.com/google/cloudprober/surfacers/prometheus/proto"
 )
 
 // Prometheus metric and label names should match the following regular
@@ -92,7 +93,7 @@ type dataPoint struct {
 //       and timestamp.
 // Data key represents a unique combination of metric name and labels.
 type PromSurfacer struct {
-	c           *SurfacerConf              // Configuration
+	c           *configpb.SurfacerConf     // Configuration
 	emChan      chan *metrics.EventMetrics // Buffered channel to store incoming EventMetrics
 	metrics     map[string]*promMetric     // Metric name to promMetric mapping
 	metricNames []string                   // Metric names, to keep names ordered.
@@ -111,9 +112,9 @@ type PromSurfacer struct {
 // New returns a prometheus surfacer based on the config provided. It sets up a
 // goroutine to process both the incoming EventMetrics and the web requests for
 // the URL handler /metrics.
-func New(config *SurfacerConf, l *logger.Logger) (*PromSurfacer, error) {
+func New(config *configpb.SurfacerConf, l *logger.Logger) (*PromSurfacer, error) {
 	if config == nil {
-		config = &SurfacerConf{}
+		config = &configpb.SurfacerConf{}
 	}
 	ps := &PromSurfacer{
 		c:            config,

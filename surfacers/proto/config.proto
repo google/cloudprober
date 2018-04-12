@@ -1,8 +1,8 @@
 syntax = "proto2";
 
-import "github.com/google/cloudprober/surfacers/prometheus/config.proto";
-import "github.com/google/cloudprober/surfacers/stackdriver/config.proto";
-import "github.com/google/cloudprober/surfacers/file/config.proto";
+import "github.com/google/cloudprober/surfacers/prometheus/proto/config.proto";
+import "github.com/google/cloudprober/surfacers/stackdriver/proto/config.proto";
+import "github.com/google/cloudprober/surfacers/file/proto/config.proto";
 
 package cloudprober.surfacer;
 
