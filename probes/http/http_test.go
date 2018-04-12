@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
+	configpb "github.com/google/cloudprober/probes/http/proto"
 	"github.com/google/cloudprober/probes/options"
 	"github.com/google/cloudprober/probes/probeutils"
 	"github.com/google/cloudprober/targets"
@@ -55,7 +56,7 @@ func TestRun(t *testing.T) {
 		Targets:  targets.StaticTargets("test.com"),
 		Interval: 2 * time.Second,
 		Timeout:  time.Second,
-		ProbeConf: &ProbeConf{
+		ProbeConf: &configpb.ProbeConf{
 			RequestsPerProbe:        proto.Int32(1),
 			StatsExportIntervalMsec: proto.Int32(1000),
 		},
