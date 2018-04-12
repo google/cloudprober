@@ -16,6 +16,7 @@ package probeutils
 
 import (
 	"context"
+	"reflect"
 	"testing"
 	"time"
 
@@ -108,3 +109,43 @@ func TestStatsKeeper(t *testing.T) {
 		}
 	}
 }
+
+func TestPayloadVerification(t *testing.T) {
+	testBytes := []byte("test bytes")
+
+	// Verify that for the larger payload sizes we get replicas of the same
+	// bytes.
+	for _, size := range []int{256, 999, 2048, 4 * len(testBytes)} {
+		bytesBuf := PatternPayload(testBytes, size)
+
+		var expectedBuf []byte
+		for i := 0; i < size/len(testBytes); i++ {
+			expectedBuf = append(expectedBuf, testBytes...)
+		}
+		// Pad 0s in the end.
+		expectedBuf = append(expectedBuf, make([]byte, size-len(expectedBuf))...)
+		if !reflect.DeepEqual(bytesBuf, expectedBuf) {
+			t.Errorf("Bytes array:\n%o\n\nExpected:\n%o", bytesBuf, expectedBuf)
+		}
+
+		// Verify payload.
+		err := VerifyPayloadPattern(bytesBuf, testBytes)
+		if err != nil {
+			t.Errorf("Data verification error: %v", err)
+		}
+	}
+}
+
+func benchmarkVerifyPayloadPattern(size int, b *testing.B) {
+	testBytes := []byte("test bytes")
+	bytesBuf := PatternPayload(testBytes, size)
+
+	for n := 0; n < b.N; n++ {
+		VerifyPayloadPattern(bytesBuf, testBytes)
+	}
+}
+
+func BenchmarkVerifyPayloadPattern56(b *testing.B)   { benchmarkVerifyPayloadPattern(56, b) }
+func BenchmarkVerifyPayloadPattern256(b *testing.B)  { benchmarkVerifyPayloadPattern(256, b) }
+func BenchmarkVerifyPayloadPattern1999(b *testing.B) { benchmarkVerifyPayloadPattern(1999, b) }
+func BenchmarkVerifyPayloadPattern9999(b *testing.B) { benchmarkVerifyPayloadPattern(9999, b) }

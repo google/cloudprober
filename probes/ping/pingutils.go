@@ -15,10 +15,11 @@
 package ping
 
 import (
-	"bytes"
 	"fmt"
 	"net"
 	"time"
+
+	"github.com/google/cloudprober/probes/probeutils"
 )
 
 func timeToBytes(t time.Time, size int) []byte {
@@ -27,27 +28,15 @@ func timeToBytes(t time.Time, size int) []byte {
 	for i := uint8(0); i < 8; i++ {
 		timeBytes[i] = byte((nsec >> ((7 - i) * 8)) & 0xff)
 	}
-
-	b := make([]byte, size)
-	// We create size/8 replicas of the timeBytes.
-	for nReplica := 0; nReplica < size/8; nReplica++ {
-		copy(b[nReplica*8:], timeBytes[:])
-	}
-	return b
+	return probeutils.PatternPayload(timeBytes[:], size)
 }
 
 // verifyPayload verifies that in the provided byte array first 8-bytes are
 // repeated for the rest array, except for the last "len(array) mod 8 bytes".
 func verifyPayload(b []byte) error {
-	b0 := b[:8] // Seed payload
-	for nReplica := 1; nReplica < len(b)/8; nReplica++ {
-		bN := b[nReplica*8 : (nReplica+1)*8] // Nth replica
-		if bytes.Compare(bN, b0) != 0 {
-			return fmt.Errorf("bytes are not in the expected format. b[nReplica]=%v, b0=%v", bN, b0)
-		}
-	}
-
-	return nil
+	// Since we set the pattern ourselves in timeToBytes, we know that the pattern
+	// is 8-bytes long (timestamp).
+	return probeutils.VerifyPayloadPattern(b, b[:8])
 }
 
 func bytesToTime(b []byte) time.Time {

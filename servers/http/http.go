@@ -27,6 +27,7 @@ import (
 
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
+	"github.com/google/cloudprober/probes/probeutils"
 	"github.com/google/cloudprober/sysvars"
 	"github.com/google/cloudprober/targets/lameduck"
 )
@@ -174,6 +175,12 @@ func (s *Server) Start(ctx context.Context, dataChan chan<- *metrics.EventMetric
 
 	laddr := s.ln.Addr().String()
 	go s.statsKeeper(fmt.Sprintf("http-server-%s", laddr), statsChan)
+
+	for _, dh := range s.c.GetPatternDataHandler() {
+		size := int(dh.GetResponseSize())
+		resp := string(probeutils.PatternPayload([]byte(dh.GetPattern()), size))
+		s.staticURLResTable[fmt.Sprintf("/data_%d", size)] = resp
+	}
 
 	// Not using default server mux as we may run multiple HTTP servers, e.g. for testing.
 	serverMux := http.NewServeMux()
