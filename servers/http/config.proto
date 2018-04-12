@@ -4,11 +4,25 @@ package cloudprober.servers.http;
 
 message ServerConf {
   optional int32 port = 1 [default = 3141];
+
   // Maximum duration for reading the entire request, including the body.
   optional int32 read_timeout_ms = 2 [default = 10000];  // default: 10s
+
   // Maximum duration before timing out writes of the response.
   optional int32 write_timeout_ms = 3 [default = 10000];  // default: 10s
+
   // Maximum amount of time to wait for the next request when keep-alives are
   // enabled.
   optional int32 idle_timeout_ms = 4 [default = 60000];  // default: 1m
+
+  message PatternDataHandler {
+    // Response sizes to server, e.g. 1024.
+    required int32 response_size = 1;
+    // Pattern is repeated to build the response, with "response_size mod
+    // pattern_size" filled by '0' bytes.
+    optional string pattern = 2 [default = "cloudprober"];
+  }
+  // Pattern data handler returns pattern data at the url /data_<size_in_bytes>,
+  // e.g. "/data_2048".
+  repeated PatternDataHandler pattern_data_handler = 5;
 }

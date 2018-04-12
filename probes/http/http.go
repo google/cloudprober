@@ -187,7 +187,7 @@ func (p *Probe) runProbe(resultsChan chan<- probeutils.ProbeResult) {
 			url := fmt.Sprintf("%s://%s%s", p.protocol, host, p.url)
 			req, err := http.NewRequest("GET", url, nil) // nil body
 			if err != nil {
-				p.l.Errorf("Target:%s, Url: %s, http.runProbe: error creating HTTP req: %v", target, url, err)
+				p.l.Errorf("Target:%s, URL: %s, http.runProbe: error creating HTTP req: %v", target, url, err)
 				return
 			}
 			// Following line is important only for the cases where we resolve the target first.
@@ -201,7 +201,7 @@ func (p *Probe) runProbe(resultsChan chan<- probeutils.ProbeResult) {
 
 				if err != nil {
 					if isClientTimeout(err) {
-						p.l.Warningf("Target:%s, Url:%s, http.runProbe: timeout error: %v", target, req.URL.String(), err)
+						p.l.Warningf("Target:%s, URL:%s, http.runProbe: timeout error: %v", target, req.URL.String(), err)
 						result.timeouts.Inc()
 					} else {
 						p.l.Warningf("Target(%s): client.Get: %v", target, err)
@@ -209,11 +209,19 @@ func (p *Probe) runProbe(resultsChan chan<- probeutils.ProbeResult) {
 				} else {
 					respBody, err := ioutil.ReadAll(resp.Body)
 					if err != nil {
-						p.l.Warningf("Target:%s, Url:%s, http.runProbe: error in reading response from target: %v", target, req.URL.String(), err)
+						p.l.Warningf("Target:%s, URL:%s, http.runProbe: error in reading response from target: %v", target, req.URL.String(), err)
 					}
 					// Calling Body.Close() allows the TCP connection to be reused.
 					resp.Body.Close()
 					result.respCodes.IncKey(fmt.Sprintf("%d", resp.StatusCode))
+					if p.c.GetIntegrityCheckPattern() != "" {
+						err := probeutils.VerifyPayloadPattern(respBody, []byte(p.c.GetIntegrityCheckPattern()))
+						if err != nil {
+							// TODO: Increment a counter on data corruption.
+							p.l.Errorf("Target:%s, URL:%s, http.runProbe: possible data corruption, response integrity check failed: %s", target, req.URL.String(), err.Error())
+							continue
+						}
+					}
 					result.success.Inc()
 					result.latency.AddFloat64(latency.Seconds() / p.opts.LatencyUnit.Seconds())
 					if p.c.GetExportResponseAsMetrics() {
