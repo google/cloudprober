@@ -32,6 +32,7 @@ import (
 	"github.com/kylelemons/godebug/pretty"
 
 	"github.com/google/cloudprober/metrics"
+	configpb "github.com/google/cloudprober/surfacers/file/proto"
 )
 
 func TestRun(t *testing.T) {
@@ -61,7 +62,7 @@ func TestRun(t *testing.T) {
 		defer os.Remove(f.Name())
 
 		s := &FileSurfacer{
-			c: &SurfacerConf{FilePath: proto.String(f.Name())},
+			c: &configpb.SurfacerConf{FilePath: proto.String(f.Name())},
 		}
 		id := time.Now().UnixNano()
 		err = s.init(id)

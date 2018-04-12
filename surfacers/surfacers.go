@@ -34,6 +34,8 @@ import (
 	"github.com/google/cloudprober/surfacers/file"
 	"github.com/google/cloudprober/surfacers/prometheus"
 	"github.com/google/cloudprober/surfacers/stackdriver"
+
+	surfacerpb "github.com/google/cloudprober/surfacers/proto"
 )
 
 var (
@@ -42,17 +44,17 @@ var (
 )
 
 // Default surfacers. These surfacers are enabled if no surfacer is defined.
-var defaultSurfacers = []*SurfacerDef{
-	&SurfacerDef{
-		Type: Type_PROMETHEUS.Enum(),
+var defaultSurfacers = []*surfacerpb.SurfacerDef{
+	&surfacerpb.SurfacerDef{
+		Type: surfacerpb.Type_PROMETHEUS.Enum(),
 	},
-	&SurfacerDef{
-		Type: Type_FILE.Enum(),
+	&surfacerpb.SurfacerDef{
+		Type: surfacerpb.Type_FILE.Enum(),
 	},
 }
 
 // initSurfacer initializes and returns a new surfacer based on the config.
-func initSurfacer(s *SurfacerDef) (Surfacer, error) {
+func initSurfacer(s *surfacerpb.SurfacerDef) (Surfacer, error) {
 	// Create a new logger
 	logName := s.GetName()
 	if logName == "" {
@@ -66,13 +68,13 @@ func initSurfacer(s *SurfacerDef) (Surfacer, error) {
 	}
 
 	switch s.GetType() {
-	case Type_PROMETHEUS:
+	case surfacerpb.Type_PROMETHEUS:
 		return prometheus.New(s.GetPrometheusSurfacer(), l)
-	case Type_STACKDRIVER:
+	case surfacerpb.Type_STACKDRIVER:
 		return stackdriver.New(s.GetStackdriverSurfacer(), l)
-	case Type_FILE:
+	case surfacerpb.Type_FILE:
 		return file.New(s.GetFileSurfacer(), l)
-	case Type_USER_DEFINED:
+	case surfacerpb.Type_USER_DEFINED:
 		userDefinedSurfacersMu.Lock()
 		defer userDefinedSurfacersMu.Unlock()
 		surfacer := userDefinedSurfacers[s.GetName()]
@@ -94,7 +96,7 @@ type Surfacer interface {
 
 // Init initializes the surfacers from the config protobufs and returns them as
 // a list.
-func Init(sDefs []*SurfacerDef) ([]Surfacer, error) {
+func Init(sDefs []*surfacerpb.SurfacerDef) ([]Surfacer, error) {
 	// If no surfacers are defined, return default surfacers. This behavior
 	// can be disabled by explicitly specifying "surfacer {}" in the config.
 	if len(sDefs) == 0 {
@@ -103,7 +105,7 @@ func Init(sDefs []*SurfacerDef) ([]Surfacer, error) {
 
 	var result []Surfacer
 	for _, sDef := range sDefs {
-		if sDef.GetType() == Type_NONE {
+		if sDef.GetType() == surfacerpb.Type_NONE {
 			continue
 		}
 		s, err := initSurfacer(sDef)

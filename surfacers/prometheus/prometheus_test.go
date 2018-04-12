@@ -26,6 +26,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
+	configpb "github.com/google/cloudprober/surfacers/prometheus/proto"
 )
 
 func newEventMetrics(sent, rcvd int64, respCodes map[string]int64, ptype, probe string) *metrics.EventMetrics {
@@ -80,7 +81,7 @@ type testData struct {
 }
 
 func newPromSurfacer(t *testing.T, writeTimestamp bool) *PromSurfacer {
-	c := &SurfacerConf{
+	c := &configpb.SurfacerConf{
 		// Attach a random integer to metrics URL so that multiple
 		// tests can run in parallel without handlers clashing with
 		// each other.
