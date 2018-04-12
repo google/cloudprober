@@ -24,6 +24,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/targets"
+	targetspb "github.com/google/cloudprober/targets/proto"
 	"github.com/google/cloudprober/targets/testdata"
 )
 
@@ -88,9 +89,9 @@ func TestList(t *testing.T) {
 	}
 
 	for id, r := range rows {
-		targetsDef := &targets.TargetsDef{
+		targetsDef := &targetspb.TargetsDef{
 			Regex: proto.String(r.re),
-			Type: &targets.TargetsDef_HostNames{
+			Type: &targetspb.TargetsDef_HostNames{
 				HostNames: strings.Join(r.hosts, ","),
 			},
 		}
@@ -114,9 +115,9 @@ func TestList(t *testing.T) {
 }
 
 func TestDummyTargets(t *testing.T) {
-	targetsDef := &targets.TargetsDef{
-		Type: &targets.TargetsDef_DummyTargets{
-			DummyTargets: &targets.DummyTargets{},
+	targetsDef := &targetspb.TargetsDef{
+		Type: &targetspb.TargetsDef_DummyTargets{
+			DummyTargets: &targetspb.DummyTargets{},
 		},
 	}
 	l := &logger.Logger{}
@@ -164,7 +165,7 @@ func (tgts *testTargetsType) Resolve(name string, ipVer int) (net.IP, error) {
 }
 
 func TestGetExtensionTargets(t *testing.T) {
-	targetsDef := &targets.TargetsDef{}
+	targetsDef := &targetspb.TargetsDef{}
 
 	// This has the same effect as using the following in your config:
 	// targets {

@@ -30,13 +30,14 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/logger"
+	rpb "github.com/google/cloudprober/targets/rtc/rtcreporter/proto"
 	"github.com/google/cloudprober/targets/rtc/rtcservice"
 )
 
 // Reporter provides the means and configuration for a cloudprober instance to
 // report its sysVars to a set of RTC configs.
 type Reporter struct {
-	pb         *RtcReportOptions
+	pb         *rpb.RtcReportOptions
 	cfgs       []rtcservice.Config
 	sysVars    map[string]string
 	reportVars []string
@@ -46,7 +47,7 @@ type Reporter struct {
 
 // New returns a Reporter from a provided configuration. An error will be returned
 // if any of the report_variables are not defined in sysVars.
-func New(pb *RtcReportOptions, sysVars map[string]string, l *logger.Logger) (*Reporter, error) {
+func New(pb *rpb.RtcReportOptions, sysVars map[string]string, l *logger.Logger) (*Reporter, error) {
 	proj, ok := sysVars["project"]
 	if !ok {
 		return nil, errors.New("rtcserve.New: sysVars has no \"project\"")
@@ -97,15 +98,15 @@ func (r *Reporter) Start(ctx context.Context) {
 	}
 }
 
-func (r *Reporter) mkTargetInfo() *RtcTargetInfo {
-	pb := &RtcTargetInfo{
+func (r *Reporter) mkTargetInfo() *rpb.RtcTargetInfo {
+	pb := &rpb.RtcTargetInfo{
 		InstanceName: proto.String(r.sysVars["hostname"]),
 		Groups:       r.groups,
 	}
 
-	addresses := make([]*RtcTargetInfo_Address, len(r.reportVars))
+	addresses := make([]*rpb.RtcTargetInfo_Address, len(r.reportVars))
 	for i, v := range r.reportVars {
-		addresses[i] = &RtcTargetInfo_Address{
+		addresses[i] = &rpb.RtcTargetInfo_Address{
 			Tag:     proto.String(v),
 			Address: proto.String(r.sysVars[v]),
 		}

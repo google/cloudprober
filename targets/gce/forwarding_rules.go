@@ -23,6 +23,7 @@ import (
 
 	"cloud.google.com/go/compute/metadata"
 	"github.com/google/cloudprober/logger"
+	configpb "github.com/google/cloudprober/targets/gce/proto"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	compute "google.golang.org/api/compute/v1"
@@ -128,7 +129,7 @@ func getLocalRegion() (string, error) {
 
 // newForwardingrules will (if needed) initialize and return the
 // globalForwardingRules singleton.
-func newForwardingRules(project string, opts *GlobalOptions, l *logger.Logger) (*forwardingRules, error) {
+func newForwardingRules(project string, opts *configpb.GlobalOptions, l *logger.Logger) (*forwardingRules, error) {
 	reEvalInterval := time.Duration(opts.GetReEvalSec()) * time.Second
 
 	var localRegion string

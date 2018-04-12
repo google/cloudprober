@@ -28,6 +28,7 @@ import (
 
 	"cloud.google.com/go/compute/metadata"
 	"github.com/google/cloudprober/logger"
+	configpb "github.com/google/cloudprober/targets/lameduck/proto"
 	"github.com/google/cloudprober/targets/rtc/rtcservice"
 	runtimeconfig "google.golang.org/api/runtimeconfig/v1beta1"
 )
@@ -48,7 +49,7 @@ var global struct {
 // Service provides methods to do lameduck operations on VMs.
 type Service struct {
 	rtc            rtcservice.Config
-	opts           *Options
+	opts           *configpb.Options
 	expirationTime time.Duration
 	l              *logger.Logger
 
@@ -120,7 +121,7 @@ func (ldSvc *Service) List() ([]string, error) {
 // NewService creates a new lameduck Service using the provided config options
 // and an oauth2 enabled *http.Client; if the client is set to nil, an oauth
 // enabled client is created automatically using GCP default credentials.
-func NewService(optsProto *Options, c *http.Client, l *logger.Logger) (*Service, error) {
+func NewService(optsProto *configpb.Options, c *http.Client, l *logger.Logger) (*Service, error) {
 	if optsProto == nil {
 		return nil, fmt.Errorf("lameduck.Init: failed to construct lameduck Service: no lameDuckOptions given")
 	}
@@ -161,7 +162,7 @@ func NewService(optsProto *Options, c *http.Client, l *logger.Logger) (*Service,
 // new lameduck service is created using the config options, and global.lister
 // is set to that service. Initiating the package from a given lister is useful
 // for testing pacakges that depend on this package.
-func InitDefaultLister(optsProto *Options, lister Lister, l *logger.Logger) error {
+func InitDefaultLister(optsProto *configpb.Options, lister Lister, l *logger.Logger) error {
 	global.mu.Lock()
 	defer global.mu.Unlock()
 	// Make sure we only initialize global.lister once.

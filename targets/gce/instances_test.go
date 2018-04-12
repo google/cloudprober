@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	"github.com/golang/protobuf/proto"
+	configpb "github.com/google/cloudprober/targets/gce/proto"
 	compute "google.golang.org/api/compute/v1"
 )
 
@@ -94,17 +95,17 @@ func TestInstancesTargets(t *testing.T) {
 	// Targets, with first NIC and private IP
 	// #################################################################
 	tgts := &instances{
-		pb: &Instances{},
+		pb: &configpb.Instances{},
 	}
 	testListAndResolve(t, tgts, testInstances, testIndex, "private")
 
 	// #################################################################
 	// Targets, with first NIC and public IP
 	// #################################################################
-	ipType := Instances_NetworkInterface_PUBLIC
+	ipType := configpb.Instances_NetworkInterface_PUBLIC
 	tgts = &instances{
-		pb: &Instances{
-			NetworkInterface: &Instances_NetworkInterface{
+		pb: &configpb.Instances{
+			NetworkInterface: &configpb.Instances_NetworkInterface{
 				IpType: &ipType,
 			},
 		},
@@ -114,10 +115,10 @@ func TestInstancesTargets(t *testing.T) {
 	// #################################################################
 	// Targets, with first NIC and alias IP
 	// #################################################################
-	ipType = Instances_NetworkInterface_ALIAS
+	ipType = configpb.Instances_NetworkInterface_ALIAS
 	tgts = &instances{
-		pb: &Instances{
-			NetworkInterface: &Instances_NetworkInterface{
+		pb: &configpb.Instances{
+			NetworkInterface: &configpb.Instances_NetworkInterface{
 				IpType: &ipType,
 			},
 		},
@@ -130,8 +131,8 @@ func TestInstancesTargets(t *testing.T) {
 	// #################################################################
 	testIndex = 1
 	tgts = &instances{
-		pb: &Instances{
-			NetworkInterface: &Instances_NetworkInterface{
+		pb: &configpb.Instances{
+			NetworkInterface: &configpb.Instances_NetworkInterface{
 				Index: proto.Int32(int32(testIndex)),
 			},
 		},
@@ -144,10 +145,10 @@ func TestInstancesTargets(t *testing.T) {
 	// second NIC and second instance's second NIC doesn't have public IP
 	// ##################################################################
 	testIndex = 1
-	ipType = Instances_NetworkInterface_PUBLIC
+	ipType = configpb.Instances_NetworkInterface_PUBLIC
 	tgts = &instances{
-		pb: &Instances{
-			NetworkInterface: &Instances_NetworkInterface{
+		pb: &configpb.Instances{
+			NetworkInterface: &configpb.Instances_NetworkInterface{
 				Index:  proto.Int32(int32(testIndex)),
 				IpType: &ipType,
 			},

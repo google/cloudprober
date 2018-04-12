@@ -7,7 +7,7 @@ import "github.com/google/cloudprober/probes/external/proto/config.proto";
 import "github.com/google/cloudprober/probes/ping/proto/config.proto";
 import "github.com/google/cloudprober/probes/udp/config.proto";
 import "github.com/google/cloudprober/probes/udplistener/config.proto";
-import "github.com/google/cloudprober/targets/targets.proto";
+import "github.com/google/cloudprober/targets/proto/targets.proto";
 
 package cloudprober.probes;
 
