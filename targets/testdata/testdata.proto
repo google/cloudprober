@@ -1,6 +1,6 @@
 syntax = "proto2";
 
-import "github.com/google/cloudprober/targets/targets.proto";
+import "github.com/google/cloudprober/targets/proto/targets.proto";
 
 package cloudprober.targets.testdata;
 

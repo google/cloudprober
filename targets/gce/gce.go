@@ -54,6 +54,7 @@ import (
 
 	"cloud.google.com/go/compute/metadata"
 	"github.com/google/cloudprober/logger"
+	configpb "github.com/google/cloudprober/targets/gce/proto"
 	dnsRes "github.com/google/cloudprober/targets/resolver"
 )
 
@@ -70,7 +71,7 @@ type Targets interface {
 }
 
 // New is a helper function to unpack a Targets proto into a Targets interface.
-func New(conf *TargetsConf, opts *GlobalOptions, res *dnsRes.Resolver, log *logger.Logger) (t Targets, err error) {
+func New(conf *configpb.TargetsConf, opts *configpb.GlobalOptions, res *dnsRes.Resolver, log *logger.Logger) (t Targets, err error) {
 	proj := conf.GetProject()
 	if proj == "" {
 		if !metadata.OnGCE() {
@@ -82,9 +83,9 @@ func New(conf *TargetsConf, opts *GlobalOptions, res *dnsRes.Resolver, log *logg
 		}
 	}
 	switch conf.Type.(type) {
-	case *TargetsConf_Instances:
+	case *configpb.TargetsConf_Instances:
 		t, err = newInstances(proj, opts, conf.GetInstances(), res, log)
-	case *TargetsConf_ForwardingRules:
+	case *configpb.TargetsConf_ForwardingRules:
 		t, err = newForwardingRules(proj, opts, log)
 	default:
 		err = errors.New("unknown GCE targets type")

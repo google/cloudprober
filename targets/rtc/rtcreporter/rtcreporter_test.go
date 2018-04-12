@@ -20,6 +20,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/logger"
+	rpb "github.com/google/cloudprober/targets/rtc/rtcreporter/proto"
 	"github.com/google/cloudprober/targets/rtc/rtcservice"
 	"github.com/kylelemons/godebug/pretty"
 )
@@ -85,7 +86,7 @@ func TestReport(t *testing.T) {
 	if err != nil {
 		t.Fatalf("r.cfgs[0].Val(vars[0]) returned error: Error %v", err)
 	}
-	pb := &RtcTargetInfo{}
+	pb := &rpb.RtcTargetInfo{}
 	if err := proto.Unmarshal(v, pb); err != nil {
 		t.Fatalf("Got error unmarshaling protobuf: %v", err)
 	}

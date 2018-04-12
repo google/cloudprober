@@ -25,7 +25,7 @@ import (
 	"github.com/google/cloudprober/probes/options"
 	configpb "github.com/google/cloudprober/probes/proto"
 	"github.com/google/cloudprober/probes/testdata"
-	"github.com/google/cloudprober/targets"
+	targetspb "github.com/google/cloudprober/targets/proto"
 )
 
 var testProbeIntialized int
@@ -43,8 +43,8 @@ func TestGetExtensionProbe(t *testing.T) {
 	probeDef := &configpb.ProbeDef{
 		Name: proto.String("ext-probe"),
 		Type: configpb.ProbeDef_EXTENSION.Enum(),
-		Targets: &targets.TargetsDef{
-			Type: &targets.TargetsDef_DummyTargets{},
+		Targets: &targetspb.TargetsDef{
+			Type: &targetspb.TargetsDef_DummyTargets{},
 		},
 	}
 

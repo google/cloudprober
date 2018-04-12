@@ -1,9 +1,9 @@
 // Provides all configuration necessary to list targets for a cloudprober probe.
 syntax = "proto2";
 
-import "github.com/google/cloudprober/targets/lameduck/config.proto";
-import "github.com/google/cloudprober/targets/gce/config.proto";
-import "github.com/google/cloudprober/targets/rtc/config.proto";
+import "github.com/google/cloudprober/targets/lameduck/proto/config.proto";
+import "github.com/google/cloudprober/targets/gce/proto/config.proto";
+import "github.com/google/cloudprober/targets/rtc/proto/config.proto";
 
 package cloudprober.targets;
 
