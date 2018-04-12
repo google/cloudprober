@@ -16,10 +16,12 @@ package surfacers
 
 import (
 	"testing"
+
+	surfacerpb "github.com/google/cloudprober/surfacers/proto"
 )
 
 func TestDefaultConfig(t *testing.T) {
-	s, err := Init([]*SurfacerDef{})
+	s, err := Init([]*surfacerpb.SurfacerDef{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -29,7 +31,7 @@ func TestDefaultConfig(t *testing.T) {
 }
 
 func TestEmptyConfig(t *testing.T) {
-	s, err := Init([]*SurfacerDef{&SurfacerDef{}})
+	s, err := Init([]*surfacerpb.SurfacerDef{&surfacerpb.SurfacerDef{}})
 	if err != nil {
 		t.Fatal(err)
 	}
