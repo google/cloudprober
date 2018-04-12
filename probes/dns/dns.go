@@ -118,7 +118,7 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	// internally and the underlying net.Conn declares that multiple goroutines
 	// may invoke methods on a net.Conn simultaneously.
 	p.msg = new(dns.Msg)
-	p.msg.SetQuestion(dns.Fqdn(p.c.GetResolvedDomain()), dns.TypeMX)
+	p.msg.SetQuestion(dns.Fqdn(p.c.GetResolvedDomain()), dns.TypeA)
 
 	p.client = new(ClientImpl)
 	// Use ReadTimeout because DialTimeout for UDP is not the RTT.
@@ -169,9 +169,14 @@ func (p *Probe) runProbe(resultsChan chan<- probeutils.ProbeResult) {
 			} else {
 				if resp == nil {
 					p.l.Warningf("Target(%s): Response is nil, but error is also nil", fullTarget)
+					result.success.Inc()
+					result.latency.AddFloat64(latency.Seconds() / p.opts.LatencyUnit.Seconds())
 				}
-				result.success.Inc()
-				result.latency.AddFloat64(latency.Seconds() / p.opts.LatencyUnit.Seconds())
+				if len(resp.Answer) == 0 {
+					p.l.Warningf("Target(%s): Response exists, but it didnt resolve", fullTarget)
+					result.latency.AddFloat64(latency.Seconds() / p.opts.LatencyUnit.Seconds())
+				}
+
 			}
 
 			resultsChan <- result
