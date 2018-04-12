@@ -49,6 +49,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/probes/external/serverutils"
+	epb "github.com/google/cloudprober/probes/external/proto"
 	"github.com/hoisie/redis"
 )
 
@@ -83,7 +84,7 @@ func probe() (string, error) {
 func main() {
 	flag.Parse()
 	if *server {
-		serverutils.Serve(func(request *serverutils.ProbeRequest, reply *serverutils.ProbeReply) {
+		serverutils.Serve(func(request *epb.ProbeRequest, reply *epb.ProbeReply) {
 			payload, err := probe()
 			reply.Payload = proto.String(payload)
 			if err != nil {
