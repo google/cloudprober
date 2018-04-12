@@ -25,6 +25,7 @@ import (
 	"github.com/google/cloudprober/probes/options"
 	"github.com/google/cloudprober/probes/testdata"
 	"github.com/google/cloudprober/targets"
+	configpb "github/google.com/cloudprober/probes/proto"
 )
 
 var testProbeIntialized int

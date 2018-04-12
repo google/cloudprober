@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 2017-2018 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,6 +30,7 @@ import (
 	"github.com/google/cloudprober/probes/http"
 	"github.com/google/cloudprober/probes/options"
 	"github.com/google/cloudprober/targets"
+	configpb "github/google.com/cloudprober/probes/http/proto"
 )
 
 var (

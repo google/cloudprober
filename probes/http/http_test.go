@@ -24,6 +24,7 @@ import (
 	"github.com/google/cloudprober/probes/options"
 	"github.com/google/cloudprober/probes/probeutils"
 	"github.com/google/cloudprober/targets"
+	configpb "github/google.com/cloudprober/probes/http/proto"
 )
 
 // The Transport is mocked instead of the Client because Client is not an
@@ -55,7 +56,7 @@ func TestRun(t *testing.T) {
 		Targets:  targets.StaticTargets("test.com"),
 		Interval: 2 * time.Second,
 		Timeout:  time.Second,
-		ProbeConf: &ProbeConf{
+		ProbeConf: &configpb.ProbeConf{
 			RequestsPerProbe:        proto.Int32(1),
 			StatsExportIntervalMsec: proto.Int32(1000),
 		},
