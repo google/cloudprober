@@ -24,6 +24,7 @@ import (
 	"strings"
 	"sync"
 
+	distpb "github.com/google/cloudprober/metrics/proto"
 	"google.golang.org/api/googleapi"
 	monitoring "google.golang.org/api/monitoring/v3"
 )
@@ -48,9 +49,9 @@ func NewDistribution(lowerBounds []float64) *Distribution {
 
 // NewDistributionFromProto returns a new distribution based on the provided
 // protobuf.
-func NewDistributionFromProto(distProto *Dist) (*Distribution, error) {
+func NewDistributionFromProto(distProto *distpb.Dist) (*Distribution, error) {
 	switch distProto.Buckets.(type) {
-	case *Dist_ExplicitBuckets:
+	case *distpb.Dist_ExplicitBuckets:
 		lbStringA := strings.Split(distProto.GetExplicitBuckets(), ",")
 		lowerBounds := make([]float64, len(lbStringA))
 		for i, tok := range lbStringA {
@@ -61,7 +62,7 @@ func NewDistributionFromProto(distProto *Dist) (*Distribution, error) {
 			lowerBounds[i] = lb
 		}
 		return NewDistribution(lowerBounds), nil
-	case *Dist_ExponentialBuckets:
+	case *distpb.Dist_ExponentialBuckets:
 		return nil, errors.New("exponential buckets are not supported yet")
 	}
 	return nil, fmt.Errorf("unknown buckets type: %v", distProto.Buckets)

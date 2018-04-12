@@ -1,6 +1,6 @@
 syntax = "proto2";
 
-import "github.com/google/cloudprober/metrics/dist.proto";
+import "github.com/google/cloudprober/metrics/proto/dist.proto";
 import "github.com/google/cloudprober/probes/http/proto/config.proto";
 import "github.com/google/cloudprober/probes/dns/proto/config.proto";
 import "github.com/google/cloudprober/probes/external/proto/config.proto";

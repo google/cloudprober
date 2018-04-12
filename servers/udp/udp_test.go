@@ -25,6 +25,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/logger"
+	configpb "github.com/google/cloudprober/servers/udp/proto"
 )
 
 // Return true if the underlying error indicates a udp.Client timeout.
@@ -34,7 +35,7 @@ func isClientTimeout(err error) bool {
 	return ok && e != nil && e.Timeout()
 }
 
-func sendAndTestResponse(t *testing.T, c *ServerConf, conn net.Conn) {
+func sendAndTestResponse(t *testing.T, c *configpb.ServerConf, conn net.Conn) {
 	size := rand.Intn(1024)
 	data := make([]byte, size)
 	rand.Read(data)
@@ -49,7 +50,7 @@ func sendAndTestResponse(t *testing.T, c *ServerConf, conn net.Conn) {
 	}
 
 	switch c.GetType() {
-	case ServerConf_ECHO:
+	case configpb.ServerConf_ECHO:
 		rcvd := make([]byte, size)
 		n, err := conn.Read(rcvd)
 		if err != nil {
@@ -62,7 +63,7 @@ func sendAndTestResponse(t *testing.T, c *ServerConf, conn net.Conn) {
 		if !bytes.Equal(data, rcvd) {
 			t.Errorf("Data mismatch: Sent '%v', Got '%v'", data, rcvd)
 		}
-	case ServerConf_DISCARD:
+	case configpb.ServerConf_DISCARD:
 		timeout := time.Duration(10) * time.Millisecond
 		conn.SetReadDeadline(time.Now().Add(timeout))
 		rcvd := make([]byte, size)
@@ -81,22 +82,22 @@ func sendAndTestResponse(t *testing.T, c *ServerConf, conn net.Conn) {
 }
 
 func TestEchoServer(t *testing.T) {
-	testConfig := &ServerConf{
+	testConfig := &configpb.ServerConf{
 		Port: proto.Int32(int32(0)),
-		Type: ServerConf_ECHO.Enum(),
+		Type: configpb.ServerConf_ECHO.Enum(),
 	}
 	testServer(t, testConfig)
 }
 
 func TestDiscardServer(t *testing.T) {
-	testConfig := &ServerConf{
+	testConfig := &configpb.ServerConf{
 		Port: proto.Int32(int32(0)),
-		Type: ServerConf_DISCARD.Enum(),
+		Type: configpb.ServerConf_DISCARD.Enum(),
 	}
 	testServer(t, testConfig)
 }
 
-func testServer(t *testing.T, testConfig *ServerConf) {
+func testServer(t *testing.T, testConfig *configpb.ServerConf) {
 	l := &logger.Logger{}
 	server, err := New(context.Background(), testConfig, l)
 	if err != nil {

@@ -1,7 +1,7 @@
 syntax = "proto2";
 
-import "github.com/google/cloudprober/servers/http/config.proto";
-import "github.com/google/cloudprober/servers/udp/config.proto";
+import "github.com/google/cloudprober/servers/http/proto/config.proto";
+import "github.com/google/cloudprober/servers/udp/proto/config.proto";
 
 package cloudprober.servers;
 
