@@ -74,6 +74,7 @@ import (
 
 	"cloud.google.com/go/compute/metadata"
 	"github.com/golang/protobuf/proto"
+	"os"
 )
 
 // ReadFromGCEMetadata reads the config from the GCE metadata. To allow for
@@ -98,6 +99,17 @@ func DefaultConfig() string {
 	return proto.MarshalTextString(&ProberConfig{})
 }
 
+type OptionalString struct {
+	ptr *string
+}
+
+func (s OptionalString) String() string {
+	if s.ptr == nil {
+		return ""
+	}
+	return *s.ptr
+}
+
 // ParseTemplate processes a config file as a Go text template.
 func ParseTemplate(config string, sysVars map[string]string) (string, error) {
 	funcMap := map[string]interface{}{
@@ -117,6 +129,13 @@ func ParseTemplate(config string, sysVars map[string]string) (string, error) {
 				return "", fmt.Errorf("Match number %d not found. Regex: %s, String: %s", n, re, s)
 			}
 			return matches[n], nil
+		},
+		"env" : func(key string) OptionalString {
+			value, ok := os.LookupEnv(key)
+			if !ok {
+				return OptionalString{nil}
+			}
+			return OptionalString{&value}
 		},
 	}
 	configTmpl, err := template.New("cloudprober_cfg").Funcs(funcMap).Parse(config)
