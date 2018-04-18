@@ -31,8 +31,9 @@ docker run --net host cloudprober/cloudprober
 Without any config, cloudprober will run only the "sysvars" module (no probes)
 and write metrics to stdout in cloudprober's line protocol format (to be
 documented). It will also start a [Prometheus](http://prometheus.io) exporter
-at: http://localhost:9313 (you can change the default port through the
-environment variable _CLOUDPROBER_PORT_).
+at: http://localhost:9313 listening on all addresses. (you can change the default
+port through the environment varible _CLOUDPROBER_PORT_ and the default listening
+address through the environment variable _CLOUDPROBER_HOST_).
 
 Since sysvars variables are not very interesting themselves, lets add a simple
 config that probes Google's homepage:

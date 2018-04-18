@@ -57,4 +57,9 @@ message ProberConfig {
   // Global targets options. Per-probe options are specified within the probe
   // stanza.
   optional targets.GlobalTargetsOptions global_targets_options = 100;
+
+  // Host for the default HTTP server. Default listens on all addresses. If not
+  // specified in the config, default port can be overridden by the environment
+  // variable CLOUDPROBER_HOST.
+  optional string host = 101;
 }

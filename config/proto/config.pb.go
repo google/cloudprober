@@ -46,6 +46,11 @@ type ProberConfig struct {
 	// exporter (URL /metrics). Default port is 9313. If not specified in the
 	// config, default port can be overridden by the environment variable
 	// CLOUDPROBER_PORT.
+	Host *string `protobuf:"bytes,101,opt,name=host" json:"host,omitempty"`
+	// Port for the default HTTP server. This port is also used for prometheus
+	// exporter (URL /metrics). Default port is 9313. If not specified in the
+	// config, default port can be overridden by the environment variable
+	// CLOUDPROBER_PORT.
 	Port *int32 `protobuf:"varint,96,opt,name=port" json:"port,omitempty"`
 	// How often to export system variables. To learn more about system variables:
 	// http://godoc.org/github.com/google/cloudprober/sysvars.
@@ -122,6 +127,13 @@ func (m *ProberConfig) GetRdsServer() *proto4.ServerConf {
 		return m.RdsServer
 	}
 	return nil
+}
+
+func (m *ProberConfig) GetHost() string {
+	if m != nil && m.Host != nil {
+		return *m.Host
+	}
+	return ""
 }
 
 func (m *ProberConfig) GetPort() int32 {
