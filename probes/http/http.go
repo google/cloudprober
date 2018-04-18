@@ -30,6 +30,8 @@ import (
 	configpb "github.com/google/cloudprober/probes/http/proto"
 	"github.com/google/cloudprober/probes/options"
 	"github.com/google/cloudprober/probes/probeutils"
+	"net/http/httptrace"
+	"crypto/tls"
 )
 
 const (
@@ -56,13 +58,17 @@ type Probe struct {
 // types instead of metrics.AtomicInt.
 // probeRunResult implements the probeutils.ProbeResult interface.
 type probeRunResult struct {
-	target     string
-	total      metrics.Int
-	success    metrics.Int
-	latency    metrics.Value
-	timeouts   metrics.Int
-	respCodes  *metrics.Map
-	respBodies *metrics.Map
+	target              string
+	total               metrics.Int
+	success             metrics.Int
+	latency             metrics.Value
+	dnsLatency          metrics.Value
+	connLatency         metrics.Value
+	tlsHandshakeLatency metrics.Value
+	reqLatancy          metrics.Value
+	timeouts            metrics.Int
+	respCodes           *metrics.Map
+	respBodies          *metrics.Map
 }
 
 func newProbeRunResult(target string, opts *options.Options) probeRunResult {
@@ -76,6 +82,10 @@ func newProbeRunResult(target string, opts *options.Options) probeRunResult {
 	} else {
 		prr.latency = metrics.NewFloat(0)
 	}
+	prr.dnsLatency = metrics.NewFloat(0)
+	prr.connLatency = metrics.NewFloat(0)
+	prr.tlsHandshakeLatency = metrics.NewFloat(0)
+	prr.reqLatancy = metrics.NewFloat(0)
 	return prr
 }
 
@@ -86,6 +96,10 @@ func (prr probeRunResult) Metrics() *metrics.EventMetrics {
 	return metrics.NewEventMetrics(time.Now()).
 		AddMetric("total", &prr.total).
 		AddMetric("success", &prr.success).
+		AddMetric("dns_latency", prr.dnsLatency).
+		AddMetric("conn_latency", prr.connLatency).
+		AddMetric("tls_handshake_latency", prr.tlsHandshakeLatency).
+		AddMetric("req_latency", prr.reqLatancy).
 		AddMetric("latency", prr.latency).
 		AddMetric("timeouts", &prr.timeouts).
 		AddMetric("resp-code", prr.respCodes).
@@ -195,9 +209,28 @@ func (p *Probe) runProbe(resultsChan chan<- probeutils.ProbeResult) {
 
 			for i := 0; i < int(p.c.GetRequestsPerProbe()); i++ {
 				start := time.Now()
+				var dnsLatency, connLatency, reqLatancy, tlsHandshakeLatency, latency time.Duration
 				result.total.Inc()
-				resp, err := p.client.Do(req)
-				latency := time.Since(start)
+				trace := &httptrace.ClientTrace{
+
+					DNSDone: func(_ httptrace.DNSDoneInfo) {
+						dnsLatency = time.Since(start)
+					},
+					ConnectDone: func(_, _ string, _ error) {
+						connLatency = time.Since(start)
+					},
+					TLSHandshakeDone: func(_ tls.ConnectionState, _ error) {
+						tlsHandshakeLatency = time.Since(start)
+					},
+					WroteRequest: func(_ httptrace.WroteRequestInfo) {
+						reqLatancy = time.Since(start)
+					},
+					GotFirstResponseByte: func() {
+						latency = time.Since(start)
+					},
+				}
+				req = req.WithContext(httptrace.WithClientTrace(req.Context(), trace))
+				resp, err := p.client.Transport.RoundTrip(req)
 
 				if err != nil {
 					if isClientTimeout(err) {
@@ -223,6 +256,10 @@ func (p *Probe) runProbe(resultsChan chan<- probeutils.ProbeResult) {
 						}
 					}
 					result.success.Inc()
+					result.dnsLatency.AddFloat64(dnsLatency.Seconds() / p.opts.LatencyUnit.Seconds())
+					result.connLatency.AddFloat64(connLatency.Seconds() / p.opts.LatencyUnit.Seconds())
+					result.tlsHandshakeLatency.AddFloat64(tlsHandshakeLatency.Seconds() / p.opts.LatencyUnit.Seconds())
+					result.reqLatancy.AddFloat64(reqLatancy.Seconds() / p.opts.LatencyUnit.Seconds())
 					result.latency.AddFloat64(latency.Seconds() / p.opts.LatencyUnit.Seconds())
 					if p.c.GetExportResponseAsMetrics() {
 						if len(respBody) <= maxResponseSizeForMetrics {
