@@ -74,7 +74,7 @@ func (em *EventMetrics) AddMetric(name string, val Value) *EventMetrics {
 	defer em.mu.Unlock()
 
 	if _, ok := em.metrics[name]; ok {
-		// TODO: We should probably log such cases. We'll have to
+		// TODO(manugarg): We should probably log such cases. We'll have to
 		// plumb logger for that.
 		return em
 	}
@@ -110,7 +110,7 @@ func (em *EventMetrics) AddLabel(name string, val string) *EventMetrics {
 	em.mu.Lock()
 	defer em.mu.Unlock()
 	if _, ok := em.labels[name]; ok {
-		// TODO: We should probably log such cases. We'll have to
+		// TODO(manugarg): We should probably log such cases. We'll have to
 		// plumb logger for that.
 		return em
 	}

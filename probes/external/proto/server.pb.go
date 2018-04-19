@@ -89,7 +89,7 @@ type ProbeReply struct {
 	// The result of the probe. Cloudprober parses the payload to retrieve
 	// variables from it. It expects variables in the following format:
 	// var1 value1 (for example: total_errors 589)
-	// TODO: Add an option to export mapped variables, for example:
+	// TODO(manugarg): Add an option to export mapped variables, for example:
 	// client-errors map:lang java:200 python:20 golang:3
 	Payload          *string `protobuf:"bytes,3,opt,name=payload" json:"payload,omitempty"`
 	XXX_unrecognized []byte  `json:"-"`

@@ -61,7 +61,7 @@ func initSurfacer(s *surfacerpb.SurfacerDef) (Surfacer, error) {
 		logName = strings.ToLower(s.GetType().String())
 	}
 
-	// TODO: Plumb context here too.
+	// TODO(manugarg): Plumb context here too.
 	l, err := logger.New(context.TODO(), logName)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create cloud logger: %v", err)

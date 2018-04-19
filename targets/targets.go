@@ -258,7 +258,7 @@ func New(targetsDef *targetspb.TargetsDef, ldLister lameduck.Lister, targetOpts 
 		}
 		t.lister, t.resolver = s, s
 	case *targetspb.TargetsDef_RtcTargets:
-		// TODO: we should really consolidate all these metadata calls
+		// TODO(izzycecil): we should really consolidate all these metadata calls
 		// to one place.
 		proj, err := metadata.ProjectID()
 		if err != nil {
@@ -318,7 +318,7 @@ func getExtensionTargets(pb *targetspb.TargetsDef, l *logger.Logger) (Targets, e
 // RegisterTargetsType registers a new targets type. New targets types are
 // integrated with the config subsystem using the protobuf extensions.
 //
-// TODO: Add a full example of using extensions.
+// TODO(manugarg): Add a full example of using extensions.
 func RegisterTargetsType(extensionFieldNo int, newTargetsFunc func(interface{}, *logger.Logger) (Targets, error)) {
 	extensionMapMu.Lock()
 	defer extensionMapMu.Unlock()

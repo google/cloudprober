@@ -32,7 +32,7 @@ type ProbeConf struct {
 	StatsExportIntervalMsec *int32 `protobuf:"varint,2,opt,name=stats_export_interval_msec,json=statsExportIntervalMsec,def=10000" json:"stats_export_interval_msec,omitempty"`
 	// Port to send UDP Ping to (UDP Echo).  Should be same as
 	// ProberConfig.udp_echo_server_port.
-	// TODO: Can we just read this from ProberConfig?
+	// TODO(): Can we just read this from ProberConfig?
 	Port *int32 `protobuf:"varint,3,opt,name=port,def=31122" json:"port,omitempty"`
 	// Number of sending side ports to use.
 	NumTxPorts *int32 `protobuf:"varint,4,opt,name=num_tx_ports,json=numTxPorts,def=16" json:"num_tx_ports,omitempty"`

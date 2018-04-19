@@ -164,7 +164,7 @@ func (pr *Prober) init() error {
 	}
 
 	// Initialize servers
-	// TODO: Plumb init context from cmd/cloudprober.
+	// TODO(manugarg): Plumb init context from cmd/cloudprober.
 	initCtx, cancelFunc := context.WithCancel(context.TODO())
 	pr.Servers, err = servers.Init(initCtx, pr.c.GetServer())
 	if err != nil {

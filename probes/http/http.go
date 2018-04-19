@@ -155,13 +155,55 @@ func isClientTimeout(err error) bool {
 	return false
 }
 
-func (p *Probe) runProbe(resultsChan chan<- probeutils.ProbeResult) {
+// httpRequest executes an HTTP request and updates the provided result struct.
+func (p *Probe) httpRequest(req *http.Request, result *probeRunResult) {
+	start := time.Now()
+	result.total.Inc()
+	resp, err := p.client.Do(req)
+	latency := time.Since(start)
 
+	if err != nil {
+		if isClientTimeout(err) {
+			p.l.Warningf("Target:%s, URL:%s, http.runProbe: timeout error: %v", req.Host, req.URL.String(), err)
+			result.timeouts.Inc()
+			return
+		}
+		p.l.Warningf("Target(%s): client.Get: %v", req.Host, err)
+		return
+	}
+
+	respBody, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		p.l.Warningf("Target:%s, URL:%s, http.runProbe: error in reading response from target: %v", req.Host, req.URL.String(), err)
+		return
+	}
+
+	// Calling Body.Close() allows the TCP connection to be reused.
+	resp.Body.Close()
+	result.respCodes.IncKey(fmt.Sprintf("%d", resp.StatusCode))
+	if p.c.GetIntegrityCheckPattern() != "" && resp.StatusCode == http.StatusOK {
+		err := probeutils.VerifyPayloadPattern(respBody, []byte(p.c.GetIntegrityCheckPattern()))
+		if err != nil {
+			// TODO(manugarg): Increment a counter on data corruption.
+			p.l.Errorf("Target:%s, URL:%s, http.runProbe: possible data corruption, response integrity check failed: %s", req.Host, req.URL.String(), err.Error())
+			return
+		}
+	}
+
+	result.success.Inc()
+	result.latency.AddFloat64(latency.Seconds() / p.opts.LatencyUnit.Seconds())
+	if p.c.GetExportResponseAsMetrics() {
+		if len(respBody) <= maxResponseSizeForMetrics {
+			result.respBodies.IncKey(string(respBody))
+		}
+	}
+}
+
+func (p *Probe) runProbe(resultsChan chan<- probeutils.ProbeResult) {
 	// Refresh the list of targets to probe.
 	p.targets = p.opts.Targets.List()
 
 	wg := sync.WaitGroup{}
-
 	for _, target := range p.targets {
 		wg.Add(1)
 
@@ -194,43 +236,7 @@ func (p *Probe) runProbe(resultsChan chan<- probeutils.ProbeResult) {
 			req.Host = target
 
 			for i := 0; i < int(p.c.GetRequestsPerProbe()); i++ {
-				start := time.Now()
-				result.total.Inc()
-				resp, err := p.client.Do(req)
-				latency := time.Since(start)
-
-				if err != nil {
-					if isClientTimeout(err) {
-						p.l.Warningf("Target:%s, URL:%s, http.runProbe: timeout error: %v", target, req.URL.String(), err)
-						result.timeouts.Inc()
-					} else {
-						p.l.Warningf("Target(%s): client.Get: %v", target, err)
-					}
-				} else {
-					respBody, err := ioutil.ReadAll(resp.Body)
-					if err != nil {
-						p.l.Warningf("Target:%s, URL:%s, http.runProbe: error in reading response from target: %v", target, req.URL.String(), err)
-					}
-					// Calling Body.Close() allows the TCP connection to be reused.
-					resp.Body.Close()
-					result.respCodes.IncKey(fmt.Sprintf("%d", resp.StatusCode))
-					if p.c.GetIntegrityCheckPattern() != "" {
-						err := probeutils.VerifyPayloadPattern(respBody, []byte(p.c.GetIntegrityCheckPattern()))
-						if err != nil {
-							// TODO: Increment a counter on data corruption.
-							p.l.Errorf("Target:%s, URL:%s, http.runProbe: possible data corruption, response integrity check failed: %s", target, req.URL.String(), err.Error())
-							continue
-						}
-					}
-					result.success.Inc()
-					result.latency.AddFloat64(latency.Seconds() / p.opts.LatencyUnit.Seconds())
-					if p.c.GetExportResponseAsMetrics() {
-						if len(respBody) <= maxResponseSizeForMetrics {
-							result.respBodies.IncKey(string(respBody))
-						}
-					}
-				}
-
+				p.httpRequest(req, &result)
 				time.Sleep(time.Duration(p.c.GetRequestsIntervalMsec()) * time.Millisecond)
 			}
 			resultsChan <- result
@@ -253,7 +259,7 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 	resultsChan := make(chan probeutils.ProbeResult, len(p.targets))
 
 	// This function is used by StatsKeeper to get the latest list of targets.
-	// TODO: Make p.targets mutex protected as it's read and written by concurrent goroutines.
+	// TODO(manugarg): Make p.targets mutex protected as it's read and written by concurrent goroutines.
 	targetsFunc := func() []string {
 		return p.targets
 	}

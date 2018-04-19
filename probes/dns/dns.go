@@ -188,7 +188,7 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 	resultsChan := make(chan probeutils.ProbeResult, len(p.targets))
 
 	// This function is used by StatsKeeper to get the latest list of targets.
-	// TODO: Make p.targets mutex protected as it's read and written by concurrent goroutines.
+	// TODO(manugarg): Make p.targets mutex protected as it's read and written by concurrent goroutines.
 	targetsFunc := func() []string {
 		return p.targets
 	}

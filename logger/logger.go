@@ -64,7 +64,7 @@ const (
 type Logger struct {
 	logc   *logging.Client
 	logger *logging.Logger
-	// TODO: Logger should eventually embed the probe id and each probe
+	// TODO(manugarg): Logger should eventually embed the probe id and each probe
 	// should get a different Logger object (embedding that probe's probe id) but
 	// sharing the same logging client. We could then make probe id one of the
 	// metadata on all logging messages.

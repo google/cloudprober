@@ -13,7 +13,7 @@ message Options {
 
   // Lame duck targets runtime config name. An operator will create a variable
   // here to mark a target as lame-ducked.
-  // TODO: This name needs to be changed.
+  // TODO(izzycecil): This name needs to be changed.
   optional string runtimeconfig_name = 3 [default = "lame-duck-targets"];
 
   // Lame duck expiration time. We ignore variables (targets) that have been

@@ -30,6 +30,6 @@ func configHandler(w http.ResponseWriter, r *http.Request) {
 // Init initializes cloudprober web interface handler.
 func Init() {
 	http.HandleFunc("/config", configHandler)
-	// TODO: Add a status handler that shows the running probes and
+	// TODO(manugarg): Add a status handler that shows the running probes and
 	// their configs.
 }
