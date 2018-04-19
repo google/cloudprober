@@ -21,7 +21,7 @@ started for each probe run cycle, while in "server" mode, external process is
 started only if it's not running already and Cloudprober communicates with it
 over stdin/stdout for each probe cycle.
 
-TODO: Add a way to test this program. Write another program that
+TODO(manugarg): Add a way to test this program. Write another program that
 implements the probe server protocol and use that for testing.
 */
 package external
@@ -56,7 +56,7 @@ var (
 	// Note that this value impacts the effective timeout for a target as timeout
 	// is applied for all the targets in aggregate. For example, 100th target in
 	// the targets list will have the effective timeout of (timeout - 1ms).
-	// TODO: Make sure that the last target in the list has an impact of
+	// TODO(manugarg): Make sure that the last target in the list has an impact of
 	// less than 1% on its timeout.
 	TimeBetweenRequests = 10 * time.Microsecond
 )

@@ -84,7 +84,7 @@ func New(config *configpb.SurfacerConf, l *logger.Logger) (*SDSurfacer, error) {
 		l:         l,
 	}
 
-	// TODO: Validate that the config has all the necessary
+	// TODO(brrcrites): Validate that the config has all the necessary
 	// values
 
 	// Find all the necessary information for writing metrics to Stack
@@ -103,7 +103,7 @@ func New(config *configpb.SurfacerConf, l *logger.Logger) (*SDSurfacer, error) {
 	}
 
 	// Create monitoring client
-	// TODO: Currently we don't make use of the context to timeout the
+	// TODO(manugarg): Currently we don't make use of the context to timeout the
 	// requests, but we should.
 	httpClient, err := google.DefaultClient(context.TODO(), monitoring.CloudPlatformScope)
 	if err != nil {

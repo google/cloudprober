@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-// TODO: Add more tests after a bit of refactoring.
+// TODO(manugarg): Add more tests after a bit of refactoring.
 
 package lameduck
 

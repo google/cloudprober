@@ -238,7 +238,7 @@ Nextrow:
 		}
 		// List targets
 		gotlist := targs.List()
-		// TODO: Need to catch errors with something like this. This
+		// TODO(izzycecil): Need to catch errors with something like this. This
 		// requires looking at the logger.
 		// if (err != nil) != r.wantError {
 		// 	t.Errorf("%v: targs.List() gave error %q. r.wantError = %v", r.name, err, r.wantError)

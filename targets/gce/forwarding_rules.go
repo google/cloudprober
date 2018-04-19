@@ -49,7 +49,7 @@ var (
 // Note that because this uses the GCLOUD API, GCE staging is unable to use this
 // target type. See b/26320525 for more on this.
 //
-// TODO: The cache layer provided by this, instances, lameduck, and resolver
+// TODO(izzycecil): The cache layer provided by this, instances, lameduck, and resolver
 //               are all pretty similar. RTC will need a similar cache. I should
 //               abstract out this whole cache layer. It will be more testable that
 //               way, and probably more readable, as well.

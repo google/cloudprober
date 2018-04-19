@@ -42,7 +42,7 @@ const (
 	// maxTargets is the maximum number of targets supported by this probe type.
 	// If there are more targets, they are pruned from the list to bring targets
 	// list under maxTargets.
-	// TODO: Make it configurable with documentation on its implication
+	// TODO(manugarg): Make it configurable with documentation on its implication
 	// on resource consumption.
 	maxTargets = 500
 )
@@ -312,7 +312,7 @@ func (p *Probe) runProbe() {
 
 	// Set writeTimeout such that we can go over all targets twice (to provide
 	// enough buffer) within a probe interval.
-	// TODO: Consider using per-conn goroutines to send packets over
+	// TODO(manugarg): Consider using per-conn goroutines to send packets over
 	// UDP sockets just like recvLoop().
 	writeTimeout := p.opts.Interval / time.Duration(2*len(p.targets))
 

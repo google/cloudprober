@@ -103,7 +103,7 @@ func (s *Server) Start(ctx context.Context, dataChan chan<- *metrics.EventMetric
 }
 
 func readAndEcho(conn *net.UDPConn, l *logger.Logger) {
-	// TODO: We read and echo back only 4098 bytes. We should look at raising this
+	// TODO(manugarg): We read and echo back only 4098 bytes. We should look at raising this
 	// limit or making it configurable. Also of note, ReadFromUDP reads a single UDP datagram
 	// (up to the max size of 64K-sizeof(UDPHdr)) and discards the rest.
 	buf := make([]byte, 4098)

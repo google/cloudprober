@@ -9,7 +9,7 @@ message Dist {
     // value. Example: 0.5,1,2,4,8.
     string explicit_buckets = 1;
     // Exponential buckets are not supported yet.
-    // TODO: Implement support for exponential buckets.
+    // TODO(manugarg): Implement support for exponential buckets.
     ExponentialBuckets exponential_buckets = 2;
   }
 }

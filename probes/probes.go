@@ -229,7 +229,7 @@ func RegisterUserDefined(name string, probe Probe) {
 // RegisterProbeType registers a new probe-type. New probe types are integrated
 // with the config subsystem using the protobuf extensions.
 //
-// TODO: Add a full example of using extensions.
+// TODO(manugarg): Add a full example of using extensions.
 func RegisterProbeType(extensionFieldNo int, newProbeFunc func() Probe) {
 	extensionMapMu.Lock()
 	defer extensionMapMu.Unlock()

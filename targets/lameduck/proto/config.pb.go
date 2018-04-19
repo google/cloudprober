@@ -35,7 +35,7 @@ type Options struct {
 	RuntimeconfigProject *string `protobuf:"bytes,2,opt,name=runtimeconfig_project,json=runtimeconfigProject" json:"runtimeconfig_project,omitempty"`
 	// Lame duck targets runtime config name. An operator will create a variable
 	// here to mark a target as lame-ducked.
-	// TODO: This name needs to be changed.
+	// TODO(izzycecil): This name needs to be changed.
 	RuntimeconfigName *string `protobuf:"bytes,3,opt,name=runtimeconfig_name,json=runtimeconfigName,def=lame-duck-targets" json:"runtimeconfig_name,omitempty"`
 	// Lame duck expiration time. We ignore variables (targets) that have been
 	// updated more than these many seconds ago. This is a safety mechanism for
