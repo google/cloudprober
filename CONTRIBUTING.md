@@ -21,3 +21,12 @@ All submissions, including submissions by project members, require review. We
 use GitHub pull requests for this purpose. Consult [GitHub
 Help](https://help.github.com/articles/about-pull-requests/) for more
 information on using pull requests.
+
+## Source of Truth (SoT) and Commit Process
+
+Cloudprober's source of truth is Google's internal copy of the code for various
+reasons. To keep it that way, we first import the proposed pull request into
+the internal copy of the code, get it reviewed internally, and then export it
+back to Github. As a result of this, original PR is eventually discarded and a
+new PR is merged into the master branch. All through this process, author
+attribution is not lost. Final change will still appear to be done by you.
