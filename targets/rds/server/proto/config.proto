@@ -1,0 +1,29 @@
+// Configuration proto for ResourceDiscovery (rds) server.
+// Example config:
+//
+// provider {
+//   id: "gcp"
+//   gcp_config {
+//     project_id: 'test-project-id'
+//     gce_instance {}
+//     forwarding_rules {}
+//   }
+// }
+syntax = "proto2";
+
+import "github.com/google/cloudprober/targets/rds/server/gcp/proto/config.proto";
+
+package cloudprober.targets.rds;
+
+message ServerConf {
+  repeated Provider provider = 1;
+  // Listener address for RDS server.
+  optional string address = 2 [default = ":9314"];
+}
+
+message Provider {
+  required string id = 1;
+  oneof config {
+    gcp.ProviderConfig gcp_config = 2;
+  }
+}
