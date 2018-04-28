@@ -1,0 +1,39 @@
+// Configuration proto for GCE targets.
+// Example config:
+// {
+//   project: 'test-project-id'
+//   gce_instance {}
+//   forwarding_rules {}
+// }
+syntax = "proto2";
+
+package cloudprober.targets.rds.gcp;
+
+message GCEInstances {
+  // Zone filter, e.g. zone_filter: "us-east1-*" for all zones in us-east1
+  // region.
+  optional string zone_filter = 1;
+}
+
+message ForwardingRules {
+  // Region filter, e.g. "region_filter:europe-*"
+  optional string region_filter = 1;
+}
+
+// GCP provider config.
+message ProviderConfig {
+  // GCP projects. If running on GCE, local project is used as the default
+  // value.
+  repeated string project = 2;
+
+  optional GCEInstances gce_instances = 3;
+
+  // Not supported yet.
+  optional ForwardingRules forwarding_rules = 4;
+
+  // How often targets should be evaluated/expanded
+  optional int32 re_eval_sec = 5 [default = 900];  // default 15 min
+
+  // Compute API version.
+  optional string api_version = 6 [default = "v1"];
+}

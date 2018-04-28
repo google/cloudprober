@@ -1,0 +1,81 @@
+syntax = "proto2";
+
+package cloudprober.targets.rds;
+
+service ResourceDiscovery {
+  // ListResources returns the list of resources matching the URI provided in
+  // the request.
+  rpc ListResources(ListResourcesRequest) returns (ListResourcesResponse) {
+  }
+}
+
+message ListResourcesRequest {
+  // Resources to list and the associated IP address that we are interested in.
+  // Example:
+  // {
+  //   provider: "gcp"
+  //   resource_path: "gce_instance/project-1"
+  //   filter {
+  //     key: "name"
+  //     regex: "ig-us-central1-.*"
+  //   }
+  //   ip_config {
+  //     ip_type: PUBLIC
+  //   }
+  // }
+
+  // Provider is the resource list provider, for example: "gcp", "aws", etc.
+  required string provider = 1;
+
+  // Provider specific resource path. For example: for GCP, it could be
+  // "gce_instance/<project>", "regional_forwarding_rules/<project>", etc.
+  optional string resource_path = 2;
+
+  // Filter for the resources list.
+  optional Filter filter = 3;
+
+  // Optional. If resource has an IP (and a NIC) address, following
+  // fields determine which IP address will be included in the results.
+  optional IPConfig ip_config = 4;
+}
+
+message Filter {
+  required string key = 1;
+  required string regex = 2;
+}
+
+message IPConfig {
+  // NIC index
+  optional int32 nic_index = 1 [default = 0];
+
+  enum IPType {
+    // Default IP of the resource.
+    //  - Private IP for instance resource
+    //  - Forwarding rule IP for forwarding rule.
+    DEFAULT = 0;
+
+    // Instance's external IP.
+    PUBLIC = 1;
+
+    // First IP address from the first Alias IP range. For example, for
+    // alias IP range "192.168.12.0/24", 192.168.12.0 will be returned.
+    // Supported only on GCE.
+    ALIAS = 2;
+  }
+  optional IPType ip_type = 3;
+
+  optional int32 ip_version = 4 [default = 4];
+}
+
+message Resource {
+  // Resource name.
+  required string name = 1;
+  // Resource's IP address, selected based on the request's ip_config.
+  optional string ip = 2;
+  // Id associated with the resource.
+  optional string id = 3;
+}
+
+message ListResourcesResponse {
+  repeated Resource resources = 1;
+}
