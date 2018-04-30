@@ -321,7 +321,7 @@ func (p *Probe) sendRequest(requestID int32, target string) error {
 		})
 	}
 
-	p.l.Infof("Sending a probe request %v to the external probe server for target %v", requestID, target)
+	p.l.Debugf("Sending a probe request %v to the external probe server for target %v", requestID, target)
 	return serverutils.WriteMessage(req, p.cmdStdin)
 }
 
