@@ -7,7 +7,7 @@ message ProbeConf {
   optional int32 stats_export_interval_msec = 2 [default = 10000];
   // Port to send UDP Ping to (UDP Echo).  Should be same as
   // ProberConfig.udp_echo_server_port.
-  // TODO(): Can we just read this from ProberConfig?
+  // TODO(_): Can we just read this from ProberConfig?
   optional int32 port = 3 [default = 31122];
 
   // Number of sending side ports to use.
