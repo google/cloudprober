@@ -14,7 +14,7 @@ message ListResourcesRequest {
   // Example:
   // {
   //   provider: "gcp"
-  //   resource_path: "gce_instance/project-1"
+  //   resource_path: "gce_instances/project-1"
   //   filter {
   //     key: "name"
   //     regex: "ig-us-central1-.*"
@@ -28,7 +28,7 @@ message ListResourcesRequest {
   required string provider = 1;
 
   // Provider specific resource path. For example: for GCP, it could be
-  // "gce_instance/<project>", "regional_forwarding_rules/<project>", etc.
+  // "gce_instances/<project>", "regional_forwarding_rules/<project>", etc.
   optional string resource_path = 2;
 
   // Filter for the resources list.

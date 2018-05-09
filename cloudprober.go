@@ -43,6 +43,7 @@ import (
 	"github.com/google/cloudprober/surfacers"
 	"github.com/google/cloudprober/sysvars"
 	"github.com/google/cloudprober/targets/lameduck"
+	rdsserver "github.com/google/cloudprober/targets/rds/server"
 	"github.com/google/cloudprober/targets/rtc/rtcreporter"
 )
 
@@ -65,6 +66,7 @@ type Prober struct {
 	Probes         map[string]probes.Probe
 	Servers        []servers.Server
 	c              *configpb.ProberConfig
+	rdsServer      *rdsserver.Server
 	rtcReporter    *rtcreporter.Reporter
 	surfacers      []surfacers.Surfacer
 	serverListener net.Listener
@@ -177,6 +179,17 @@ func (pr *Prober) init() error {
 		goto cleanupInit
 	}
 
+	// Initialize RDS server, if configured.
+	if c := pr.c.GetRdsServer(); c != nil {
+		l, err := pr.newLogger("rds-server")
+		if err != nil {
+			goto cleanupInit
+		}
+		if pr.rdsServer, err = rdsserver.New(initCtx, c, nil, l); err != nil {
+			goto cleanupInit
+		}
+	}
+
 	// Initialize RTC reporter, if configured.
 	if opts := pr.c.GetRtcReportOptions(); opts != nil {
 		l, err := pr.newLogger("rtc-reporter")
@@ -237,6 +250,11 @@ func (pr *Prober) start(ctx context.Context) {
 	// Start servers, each in its own goroutine
 	for _, s := range pr.Servers {
 		go s.Start(ctx, dataChan)
+	}
+
+	// Start RDS server if configured.
+	if pr.rdsServer != nil {
+		go pr.rdsServer.Start(ctx, dataChan)
 	}
 
 	// Start RTC reporter if configured.

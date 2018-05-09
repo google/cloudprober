@@ -4,6 +4,7 @@ import "github.com/google/cloudprober/probes/proto/config.proto";
 import "github.com/google/cloudprober/servers/proto/config.proto";
 import "github.com/google/cloudprober/targets/proto/targets.proto";
 import "github.com/google/cloudprober/surfacers/proto/config.proto";
+import "github.com/google/cloudprober/targets/rds/server/proto/config.proto";
 import "github.com/google/cloudprober/targets/rtc/rtcreporter/proto/rtcreporter.proto";
 
 package cloudprober;
@@ -26,6 +27,9 @@ message ProberConfig {
   // Servers to run inside cloudprober. These servers can serve as targets for
   // other probes.
   repeated servers.ServerDef server = 3;
+
+  // Resource discovery server
+  optional targets.rds.ServerConf rds_server = 95;
 
   // Port for the default HTTP server. This port is also used for prometheus
   // exporter (URL /metrics). Default port is 9313. If not specified in the

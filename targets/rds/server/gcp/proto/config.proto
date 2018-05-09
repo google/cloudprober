@@ -2,8 +2,8 @@
 // Example config:
 // {
 //   project: 'test-project-id'
-//   gce_instance {}
-//   forwarding_rules {}
+//   gce_instances {}
+//   regional_forwarding_rules {}
 // }
 syntax = "proto2";
 
@@ -15,25 +15,28 @@ message GCEInstances {
   optional string zone_filter = 1;
 }
 
-message ForwardingRules {
+message RegionalForwardingRules {
   // Region filter, e.g. "region_filter:europe-*"
   optional string region_filter = 1;
 }
 
 // GCP provider config.
 message ProviderConfig {
-  // GCP projects. If running on GCE, local project is used as the default
-  // value.
-  repeated string project = 2;
+  // GCP projects. If running on GCE, it defaults to the local project.
+  repeated string project = 1;
 
-  optional GCEInstances gce_instances = 3;
+  // GCE instances discovery options. This field should be declared for the GCE
+  // instances discovery to be enabled.
+  optional GCEInstances gce_instances = 2;
 
-  // Not supported yet.
-  optional ForwardingRules forwarding_rules = 4;
+  // Regional forwarding rules discovery options. This field should be declared
+  // for the regional forwarding rules discovery to be enabled.
+  // NOTE: This is not supported yet.
+  optional RegionalForwardingRules regional_forwarding_rules = 3;
 
   // How often targets should be evaluated/expanded
-  optional int32 re_eval_sec = 5 [default = 900];  // default 15 min
+  optional int32 re_eval_sec = 98 [default = 900];  // default 15 min
 
   // Compute API version.
-  optional string api_version = 6 [default = "v1"];
+  optional string api_version = 99 [default = "v1"];
 }
