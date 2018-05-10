@@ -20,6 +20,11 @@ import proto1 "github.com/golang/protobuf/proto"
 import fmt "fmt"
 import math "math"
 
+import (
+	context "golang.org/x/net/context"
+	grpc "google.golang.org/grpc"
+)
+
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto1.Marshal
 var _ = fmt.Errorf
@@ -79,7 +84,7 @@ type ListResourcesRequest struct {
 	// Provider is the resource list provider, for example: "gcp", "aws", etc.
 	Provider *string `protobuf:"bytes,1,req,name=provider" json:"provider,omitempty"`
 	// Provider specific resource path. For example: for GCP, it could be
-	// "gce_instance/<project>", "regional_forwarding_rules/<project>", etc.
+	// "gce_instances/<project>", "regional_forwarding_rules/<project>", etc.
 	ResourcePath *string `protobuf:"bytes,2,opt,name=resource_path,json=resourcePath" json:"resource_path,omitempty"`
 	// Filter for the resources list.
 	Filter *Filter `protobuf:"bytes,3,opt,name=filter" json:"filter,omitempty"`
@@ -244,6 +249,82 @@ func init() {
 	proto1.RegisterType((*Resource)(nil), "cloudprober.targets.rds.Resource")
 	proto1.RegisterType((*ListResourcesResponse)(nil), "cloudprober.targets.rds.ListResourcesResponse")
 	proto1.RegisterEnum("cloudprober.targets.rds.IPConfig_IPType", IPConfig_IPType_name, IPConfig_IPType_value)
+}
+
+// Reference imports to suppress errors if they are not otherwise used.
+var _ context.Context
+var _ grpc.ClientConn
+
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the grpc package it is being compiled against.
+const _ = grpc.SupportPackageIsVersion4
+
+// Client API for ResourceDiscovery service
+
+type ResourceDiscoveryClient interface {
+	// ListResources returns the list of resources matching the URI provided in
+	// the request.
+	ListResources(ctx context.Context, in *ListResourcesRequest, opts ...grpc.CallOption) (*ListResourcesResponse, error)
+}
+
+type resourceDiscoveryClient struct {
+	cc *grpc.ClientConn
+}
+
+func NewResourceDiscoveryClient(cc *grpc.ClientConn) ResourceDiscoveryClient {
+	return &resourceDiscoveryClient{cc}
+}
+
+func (c *resourceDiscoveryClient) ListResources(ctx context.Context, in *ListResourcesRequest, opts ...grpc.CallOption) (*ListResourcesResponse, error) {
+	out := new(ListResourcesResponse)
+	err := grpc.Invoke(ctx, "/cloudprober.targets.rds.ResourceDiscovery/ListResources", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// Server API for ResourceDiscovery service
+
+type ResourceDiscoveryServer interface {
+	// ListResources returns the list of resources matching the URI provided in
+	// the request.
+	ListResources(context.Context, *ListResourcesRequest) (*ListResourcesResponse, error)
+}
+
+func RegisterResourceDiscoveryServer(s *grpc.Server, srv ResourceDiscoveryServer) {
+	s.RegisterService(&_ResourceDiscovery_serviceDesc, srv)
+}
+
+func _ResourceDiscovery_ListResources_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListResourcesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ResourceDiscoveryServer).ListResources(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/cloudprober.targets.rds.ResourceDiscovery/ListResources",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ResourceDiscoveryServer).ListResources(ctx, req.(*ListResourcesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+var _ResourceDiscovery_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "cloudprober.targets.rds.ResourceDiscovery",
+	HandlerType: (*ResourceDiscoveryServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "ListResources",
+			Handler:    _ResourceDiscovery_ListResources_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "github.com/google/cloudprober/targets/rds/proto/rds.proto",
 }
 
 func init() {
