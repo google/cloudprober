@@ -15,6 +15,7 @@
 package gcp
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"net"
@@ -29,7 +30,6 @@ import (
 	configpb "github.com/google/cloudprober/targets/rds/server/gcp/proto"
 	"golang.org/x/oauth2/google"
 	compute "google.golang.org/api/compute/v1"
-	"google3/go/context/context"
 )
 
 // This is how long we wait between API calls per zone.
