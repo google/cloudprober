@@ -101,7 +101,7 @@ find $PROJECT -type d | \
   do
     # Ignore directories with no proto files.
     ls ${dir}/*.proto > /dev/null 2>&1 || continue
-    ${protoc_path} --go_out=.,import_path=${dir}:. ${dir}/*.proto
+    ${protoc_path} --go_out=.,plugins=grpc,import_path=${dir}:. ${dir}/*.proto
   done
 cd -
 
