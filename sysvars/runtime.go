@@ -28,8 +28,6 @@ func counterRuntimeVars(dataChan chan *metrics.EventMetrics, ts time.Time, m *ru
 	// Time since this module started.
 	timeSince := time.Since(startTime).Seconds()
 	em.AddMetric("uptime_msec", metrics.NewFloat(timeSince*1000))
-	// TODO(manugarg): Deprecate "uptime" in favor of "uptime_msec".
-	em.AddMetric("uptime", metrics.NewInt(int64(timeSince)))
 
 	// GC memory stats
 	em.AddMetric("gc_time_msec", metrics.NewFloat(float64(m.PauseTotalNs)/1e6))
