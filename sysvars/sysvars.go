@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -116,6 +117,9 @@ func Start(ctx context.Context, dataChan chan *metrics.EventMetrics, interval ti
 	for k, v := range parseEnvVars(envVarsName) {
 		vars[k] = v
 	}
+	// Add reset timestamp (Unix epoch corresponding to when Cloudprober was started)
+	vars["start_timestamp"] = strconv.FormatInt(startTime.Unix(), 10)
+
 	var varsKeys []string
 	for k := range vars {
 		varsKeys = append(varsKeys, k)
