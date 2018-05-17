@@ -36,6 +36,7 @@ import (
 	"github.com/google/cloudprober/targets/gce"
 	"github.com/google/cloudprober/targets/lameduck"
 	targetspb "github.com/google/cloudprober/targets/proto"
+	rdsclient "github.com/google/cloudprober/targets/rds/client"
 	dnsRes "github.com/google/cloudprober/targets/resolver"
 	"github.com/google/cloudprober/targets/rtc"
 )
@@ -257,6 +258,13 @@ func New(targetsDef *targetspb.TargetsDef, ldLister lameduck.Lister, targetOpts 
 			return nil, fmt.Errorf("targets.New(): Error building GCE targets: %v", err)
 		}
 		t.lister, t.resolver = s, s
+	case *targetspb.TargetsDef_RdsTargets:
+		li, err := rdsclient.New(targetsDef.GetRdsTargets(), l)
+		if err != nil {
+			return nil, fmt.Errorf("targets.New(): Error building RDS targets: %v", err)
+		}
+		t.lister = li
+		t.resolver = li
 	case *targetspb.TargetsDef_RtcTargets:
 		// TODO(izzycecil): we should really consolidate all these metadata calls
 		// to one place.

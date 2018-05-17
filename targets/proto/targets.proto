@@ -3,6 +3,7 @@ syntax = "proto2";
 
 import "github.com/google/cloudprober/targets/lameduck/proto/config.proto";
 import "github.com/google/cloudprober/targets/gce/proto/config.proto";
+import "github.com/google/cloudprober/targets/rds/client/proto/config.proto";
 import "github.com/google/cloudprober/targets/rtc/proto/config.proto";
 
 package cloudprober.targets;
@@ -12,23 +13,24 @@ message TargetsDef {
     // static host names, e.g. www.google.com, 8.8.8.8, en.wikipedia.org
     string host_names = 1;
     gce.TargetsConf gce_targets = 2;
-    rtc.TargetsConf rtc_targets = 3;
-    DummyTargets dummy_targets = 7;
+    rds.ClientConf rds_targets = 3;
+    rtc.TargetsConf rtc_targets = 4;
+    DummyTargets dummy_targets = 20;
   }
   // Regex to apply on the targets.
-  optional string regex = 4;
+  optional string regex = 21;
 
   // Exclude lameducks. Lameduck targets can be set through RTC (realtime
   // configurator) service. This functionality works only if lame_duck_options
   // are specified.
-  optional bool exclude_lameducks = 5 [default=true];
+  optional bool exclude_lameducks = 22 [default = true];
 
   // How often targets should be evaluated. Any number less than or equal to 0
   // will result in no target caching (targets will be reevaluated on demand).
   // Note that individual target types may have their own caches implemented
   // (specifically GCE instances/forwarding rules). This does not impact those
   // caches.
-  optional int32 re_eval_sec = 6 [default = 0];
+  optional int32 re_eval_sec = 23 [default = 0];
 
   // Extensions allow users to to add new targets types (for example, a targets
   // type that utilizes a custom protocol) in a systematic manner.

@@ -35,7 +35,7 @@ message ProviderConfig {
   optional RegionalForwardingRules regional_forwarding_rules = 3;
 
   // How often targets should be evaluated/expanded
-  optional int32 re_eval_sec = 98 [default = 900];  // default 15 min
+  optional int32 re_eval_sec = 98 [default = 300];  // default 5 min
 
   // Compute API version.
   optional string api_version = 99 [default = "v1"];
