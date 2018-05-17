@@ -19,7 +19,7 @@ import cloudprober_probes "github.com/google/cloudprober/probes/proto"
 import cloudprober_servers "github.com/google/cloudprober/servers/proto"
 import cloudprober_targets "github.com/google/cloudprober/targets/proto"
 import cloudprober_surfacer "github.com/google/cloudprober/surfacers/proto"
-import cloudprober_targets_rds "github.com/google/cloudprober/targets/rds/server/proto"
+import cloudprober_targets_rds2 "github.com/google/cloudprober/targets/rds/server/proto"
 import cloudprober_targets_rtcreporter "github.com/google/cloudprober/targets/rtc/rtcreporter/proto"
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -50,7 +50,7 @@ type ProberConfig struct {
 	// other probes.
 	Server []*cloudprober_servers.ServerDef `protobuf:"bytes,3,rep,name=server" json:"server,omitempty"`
 	// Resource discovery server
-	RdsServer *cloudprober_targets_rds.ServerConf `protobuf:"bytes,95,opt,name=rds_server,json=rdsServer" json:"rds_server,omitempty"`
+	RdsServer *cloudprober_targets_rds2.ServerConf `protobuf:"bytes,95,opt,name=rds_server,json=rdsServer" json:"rds_server,omitempty"`
 	// Port for the default HTTP server. This port is also used for prometheus
 	// exporter (URL /metrics). Default port is 9313. If not specified in the
 	// config, default port can be overridden by the environment variable
@@ -105,7 +105,7 @@ func (m *ProberConfig) GetServer() []*cloudprober_servers.ServerDef {
 	return nil
 }
 
-func (m *ProberConfig) GetRdsServer() *cloudprober_targets_rds.ServerConf {
+func (m *ProberConfig) GetRdsServer() *cloudprober_targets_rds2.ServerConf {
 	if m != nil {
 		return m.RdsServer
 	}
