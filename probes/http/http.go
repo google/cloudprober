@@ -16,6 +16,7 @@
 package http
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io/ioutil"
@@ -47,6 +48,7 @@ type Probe struct {
 	// book-keeping params
 	targets  []string
 	protocol string
+	method   string
 	url      string
 }
 
@@ -120,8 +122,10 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		p.protocol = "https"
 	default:
 		p.l.Errorf("Invalid Protocol: %s", p.c.GetProtocol())
+		return fmt.Errorf("Invalid Protocol: %s", p.c.GetProtocol())
 	}
 
+	p.method = p.c.GetMethod().String()
 	p.url = p.c.GetRelativeUrl()
 	if len(p.url) > 0 && p.url[0] != '/' {
 		p.l.Errorf("Invalid Relative URL: %s, must begin with '/'", p.url)
@@ -227,13 +231,17 @@ func (p *Probe) runProbe(resultsChan chan<- probeutils.ProbeResult) {
 				host = fmt.Sprintf("%s:%d", host, p.c.GetPort())
 			}
 			url := fmt.Sprintf("%s://%s%s", p.protocol, host, p.url)
-			req, err := http.NewRequest("GET", url, nil) // nil body
+			req, err := http.NewRequest(p.method, url, bytes.NewBufferString(p.c.GetBody()))
 			if err != nil {
 				p.l.Errorf("Target:%s, URL: %s, http.runProbe: error creating HTTP req: %v", target, url, err)
 				return
 			}
 			// Following line is important only for the cases where we resolve the target first.
 			req.Host = target
+
+			for _, header := range p.c.GetHeaders() {
+				req.Header.Set(header.GetName(), header.GetValue())
+			}
 
 			for i := 0; i < int(p.c.GetRequestsPerProbe()); i++ {
 				p.httpRequest(req, &result)

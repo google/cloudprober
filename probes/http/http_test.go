@@ -15,6 +15,7 @@
 package http
 
 import (
+	"fmt"
 	"io"
 	"net/http"
 	"testing"
@@ -50,38 +51,86 @@ func (tt *testTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 }
 func (tt *testTransport) CancelRequest(req *http.Request) {}
 
-func TestRun(t *testing.T) {
+func testProbe(opts *options.Options) ([]probeRunResult, error) {
 	p := &Probe{}
-	opts := &options.Options{
-		Targets:  targets.StaticTargets("test.com"),
-		Interval: 2 * time.Second,
-		Timeout:  time.Second,
-		ProbeConf: &configpb.ProbeConf{
-			RequestsPerProbe:        proto.Int32(1),
-			StatsExportIntervalMsec: proto.Int32(1000),
-		},
+	err := p.Init("http_test", opts)
+	if err != nil {
+		return nil, err
 	}
-	p.Init("http_test", opts)
 	p.client.Transport = newTestTransport()
 
 	resultsChan := make(chan probeutils.ProbeResult, len(p.targets))
 	p.runProbe(resultsChan)
 
-	// Strings that should be in all targets' output.
-	reqStrs := map[string]int64{
-		"total":   1,
-		"success": 1,
+	results := make([]probeRunResult, len(p.targets))
+	// The resultsChan output iterates through p.targets in the same order.
+	for i := range p.targets {
+		r := <-resultsChan
+		results[i] = r.(probeRunResult)
+	}
+	return results, nil
+}
+
+func TestRun(t *testing.T) {
+	methods := []configpb.ProbeConf_Method{
+		configpb.ProbeConf_GET,
+		configpb.ProbeConf_POST,
+		configpb.ProbeConf_PUT,
+		configpb.ProbeConf_HEAD,
+		configpb.ProbeConf_DELETE,
+		configpb.ProbeConf_PATCH,
+		configpb.ProbeConf_OPTIONS,
+		100, // Should default to configpb.ProbeConf_GET
 	}
 
-	// The resultsChan output iterates through p.targets in the same order.
-	for _, target := range p.targets {
-		r := <-resultsChan
-		result := r.(probeRunResult)
-		if result.total.Int64() != reqStrs["total"] || result.success.Int64() != reqStrs["success"] {
-			t.Errorf("Mismatch got (total, success) = (%d, %d), want (%d, %d)", result.total.Int64(), result.success.Int64(), reqStrs["total"], reqStrs["success"])
+	testBody := "Test HTTP Body"
+	testHeaderName, testHeaderValue := "Content-Type", "application/json"
+	testHTTPSProtocol := configpb.ProbeConf_HTTPS
+	testInvalidProtocal := configpb.ProbeConf_ProtocolType(3)
+
+	var tests = []struct {
+		input *configpb.ProbeConf
+		want  string
+	}{
+		{&configpb.ProbeConf{}, "total: 1, success: 1"},
+		{&configpb.ProbeConf{Protocol: &testHTTPSProtocol}, "total: 1, success: 1"},
+		{&configpb.ProbeConf{Protocol: &testInvalidProtocal}, "error: 'Invalid Protocol: 3'"},
+		{&configpb.ProbeConf{RequestsPerProbe: proto.Int32(1), StatsExportIntervalMsec: proto.Int32(1000)}, "total: 1, success: 1"},
+		{&configpb.ProbeConf{Method: &methods[0]}, "total: 1, success: 1"},
+		{&configpb.ProbeConf{Method: &methods[1]}, "total: 1, success: 1"},
+		{&configpb.ProbeConf{Method: &methods[1], Body: &testBody}, "total: 1, success: 1"},
+		{&configpb.ProbeConf{Method: &methods[2]}, "total: 1, success: 1"},
+		{&configpb.ProbeConf{Method: &methods[2], Body: &testBody}, "total: 1, success: 1"},
+		{&configpb.ProbeConf{Method: &methods[3]}, "total: 1, success: 1"},
+		{&configpb.ProbeConf{Method: &methods[4]}, "total: 1, success: 1"},
+		{&configpb.ProbeConf{Method: &methods[5]}, "total: 1, success: 1"},
+		{&configpb.ProbeConf{Method: &methods[6]}, "total: 1, success: 1"},
+		{&configpb.ProbeConf{Method: &methods[7]}, "total: 1, success: 1"},
+		{&configpb.ProbeConf{Headers: []*configpb.ProbeConf_Header{&configpb.ProbeConf_Header{Name: &testHeaderName, Value: &testHeaderValue}}}, "total: 1, success: 1"},
+	}
+
+	for _, test := range tests {
+		opts := &options.Options{
+			Targets:   targets.StaticTargets("test.com"),
+			Interval:  2 * time.Second,
+			Timeout:   time.Second,
+			ProbeConf: test.input,
 		}
-		if result.Target() != target {
-			t.Errorf("Unexpected target in probe result. Got: %s, Expected: %s", result.Target(), target)
+		results, err := testProbe(opts)
+		if err != nil {
+			if fmt.Sprintf("error: '%s'", err.Error()) != test.want {
+				t.Errorf("Unexpected initialization error: %v", err)
+			}
+		} else {
+			for i, result := range results {
+				got := fmt.Sprintf("total: %d, success: %d", result.total.Int64(), result.success.Int64())
+				if got != test.want {
+					t.Errorf("Mismatch got '%s', want '%s'", got, test.want)
+				}
+				if result.Target() != opts.Targets.List()[i] {
+					t.Errorf("Unexpected target in probe result. Got: %s, Expected: %s", result.Target(), opts.Targets.List()[i])
+				}
+			}
 		}
 	}
 }
