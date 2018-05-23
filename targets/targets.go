@@ -35,6 +35,8 @@ import (
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/targets/gce"
 	"github.com/google/cloudprober/targets/lameduck"
+	targetspb "github.com/google/cloudprober/targets/proto"
+	rdsclient "github.com/google/cloudprober/targets/rds/client"
 	dnsRes "github.com/google/cloudprober/targets/resolver"
 	"github.com/google/cloudprober/targets/rtc"
 )
@@ -183,7 +185,7 @@ func (t *targets) List() []string {
 
 // baseTargets constructs a targets instance with no lister or resolver. It
 // provides essentially everything that the targets type wraps over its lister.
-func baseTargets(targetsDef *TargetsDef, ldLister lameduck.Lister, l *logger.Logger) (*targets, error) {
+func baseTargets(targetsDef *targetspb.TargetsDef, ldLister lameduck.Lister, l *logger.Logger) (*targets, error) {
 	if l == nil {
 		l = &logger.Logger{}
 	}
@@ -234,7 +236,7 @@ func StaticTargets(hosts string) Targets {
 //
 // See cloudprober/targets/targets.proto for more information on the possible
 // configurations of Targets.
-func New(targetsDef *TargetsDef, ldLister lameduck.Lister, targetOpts *GlobalTargetsOptions, globalLogger, l *logger.Logger) (Targets, error) {
+func New(targetsDef *targetspb.TargetsDef, ldLister lameduck.Lister, targetOpts *targetspb.GlobalTargetsOptions, globalLogger, l *logger.Logger) (Targets, error) {
 	t, err := baseTargets(targetsDef, ldLister, l)
 	if err != nil {
 		globalLogger.Error("Unable to produce the base target lister")
@@ -242,22 +244,29 @@ func New(targetsDef *TargetsDef, ldLister lameduck.Lister, targetOpts *GlobalTar
 	}
 
 	switch targetsDef.Type.(type) {
-	case *TargetsDef_HostNames:
+	case *targetspb.TargetsDef_HostNames:
 		sl := &staticLister{}
 		for _, name := range strings.Split(targetsDef.GetHostNames(), ",") {
 			sl.list = append(sl.list, strings.TrimSpace(name))
 		}
 		t.lister = sl
 		t.resolver = globalResolver
-	case *TargetsDef_GceTargets:
+	case *targetspb.TargetsDef_GceTargets:
 		s, err := gce.New(targetsDef.GetGceTargets(), targetOpts.GetGlobalGceTargetsOptions(), globalResolver, globalLogger)
 		if err != nil {
 			l.Error("Unable to build GCE targets")
 			return nil, fmt.Errorf("targets.New(): Error building GCE targets: %v", err)
 		}
 		t.lister, t.resolver = s, s
-	case *TargetsDef_RtcTargets:
-		// TODO: we should really consolidate all these metadata calls
+	case *targetspb.TargetsDef_RdsTargets:
+		li, err := rdsclient.New(targetsDef.GetRdsTargets(), l)
+		if err != nil {
+			return nil, fmt.Errorf("targets.New(): Error building RDS targets: %v", err)
+		}
+		t.lister = li
+		t.resolver = li
+	case *targetspb.TargetsDef_RtcTargets:
+		// TODO(izzycecil): we should really consolidate all these metadata calls
 		// to one place.
 		proj, err := metadata.ProjectID()
 		if err != nil {
@@ -269,7 +278,7 @@ func New(targetsDef *TargetsDef, ldLister lameduck.Lister, targetOpts *GlobalTar
 		}
 		t.lister = li
 		t.resolver = li
-	case *TargetsDef_DummyTargets:
+	case *targetspb.TargetsDef_DummyTargets:
 		dummy := &dummy{}
 		t.lister = dummy
 		t.resolver = dummy
@@ -285,7 +294,7 @@ func New(targetsDef *TargetsDef, ldLister lameduck.Lister, targetOpts *GlobalTar
 	return t, nil
 }
 
-func getExtensionTargets(pb *TargetsDef, l *logger.Logger) (Targets, error) {
+func getExtensionTargets(pb *targetspb.TargetsDef, l *logger.Logger) (Targets, error) {
 	extensions := proto.RegisteredExtensions(pb)
 	if len(extensions) > 1 {
 		return nil, fmt.Errorf("only one extension is allowed per targets definition, got %d extensions", len(extensions))
@@ -317,7 +326,7 @@ func getExtensionTargets(pb *TargetsDef, l *logger.Logger) (Targets, error) {
 // RegisterTargetsType registers a new targets type. New targets types are
 // integrated with the config subsystem using the protobuf extensions.
 //
-// TODO: Add a full example of using extensions.
+// TODO(manugarg): Add a full example of using extensions.
 func RegisterTargetsType(extensionFieldNo int, newTargetsFunc func(interface{}, *logger.Logger) (Targets, error)) {
 	extensionMapMu.Lock()
 	defer extensionMapMu.Unlock()

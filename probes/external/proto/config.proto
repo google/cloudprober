@@ -1,0 +1,83 @@
+syntax = "proto2";
+
+import "github.com/google/cloudprober/metrics/proto/dist.proto";
+
+package cloudprober.probes.external;
+
+message ProbeConf {
+  // External probes support two mode: ONCE and SERVER. In ONCE mode, external
+  // command is re-executed for each probe run, while in SERVER mode, command
+  // is run in server mode, re-executed only if not running already.
+  enum Mode {
+    ONCE = 0;
+    SERVER = 1;
+  }
+  optional Mode mode = 1 [default = ONCE];
+
+  // Command.  For ONCE probes, arguments are processed for the following field
+  // substitutions:
+  // @probe@    Name of the probe
+  // @target@   Hostname of the target
+  // @address@  IP address of the target
+  //
+  // For example, for target ig-us-central1-a, /tools/recreate_vm -vm @target@
+  // will get converted to: /tools/recreate_vm -vm ig-us-central1-a
+  required string command = 2;
+
+  // Options for the SERVER mode probe requests. These options are passed on to
+  // the external probe server as part of the ProbeRequest. Values are
+  // substituted similar to command arguments for the ONCE mode probes.
+  message Option {
+    optional string name = 1;
+    optional string value = 2;
+  }
+  repeated Option options = 3;
+
+  // Export output as metrics, where output is the output returned by the
+  // external probe process, over stdout for ONCE probes, and through ProbeReply
+  // for SERVER probes. Cloudprober expects variables to be in the following
+  // format in the output:
+  // var1 value1 (for example: total_errors 589)
+  optional bool output_as_metrics = 4 [default = true];
+  optional OutputMetricsOptions output_metrics_options = 5;
+
+  // IP version: For target resolution
+  optional int32 ip_version = 100 [default = 4];
+}
+
+message OutputMetricsOptions {
+  // MetricsKind specifies whether to treat output metrics as GAUGE or
+  // CUMULATIVE. If left unspecified, metrics from ONCE mode probes are treated
+  // as GAUGE and metrics from SERVER mode probes are treated as CUMULATIVE.
+  enum MetricsKind {
+    UNDEFINED = 0;
+    GAUGE = 1;
+    CUMULATIVE = 2;
+  }
+  optional MetricsKind metrics_kind = 1;
+
+  // Additional labels (comma-separated) to attach to the output metrics, e.g.
+  // "region=us-east1,zone=us-east1-d". ptype="external" and probe="<probeName>"
+  // are attached automatically.
+  optional string additional_labels = 2;
+
+  // Whether to aggregate metrics in Cloudprober. If enabled, Cloudprober
+  // aggregates the metrics returned by the external probe process -- external
+  // probe process should return metrics only since the last probe run.
+  // Note that this option is mutually exclusive with GAUGE metrics and
+  // cloudprober will fail during initialization if both options are enabled.
+  optional bool aggregate_in_cloudprober = 3 [default = false];
+
+  // Metrics that should be treated as distributions. These metrics are exported
+  // by the external probe program as comma-separated list of values, for
+  // example: "op_latency 4.7,5.6,5.9,6.1,4.9". To be able to build distribution
+  // from these values, these metrics should be pre-configured in external
+  // probe:
+  // dist_metric {
+  //   key: "op_latency"
+  //   value {
+  //     explicit_buckets: "1,2,4,8,16,32,64,128,256"
+  //   }
+  // }
+  map<string, metrics.Dist> dist_metric = 4;
+}

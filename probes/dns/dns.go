@@ -32,6 +32,7 @@ import (
 
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
+	configpb "github.com/google/cloudprober/probes/dns/proto"
 	"github.com/google/cloudprober/probes/options"
 	"github.com/google/cloudprober/probes/probeutils"
 	"github.com/miekg/dns"
@@ -58,7 +59,7 @@ func (c *ClientImpl) SetReadTimeout(d time.Duration) {
 type Probe struct {
 	name string
 	opts *options.Options
-	c    *ProbeConf
+	c    *configpb.ProbeConf
 	l    *logger.Logger
 
 	// book-keeping params
@@ -101,7 +102,7 @@ func (prr probeRunResult) Target() string {
 
 // Init initializes the probe with the given params.
 func (p *Probe) Init(name string, opts *options.Options) error {
-	c, ok := opts.ProbeConf.(*ProbeConf)
+	c, ok := opts.ProbeConf.(*configpb.ProbeConf)
 	if !ok {
 		return errors.New("no dns config")
 	}
@@ -187,7 +188,7 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 	resultsChan := make(chan probeutils.ProbeResult, len(p.targets))
 
 	// This function is used by StatsKeeper to get the latest list of targets.
-	// TODO: Make p.targets mutex protected as it's read and written by concurrent goroutines.
+	// TODO(manugarg): Make p.targets mutex protected as it's read and written by concurrent goroutines.
 	targetsFunc := func() []string {
 		return p.targets
 	}

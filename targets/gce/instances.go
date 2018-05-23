@@ -24,6 +24,7 @@ import (
 
 	"cloud.google.com/go/compute/metadata"
 	"github.com/google/cloudprober/logger"
+	configpb "github.com/google/cloudprober/targets/gce/proto"
 	dnsRes "github.com/google/cloudprober/targets/resolver"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
@@ -46,13 +47,13 @@ const defaultAPICallInterval = 250 * time.Microsecond
 // set of GCE instances targets, for example for VM-to-VM probes over internal IP
 // and public IP, we use a global instances provider (globalInstancesProvider).
 type instances struct {
-	pb *Instances
+	pb *configpb.Instances
 	r  *dnsRes.Resolver
 }
 
 // newInstances returns a new instances object. It will initialize
 // globalInstancesProvider if needed.
-func newInstances(project string, opts *GlobalOptions, ipb *Instances, globalResolver *dnsRes.Resolver, l *logger.Logger) (*instances, error) {
+func newInstances(project string, opts *configpb.GlobalOptions, ipb *configpb.Instances, globalResolver *dnsRes.Resolver, l *logger.Logger) (*instances, error) {
 	reEvalInterval := time.Duration(opts.GetReEvalSec()) * time.Second
 	if ipb.GetNetworkInterface() != nil && ipb.GetUseDnsToResolve() {
 		return nil, errors.New("network_intf and use_dns_to_resolve are mutually exclusive")
@@ -89,7 +90,7 @@ func (i *instances) Resolve(name string, ipVer int) (net.IP, error) {
 		return nil, fmt.Errorf("gce.instances.resolve(%s): instance not in in-memory GCE instances database", name)
 	}
 	niIndex := 0
-	ipType := Instances_NetworkInterface_PRIVATE
+	ipType := configpb.Instances_NetworkInterface_PRIVATE
 	ni := i.pb.GetNetworkInterface()
 	if ni != nil {
 		niIndex = int(ni.GetIndex())
@@ -100,14 +101,14 @@ func (i *instances) Resolve(name string, ipVer int) (net.IP, error) {
 	}
 	intf := ins.NetworkInterfaces[niIndex]
 	switch ipType {
-	case Instances_NetworkInterface_PRIVATE:
+	case configpb.Instances_NetworkInterface_PRIVATE:
 		return net.ParseIP(intf.NetworkIP), nil
-	case Instances_NetworkInterface_PUBLIC:
+	case configpb.Instances_NetworkInterface_PUBLIC:
 		if len(intf.AccessConfigs) == 0 {
 			return nil, fmt.Errorf("gce.instances.resolve(%s): no access config, instance most likely doesn't have a public IP", name)
 		}
 		return net.ParseIP(intf.AccessConfigs[0].NatIP), nil
-	case Instances_NetworkInterface_ALIAS:
+	case configpb.Instances_NetworkInterface_ALIAS:
 		if len(intf.AliasIpRanges) == 0 {
 			return nil, fmt.Errorf("gce.instances.resolve(%s): no alias IP range", name)
 		}

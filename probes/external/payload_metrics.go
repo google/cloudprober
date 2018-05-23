@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/google/cloudprober/metrics"
+	configpb "github.com/google/cloudprober/probes/external/proto"
 )
 
 func (p *Probe) initPayloadMetrics() error {
@@ -38,15 +39,15 @@ func (p *Probe) initPayloadMetrics() error {
 		AddLabel("probe", p.name)
 
 	switch opts.GetMetricsKind() {
-	case OutputMetricsOptions_CUMULATIVE:
+	case configpb.OutputMetricsOptions_CUMULATIVE:
 		em.Kind = metrics.CUMULATIVE
-	case OutputMetricsOptions_GAUGE:
+	case configpb.OutputMetricsOptions_GAUGE:
 		if opts.GetAggregateInCloudprober() {
 			return errors.New("invalid config: GAUGE metrics should not have aggregate_in_cloudprober enabled")
 		}
 		em.Kind = metrics.GAUGE
-	case OutputMetricsOptions_UNDEFINED:
-		if p.c.GetMode() == ProbeConf_ONCE {
+	case configpb.OutputMetricsOptions_UNDEFINED:
+		if p.c.GetMode() == configpb.ProbeConf_ONCE {
 			em.Kind = metrics.GAUGE
 		} else {
 			em.Kind = metrics.CUMULATIVE

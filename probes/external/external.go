@@ -21,7 +21,7 @@ started for each probe run cycle, while in "server" mode, external process is
 started only if it's not running already and Cloudprober communicates with it
 over stdin/stdout for each probe cycle.
 
-TODO: Add a way to test this program. Write another program that
+TODO(manugarg): Add a way to test this program. Write another program that
 implements the probe server protocol and use that for testing.
 */
 package external
@@ -40,6 +40,8 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
+	configpb "github.com/google/cloudprober/probes/external/proto"
+	serverpb "github.com/google/cloudprober/probes/external/proto"
 	"github.com/google/cloudprober/probes/external/serverutils"
 	"github.com/google/cloudprober/probes/options"
 )
@@ -54,7 +56,7 @@ var (
 	// Note that this value impacts the effective timeout for a target as timeout
 	// is applied for all the targets in aggregate. For example, 100th target in
 	// the targets list will have the effective timeout of (timeout - 1ms).
-	// TODO: Make sure that the last target in the list has an impact of
+	// TODO(manugarg): Make sure that the last target in the list has an impact of
 	// less than 1% on its timeout.
 	TimeBetweenRequests = 10 * time.Microsecond
 )
@@ -66,7 +68,7 @@ type Probe struct {
 	cmdName string
 	cmdArgs []string
 	opts    *options.Options
-	c       *ProbeConf
+	c       *configpb.ProbeConf
 	l       *logger.Logger
 	ipVer   int
 
@@ -77,7 +79,7 @@ type Probe struct {
 	cmdStdin   io.Writer
 	cmdStdout  io.ReadCloser
 	cmdStderr  io.ReadCloser
-	replyChan  chan *serverutils.ProbeReply
+	replyChan  chan *serverpb.ProbeReply
 	success    map[string]int64         // total probe successes
 	total      map[string]int64         // total number of probes
 	latency    map[string]time.Duration // cumulative probe latency, in microseconds.
@@ -90,7 +92,7 @@ type Probe struct {
 
 // Init initializes the probe with the given params.
 func (p *Probe) Init(name string, opts *options.Options) error {
-	c, ok := opts.ProbeConf.(*ProbeConf)
+	c, ok := opts.ProbeConf.(*configpb.ProbeConf)
 	if !ok {
 		return fmt.Errorf("not external probe config")
 	}
@@ -100,7 +102,7 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		p.l = &logger.Logger{}
 	}
 	p.c = c
-	p.replyChan = make(chan *serverutils.ProbeReply)
+	p.replyChan = make(chan *serverpb.ProbeReply)
 
 	// Figure out labels we are interested in
 	p.labelKeys = make(map[string]bool)
@@ -119,9 +121,9 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	}
 
 	switch p.c.GetMode() {
-	case ProbeConf_ONCE:
+	case configpb.ProbeConf_ONCE:
 		p.mode = "once"
-	case ProbeConf_SERVER:
+	case configpb.ProbeConf_SERVER:
 		p.mode = "server"
 	default:
 		p.l.Errorf("Invalid mode: %s", p.c.GetMode())
@@ -303,23 +305,23 @@ func (p *Probe) labels(target string) map[string]string {
 }
 
 func (p *Probe) sendRequest(requestID int32, target string) error {
-	req := &serverutils.ProbeRequest{
+	req := &serverpb.ProbeRequest{
 		RequestId: proto.Int32(requestID),
 		TimeLimit: proto.Int32(int32(p.opts.Timeout / time.Millisecond)),
-		Options:   []*serverutils.ProbeRequest_Option{},
+		Options:   []*serverpb.ProbeRequest_Option{},
 	}
 	for _, opt := range p.c.GetOptions() {
 		value, found := substituteLabels(opt.GetValue(), p.labels(target))
 		if !found {
 			p.l.Warningf("Missing substitution in option %q", value)
 		}
-		req.Options = append(req.Options, &serverutils.ProbeRequest_Option{
+		req.Options = append(req.Options, &serverpb.ProbeRequest_Option{
 			Name:  opt.Name,
 			Value: proto.String(value),
 		})
 	}
 
-	p.l.Infof("Sending a probe request %v to the external probe server for target %v", requestID, target)
+	p.l.Debugf("Sending a probe request %v to the external probe server for target %v", requestID, target)
 	return serverutils.WriteMessage(req, p.cmdStdin)
 }
 

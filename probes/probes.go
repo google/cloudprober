@@ -38,6 +38,7 @@ import (
 	"github.com/google/cloudprober/probes/udplistener"
 	"github.com/google/cloudprober/targets"
 	"github.com/google/cloudprober/targets/lameduck"
+	targetspb "github.com/google/cloudprober/targets/proto"
 )
 
 const (
@@ -109,7 +110,7 @@ func getExtensionProbe(p *configpb.ProbeDef) (Probe, interface{}, error) {
 }
 
 // Init initializes the probes defined in the config.
-func Init(probeProtobufs []*configpb.ProbeDef, globalTargetsOpts *targets.GlobalTargetsOptions, l *logger.Logger, sysVars map[string]string) (map[string]Probe, error) {
+func Init(probeProtobufs []*configpb.ProbeDef, globalTargetsOpts *targetspb.GlobalTargetsOptions, l *logger.Logger, sysVars map[string]string) (map[string]Probe, error) {
 	ldLister, err := lameduck.GetDefaultLister()
 	if err != nil {
 		l.Warningf("Error while getting default lameduck lister, lameduck behavior will be disabled. Err: %v", err)
@@ -228,7 +229,7 @@ func RegisterUserDefined(name string, probe Probe) {
 // RegisterProbeType registers a new probe-type. New probe types are integrated
 // with the config subsystem using the protobuf extensions.
 //
-// TODO: Add a full example of using extensions.
+// TODO(manugarg): Add a full example of using extensions.
 func RegisterProbeType(extensionFieldNo int, newProbeFunc func() Probe) {
 	extensionMapMu.Lock()
 	defer extensionMapMu.Unlock()

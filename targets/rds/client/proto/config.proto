@@ -1,0 +1,26 @@
+// Configuration proto for RDS targets.
+// Example:
+// {
+//   request {
+//     resource_uri: "gcp://gce_instances/google.com:bbmc-stackdriver/*"
+//   }
+// }
+syntax = "proto2";
+
+import "github.com/google/cloudprober/targets/rds/proto/rds.proto";
+
+package cloudprober.targets.rds;
+
+// ClientConf represents resource discovery service (RDS) based targets.
+message ClientConf {
+  optional string server_addr = 1 [default = "localhost:9314"];
+
+  required ListResourcesRequest request = 2;
+
+  // How often targets should be evaluated. Any number less than or equal to 0
+  // will result in no target caching (targets will be reevaluated on demand).
+  // Note that individual target types may have their own caches implemented
+  // (specifically GCE instances/forwarding rules). This does not impact those
+  // caches.
+  optional int32 re_eval_sec = 3 [default = 30];
+}

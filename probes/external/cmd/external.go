@@ -28,6 +28,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/metrics"
 	"github.com/google/cloudprober/probes/external"
+	configpb "github.com/google/cloudprober/probes/external/proto"
 	"github.com/google/cloudprober/probes/options"
 	"github.com/google/cloudprober/targets"
 )
@@ -43,7 +44,7 @@ var (
 func main() {
 	flag.Parse()
 
-	c := &external.ProbeConf{
+	c := &configpb.ProbeConf{
 		Command: command,
 	}
 

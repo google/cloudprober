@@ -96,11 +96,12 @@ echo "Generating Go code for protobufs.."
 echo "======================================================================"
 # Generate protobuf code from the root directory to ensure proper import paths.
 cd $PROJECTROOT
-find $PROJECT -name "*.proto" | \
-  while read -r file
+find $PROJECT -type d | \
+  while read -r dir
   do
-    dir=$(basename $(dirname $file))
-    ${protoc_path} --go_out=.,import_path=$dir:. $file
+    # Ignore directories with no proto files.
+    ls ${dir}/*.proto > /dev/null 2>&1 || continue
+    ${protoc_path} --go_out=.,plugins=grpc,import_path=${dir}:. ${dir}/*.proto
   done
 cd -
 

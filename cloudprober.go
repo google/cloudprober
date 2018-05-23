@@ -35,6 +35,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/config"
+	configpb "github.com/google/cloudprober/config/proto"
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
 	"github.com/google/cloudprober/probes"
@@ -42,6 +43,7 @@ import (
 	"github.com/google/cloudprober/surfacers"
 	"github.com/google/cloudprober/sysvars"
 	"github.com/google/cloudprober/targets/lameduck"
+	rdsserver "github.com/google/cloudprober/targets/rds/server"
 	"github.com/google/cloudprober/targets/rtc/rtcreporter"
 )
 
@@ -63,7 +65,8 @@ var proberMu sync.Mutex
 type Prober struct {
 	Probes         map[string]probes.Probe
 	Servers        []servers.Server
-	c              *config.ProberConfig
+	c              *configpb.ProberConfig
+	rdsServer      *rdsserver.Server
 	rtcReporter    *rtcreporter.Reporter
 	surfacers      []surfacers.Surfacer
 	serverListener net.Listener
@@ -129,7 +132,7 @@ func InitFromConfig(configFile string) error {
 }
 
 func (pr *Prober) init() error {
-	cfg := &config.ProberConfig{}
+	cfg := &configpb.ProberConfig{}
 	if err := proto.UnmarshalText(pr.textConfig, cfg); err != nil {
 		return err
 	}
@@ -163,7 +166,7 @@ func (pr *Prober) init() error {
 	}
 
 	// Initialize servers
-	// TODO: Plumb init context from cmd/cloudprober.
+	// TODO(manugarg): Plumb init context from cmd/cloudprober.
 	initCtx, cancelFunc := context.WithCancel(context.TODO())
 	pr.Servers, err = servers.Init(initCtx, pr.c.GetServer())
 	if err != nil {
@@ -174,6 +177,17 @@ func (pr *Prober) init() error {
 	pr.surfacers, err = surfacers.Init(pr.c.GetSurfacer())
 	if err != nil {
 		goto cleanupInit
+	}
+
+	// Initialize RDS server, if configured.
+	if c := pr.c.GetRdsServer(); c != nil {
+		l, err := pr.newLogger("rds-server")
+		if err != nil {
+			goto cleanupInit
+		}
+		if pr.rdsServer, err = rdsserver.New(initCtx, c, nil, l); err != nil {
+			goto cleanupInit
+		}
 	}
 
 	// Initialize RTC reporter, if configured.
@@ -236,6 +250,11 @@ func (pr *Prober) start(ctx context.Context) {
 	// Start servers, each in its own goroutine
 	for _, s := range pr.Servers {
 		go s.Start(ctx, dataChan)
+	}
+
+	// Start RDS server if configured.
+	if pr.rdsServer != nil {
+		go pr.rdsServer.Start(ctx, dataChan)
 	}
 
 	// Start RTC reporter if configured.

@@ -45,7 +45,7 @@ func NewMap(mapName string, defaultValue NumValue) *Map {
 }
 
 // GetKey returns the given key's value.
-// TODO: We should probably add a way to get the list of all the keys in the
+// TODO(manugarg): We should probably add a way to get the list of all the keys in the
 // map.
 func (m *Map) GetKey(key string) NumValue {
 	m.mu.RLock()

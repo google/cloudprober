@@ -4,7 +4,7 @@ Status](https://travis-ci.org/google/cloudprober.svg?branch=master)](https://tra
 
 # Cloudprober
 
-[cloudprober.github.io](https://cloudprober.github.io)
+[cloudprober.org](https://cloudprober.org)
 
 Cloudprober is a monitoring software that makes it super-easy to monitor
 availability and performance of various components of your system. Cloudprober
@@ -17,7 +17,7 @@ interfaces regardless of the implementation and helps you quickly pin down
 what's broken in your system.
 
 ![Cloudprober Use
-Case](https://cloudprober.github.io/diagrams/cloudprober_use_case.svg)
+Case](https://cloudprober.org/diagrams/cloudprober_use_case.svg)
 
 ## Features
 
@@ -56,5 +56,11 @@ Case](https://cloudprober.github.io/diagrams/cloudprober_use_case.svg)
 Visit Cloudprober's website at [cloudprober.org](https://cloudprober.org) to get
 started with Cloudprober.
 
+We'd love to hear your feedback. If you're using Cloudprober, would you please
+mind sharing how you use it by adding a comment to the [issue #123](
+https://github.com/google/cloudprober/issues/123). It will be a great help in
+planning Cloudprober's future progression.
+
 Join [Cloudprober Group](https://groups.google.com/forum/#!forum/cloudprober) for
 discussion and release announcements.
+

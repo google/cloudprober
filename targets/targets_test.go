@@ -24,7 +24,8 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/targets"
-	"github.com/google/cloudprober/targets/testdata"
+	targetspb "github.com/google/cloudprober/targets/proto"
+	testdatapb "github.com/google/cloudprober/targets/testdata"
 )
 
 // getMissing returns a list of items in "elems" missing from "from". Cannot
@@ -88,9 +89,9 @@ func TestList(t *testing.T) {
 	}
 
 	for id, r := range rows {
-		targetsDef := &targets.TargetsDef{
+		targetsDef := &targetspb.TargetsDef{
 			Regex: proto.String(r.re),
-			Type: &targets.TargetsDef_HostNames{
+			Type: &targetspb.TargetsDef_HostNames{
 				HostNames: strings.Join(r.hosts, ","),
 			},
 		}
@@ -114,9 +115,9 @@ func TestList(t *testing.T) {
 }
 
 func TestDummyTargets(t *testing.T) {
-	targetsDef := &targets.TargetsDef{
-		Type: &targets.TargetsDef_DummyTargets{
-			DummyTargets: &targets.DummyTargets{},
+	targetsDef := &targetspb.TargetsDef{
+		Type: &targetspb.TargetsDef_DummyTargets{
+			DummyTargets: &targetspb.DummyTargets{},
 		},
 	}
 	l := &logger.Logger{}
@@ -164,7 +165,7 @@ func (tgts *testTargetsType) Resolve(name string, ipVer int) (net.IP, error) {
 }
 
 func TestGetExtensionTargets(t *testing.T) {
-	targetsDef := &targets.TargetsDef{}
+	targetsDef := &targetspb.TargetsDef{}
 
 	// This has the same effect as using the following in your config:
 	// targets {
@@ -172,7 +173,7 @@ func TestGetExtensionTargets(t *testing.T) {
 	//      name: "fancy"
 	//    }
 	// }
-	err := proto.SetExtension(targetsDef, testdata.E_FancyTargets, &testdata.FancyTargets{Name: proto.String("fancy")})
+	err := proto.SetExtension(targetsDef, testdatapb.E_FancyTargets, &testdatapb.FancyTargets{Name: proto.String("fancy")})
 	if err != nil {
 		t.Fatalf("error setting up extension in test targets proto: %v", err)
 	}

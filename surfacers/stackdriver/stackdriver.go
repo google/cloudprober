@@ -31,6 +31,7 @@ import (
 	monitoring "google.golang.org/api/monitoring/v3"
 
 	"github.com/google/cloudprober/metrics"
+	configpb "github.com/google/cloudprober/surfacers/stackdriver/proto"
 )
 
 //-----------------------------------------------------------------------------
@@ -43,7 +44,7 @@ import (
 type SDSurfacer struct {
 
 	// Configuration
-	c *SurfacerConf
+	c *configpb.SurfacerConf
 
 	// Internal cache for saving metric data until a batch is sent
 	cache map[string]*monitoring.TimeSeries
@@ -72,7 +73,7 @@ type SDSurfacer struct {
 // variables for call references (project and instances variables) as well
 // as provisioning it with clients for making the necessary API calls. New
 // requires you to pass in a valid stackdriver surfacer configuration.
-func New(config *SurfacerConf, l *logger.Logger) (*SDSurfacer, error) {
+func New(config *configpb.SurfacerConf, l *logger.Logger) (*SDSurfacer, error) {
 	// Create a cache, which is used for batching write requests together,
 	// and a channel for writing data.
 	s := SDSurfacer{
@@ -83,7 +84,7 @@ func New(config *SurfacerConf, l *logger.Logger) (*SDSurfacer, error) {
 		l:         l,
 	}
 
-	// TODO: Validate that the config has all the necessary
+	// TODO(brrcrites): Validate that the config has all the necessary
 	// values
 
 	// Find all the necessary information for writing metrics to Stack
@@ -102,7 +103,7 @@ func New(config *SurfacerConf, l *logger.Logger) (*SDSurfacer, error) {
 	}
 
 	// Create monitoring client
-	// TODO: Currently we don't make use of the context to timeout the
+	// TODO(manugarg): Currently we don't make use of the context to timeout the
 	// requests, but we should.
 	httpClient, err := google.DefaultClient(context.TODO(), monitoring.CloudPlatformScope)
 	if err != nil {

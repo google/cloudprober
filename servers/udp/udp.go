@@ -25,6 +25,7 @@ import (
 
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
+	configpb "github.com/google/cloudprober/servers/udp/proto"
 )
 
 const (
@@ -36,13 +37,13 @@ const (
 
 // Server implements a basic UDP server.
 type Server struct {
-	c    *ServerConf
+	c    *configpb.ServerConf
 	conn *net.UDPConn
 	l    *logger.Logger
 }
 
 // New returns an UDP server.
-func New(initCtx context.Context, c *ServerConf, l *logger.Logger) (*Server, error) {
+func New(initCtx context.Context, c *configpb.ServerConf, l *logger.Logger) (*Server, error) {
 	conn, err := Listen(int(c.GetPort()), l)
 	if err != nil {
 		return nil, err
@@ -77,7 +78,7 @@ func Listen(port int, l *logger.Logger) (*net.UDPConn, error) {
 // Start starts the UDP server. It returns only when context is canceled.
 func (s *Server) Start(ctx context.Context, dataChan chan<- *metrics.EventMetrics) error {
 	switch s.c.GetType() {
-	case ServerConf_ECHO:
+	case configpb.ServerConf_ECHO:
 		s.l.Infof("Starting UDP ECHO server on port %d", int(s.c.GetPort()))
 		for {
 			select {
@@ -87,7 +88,7 @@ func (s *Server) Start(ctx context.Context, dataChan chan<- *metrics.EventMetric
 			}
 			readAndEcho(s.conn, s.l)
 		}
-	case ServerConf_DISCARD:
+	case configpb.ServerConf_DISCARD:
 		s.l.Infof("Starting UDP DISCARD server on port %d", int(s.c.GetPort()))
 		for {
 			select {
@@ -102,7 +103,7 @@ func (s *Server) Start(ctx context.Context, dataChan chan<- *metrics.EventMetric
 }
 
 func readAndEcho(conn *net.UDPConn, l *logger.Logger) {
-	// TODO: We read and echo back only 4098 bytes. We should look at raising this
+	// TODO(manugarg): We read and echo back only 4098 bytes. We should look at raising this
 	// limit or making it configurable. Also of note, ReadFromUDP reads a single UDP datagram
 	// (up to the max size of 64K-sizeof(UDPHdr)) and discards the rest.
 	buf := make([]byte, 4098)

@@ -23,6 +23,7 @@ import (
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
 	"github.com/google/cloudprober/servers/http"
+	configpb "github.com/google/cloudprober/servers/proto"
 	"github.com/google/cloudprober/servers/udp"
 )
 
@@ -40,7 +41,7 @@ type Server interface {
 }
 
 // Init initializes cloudprober servers, based on the provided config.
-func Init(initCtx context.Context, serverDefs []*ServerDef) (servers []Server, err error) {
+func Init(initCtx context.Context, serverDefs []*configpb.ServerDef) (servers []Server, err error) {
 	for _, serverDef := range serverDefs {
 		var l *logger.Logger
 		l, err = newLogger(initCtx, serverDef.GetType().String())
@@ -49,9 +50,9 @@ func Init(initCtx context.Context, serverDefs []*ServerDef) (servers []Server, e
 		}
 		var server Server
 		switch serverDef.GetType() {
-		case ServerDef_HTTP:
+		case configpb.ServerDef_HTTP:
 			server, err = http.New(initCtx, serverDef.GetHttpServer(), l)
-		case ServerDef_UDP:
+		case configpb.ServerDef_UDP:
 			server, err = udp.New(initCtx, serverDef.GetUdpServer(), l)
 		}
 		if err != nil {

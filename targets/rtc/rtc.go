@@ -24,7 +24,8 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/logger"
-	"github.com/google/cloudprober/targets/rtc/rtcreporter"
+	configpb "github.com/google/cloudprober/targets/rtc/proto"
+	cpb "github.com/google/cloudprober/targets/rtc/rtcreporter/proto"
 	"github.com/google/cloudprober/targets/rtc/rtcservice"
 	runtimeconfig "google.golang.org/api/runtimeconfig/v1beta1"
 )
@@ -171,7 +172,7 @@ func (t *Targets) targsFromVar(v *runtimeconfig.Variable) (string, error) {
 		return "", err
 	}
 
-	pb := &rtcreporter.RtcTargetInfo{}
+	pb := &cpb.RtcTargetInfo{}
 	if err := proto.Unmarshal(val, pb); err != nil {
 		return "", fmt.Errorf("rtc.targsFromVar: Unable to unmarshal proto : %v", err)
 	}
@@ -213,7 +214,7 @@ func (t *Targets) targsFromVar(v *runtimeconfig.Variable) (string, error) {
 }
 
 // New returns an rtc resolver / lister, given a defining protobuf.
-func New(pb *TargetsConf, proj string, l *logger.Logger) (*Targets, error) {
+func New(pb *configpb.TargetsConf, proj string, l *logger.Logger) (*Targets, error) {
 	rtc, err := rtcservice.New(proj, pb.GetCfg(), nil)
 	if err != nil {
 		err = fmt.Errorf("newRTC: Error building rtc client %v for targets: %v", pb.GetCfg(), err)

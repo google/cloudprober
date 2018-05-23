@@ -15,7 +15,9 @@
 package probeutils
 
 import (
+	"bytes"
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/google/cloudprober/logger"
@@ -85,4 +87,43 @@ func StatsKeeper(ctx context.Context, ptype, name string, exportInterval time.Du
 			return
 		}
 	}
+}
+
+// PatternPayload builds a payload that can be verified using VerifyPayloadPattern.
+// It repeats the pattern to fill a []byte slice of finalSize. Last remaining
+// bytes (finalSize mod patternSize) are left unpopulated (hence set to 0
+// bytes). If final payload size is smaller than the pattern size, we return
+// the pattern unmodified.
+func PatternPayload(pattern []byte, finalSize int) []byte {
+	if len(pattern) >= finalSize {
+		return pattern
+	}
+	b := make([]byte, finalSize)
+	patternSize := len(pattern)
+	// We create finalSize/patternSize replicas of the payload.
+	for nReplica := 0; nReplica < finalSize/patternSize; nReplica++ {
+		copy(b[nReplica*patternSize:], pattern)
+	}
+	return b
+}
+
+// VerifyPayloadPattern verifies the payload built using PatternPayload.
+func VerifyPayloadPattern(payload, pattern []byte) error {
+	patternSize := len(pattern)
+	nReplica := len(payload) / patternSize
+
+	for i := 0; i < nReplica; i++ {
+		bN := payload[0:patternSize]    // Next pattern sized bytes
+		payload = payload[patternSize:] // Shift payload for next iteration
+
+		if bytes.Compare(bN, pattern) != 0 {
+			return fmt.Errorf("bytes are not in the expected format. payload[%d-Replica]=%v, pattern=%v", i, bN, pattern)
+		}
+	}
+
+	// Verity that remaining bytes in payload are all zeros.
+	if bytes.Compare(payload, make([]byte, len(payload))) != 0 {
+		return fmt.Errorf("payload doesn't have 0s padding in the last 'payloadSize mod patternSize' bytes: %v", payload)
+	}
+	return nil
 }

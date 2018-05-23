@@ -136,7 +136,7 @@ func (p *Probe) setSourceFromConfig() error {
 		if err != nil {
 			return fmt.Errorf("error getting hostname from OS: %v", err)
 		}
-		// TODO: This name should resolve for the listen method to work.
+		// TODO(manugarg): This name should resolve for the listen method to work.
 		// We should probably change "listen" to use 0.0.0.0 if p.source doesn't
 		// resolve.
 		p.source = hostname

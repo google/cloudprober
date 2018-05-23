@@ -27,7 +27,7 @@ func TestCounterRuntimeVars(t *testing.T) {
 		t.Errorf("Metrics kind is not cumulative.")
 	}
 
-	for _, name := range []string{"uptime", "uptime_msec", "gc_time_msec", "mallocs", "frees"} {
+	for _, name := range []string{"uptime_msec", "gc_time_msec", "mallocs", "frees"} {
 		if em.Metric(name) == nil {
 			t.Errorf("Expected metric \"%s\" not defined in EventMetrics: %s", name, em.String())
 		}

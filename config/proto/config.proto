@@ -1,0 +1,60 @@
+syntax = "proto2";
+
+import "github.com/google/cloudprober/probes/proto/config.proto";
+import "github.com/google/cloudprober/servers/proto/config.proto";
+import "github.com/google/cloudprober/targets/proto/targets.proto";
+import "github.com/google/cloudprober/surfacers/proto/config.proto";
+import "github.com/google/cloudprober/targets/rds/server/proto/config.proto";
+import "github.com/google/cloudprober/targets/rtc/rtcreporter/proto/rtcreporter.proto";
+
+package cloudprober;
+
+message ProberConfig {
+  // Probes to run.
+  repeated probes.ProbeDef probe = 1;
+
+  // Surfacers are used to export probe results for further processing.
+  // If no surfacer is configured, a prometheus and a file surfacer are
+  // initialized:
+  //  - Prometheus makes probe results available at http://<host>:9313/metrics.
+  //  - File surfacer writes results to stdout.
+  //
+  // You can disable default surfacers (in case you want no surfacer at all), by
+  // adding the following to your config:
+  //   surfacer {}
+  repeated surfacer.SurfacerDef surfacer = 2;
+
+  // Servers to run inside cloudprober. These servers can serve as targets for
+  // other probes.
+  repeated servers.ServerDef server = 3;
+
+  // Resource discovery server
+  optional targets.rds.ServerConf rds_server = 95;
+
+  // Port for the default HTTP server. This port is also used for prometheus
+  // exporter (URL /metrics). Default port is 9313. If not specified in the
+  // config, default port can be overridden by the environment variable
+  // CLOUDPROBER_PORT.
+  optional int32 port = 96;
+
+  // How often to export system variables. To learn more about system variables:
+  // http://godoc.org/github.com/google/cloudprober/sysvars.
+  optional int32 sysvars_interval_msec = 97 [default = 10000];
+
+  // Variables specified in this environment variable are exported as it is.
+  // This is specifically useful to export information about system environment,
+  // for example, docker image tag/digest-id, OS version etc. See
+  // tools/cloudprober_startup.sh in the cloudprober directory for an example on
+  // how to use these variables.
+  optional string sysvars_env_var = 98 [default = "SYSVARS"];
+
+  // Options for RTC reporter. RTC reporter reports information about the
+  // current instance to a Runtime Config (RTC). This is useful if you want your
+  // instance to be dynamically discoverable through RTC targets. This is
+  // disabled by default.
+  optional targets.rtcreporter.RtcReportOptions rtc_report_options = 99;
+
+  // Global targets options. Per-probe options are specified within the probe
+  // stanza.
+  optional targets.GlobalTargetsOptions global_targets_options = 100;
+}

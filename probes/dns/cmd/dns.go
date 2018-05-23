@@ -28,6 +28,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/metrics"
 	"github.com/google/cloudprober/probes/dns"
+	configpb "github.com/google/cloudprober/probes/dns/proto"
 	"github.com/google/cloudprober/probes/options"
 	"github.com/google/cloudprober/targets"
 )
@@ -42,7 +43,7 @@ var (
 func main() {
 	flag.Parse()
 
-	c := &dns.ProbeConf{}
+	c := &configpb.ProbeConf{}
 
 	// If we are given a config file, read it. If not, use defaults.
 	if *config != "" {

@@ -1,0 +1,27 @@
+syntax = "proto2";
+
+package cloudprober.metrics;
+
+// Dist defines a Distribution data type.
+message Dist {
+  oneof buckets {
+    // Comma-separated list of lower bounds, where each lower bound is a float
+    // value. Example: 0.5,1,2,4,8.
+    string explicit_buckets = 1;
+    // Exponential buckets are not supported yet.
+    // TODO(manugarg): Implement support for exponential buckets.
+    ExponentialBuckets exponential_buckets = 2;
+  }
+}
+
+// ExponentialBucket defines a set of num_buckets+2 buckets:
+//   bucket[0] covers (−Inf, 0)
+//   bucket[1] covers [0, scale_factor)
+//   bucket[i] covers [scale_factor*base^(i−2), scale_factor*base^(i−1)) for i > 1 and i <= num_buckets
+//   bucket[num_buckets+1] covers [scale_factor*base^(num_buckets−1), +Inf)
+// base must be at least 1.01.
+message ExponentialBuckets {
+  optional float scale_factor = 1 [default = 1.0];
+  optional float base = 2 [default = 2];
+  optional uint32 num_buckets = 3 [default = 20];
+}

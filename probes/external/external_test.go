@@ -27,6 +27,8 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/metrics"
+	configpb "github.com/google/cloudprober/probes/external/proto"
+	serverpb "github.com/google/cloudprober/probes/external/proto"
 	"github.com/google/cloudprober/probes/external/serverutils"
 	"github.com/google/cloudprober/probes/options"
 	"github.com/google/cloudprober/targets"
@@ -55,13 +57,13 @@ func startProbeServer(t *testing.T, testPayload string, r io.Reader, w io.WriteC
 		}
 		id := req.GetRequestId()
 
-		actionToResponse := map[string]*serverutils.ProbeReply{
-			"nopayload": &serverutils.ProbeReply{RequestId: proto.Int32(id)},
-			"payload": &serverutils.ProbeReply{
+		actionToResponse := map[string]*serverpb.ProbeReply{
+			"nopayload": &serverpb.ProbeReply{RequestId: proto.Int32(id)},
+			"payload": &serverpb.ProbeReply{
 				RequestId: proto.Int32(id),
 				Payload:   proto.String(testPayload),
 			},
-			"payload_with_error": &serverutils.ProbeReply{
+			"payload_with_error": &serverpb.ProbeReply{
 				RequestId:    proto.Int32(id),
 				Payload:      proto.String(testPayload),
 				ErrorMessage: proto.String("error"),
@@ -129,8 +131,8 @@ func testProbeServerSetup(t *testing.T, readErrorCh chan error) (*Probe, string)
 
 	p := &Probe{}
 	p.Init("testProbe", &options.Options{
-		ProbeConf: &ProbeConf{
-			Options: []*ProbeConf_Option{
+		ProbeConf: &configpb.ProbeConf{
+			Options: []*configpb.ProbeConf_Option{
 				{
 					Name:  proto.String("target"),
 					Value: proto.String("@target@"),
@@ -356,8 +358,8 @@ func TestSubstituteLabels(t *testing.T) {
 func TestSendRequest(t *testing.T) {
 	p := &Probe{}
 	p.Init("testprobe", &options.Options{
-		ProbeConf: &ProbeConf{
-			Options: []*ProbeConf_Option{
+		ProbeConf: &configpb.ProbeConf{
+			Options: []*configpb.ProbeConf_Option{
 				{
 					Name:  proto.String("target"),
 					Value: proto.String("@target@"),
@@ -376,7 +378,7 @@ func TestSendRequest(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to sendRequest: %v", err)
 	}
-	req := new(serverutils.ProbeRequest)
+	req := new(serverpb.ProbeRequest)
 	var length int
 	_, err = fmt.Fscanf(&buf, "\nContent-Length: %d\n\n", &length)
 	if err != nil {

@@ -29,6 +29,7 @@ import (
 	"github.com/google/cloudprober/metrics"
 	"github.com/google/cloudprober/probes/options"
 	"github.com/google/cloudprober/probes/udp"
+	configpb "github.com/google/cloudprober/probes/udp/proto"
 	"github.com/google/cloudprober/targets"
 )
 
@@ -42,7 +43,7 @@ var (
 func main() {
 	flag.Parse()
 
-	c := &udp.ProbeConf{}
+	c := &configpb.ProbeConf{}
 
 	// If we are given a config file, read it. If not, use defaults.
 	if *config != "" {

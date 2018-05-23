@@ -24,6 +24,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/servers/udp"
+	configpb "github.com/google/cloudprober/servers/udp/proto"
 
 	"flag"
 	"github.com/golang/glog"
@@ -42,9 +43,9 @@ func main() {
 		glog.Fatal(err)
 	}
 
-	config := &udp.ServerConf{
+	config := &configpb.ServerConf{
 		Port: proto.Int32(int32(*port)),
-		Type: udp.ServerConf_DISCARD.Enum(),
+		Type: configpb.ServerConf_DISCARD.Enum(),
 	}
 	server, err := udp.New(context.Background(), config, l)
 	if err != nil {

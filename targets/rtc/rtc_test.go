@@ -23,7 +23,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/logger"
-	"github.com/google/cloudprober/targets/rtc/rtcreporter"
+	cpb "github.com/google/cloudprober/targets/rtc/rtcreporter/proto"
 	"github.com/google/cloudprober/targets/rtc/rtcservice"
 	"github.com/kylelemons/godebug/pretty"
 )
@@ -46,7 +46,7 @@ func getMissing(elems []string, from []string) []string {
 }
 
 type targInfo struct {
-	value      *rtcreporter.RtcTargetInfo
+	value      *cpb.RtcTargetInfo
 	updatetime string
 }
 
@@ -55,14 +55,14 @@ type addr struct {
 	addr string
 }
 
-func mkTargetInfo(name string, tags []string, addrs []addr) *rtcreporter.RtcTargetInfo {
-	pb := &rtcreporter.RtcTargetInfo{
+func mkTargetInfo(name string, tags []string, addrs []addr) *cpb.RtcTargetInfo {
+	pb := &cpb.RtcTargetInfo{
 		InstanceName: proto.String(name),
 		Groups:       tags,
 	}
-	addresses := make([]*rtcreporter.RtcTargetInfo_Address, len(addrs))
+	addresses := make([]*cpb.RtcTargetInfo_Address, len(addrs))
 	for i, a := range addrs {
-		addresses[i] = &rtcreporter.RtcTargetInfo_Address{Tag: proto.String(a.tag), Address: proto.String(a.addr)}
+		addresses[i] = &cpb.RtcTargetInfo_Address{Tag: proto.String(a.tag), Address: proto.String(a.addr)}
 	}
 	pb.Addresses = addresses
 
@@ -238,7 +238,7 @@ Nextrow:
 		}
 		// List targets
 		gotlist := targs.List()
-		// TODO: Need to catch errors with something like this. This
+		// TODO(izzycecil): Need to catch errors with something like this. This
 		// requires looking at the logger.
 		// if (err != nil) != r.wantError {
 		// 	t.Errorf("%v: targs.List() gave error %q. r.wantError = %v", r.name, err, r.wantError)

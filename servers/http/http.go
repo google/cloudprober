@@ -27,6 +27,8 @@ import (
 
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
+	"github.com/google/cloudprober/probes/probeutils"
+	configpb "github.com/google/cloudprober/servers/http/proto"
 	"github.com/google/cloudprober/sysvars"
 	"github.com/google/cloudprober/targets/lameduck"
 )
@@ -121,7 +123,7 @@ func (s *Server) handler(w http.ResponseWriter, r *http.Request, statsChan chan<
 
 // Server implements a basic single-threaded, fast response web server.
 type Server struct {
-	c                 *ServerConf
+	c                 *configpb.ServerConf
 	ln                net.Listener
 	instanceName      string
 	staticURLResTable map[string]string
@@ -132,7 +134,7 @@ type Server struct {
 }
 
 // New returns a Server.
-func New(initCtx context.Context, c *ServerConf, l *logger.Logger) (*Server, error) {
+func New(initCtx context.Context, c *configpb.ServerConf, l *logger.Logger) (*Server, error) {
 	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", int(c.GetPort())))
 	if err != nil {
 		return nil, err
@@ -174,6 +176,12 @@ func (s *Server) Start(ctx context.Context, dataChan chan<- *metrics.EventMetric
 
 	laddr := s.ln.Addr().String()
 	go s.statsKeeper(fmt.Sprintf("http-server-%s", laddr), statsChan)
+
+	for _, dh := range s.c.GetPatternDataHandler() {
+		size := int(dh.GetResponseSize())
+		resp := string(probeutils.PatternPayload([]byte(dh.GetPattern()), size))
+		s.staticURLResTable[fmt.Sprintf("/data_%d", size)] = resp
+	}
 
 	// Not using default server mux as we may run multiple HTTP servers, e.g. for testing.
 	serverMux := http.NewServeMux()
