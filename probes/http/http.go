@@ -16,12 +16,14 @@
 package http
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
+	"strings"
 	"sync"
 	"time"
 
@@ -47,6 +49,7 @@ type Probe struct {
 	// book-keeping params
 	targets  []string
 	protocol string
+	method   string
 	url      string
 }
 
@@ -102,7 +105,7 @@ func (prr probeRunResult) Target() string {
 func (p *Probe) Init(name string, opts *options.Options) error {
 	c, ok := opts.ProbeConf.(*configpb.ProbeConf)
 	if !ok {
-		return fmt.Errorf("no http config")
+		return fmt.Errorf("not http config")
 	}
 	p.name = name
 	p.opts = opts
@@ -112,19 +115,11 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	p.c = c
 
 	p.targets = p.opts.Targets.List()
-
-	switch p.c.GetProtocol() {
-	case configpb.ProbeConf_HTTP:
-		p.protocol = "http"
-	case configpb.ProbeConf_HTTPS:
-		p.protocol = "https"
-	default:
-		p.l.Errorf("Invalid Protocol: %s", p.c.GetProtocol())
-	}
-
+	p.protocol = strings.ToLower(p.c.GetProtocol().String())
+	p.method = p.c.GetMethod().String()
 	p.url = p.c.GetRelativeUrl()
 	if len(p.url) > 0 && p.url[0] != '/' {
-		p.l.Errorf("Invalid Relative URL: %s, must begin with '/'", p.url)
+		return fmt.Errorf("Invalid Relative URL: %s, must begin with '/'", p.url)
 	}
 
 	// Needs to be non-nil so we can set parameters on it.
@@ -227,13 +222,17 @@ func (p *Probe) runProbe(resultsChan chan<- probeutils.ProbeResult) {
 				host = fmt.Sprintf("%s:%d", host, p.c.GetPort())
 			}
 			url := fmt.Sprintf("%s://%s%s", p.protocol, host, p.url)
-			req, err := http.NewRequest("GET", url, nil) // nil body
+			req, err := http.NewRequest(p.method, url, bytes.NewBufferString(p.c.GetBody()))
 			if err != nil {
 				p.l.Errorf("Target:%s, URL: %s, http.runProbe: error creating HTTP req: %v", target, url, err)
 				return
 			}
 			// Following line is important only for the cases where we resolve the target first.
 			req.Host = target
+
+			for _, header := range p.c.GetHeaders() {
+				req.Header.Set(header.GetName(), header.GetValue())
+			}
 
 			for i := 0; i < int(p.c.GetRequestsPerProbe()); i++ {
 				p.httpRequest(req, &result)
