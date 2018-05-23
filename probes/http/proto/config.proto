@@ -8,6 +8,21 @@ message ProbeConf {
     HTTPS = 1;
   }
 
+  enum Method {
+    GET = 0;
+    POST = 1;
+    PUT = 2;
+    HEAD = 3;
+    DELETE = 4;
+    PATCH = 5;
+    OPTIONS = 6;
+  }
+
+  message Header {
+    optional string name = 1;
+    optional string value = 2;
+  }
+
   // Which HTTP protocol to use
   optional ProtocolType protocol = 1 [default = HTTP];
   // Relative URL (to append to all targets). Must begin with '/'
@@ -25,6 +40,12 @@ message ProbeConf {
   // Note: This feature is experimental and will most likely be replaced by a
   // generic validator framework.
   optional string integrity_check_pattern = 6;
+  // HTTP request method
+  optional Method method = 7 [default = GET];
+  // HTTP request headers
+  repeated Header headers = 8;
+  // Request body.
+  optional string body = 9;
 
   // Requests per probe
   optional int32 requests_per_probe = 98 [default = 1];
