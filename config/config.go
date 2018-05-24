@@ -63,6 +63,24 @@ Cloudprober configs support following macros:
 		run_on: "{{$run_on}}"
 	}
 
+*) env - extract the value of a environment variable and use it in the configuration
+	a common use-case is using it inside a kubernetes cluster and use Downward API
+
+	# Use an environment variable to set a
+	probe {
+	  name: "dns_google_jp"
+	  type: DNS
+	  targets {
+		host_names: "1.1.1.1"
+	  }
+	  dns_probe {
+	   resolved_domain: "{{env "TEST_DOM"}}"
+	  }
+	  interval_msec: 5000  # 5s
+	  timeout_msec: 1000   # 1s
+	}
+	# Sample usage
+	# TEST_DOM=google.co.jp ./cloudprober --config_file=cloudprober.cfg
 */
 package config
 
@@ -120,6 +138,8 @@ func ParseTemplate(config string, sysVars map[string]string) (string, error) {
 			}
 			return matches[n], nil
 		},
+		// env allows a user to lookup the value of a environment variable in
+		// the configuration
 		"env" : func(key string) string {
 			value, ok := os.LookupEnv(key)
 			if !ok {
