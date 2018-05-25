@@ -89,6 +89,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"strings"
 	"text/template"
 
 	"cloud.google.com/go/compute/metadata"
@@ -153,7 +154,8 @@ func ParseTemplate(config string, sysVars map[string]string) (string, error) {
 		return "", err
 	}
 	var b bytes.Buffer
-	if err := configTmpl.Execute(&b, sysVars); err != nil {
+
+	if err := configTmpl.Execute(&b, withEnvironmentVariables(sysVars)); err != nil {
 		return "", err
 	}
 	return b.String(), nil
@@ -170,4 +172,19 @@ func Parse(config string, sysVars map[string]string) (*configpb.ProberConfig, er
 		return nil, err
 	}
 	return cfg, nil
+}
+
+func withEnvironmentVariables(sysVars map[string]string) map[string]string {
+	vars := map[string]string{}
+
+	for _, env := range os.Environ() {
+		tokens := strings.Split(env, "=")
+		vars["ENV_"+tokens[0]] = os.Getenv(tokens[0])
+	}
+
+	for k, v := range sysVars {
+		vars[k] = v
+	}
+
+	return vars
 }
