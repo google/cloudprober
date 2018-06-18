@@ -77,28 +77,6 @@ type pgDistribution struct {
 	timestamp  time.Time
 }
 
-// sumMetric creates the correctly named metric
-// representing sum of the distribution
-func (d pgDistribution) sumMetric() pgMetric {
-	return newPGMetric(
-		d.timestamp,
-		d.metricName+"_sum",
-		strconv.FormatFloat(d.Sum, 'f', -1, 64),
-		d.labels,
-	)
-}
-
-// countMetric creates the correctly named metric representing
-// the count of the distribution
-func (d pgDistribution) countMetric() pgMetric {
-	return newPGMetric(
-		d.timestamp,
-		d.metricName+"_count",
-		strconv.FormatInt(d.Count, 10),
-		d.labels,
-	)
-}
-
 // bucketMetrics creates and formats all metrics for each bucket in this distribution.
 // each bucket is assigned a metric name suffixed with "_bucket" and labeled with the
 // corresponding bucket as "le: {bucket}"
@@ -121,11 +99,10 @@ func (d pgDistribution) bucketMetrics() []pgMetric {
 	return ms
 }
 
-// metricRows extracts all metrics to be insterted into postgres
-// corresponding to the EventMEtric
+// metricRows converts an EventMetric into a list of pgMetrics.
 func metricRows(em *metrics.EventMetrics) []pgMetric {
 	fmt.Printf("%+v\n", em)
-	cs := []pgMetric{}
+	rows := []pgMetric{}
 
 	labels := []label{}
 
@@ -139,34 +116,33 @@ func metricRows(em *metrics.EventMetrics) []pgMetric {
 		if mapVal, ok := val.(*metrics.Map); ok {
 			for _, k := range mapVal.Keys() {
 				labelsWithMap := append(labels, label{mapVal.MapName, k})
-				cs = append(cs, newPGMetric(em.Timestamp, metricName, mapVal.GetKey(k).String(), labelsWithMap))
+				rows = append(rows, newPGMetric(em.Timestamp, metricName, mapVal.GetKey(k).String(), labelsWithMap))
 			}
 			continue
 		}
 
 		if distVal, ok := val.(*metrics.Distribution); ok {
 			d := distVal.Data()
-			pgD := pgDistribution{d, metricName, labels, em.Timestamp}
-
-			cs = append(cs,
-				pgD.sumMetric(),
-				pgD.countMetric(),
+			rows = append(rows,
+				newPGMetric(em.Timestamp, metricName+"_sum", strconv.FormatFloat(d.Sum, 'f', -1, 64), labels),
+				newPGMetric(em.Timestamp, metricName+"_count", strconv.FormatInt(d.Count, 10), labels),
 			)
 
-			cs = append(cs, pgD.bucketMetrics()...)
+			pgD := pgDistribution{d, metricName, labels, em.Timestamp}
+			rows = append(rows, pgD.bucketMetrics()...)
 
 			continue
 		}
 
 		if _, ok := val.(metrics.String); ok {
 			newLabels := append(labels, label{"val", val.String()})
-			cs = append(cs, newPGMetric(em.Timestamp, metricName, "1", newLabels))
+			rows = append(rows, newPGMetric(em.Timestamp, metricName, "1", newLabels))
 			continue
 		}
 
-		cs = append(cs, newPGMetric(em.Timestamp, metricName, val.String(), labels))
+		rows = append(rows, newPGMetric(em.Timestamp, metricName, val.String(), labels))
 	}
-	return cs
+	return rows
 }
 
 // PostgresSurfacer structures for writing to postgres.
@@ -199,46 +175,40 @@ func New(config *configpb.SurfacerConf, l *logger.Logger) (*PostgresSurfacer, er
 // writeMetrics parses events metrics into postgres rows, starts a transaction
 // and inserts all discreet metric rows represented by the EventMetrics
 func (s *PostgresSurfacer) writeMetrics(em *metrics.EventMetrics) error {
+	var txn *sql.Tx
+	var err error
 	rows := metricRows(em)
 
-	txn, err := s.db.Begin()
-	if err != nil {
+	if txn, err = s.db.Begin(); err != nil {
 		return err
 	}
 
-	stmt, err := txn.Prepare(
-		pq.CopyIn(
-			s.c.GetMetricsTableName(), "time", "metric_name", "value", "labels",
-		),
-	)
+	// Prepare a statement to COPY table from the STDIN.
+	stmt, err := txn.Prepare(pq.CopyIn(s.c.GetMetricsTableName(), "time", "metric_name", "value", "labels"))
 
 	if err != nil {
 		return err
 	}
 
 	for _, r := range rows {
-		s, err := r.labelsJSON()
-		if err != nil {
+		var s string
+		if s, err = r.labelsJSON(); err != nil {
 			return err
 		}
-		_, err = stmt.Exec(r.time, r.metricName, r.value, s)
-		if err != nil {
+		if _, err = stmt.Exec(r.time, r.metricName, r.value, s); err != nil {
 			return err
 		}
 	}
 
-	_, err = stmt.Exec()
-	if err != nil {
+	if _, err = stmt.Exec(); err != nil {
 		return err
 	}
 
-	err = stmt.Close()
-	if err != nil {
+	if err = stmt.Close(); err != nil {
 		return err
 	}
 
-	err = txn.Commit()
-	if err != nil {
+	if err = txn.Commit(); err != nil {
 		return err
 	}
 
@@ -248,15 +218,12 @@ func (s *PostgresSurfacer) writeMetrics(em *metrics.EventMetrics) error {
 // init connects to postgres
 func (s *PostgresSurfacer) init() error {
 	var err error
-	fmt.Fprintf(os.Stdout, "%s\n", s.c.GetConnectionString())
 
-	s.db, err = s.openDB(s.c.GetConnectionString())
-	if err != nil {
+	if s.db, err = s.openDB(s.c.GetConnectionString()); err != nil {
 		return err
 	}
 
-	err = s.db.Ping()
-	if err != nil {
+	if err = s.db.Ping(); err != nil {
 		return err
 	}
 
@@ -270,13 +237,11 @@ func (s *PostgresSurfacer) init() error {
 		for {
 			em := <-s.writeChan
 
-			// batch all metrics into a sql statement
 			if em.Kind != metrics.CUMULATIVE && em.Kind != metrics.GAUGE {
 				continue
 			}
 
-			err := s.writeMetrics(em)
-			if err != nil {
+			if err := s.writeMetrics(em); err != nil {
 				fmt.Fprintf(os.Stdout, "%+v\n", err)
 			}
 		}
