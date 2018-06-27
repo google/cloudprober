@@ -32,6 +32,7 @@ import (
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
 	"github.com/google/cloudprober/surfacers/file"
+	"github.com/google/cloudprober/surfacers/postgres"
 	"github.com/google/cloudprober/surfacers/prometheus"
 	"github.com/google/cloudprober/surfacers/stackdriver"
 
@@ -74,6 +75,8 @@ func initSurfacer(s *surfacerpb.SurfacerDef) (Surfacer, error) {
 		return stackdriver.New(s.GetStackdriverSurfacer(), l)
 	case surfacerpb.Type_FILE:
 		return file.New(s.GetFileSurfacer(), l)
+	case surfacerpb.Type_POSTGRES:
+		return postgres.New(s.GetPostgresSurfacer(), l)
 	case surfacerpb.Type_USER_DEFINED:
 		userDefinedSurfacersMu.Lock()
 		defer userDefinedSurfacersMu.Unlock()
