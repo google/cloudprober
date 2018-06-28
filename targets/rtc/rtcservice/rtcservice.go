@@ -85,13 +85,8 @@ func New(proj string, cfg string, c *http.Client) (Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := &impl{svc, proj, cfg}
-	// Checks that proj and cfg are valid by trying to list variables.
-	_, err = s.List()
-	if err != nil {
-		return nil, err
-	}
-	return s, nil
+	// TODO: Consider checking for the configuration errors before returning.
+	return &impl{svc, proj, cfg}, nil
 }
 
 // This helper function is used to actually connect to an RTC client.
