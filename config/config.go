@@ -23,8 +23,71 @@ Config file is processed using the provided variable map (usually GCP metadata v
 and some predefined macros.
 
 Cloudprober configs support following macros:
+*) env - get the value of an environment variable. A common use-case for this
+  is using it inside a kubernetes cluster. Example:
 
-*) mkSlice - mkSlice returns a slice consisting of arguments. Example use in config:
+	# Use an environment variable to set a
+	probe {
+	  name: "dns_google_jp"
+	  type: DNS
+	  targets {
+	    host_names: "1.1.1.1"
+	  }
+	  dns_probe {
+	    resolved_domain: "{{env "TEST_DOM"}}"
+	  }
+	  interval_msec: 5000  # 5s
+	  timeout_msec: 1000   # 1s
+	}
+	# Then run cloudprober as:
+	TEST_DOM=google.co.jp ./cloudprober --config_file=cloudprober.cfg
+
+*) extractSubstring - extract substring from a string using regex. Example use in config:
+
+	# Sharded VM-to-VM connectivity checks over internal IP
+	# Instance name format: ig-<zone>-<shard>-<random-characters>, e.g. ig-asia-east1-a-00-ftx1
+	{{$shard := .instance | extractSubstring "[^-]+-[^-]+-[^-]+-[^-]+-([^-]+)-.*" 1}}
+	probe {
+	  name: "vm-to-vm-{{$shard}}"
+	  type: PING
+	  targets {
+	    gce_targets {
+	      instances {}
+            }
+	    regex: "{{$targets}}"
+          }
+          run_on: "{{$run_on}}"
+	}
+
+*) mkMap - mkMap returns a map built from the arguments. It's useful as Go
+  templates take only one argument. With this function, we can create a map of
+  multiple values and pass it to a template. Example use in config:
+
+	# Declare targets template that takes a map as an argument.
+	{{define "targetsTmpl" -}}
+	  rds_targets {
+	    server_addr: "{{.rdsServer}}"
+
+	    request {
+	      provider: "gcp"
+	      resource_path: "gce_instances/{{.project}}"
+	      filter {
+	        key: "name"
+		regex: "{{.regex}}"
+	      }
+            }
+          }
+	{{- end}}
+
+	probe {
+	  ...
+	  targets {
+            {{template "targetsTmpl" mkMap "project" .project "rdsServer" "rds-server:9314" "regex" $targetRegex}}
+          }
+	  ...
+	}
+
+*) mkSlice - mkSlice returns a slice consisting of the arguments. Example use in config:
 
 	# Sharded VM-to-VM connectivity checks over internal IP
 	# Instance name format: ig-<zone>-<shard>-<random-characters>, e.g. ig-asia-east1-a-00-ftx1
@@ -35,57 +98,25 @@ Cloudprober configs support following macros:
 	{{$run_on := printf "^ig-([^-]+-[^-]+-[^-]+)-%s-[^-.]+(|[.].*)$" $shard}}
 
 	probe {
-		name: "vm-to-vm-{{$shard}}"
-		type: PING
-		targets {
-			gce_targets {
-				instances {}
-			}
-			regex: "{{$targets}}"
-		}
-		run_on: "{{$run_on}}"
-	}
-
-*) extractSubstring - extract substring from a string using regex. Example use in config:
-
-	# Sharded VM-to-VM connectivity checks over internal IP
-	# Instance name format: ig-<zone>-<shard>-<random-characters>, e.g. ig-asia-east1-a-00-ftx1
-	{{$shard := .instance | extractSubstring "[^-]+-[^-]+-[^-]+-[^-]+-([^-]+)-.*" 1}}
-	probe {
-		name: "vm-to-vm-{{$shard}}"
-		type: PING
-		targets {
-			gce_targets {
-				instances {}
-			}
-			regex: "{{$targets}}"
-		}
-		run_on: "{{$run_on}}"
-	}
-
-*) env - get the value of an environment variable. A common use-case for this
-         is using it inside a kubernetes cluster. Example:
-
-	# Use an environment variable to set a
-	probe {
-	  name: "dns_google_jp"
-	  type: DNS
+	  name: "vm-to-vm-{{$shard}}"
+	  type: PING
 	  targets {
-		  host_names: "1.1.1.1"
-	  }
-	  dns_probe {
-	   resolved_domain: "{{env "TEST_DOM"}}"
-	  }
-	  interval_msec: 5000  # 5s
-	  timeout_msec: 1000   # 1s
+	    gce_targets {
+	      instances {}
+	    }
+	    regex: "{{$targets}}"
+          }
+	  run_on: "{{$run_on}}"
 	}
-	# Then run cloudprober as:
-	TEST_DOM=google.co.jp ./cloudprober --config_file=cloudprober.cfg
+
+	{{end}}
+	{{end}}
 */
 package config
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"regexp"
@@ -121,9 +152,14 @@ func DefaultConfig() string {
 // ParseTemplate processes a config file as a Go text template.
 func ParseTemplate(config string, sysVars map[string]string) (string, error) {
 	funcMap := map[string]interface{}{
-		// mkSlice makes a slice from its arguments.
-		"mkSlice": func(args ...interface{}) []interface{} {
-			return args
+		// env allows a user to lookup the value of a environment variable in
+		// the configuration
+		"env": func(key string) string {
+			value, ok := os.LookupEnv(key)
+			if !ok {
+				return ""
+			}
+			return value
 		},
 		// extractSubstring allows us to extract substring from a string using regex
 		// matching groups.
@@ -138,14 +174,24 @@ func ParseTemplate(config string, sysVars map[string]string) (string, error) {
 			}
 			return matches[n], nil
 		},
-		// env allows a user to lookup the value of a environment variable in
-		// the configuration
-		"env": func(key string) string {
-			value, ok := os.LookupEnv(key)
-			if !ok {
-				return ""
+		// mkMap makes a map from its argume
+		"mkMap": func(values ...interface{}) (map[string]interface{}, error) {
+			if len(values)%2 != 0 {
+				return nil, errors.New("invalid mkMap call, need even number of args")
 			}
-			return value
+			m := make(map[string]interface{}, len(values)/2)
+			for i := 0; i < len(values); i += 2 {
+				key, ok := values[i].(string)
+				if !ok {
+					return nil, errors.New("map keys must be strings")
+				}
+				m[key] = values[i+1]
+			}
+			return m, nil
+		},
+		// mkSlice makes a slice from its arguments.
+		"mkSlice": func(args ...interface{}) []interface{} {
+			return args
 		},
 	}
 	configTmpl, err := template.New("cloudprober_cfg").Funcs(funcMap).Parse(config)
