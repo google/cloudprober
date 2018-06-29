@@ -22,95 +22,89 @@ Parse processes a config file as a Go text template and parses it into a ProberC
 Config file is processed using the provided variable map (usually GCP metadata variables)
 and some predefined macros.
 
-Cloudprober configs support following macros:
-*) env - get the value of an environment variable. A common use-case for this
-  is using it inside a kubernetes cluster. Example:
+Macros
 
-	# Use an environment variable to set a
-	probe {
-	  name: "dns_google_jp"
-	  type: DNS
-	  targets {
-	    host_names: "1.1.1.1"
-	  }
-	  dns_probe {
-	    resolved_domain: "{{env "TEST_DOM"}}"
-	  }
-	  interval_msec: 5000  # 5s
-	  timeout_msec: 1000   # 1s
-	}
-	# Then run cloudprober as:
-	TEST_DOM=google.co.jp ./cloudprober --config_file=cloudprober.cfg
+Cloudprober configs support some macros to make configs construction easier:
+
+*) env: get the value of an environment variable. A common use-case for this
+is using it inside a kubernetes cluster. Example:
+
+ # Use an environment variable in probe config
+ probe {
+   name: "dns_google_jp"
+   type: DNS
+   targets {
+     host_names: "1.1.1.1"
+   }
+   dns_probe {
+     resolved_domain: "{{env "TEST_DOM"}}"
+   }
+   interval_msec: 5000  # 5s
+   timeout_msec: 1000   # 1s
+ }
+
+ # Then run cloudprober as:
+ TEST_DOM=google.co.jp ./cloudprober --config_file=cloudprober.cfg
 
 *) extractSubstring - extract substring from a string using regex. Example use in config:
 
-	# Sharded VM-to-VM connectivity checks over internal IP
-	# Instance name format: ig-<zone>-<shard>-<random-characters>, e.g. ig-asia-east1-a-00-ftx1
-	{{$shard := .instance | extractSubstring "[^-]+-[^-]+-[^-]+-[^-]+-([^-]+)-.*" 1}}
-	probe {
-	  name: "vm-to-vm-{{$shard}}"
-	  type: PING
-	  targets {
-	    gce_targets {
-	      instances {}
-            }
-	    regex: "{{$targets}}"
-          }
-          run_on: "{{$run_on}}"
-	}
+ # Sharded VM-to-VM connectivity checks over internal IP
+ # Instance name format: ig-<zone>-<shard>-<random-characters>, e.g. ig-asia-east1-a-00-ftx1
+ {{$shard := .instance | extractSubstring "[^-]+-[^-]+-[^-]+-[^-]+-([^-]+)-.*" 1}}
+ probe {
+   name: "vm-to-vm-{{$shard}}"
+   type: PING
+   targets {
+     gce_targets {
+       instances {}
+     }
+     regex: "{{$targets}}"
+   }
+   run_on: "{{$run_on}}"
+ }
 
 *) mkMap - mkMap returns a map built from the arguments. It's useful as Go
-  templates take only one argument. With this function, we can create a map of
-  multiple values and pass it to a template. Example use in config:
+templates take only one argument. With this function, we can create a map of
+multiple values and pass it to a template. Example use in config:
 
-	# Declare targets template that takes a map as an argument.
-	{{define "targetsTmpl" -}}
-	  rds_targets {
-	    server_addr: "{{.rdsServer}}"
+ {{define "probeTmpl"}}
+ probe {
+   type: {{.typ}}
+   name: "{{.name}}"
+   targets {
+     host_names: "www.google.com"
+   }
+ }
+ {{end}}
 
-	    request {
-	      provider: "gcp"
-	      resource_path: "gce_instances/{{.project}}"
-	      filter {
-	        key: "name"
-		regex: "{{.regex}}"
-	      }
-            }
-          }
-	{{- end}}
+ {{template "probeTmpl" mkMap "typ" "PING" "name" "ping_google"}}
+{{template "probeTmpl" mkMap "typ" "HTTP" "name" "http_google"}}
 
-	probe {
-	  ...
-	  targets {
-            {{template "targetsTmpl" mkMap "project" .project "rdsServer" "rds-server:9314" "regex" $targetRegex}}
-          }
-	  ...
-	}
 
 *) mkSlice - mkSlice returns a slice consisting of the arguments. Example use in config:
 
-	# Sharded VM-to-VM connectivity checks over internal IP
-	# Instance name format: ig-<zone>-<shard>-<random-characters>, e.g. ig-asia-east1-a-00-ftx1
+ # Sharded VM-to-VM connectivity checks over internal IP
+ # Instance name format: ig-<zone>-<shard>-<random-characters>, e.g. ig-asia-east1-a-00-ftx1
 
-	{{with $shards := mkSlice "00" "01" "02" "03"}}
-	{{range $_, $shard := $shards}}
-	{{$targets := printf "^ig-([^-]+-[^-]+-[^-]+)-%s-[^-]+$" $shard}}
-	{{$run_on := printf "^ig-([^-]+-[^-]+-[^-]+)-%s-[^-.]+(|[.].*)$" $shard}}
+ {{with $shards := mkSlice "00" "01" "02" "03"}}
+ {{range $_, $shard := $shards}}
+ {{$targets := printf "^ig-([^-]+-[^-]+-[^-]+)-%s-[^-]+$" $shard}}
+ {{$run_on := printf "^ig-([^-]+-[^-]+-[^-]+)-%s-[^-.]+(|[.].*)$" $shard}}
 
-	probe {
-	  name: "vm-to-vm-{{$shard}}"
-	  type: PING
-	  targets {
-	    gce_targets {
-	      instances {}
-	    }
-	    regex: "{{$targets}}"
-          }
-	  run_on: "{{$run_on}}"
-	}
+ probe {
+   name: "vm-to-vm-{{$shard}}"
+   type: PING
+   targets {
+     gce_targets {
+       instances {}
+     }
+     regex: "{{$targets}}"
+   }
+   run_on: "{{$run_on}}"
+ }
 
-	{{end}}
-	{{end}}
+ {{end}}
+ {{end}}
 */
 package config
 
