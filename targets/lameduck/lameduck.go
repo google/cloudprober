@@ -72,6 +72,7 @@ func (ldSvc *Service) expand() {
 // Returns the list of un-expired names of lameduck targets.
 func (ldSvc *Service) processVars(vars []*runtimeconfig.Variable) []string {
 	var result []string
+	expirationTime := time.Duration(ldSvc.opts.GetExpirationSec()) * time.Second
 	for _, v := range vars {
 		ldSvc.l.Debugf("targets: Processing runtime-config var: %s", v.Name)
 
@@ -90,10 +91,14 @@ func (ldSvc *Service) processVars(vars []*runtimeconfig.Variable) []string {
 			ldSvc.l.Errorf("targets: Could not parse variable(%s) update time (%s): %v", v.Name, v.UpdateTime, err)
 			continue
 		}
-		if time.Since(updateTime) < time.Duration(ldSvc.opts.GetExpirationSec())*time.Second {
+		if time.Since(updateTime) < expirationTime {
 			ldSvc.l.Infof("targets: Marking target \"%s\" as lame duck.", ldName)
 			result = append(result, ldName)
-		} else {
+			continue
+		}
+		// Log only if variable is not older than 10 times of expiration time. This
+		// is to avoid keep logging old expired entries.
+		if time.Since(updateTime) < 10*expirationTime {
 			ldSvc.l.Infof("targets: Ignoring the stale (%s) lame duck (%s) entry", time.Since(updateTime), ldName)
 		}
 	}
