@@ -24,6 +24,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/logger"
+	"github.com/google/cloudprober/metrics"
 	"github.com/google/cloudprober/probes/options"
 	configpb "github.com/google/cloudprober/probes/udp/proto"
 	"github.com/google/cloudprober/sysvars"
@@ -89,22 +90,22 @@ func startUDPServer(ctx context.Context, t *testing.T, drop bool, delay time.Dur
 	return conn.LocalAddr().(*net.UDPAddr).Port, scs
 }
 
-func runProbe(ctx context.Context, t *testing.T, port int, interval, timeout time.Duration, pktsToSend int, scs *serverConnStats) *Probe {
+const numTxPorts = 2
+
+func runProbe(ctx context.Context, t *testing.T, interval, timeout time.Duration, probesToSend int, scs *serverConnStats, conf configpb.ProbeConf) *Probe {
 	sysvars.Init(&logger.Logger{}, nil)
 	p := &Probe{}
 	ipVersion := int32(6)
 	if _, ok := os.LookupEnv("TRAVIS"); ok {
 		ipVersion = 4
 	}
+	conf.NumTxPorts = proto.Int32(numTxPorts)
+	conf.IpVersion = proto.Int32(ipVersion)
 	opts := &options.Options{
-		Targets:  targets.StaticTargets("localhost"),
-		Interval: interval,
-		Timeout:  timeout,
-		ProbeConf: &configpb.ProbeConf{
-			Port:       proto.Int32(int32(port)),
-			NumTxPorts: proto.Int32(2),
-			IpVersion:  proto.Int32(ipVersion),
-		},
+		Targets:   targets.StaticTargets("localhost"),
+		Interval:  interval,
+		Timeout:   timeout,
+		ProbeConf: &conf,
 	}
 	if err := p.Init("udp", opts); err != nil {
 		t.Fatalf("Error initializing UDP probe: %v", err)
@@ -131,7 +132,7 @@ func runProbe(ctx context.Context, t *testing.T, port int, interval, timeout tim
 	}()
 
 	time.Sleep(interval)
-	for i := 0; i < pktsToSend; i++ {
+	for i := 0; i < probesToSend; i++ {
 		p.runProbe()
 		time.Sleep(interval)
 	}
@@ -151,39 +152,146 @@ func runProbe(ctx context.Context, t *testing.T, port int, interval, timeout tim
 	return p
 }
 
-func TestSuccessMultipleCases(t *testing.T) {
+func TestSuccessMultipleCasesResultPerPort(t *testing.T) {
 	cases := []struct {
-		name     string
-		interval time.Duration
-		timeout  time.Duration
-		delay    time.Duration
-		pktCount int64
+		name        string
+		interval    time.Duration
+		timeout     time.Duration
+		delay       time.Duration
+		probeCount  int
+		useAllPorts bool
+		pktCount    int64
 	}{
-		// 10 packets, at the interval of 200ms, with 100ms timeout and 10ms delay on server.
-		{"success_normal", 200, 100, 10, 10},
-		// 20 packets, at the interval of 100ms, with 1000ms timeout and 50ms delay on server.
-		{"success_timeout_larger_than_interval_1", 100, 1000, 50, 20},
-		// 20 packets, at the interval of 100ms, with 1000ms timeout and 200ms delay on server.
-		{"success_timeout_larger_than_interval_2", 100, 1000, 200, 20},
+		// 10 probes, probing each target from 2 ports, at the interval of 200ms, with 100ms timeout and 10ms delay on server.
+		{"success_normal", 200, 100, 10, 10, true, 10},
+		// 20 probes, probing each target from 2 ports, at the interval of 100ms, with 1000ms timeout and 50ms delay on server.
+		{"success_timeout_larger_than_interval_1", 100, 1000, 50, 20, true, 20},
+		// 20 probes, probing each target from 2 ports, at the interval of 100ms, with 1000ms timeout and 200ms delay on server.
+		{"success_timeout_larger_than_interval_2", 100, 1000, 200, 20, true, 20},
+		// 10 probes, probing each target just once, at the interval of 200ms, with 100ms timeout and 10ms delay on server.
+		{"single_port", 200, 100, 10, 10, false, 5},
 	}
 
 	for _, c := range cases {
 		ctx, cancelCtx := context.WithCancel(context.Background())
 		port, scs := startUDPServer(ctx, t, false, c.delay*time.Millisecond)
 		t.Logf("Case(%s): started server on port %d with delay %v", c.name, port, c.delay)
-		p := runProbe(ctx, t, port, c.interval*time.Millisecond, c.timeout*time.Millisecond, int(c.pktCount), scs)
+		conf := configpb.ProbeConf{
+			UseAllTxPortsPerProbe: proto.Bool(c.useAllPorts),
+			Port:                proto.Int32(int32(port)),
+			ExportMetricsByPort: proto.Bool(true)}
+		p := runProbe(ctx, t, c.interval*time.Millisecond, c.timeout*time.Millisecond, c.probeCount, scs, conf)
 		cancelCtx()
 
-		res := p.res["localhost"]
+		if len(p.connList) != numTxPorts {
+			t.Errorf("Case(%s): len(p.connList)=%d, want %d", c.name, len(p.connList), numTxPorts)
+		}
+		for _, port := range p.srcPortList {
+			res := p.res[flow{port, "localhost"}]
+			if res.total != c.pktCount {
+				t.Errorf("Case(%s): p.res[_].total=%d, want %d", c.name, res.total, c.pktCount)
+			}
+			if res.success != c.pktCount {
+				t.Errorf("Case(%s): p.res[_].success=%d want %d", c.name, res.success, c.pktCount)
+			}
+			if res.delayed != 0 {
+				t.Errorf("Case(%s): p.res[_].delayed=%d, want 0", c.name, res.delayed)
+			}
+		}
+	}
+}
+
+func TestSuccessMultipleCasesDefaultResult(t *testing.T) {
+	cases := []struct {
+		name        string
+		interval    time.Duration
+		timeout     time.Duration
+		delay       time.Duration
+		probeCount  int
+		useAllPorts bool
+		pktCount    int64
+	}{
+		// 10 probes, probing each target from 2 ports, at the interval of 200ms, with 100ms timeout and 10ms delay on server.
+		{"success_normal", 200, 100, 10, 10, true, 20},
+		// 20 probes, probing each target from 2 ports, at the interval of 100ms, with 1000ms timeout and 50ms delay on server.
+		{"success_timeout_larger_than_interval_1", 100, 1000, 50, 20, true, 40},
+		// 20 probes, probing each target from 2 ports, at the interval of 100ms, with 1000ms timeout and 200ms delay on server.
+		{"success_timeout_larger_than_interval_2", 100, 1000, 200, 20, true, 40},
+		// 10 probes, probing each target just once, at the interval of 200ms, with 100ms timeout and 10ms delay on server.
+		{"single_port", 200, 100, 10, 10, false, 10},
+	}
+
+	for _, c := range cases {
+		ctx, cancelCtx := context.WithCancel(context.Background())
+		port, scs := startUDPServer(ctx, t, false, c.delay*time.Millisecond)
+		t.Logf("Case(%s): started server on port %d with delay %v", c.name, port, c.delay)
+		conf := configpb.ProbeConf{
+			UseAllTxPortsPerProbe: proto.Bool(c.useAllPorts),
+			Port:                proto.Int32(int32(port)),
+			ExportMetricsByPort: proto.Bool(false)}
+		p := runProbe(ctx, t, c.interval*time.Millisecond, c.timeout*time.Millisecond, c.probeCount, scs, conf)
+		cancelCtx()
+
+		if len(p.connList) != numTxPorts {
+			t.Errorf("Case(%s): len(p.connList)=%d, want %d", c.name, len(p.connList), numTxPorts)
+		}
+		res := p.res[flow{"", "localhost"}]
 		if res.total != c.pktCount {
-			t.Errorf("Case(%s): got total=%d, want %d", c.name, res.total, c.pktCount)
+			t.Errorf("Case(%s): p.res[_].total=%d, want %d", c.name, res.total, c.pktCount)
 		}
 		if res.success != c.pktCount {
-			t.Errorf("Case(%s): got success=%d want %d", c.name, res.success, c.pktCount)
+			t.Errorf("Case(%s): p.res[_].success=%d want %d", c.name, res.success, c.pktCount)
 		}
 		if res.delayed != 0 {
-			t.Errorf("Case(%s): got delayed=%d, want 0", c.name, res.delayed)
+			t.Errorf("Case(%s): p.res[_].delayed=%d, want 0", c.name, res.delayed)
 		}
+	}
+}
+
+func extractMetric(em *metrics.EventMetrics, key string) int64 {
+	return em.Metric(key).(*metrics.Int).Int64()
+}
+
+func TestExport(t *testing.T) {
+	res := probeResult{
+		total:   3,
+		success: 2,
+		delayed: 1,
+		latency: metrics.NewFloat(100.),
+	}
+	conf := configpb.ProbeConf{
+		ExportMetricsByPort: proto.Bool(true),
+		Port:                proto.Int32(1234),
+	}
+	m := res.EventMetrics("probe", flow{"port", "target"}, &conf)
+	if r := extractMetric(m, "total-per-port"); r != 3 {
+		t.Errorf("extractMetric(m,\"total-per-port\")=%d, want 3", r)
+	}
+	if r := extractMetric(m, "success-per-port"); r != 2 {
+		t.Errorf("extractMetric(m,\"success-per-port\")=%d, want 2", r)
+	}
+	if got, want := m.Label("src_port"), "port"; got != want {
+		t.Errorf("m.Label(\"src_port\")=%q, want %q", got, want)
+	}
+	if got, want := m.Label("dst_port"), "1234"; got != want {
+		t.Errorf("m.Label(\"dst_port\")=%q, want %q", got, want)
+	}
+	conf = configpb.ProbeConf{
+		ExportMetricsByPort: proto.Bool(false),
+		Port:                proto.Int32(1234),
+	}
+	m = res.EventMetrics("probe", flow{"port", "target"}, &conf)
+	if r := extractMetric(m, "total"); r != 3 {
+		t.Errorf("extractMetric(m,\"total\")=%d, want 3", r)
+	}
+	if r := extractMetric(m, "success"); r != 2 {
+		t.Errorf("extractMetric(m,\"success\")=%d, want 2", r)
+	}
+	if got, want := m.Label("src_port"), ""; got != want {
+		t.Errorf("m.Label(\"src_port\")=%q, want %q", got, want)
+	}
+	if got, want := m.Label("dst_port"), ""; got != want {
+		t.Errorf("m.Label(\"dst_port\")=%q, want %q", got, want)
 	}
 }
 
@@ -209,18 +317,27 @@ func TestLossAndDelayed(t *testing.T) {
 		ctx, cancelCtx := context.WithCancel(context.Background())
 		port, scs := startUDPServer(ctx, t, c.drop, c.delay*time.Millisecond)
 		t.Logf("Case(%s): started server on port %d with loss %v delay %v", c.name, port, c.drop, c.delay)
-		p := runProbe(ctx, t, port, c.interval*time.Millisecond, c.timeout*time.Millisecond, int(pktCount), scs)
+		conf := configpb.ProbeConf{
+			UseAllTxPortsPerProbe: proto.Bool(true),
+			Port:                proto.Int32(int32(port)),
+			ExportMetricsByPort: proto.Bool(true)}
+		p := runProbe(ctx, t, c.interval*time.Millisecond, c.timeout*time.Millisecond, int(pktCount), scs, conf)
 		cancelCtx()
 
-		res := p.res["localhost"]
-		if res.total != pktCount {
-			t.Errorf("Case(%s): got total=%d, want %d", c.name, res.total, pktCount)
+		if len(p.connList) != numTxPorts {
+			t.Errorf("Case(%s): len(p.connList)=%d, want %d", c.name, len(p.connList), numTxPorts)
 		}
-		if res.success != 0 {
-			t.Errorf("Case(%s): got success=%d want 0", c.name, res.success)
-		}
-		if res.delayed != c.delayCt {
-			t.Errorf("Case(%s): got delayed=%d, want %d", c.name, res.delayed, c.delayCt)
+		for _, port := range p.srcPortList {
+			res := p.res[flow{port, "localhost"}]
+			if res.total != pktCount {
+				t.Errorf("Case(%s): p.res[_].total=%d, want %d", c.name, res.total, pktCount)
+			}
+			if res.success != 0 {
+				t.Errorf("Case(%s): p.res[_].success=%d want 0", c.name, res.success)
+			}
+			if res.delayed != c.delayCt {
+				t.Errorf("Case(%s): p.res[_].delayed=%d, want %d", c.name, res.delayed, c.delayCt)
+			}
 		}
 	}
 }
