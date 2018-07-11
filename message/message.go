@@ -27,9 +27,10 @@ import (
 
 // FlowState maintains the state of flow on both the src and dst sides.
 type FlowState struct {
-	mu  sync.Mutex
-	src string
-	dst string
+	mu      sync.Mutex
+	src     string
+	srcPort string
+	dst     string
 
 	// largest sequence number received till now, except for resets.
 	seq uint64
@@ -140,6 +141,11 @@ func (m *Message) Src() string {
 	return m.m.GetSrc().GetName()
 }
 
+// SrcPort returns the src port.
+func (m *Message) SrcPort() string {
+	return m.m.GetSrc().GetPort()
+}
+
 // Dst returns the dst node name.
 func (m *Message) Dst() string {
 	return m.m.GetDst().GetName()
@@ -165,18 +171,19 @@ func NewFlowStateMap() *FlowStateMap {
 
 // FlowState returns the flow state for the node, creating a new one
 // if necessary.
-func (fm *FlowStateMap) FlowState(src string, dst string) *FlowState {
+func (fm *FlowStateMap) FlowState(src, srcPort, dst string) *FlowState {
 	fm.mu.Lock()
 	defer fm.mu.Unlock()
-	idx := src + dst
+	idx := src + ":" + srcPort + "-" + dst
 	fs, ok := fm.flowState[idx]
 	if !ok {
 		now := time.Now()
 		fs = &FlowState{
-			src:   src,
-			dst:   dst,
-			msgTS: now,
-			rxTS:  now,
+			src:     src,
+			srcPort: srcPort,
+			dst:     dst,
+			msgTS:   now,
+			rxTS:    now,
 		}
 		fm.flowState[idx] = fs
 	}
@@ -196,7 +203,7 @@ func (fs *FlowState) NextSeq() uint64 {
 // CreateMessage creates a message for the flow and returns byte array
 // representation of the message and sequence number used on success.
 // TODO: add Message.CreateMessage() fn and use it in FlowState.CreateMessage.
-func (fs *FlowState) CreateMessage(src string, dst string, ts time.Time, maxLen int) ([]byte, uint64, error) {
+func (fs *FlowState) CreateMessage(ts time.Time, maxLen int) ([]byte, uint64, error) {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
@@ -205,11 +212,12 @@ func (fs *FlowState) CreateMessage(src string, dst string, ts time.Time, maxLen 
 		Magic: proto.Uint64(constants.GetMagic()),
 		Seq:   Uint64ToNetworkBytes(fs.seq + 1),
 		Src: &msgpb.DataNode{
-			Name:          proto.String(src),
+			Name:          proto.String(fs.src),
+			Port:          proto.String(fs.srcPort),
 			TimestampUsec: Uint64ToNetworkBytes(uint64(ts.UnixNano()) / 1000),
 		},
 		Dst: &msgpb.DataNode{
-			Name:          proto.String(dst),
+			Name:          proto.String(fs.dst),
 			TimestampUsec: Uint64ToNetworkBytes(uint64(0)),
 			Type:          &dstType,
 		},
@@ -249,7 +257,7 @@ func (m *Message) ProcessOneWay(fsm *FlowStateMap, rxTS time.Time) *Results {
 		Latency: rxTS.Sub(srcTS),
 	}
 
-	fs := fsm.FlowState(m.Src(), m.Dst())
+	fs := fsm.FlowState(m.Src(), m.SrcPort(), m.Dst())
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 	res.FS = fs

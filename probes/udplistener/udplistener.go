@@ -254,7 +254,7 @@ func (p *Probe) outputLoop(ctx context.Context, stats chan<- probeutils.ProbeRes
 	}
 	ticker := time.NewTicker(tick)
 
-	// Number of packets in an interval = (timeDelta + interval - 1ns) / interval
+	// #packets-in-an-interval = #sending-ports * (timeDelta + interval - 1ns) / interval
 	// We add (interval/2 - 1ns) because int64 takes the floor, whereas we want
 	// to round the expression.
 	lastExport := time.Now()
@@ -265,7 +265,10 @@ func (p *Probe) outputLoop(ctx context.Context, stats chan<- probeutils.ProbeRes
 			ticker.Stop()
 			return
 		case <-ticker.C:
-			expectedCt := int64((time.Since(lastExport) + roundAdd) / p.opts.Interval)
+			// Number of probes received from a single sender should equal the number of
+			// sending intervals in the period times the number of sending ports.
+			numIntervals := int64((time.Since(lastExport) + roundAdd) / p.opts.Interval)
+			expectedCt := numIntervals * int64(p.c.GetPacketsPerProbe())
 			p.outputResults(expectedCt, stats)
 			p.logErrs()
 			lastExport = time.Now()

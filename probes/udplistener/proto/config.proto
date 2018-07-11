@@ -16,4 +16,7 @@ message ProbeConf {
     DISCARD = 2;
   }
   optional Type type = 4;
+
+  // Number of packets sent in a single probe.
+  optional int32 packets_per_probe = 5 [default = 1];
 }

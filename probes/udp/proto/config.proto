@@ -18,4 +18,20 @@ message ProbeConf {
 
   // IP proto: v4|v6. Temporary workaround till we add support in base probe proto.
   optional int32 ip_version = 6 [default = 4];
+
+  // Changes the exported monitoring streams to be per port:
+  // 1. Changes the streams names to total-per-port, success-per-port etc.
+  // 2. Adds src_port and dst_port as stream labels.
+  // Note that the field name is experimental and may change in the future.
+  optional bool export_metrics_by_port = 7 [default = false];
+
+  // Whether to use all transmit ports per probe, per target.
+  // Default is to probe each target once per probe and round-robin through the
+  // source ports.
+  // Setting this field to true changes the behavior to send traffic from all
+  // ports to all targets in each probe.
+  // For example, if num_tx_ports is set to 16, in every probe cycle, we'll send
+  // 16 packets to every target (1 per tx port).
+  // Note that setting this field to true will increase the probe traffic.
+  optional bool use_all_tx_ports_per_probe = 8 [default = false];
 }

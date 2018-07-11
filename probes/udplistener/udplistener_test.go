@@ -81,7 +81,7 @@ func sendPktsAndCollectReplies(ctx context.Context, t *testing.T, srvPort int, i
 	}
 
 	fm := message.NewFlowStateMap()
-	fs := fm.FlowState(src, localhost)
+	fs := fm.FlowState(src, "", localhost)
 
 	// Receive loop: keep receiving packets will context is cancelled.
 	var rxSeq []int
@@ -118,7 +118,7 @@ func sendPktsAndCollectReplies(ctx context.Context, t *testing.T, srvPort int, i
 			time.Sleep(interval * time.Duration(seq-prevSeq))
 		}
 		fs.SetSeq(uint64(seq))
-		buf, _, err := fs.CreateMessage(src, localhost, time.Now(), maxLen)
+		buf, _, err := fs.CreateMessage(time.Now(), maxLen)
 		if err != nil {
 			t.Fatalf("Unable to create message: %v", err)
 		}
@@ -169,10 +169,11 @@ func runProbe(ctx context.Context, t *testing.T, inp *inputState) ([]int, chan p
 			Port: proto.Int32(0),
 			Type: &srvType,
 			StatsExportIntervalMsec: proto.Int32(statsInterval),
+			PacketsPerProbe:         proto.Int32(2),
 		},
 	}
 	if err := p.Init("udplistener", opts); err != nil {
-		t.Fatalf("Error initialzing UDP probe")
+		t.Fatalf("Error initializing UDP probe")
 	}
 	port := p.conn.LocalAddr().(*net.UDPAddr).Port
 
@@ -342,24 +343,21 @@ readResChan:
 	var delVals []int64
 	for idx, r := range res {
 		em := r.Metrics()
-		// Test-1: All total values should be > 0 and <= 2.
+		// Test-1: All total values should be 4.
 		totCt := extractMetric(em, "total")
-		minVal := int64(1)
-		maxVal := int64(2)
-		if totCt < minVal || totCt > maxVal {
-			t.Errorf("(idx=%d) total val %d out of range [%d, %d]", idx, totCt, minVal, maxVal)
+		if totCt != 4 {
+			t.Errorf("(idx=%d): extractMetric(em, \"total\")=%d, want 4", idx, totCt)
 		}
 
 		// Test-2: success + lost + delayed == total.
-		// NOTE: for idx == 0, depending on timing, it is possible Test-3 fails.
 		lostCt := extractMetric(em, "lost")
 		delCt := extractMetric(em, "delayed")
 		computeTot := extractMetric(em, "success") + lostCt + delCt
-		if idx != 0 && computeTot > totCt {
-			t.Errorf("(idx=%d) computed total (%d) > total val (%d)", idx, computeTot, totCt)
+		if computeTot > totCt {
+			t.Errorf("(idx=%d): extractMetric(em, \"success\")=%d > %d", idx, computeTot, totCt)
 		}
 
-		if idx != 0 && computeTot == 0 {
+		if computeTot == 0 {
 			zeroPktsSeen++
 		}
 

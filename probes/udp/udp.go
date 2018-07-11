@@ -25,7 +25,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"net"
+	"sync"
 	"time"
 
 	"github.com/google/cloudprober/logger"
@@ -47,6 +49,14 @@ const (
 	maxTargets = 500
 )
 
+// flow represents a UDP flow.
+// Since src address and dst port are constant for a probe, src-port and target
+// are sufficient to uniquely identify a flow.
+type flow struct {
+	srcPort string
+	target  string
+}
+
 // Probe holds aggregate information about all probe runs, per-target.
 type Probe struct {
 	name string
@@ -56,18 +66,19 @@ type Probe struct {
 	l    *logger.Logger
 
 	// List of UDP connections to use.
-	connList []*net.UDPConn
-	numConn  int32
-	runID    uint64
+	connList    []*net.UDPConn
+	srcPortList []string
+	numConn     int32
+	runID       uint64
 
-	targets []string                // List of targets for a probe iteration.
-	res     map[string]*probeResult // Results by target.
-	fsm     *message.FlowStateMap   // Map target name to flow state.
+	targets []string              // List of targets for a probe iteration.
+	res     map[flow]*probeResult // Results by flow.
+	fsm     *message.FlowStateMap // Map flow parameters to flow state.
 
 	// Intermediate buffers of sent and received packets
 	sentPackets, rcvdPackets chan packetID
 	sPackets, rPackets       []packetID
-	highestSeq               map[string]uint64
+	highestSeq               map[flow]uint64
 	flushIntv                time.Duration
 }
 
@@ -80,15 +91,36 @@ type probeResult struct {
 }
 
 // Metrics converts probeResult into metrics.EventMetrics object
-func (prr probeResult) EventMetrics(probeName, target string) *metrics.EventMetrics {
-	return metrics.NewEventMetrics(time.Now()).
-		AddMetric("total", metrics.NewInt(prr.total)).
-		AddMetric("success", metrics.NewInt(prr.success)).
-		AddMetric("latency", prr.latency.Clone()).
-		AddMetric("delayed", metrics.NewInt(prr.delayed)).
+func (prr probeResult) EventMetrics(probeName string, f flow, c *configpb.ProbeConf) *metrics.EventMetrics {
+	var suffix string
+	if c.GetExportMetricsByPort() {
+		suffix = "-per-port"
+	}
+	m := metrics.NewEventMetrics(time.Now()).
+		AddMetric("total"+suffix, metrics.NewInt(prr.total)).
+		AddMetric("success"+suffix, metrics.NewInt(prr.success)).
+		AddMetric("latency"+suffix, prr.latency.Clone()).
+		AddMetric("delayed"+suffix, metrics.NewInt(prr.delayed)).
 		AddLabel("ptype", "udp").
 		AddLabel("probe", probeName).
-		AddLabel("dst", target)
+		AddLabel("dst", f.target)
+	if c.GetExportMetricsByPort() {
+		m.AddLabel("src_port", f.srcPort).
+			AddLabel("dst_port", fmt.Sprintf("%d", c.GetPort()))
+	}
+	return m
+}
+
+func (p *Probe) newProbeResult() *probeResult {
+	var latVal metrics.Value
+	if p.opts.LatencyDist != nil {
+		latVal = p.opts.LatencyDist.Clone()
+	} else {
+		latVal = metrics.NewFloat(0)
+	}
+	return &probeResult{
+		latency: latVal,
+	}
 }
 
 // Init initializes the probe with the given params.
@@ -105,7 +137,7 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	p.src = sysvars.Vars()["hostname"]
 	p.c = c
 	p.fsm = message.NewFlowStateMap()
-	p.res = make(map[string]*probeResult)
+	p.res = make(map[flow]*probeResult)
 
 	// Initialize intermediate buffers of sent and received packets
 	p.flushIntv = 2 * p.opts.Interval
@@ -115,17 +147,19 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	if p.c.GetStatsExportIntervalMsec() < int32(p.flushIntv.Seconds()*1000) {
 		return fmt.Errorf("UDP probe: stats_export_interval (%d ms) is too low. It should be at least twice of the interval (%s) and timeout (%s), whichever is bigger", p.c.GetStatsExportIntervalMsec(), p.opts.Interval, p.opts.Timeout)
 	}
-	minChanLen := maxTargets * int(p.flushIntv/p.opts.Interval)
+	// #send/recv-channel-buffer = #targets * #sources * #probing-intervals-between-flushes
+	minChanLen := maxTargets * int(p.c.GetNumTxPorts()) * int(math.Ceil(float64(p.flushIntv/p.opts.Interval)))
 	p.l.Infof("Creating sent, rcvd channels of length: %d", 2*minChanLen)
 	p.sentPackets = make(chan packetID, 2*minChanLen)
 	p.rcvdPackets = make(chan packetID, 2*minChanLen)
-	p.highestSeq = make(map[string]uint64)
+	p.highestSeq = make(map[flow]uint64)
 
 	// For one-way connections, we use a pool of sockets.
 	wantConn := p.c.GetNumTxPorts()
 	triesRemaining := wantConn * 2
 	p.numConn = 0
 	p.connList = make([]*net.UDPConn, wantConn)
+	p.srcPortList = make([]string, wantConn)
 	for p.numConn < wantConn && triesRemaining > 0 {
 		triesRemaining--
 		udpConn, err := udpsrv.Listen(0, p.l)
@@ -135,6 +169,10 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		}
 		p.l.Infof("UDP socket id %d, addr %v", p.numConn, udpConn.LocalAddr())
 		p.connList[p.numConn] = udpConn
+		_, p.srcPortList[p.numConn], err = net.SplitHostPort(udpConn.LocalAddr().String())
+		if err != nil {
+			return err
+		}
 		p.numConn++
 	}
 	if p.numConn < wantConn {
@@ -147,46 +185,56 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 }
 
 // initProbeRunResults initializes missing probe results objects.
-func (p *Probe) initProbeRunResults() {
+func (p *Probe) initProbeRunResults() error {
 	for _, target := range p.targets {
-		if p.res[target] != nil {
+		if !p.c.GetExportMetricsByPort() {
+			f := flow{"", target}
+			if p.res[f] == nil {
+				p.res[f] = p.newProbeResult()
+			}
 			continue
 		}
-		var latVal metrics.Value
-		if p.opts.LatencyDist != nil {
-			latVal = p.opts.LatencyDist.Clone()
-		} else {
-			latVal = metrics.NewFloat(0)
-		}
-		p.res[target] = &probeResult{
-			latency: latVal,
+
+		for _, srcPort := range p.srcPortList {
+			f := flow{srcPort, target}
+			if p.res[f] == nil {
+				p.res[f] = p.newProbeResult()
+			}
 		}
 	}
+	return nil
 }
 
 // packetID records attributes of the packets sent and received, by runProbe
 // and recvLoop respectively. These packetIDs are communicated over channels
 // and are eventually processed by the processPackets() loop (below).
 type packetID struct {
-	target string
-	seq    uint64
-	txTS   time.Time
-	rxTS   time.Time
+	f    flow
+	seq  uint64
+	txTS time.Time
+	rxTS time.Time
+}
+
+func (p *Probe) resultsKey(f flow) flow {
+	if p.c.GetExportMetricsByPort() {
+		return f
+	}
+	return flow{"", f.target}
 }
 
 func (p *Probe) processRcvdPacket(rpkt packetID) {
-	p.l.Debugf("rpkt seq: %d, target: %s", rpkt.seq, rpkt.target)
-	res, ok := p.res[rpkt.target]
+	p.l.Debugf("rpkt seq: %d, target: %s", rpkt.seq, rpkt.f)
+	res, ok := p.res[p.resultsKey(rpkt.f)]
 	if !ok {
 		return
 	}
 	latency := rpkt.rxTS.Sub(rpkt.txTS)
 	if latency < 0 {
-		p.l.Errorf("Got negative time delta %v for target %s seq %d", latency, rpkt.target, rpkt.seq)
+		p.l.Errorf("Got negative time delta %v for flow %v seq %d", latency, rpkt.f, rpkt.seq)
 		return
 	}
 	if latency > p.opts.Timeout {
-		p.l.Debugf("Packet delayed. Seq: %d, target: %s, delay: %v", rpkt.seq, rpkt.target, latency)
+		p.l.Debugf("Packet delayed. Seq: %d, flow: %v, delay: %v", rpkt.seq, rpkt.f, latency)
 		res.delayed++
 		return
 	}
@@ -195,8 +243,8 @@ func (p *Probe) processRcvdPacket(rpkt packetID) {
 }
 
 func (p *Probe) processSentPacket(spkt packetID) {
-	p.l.Debugf("spkt seq: %d, target: %s", spkt.seq, spkt.target)
-	res, ok := p.res[spkt.target]
+	p.l.Debugf("spkt seq: %d, flow: %v", spkt.seq, spkt.f)
+	res, ok := p.res[p.resultsKey(spkt.f)]
 	if !ok {
 		return
 	}
@@ -233,8 +281,8 @@ func (p *Probe) processPackets() {
 			continue
 		}
 		p.processSentPacket(pkt)
-		if pkt.seq > p.highestSeq[pkt.target] {
-			p.highestSeq[pkt.target] = pkt.seq
+		if pkt.seq > p.highestSeq[pkt.f] {
+			p.highestSeq[pkt.f] = pkt.seq
 		}
 	}
 
@@ -245,8 +293,8 @@ func (p *Probe) processPackets() {
 			p.rPackets = append(p.rPackets, pkt)
 			continue
 		}
-		if pkt.seq > p.highestSeq[pkt.target] {
-			p.l.Debugf("Inserting rpacket for late processing as seq (%d) > highestSeq (%d)", pkt.seq, p.highestSeq[pkt.target])
+		if pkt.seq > p.highestSeq[pkt.f] {
+			p.l.Debugf("Inserting rpacket for late processing as seq (%d) > highestSeq (%d)", pkt.seq, p.highestSeq[pkt.f])
 			p.rPackets = append(p.rPackets, pkt)
 			continue
 		}
@@ -287,10 +335,37 @@ func (p *Probe) recvLoop(ctx context.Context, conn *net.UDPConn) {
 			continue
 		}
 		select {
-		case p.rcvdPackets <- packetID{msg.Dst(), msg.Seq(), msg.SrcTS(), rxTS}:
+		case p.rcvdPackets <- packetID{flow{msg.SrcPort(), msg.Dst()}, msg.Seq(), msg.SrcTS(), rxTS}:
 		default:
 			p.l.Errorf("rcvdPackets channel full")
 		}
+	}
+}
+
+func (p *Probe) runSingleProbe(f flow, conn *net.UDPConn, maxLen, dstPort, ipVer int) error {
+	ip, err := p.opts.Targets.Resolve(f.target, ipVer)
+	if err != nil {
+		return fmt.Errorf("unable to resolve %s: %v", f.target, err)
+	}
+	raddr := &net.UDPAddr{
+		IP:   ip,
+		Port: dstPort,
+	}
+
+	flowState := p.fsm.FlowState(p.src, f.srcPort, f.target)
+	now := time.Now()
+	msg, seq, err := flowState.CreateMessage(now, maxLen)
+	if _, err := conn.WriteToUDP(msg, raddr); err != nil {
+		flowState.WithdrawMessage(seq)
+		return fmt.Errorf("unable to send to %s(%v): %v", f.target, raddr, err)
+	}
+	// Send packet over sentPackets channel
+	// May need to make a longer buffer for the channel.
+	select {
+	case p.sentPackets <- packetID{f, seq, now, time.Time{}}:
+		return nil
+	default:
+		return fmt.Errorf("sentPackets channel full")
 	}
 }
 
@@ -310,42 +385,34 @@ func (p *Probe) runProbe() {
 	dstPort := int(p.c.GetPort())
 	ipVer := int(p.c.GetIpVersion())
 
-	// Set writeTimeout such that we can go over all targets twice (to provide
-	// enough buffer) within a probe interval.
-	// TODO(manugarg): Consider using per-conn goroutines to send packets over
-	// UDP sockets just like recvLoop().
-	writeTimeout := p.opts.Interval / time.Duration(2*len(p.targets))
-
-	for i, target := range p.targets {
-		connID := p.runID + uint64(i)
-		ip, err := p.opts.Targets.Resolve(target, ipVer)
-		if err != nil {
-			p.l.Errorf("Unable to resolve %s: %v", target, err)
-			return
-		}
-		raddr := &net.UDPAddr{
-			IP:   ip,
-			Port: dstPort,
-		}
-
-		flowState := p.fsm.FlowState(p.src, target)
-		nowTS := time.Now()
-		msg, seq, err := flowState.CreateMessage(p.src, target, nowTS, maxLen)
-		conn := p.connList[connID%(uint64(p.numConn))]
-		conn.SetWriteDeadline(time.Now().Add(writeTimeout))
-		if _, err := conn.WriteToUDP(msg, raddr); err != nil {
-			p.l.Errorf("Unable to send to %s(%v): %v", target, raddr, err)
-			flowState.WithdrawMessage(seq)
-			return
-		}
-		// Send packet over sentPackets channel
-		select {
-		case p.sentPackets <- packetID{target, seq, nowTS, time.Time{}}:
-		default:
-			p.l.Errorf("sentPackets channel full")
-		}
+	var packetsPerTarget, initialConn int
+	if p.c.GetUseAllTxPortsPerProbe() {
+		packetsPerTarget = len(p.connList)
+		initialConn = 0
+	} else {
+		packetsPerTarget = 1
+		initialConn = int(p.runID % uint64(len(p.connList)))
 	}
 
+	var wg sync.WaitGroup
+	wg.Add(len(p.targets) * packetsPerTarget)
+
+	for _, conn := range p.connList {
+		conn.SetWriteDeadline(time.Now().Add(p.opts.Interval / 2))
+	}
+	for _, target := range p.targets {
+		for i := 0; i < packetsPerTarget; i++ {
+			connID := (initialConn + i) % len(p.connList)
+			conn := p.connList[connID]
+			go func(conn *net.UDPConn, f flow) {
+				defer wg.Done()
+				if err := p.runSingleProbe(f, conn, maxLen, dstPort, ipVer); err != nil {
+					p.l.Errorf("Probing %+v failed: %v", f, err)
+				}
+			}(conn, flow{p.srcPortList[connID], target})
+		}
+	}
+	wg.Wait()
 	p.runID++
 }
 
@@ -374,8 +441,8 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 		case <-flushTicker.C:
 			p.processPackets()
 		case <-statsExportTicker.C:
-			for t, result := range p.res {
-				dataChan <- result.EventMetrics(p.name, t)
+			for f, result := range p.res {
+				dataChan <- result.EventMetrics(p.name, f, p.c)
 			}
 			p.targets = p.opts.Targets.List()
 			if len(p.targets) > maxTargets {

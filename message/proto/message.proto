@@ -16,6 +16,7 @@ message DataNode {
   }
   optional Type type = 1 [default = CLIENT];
   optional string name = 2;
+  optional string port = 4;
 
   // 8 bytes of timestamp in pcap-friendly network byte order.
   optional bytes timestamp_usec = 3;
