@@ -85,10 +85,13 @@ func (i *instances) Resolve(name string, ipVer int) (net.IP, error) {
 	if i.pb.GetUseDnsToResolve() {
 		return i.r.Resolve(name, ipVer)
 	}
+
 	ins := globalInstancesProvider.get(name)
 	if ins == nil {
 		return nil, fmt.Errorf("gce.instances.resolve(%s): instance not in in-memory GCE instances database", name)
 	}
+
+	// Find the network interface card we are interested in.
 	niIndex := 0
 	ipType := configpb.Instances_NetworkInterface_PRIVATE
 	ni := i.pb.GetNetworkInterface()
@@ -100,14 +103,17 @@ func (i *instances) Resolve(name string, ipVer int) (net.IP, error) {
 		return nil, fmt.Errorf("gce.instances.resolve(%s): no network interface at index: %d", name, niIndex)
 	}
 	intf := ins.NetworkInterfaces[niIndex]
+
 	switch ipType {
 	case configpb.Instances_NetworkInterface_PRIVATE:
 		return net.ParseIP(intf.NetworkIP), nil
+
 	case configpb.Instances_NetworkInterface_PUBLIC:
 		if len(intf.AccessConfigs) == 0 {
 			return nil, fmt.Errorf("gce.instances.resolve(%s): no access config, instance most likely doesn't have a public IP", name)
 		}
 		return net.ParseIP(intf.AccessConfigs[0].NatIP), nil
+
 	case configpb.Instances_NetworkInterface_ALIAS:
 		if len(intf.AliasIpRanges) == 0 {
 			return nil, fmt.Errorf("gce.instances.resolve(%s): no alias IP range", name)
@@ -119,6 +125,7 @@ func (i *instances) Resolve(name string, ipVer int) (net.IP, error) {
 		ip, _, err := net.ParseCIDR(intf.AliasIpRanges[0].IpCidrRange)
 		return ip, err
 	}
+
 	return nil, fmt.Errorf("gce.instances.resolve(%s): unknown IP type for network interface", name)
 }
 
