@@ -38,6 +38,17 @@ type Lister interface {
 	List() ([]string, error)
 }
 
+// Lameducker provides an interface to Lameduck/Unlameduck an instance.
+//
+// Cloudprober doesn't currently (as of July, 2018) use this interface by
+// itself. It's provided here so that other software (e.g. probing deployment
+// management software) can lameduck/unlameduck instances in a way that
+// Cloudprober understands.
+type Lameducker interface {
+	Lameduck(name string) error
+	Unlameduck(name string) error
+}
+
 // global.lister is a singleton Lister. It caches data from the upstream config
 // service, allowing for multiple consumers to lookup for lameducks without
 // increasing load on the upstream service.
@@ -46,8 +57,8 @@ var global struct {
 	lister Lister
 }
 
-// Service provides methods to do lameduck operations on VMs.
-type Service struct {
+// service provides methods to do lameduck operations on VMs.
+type service struct {
 	rtc            rtcservice.Config
 	opts           *configpb.Options
 	expirationTime time.Duration
@@ -58,7 +69,7 @@ type Service struct {
 }
 
 // Updates the list of lameduck targets' names.
-func (ldSvc *Service) expand() {
+func (ldSvc *service) expand() {
 	resp, err := ldSvc.rtc.List()
 	if err != nil {
 		ldSvc.l.Errorf("targets: Error while getting the runtime config variables for lame-duck targets: %v", err)
@@ -70,7 +81,7 @@ func (ldSvc *Service) expand() {
 }
 
 // Returns the list of un-expired names of lameduck targets.
-func (ldSvc *Service) processVars(vars []*runtimeconfig.Variable) []string {
+func (ldSvc *service) processVars(vars []*runtimeconfig.Variable) []string {
 	var result []string
 	expirationTime := time.Duration(ldSvc.opts.GetExpirationSec()) * time.Second
 	for _, v := range vars {
@@ -106,32 +117,35 @@ func (ldSvc *Service) processVars(vars []*runtimeconfig.Variable) []string {
 }
 
 // Lameduck puts the target in lameduck mode.
-func (ldSvc *Service) Lameduck(name string) error {
+func (ldSvc *service) Lameduck(name string) error {
 	return ldSvc.rtc.Write(name, []byte{0})
 }
 
 // Unlameduck removes the target from lameduck mode.
-func (ldSvc *Service) Unlameduck(name string) error {
+func (ldSvc *service) Unlameduck(name string) error {
 	err := ldSvc.rtc.Delete(name)
 	return err
 }
 
 // List returns the targets that are in lameduck mode.
-func (ldSvc *Service) List() ([]string, error) {
+func (ldSvc *service) List() ([]string, error) {
 	ldSvc.mu.RLock()
 	defer ldSvc.mu.RUnlock()
 	return append([]string{}, ldSvc.names...), nil
 }
 
-// NewService creates a new lameduck Service using the provided config options
+// NewService creates a new lameduck service using the provided config options
 // and an oauth2 enabled *http.Client; if the client is set to nil, an oauth
 // enabled client is created automatically using GCP default credentials.
-func NewService(optsProto *configpb.Options, c *http.Client, l *logger.Logger) (*Service, error) {
-	if optsProto == nil {
+func newService(opts *configpb.Options, hc *http.Client, l *logger.Logger) (*service, error) {
+	if opts == nil {
 		return nil, fmt.Errorf("lameduck.Init: failed to construct lameduck Service: no lameDuckOptions given")
 	}
+	if l == nil {
+		l = &logger.Logger{}
+	}
 
-	proj := optsProto.GetRuntimeconfigProject()
+	proj := opts.GetRuntimeconfigProject()
 	if proj == "" {
 		var err error
 		proj, err = metadata.ProjectID()
@@ -139,27 +153,25 @@ func NewService(optsProto *configpb.Options, c *http.Client, l *logger.Logger) (
 			return nil, fmt.Errorf("lameduck.Init: error while getting project id: %v", err)
 		}
 	}
-	cfg := optsProto.GetRuntimeconfigName()
+	cfg := opts.GetRuntimeconfigName()
 
-	rtc, err := rtcservice.New(proj, cfg, c)
+	rtc, err := rtcservice.New(proj, cfg, hc)
 	if err != nil {
 		return nil, fmt.Errorf("lameduck.Init : rtcconfig service initialization failed : %v", err)
 	}
 
-	ldSvc := &Service{
+	return &service{
 		rtc:  rtc,
-		opts: optsProto,
+		opts: opts,
 		l:    l,
-	}
-	ldSvc.expand()
+	}, nil
+}
 
-	// Update the lameduck targets every [opts.ReEvalSec] seconds.
-	go func() {
-		for _ = range time.Tick(time.Duration(ldSvc.opts.GetReEvalSec()) * time.Second) {
-			ldSvc.expand()
-		}
-	}()
-	return ldSvc, nil
+// NewLameducker creates a new lameducker using the provided config and an
+// oauth2 enabled *http.Client; if the client is set to nil, an oauth enabled
+// client is created automatically using GCP default credentials.
+func NewLameducker(opts *configpb.Options, hc *http.Client, l *logger.Logger) (Lameducker, error) {
+	return newService(opts, hc, l)
 }
 
 // InitDefaultLister initializes the package using the given arguments. If a
@@ -167,23 +179,35 @@ func NewService(optsProto *configpb.Options, c *http.Client, l *logger.Logger) (
 // new lameduck service is created using the config options, and global.lister
 // is set to that service. Initiating the package from a given lister is useful
 // for testing pacakges that depend on this package.
-func InitDefaultLister(optsProto *configpb.Options, lister Lister, l *logger.Logger) error {
+func InitDefaultLister(opts *configpb.Options, lister Lister, l *logger.Logger) error {
 	global.mu.Lock()
 	defer global.mu.Unlock()
-	// Make sure we only initialize global.lister once.
+
+	// Make sure we initialize global.lister only once.
 	if global.lister != nil {
 		return nil
 	}
 
+	// If a lister has been provided, use that. It's useful for testing.
 	if lister != nil {
 		global.lister = lister
 		return nil
 	}
 
-	ldSvc, err := NewService(optsProto, nil, l)
+	// Create a new lister and set it up for auto-refresh.
+	ldSvc, err := newService(opts, nil, l)
 	if err != nil {
 		return err
 	}
+
+	ldSvc.expand()
+	go func() {
+		// Update the lameducks every [opts.ReEvalSec] seconds.
+		for _ = range time.Tick(time.Duration(ldSvc.opts.GetReEvalSec()) * time.Second) {
+			ldSvc.expand()
+		}
+	}()
+
 	global.lister = ldSvc
 	return nil
 }
