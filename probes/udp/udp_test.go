@@ -178,8 +178,8 @@ func TestSuccessMultipleCasesResultPerPort(t *testing.T) {
 		t.Logf("Case(%s): started server on port %d with delay %v", c.name, port, c.delay)
 		conf := configpb.ProbeConf{
 			UseAllTxPortsPerProbe: proto.Bool(c.useAllPorts),
-			Port:                proto.Int32(int32(port)),
-			ExportMetricsByPort: proto.Bool(true)}
+			Port:                  proto.Int32(int32(port)),
+			ExportMetricsByPort:   proto.Bool(true)}
 		p := runProbe(ctx, t, c.interval*time.Millisecond, c.timeout*time.Millisecond, c.probeCount, scs, conf)
 		cancelCtx()
 
@@ -227,8 +227,8 @@ func TestSuccessMultipleCasesDefaultResult(t *testing.T) {
 		t.Logf("Case(%s): started server on port %d with delay %v", c.name, port, c.delay)
 		conf := configpb.ProbeConf{
 			UseAllTxPortsPerProbe: proto.Bool(c.useAllPorts),
-			Port:                proto.Int32(int32(port)),
-			ExportMetricsByPort: proto.Bool(false)}
+			Port:                  proto.Int32(int32(port)),
+			ExportMetricsByPort:   proto.Bool(false)}
 		p := runProbe(ctx, t, c.interval*time.Millisecond, c.timeout*time.Millisecond, c.probeCount, scs, conf)
 		cancelCtx()
 
@@ -319,8 +319,8 @@ func TestLossAndDelayed(t *testing.T) {
 		t.Logf("Case(%s): started server on port %d with loss %v delay %v", c.name, port, c.drop, c.delay)
 		conf := configpb.ProbeConf{
 			UseAllTxPortsPerProbe: proto.Bool(true),
-			Port:                proto.Int32(int32(port)),
-			ExportMetricsByPort: proto.Bool(true)}
+			Port:                  proto.Int32(int32(port)),
+			ExportMetricsByPort:   proto.Bool(true)}
 		p := runProbe(ctx, t, c.interval*time.Millisecond, c.timeout*time.Millisecond, int(pktCount), scs, conf)
 		cancelCtx()
 

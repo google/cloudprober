@@ -59,11 +59,10 @@ func (p *Provider) ListResources(req *pb.ListResourcesRequest) (*pb.ListResource
 	case "gce_instances":
 		gil := p.gceInstances[project]
 		if gil == nil {
-			return nil, fmt.Errorf("gcp: lister for the project %s not found", project)
+			return nil, fmt.Errorf("gcp: GCE instances lister for the project %s not found", project)
 		}
-		return &pb.ListResourcesResponse{
-			Resources: gil.listResources(req.GetFilter(), req.GetIpConfig()),
-		}, nil
+		resources, err := gil.listResources(req.GetFilter(), req.GetIpConfig())
+		return &pb.ListResourcesResponse{Resources: resources}, err
 	default:
 		return nil, fmt.Errorf("gcp: unsupported resource type: %s", resType)
 	}

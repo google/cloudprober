@@ -31,8 +31,9 @@ message ListResourcesRequest {
   // "gce_instances/<project>", "regional_forwarding_rules/<project>", etc.
   optional string resource_path = 2;
 
-  // Filter for the resources list.
-  optional Filter filter = 3;
+  // Filters for the resources list. Filters are ANDed: all filters should
+  // succeed for an item to included in the result list.
+  repeated Filter filter = 3;
 
   // Optional. If resource has an IP (and a NIC) address, following
   // fields determine which IP address will be included in the results.
@@ -41,7 +42,7 @@ message ListResourcesRequest {
 
 message Filter {
   required string key = 1;
-  required string regex = 2;
+  required string value = 2;
 }
 
 message IPConfig {
@@ -70,10 +71,16 @@ message IPConfig {
 message Resource {
   // Resource name.
   required string name = 1;
+
   // Resource's IP address, selected based on the request's ip_config.
   optional string ip = 2;
-  // Id associated with the resource.
+
+  // Id associated with the resource, if any.
   optional string id = 3;
+
+  // Optional info associated with the resource. Some resource type may make use
+  // of it.
+  optional bytes info = 4;
 }
 
 message ListResourcesResponse {

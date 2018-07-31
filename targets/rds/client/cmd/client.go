@@ -55,9 +55,11 @@ func main() {
 		ResourcePath: proto.String(fmt.Sprintf("%s/%s", *resType, *project)),
 	}
 	if *nameRegex != "" {
-		c.Request.Filter = &pb.Filter{
-			Key:   proto.String("name"),
-			Regex: nameRegex,
+		c.Request.Filter = []*pb.Filter{
+			&pb.Filter{
+				Key:   proto.String("name"),
+				Value: nameRegex,
+			},
 		}
 	}
 
