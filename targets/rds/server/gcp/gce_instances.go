@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
-	"regexp"
 	"sync"
 	"time"
 
@@ -27,6 +26,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/logger"
 	pb "github.com/google/cloudprober/targets/rds/proto"
+	"github.com/google/cloudprober/targets/rds/server/filter"
 	configpb "github.com/google/cloudprober/targets/rds/server/gcp/proto"
 	"golang.org/x/oauth2/google"
 	compute "google.golang.org/api/compute/v1"
@@ -51,24 +51,25 @@ type gceInstancesLister struct {
 	computeSvc *compute.Service
 }
 
-func compileFilter(filter *pb.Filter) (*regexp.Regexp, error) {
-	if filter == nil {
-		return nil, nil
-	}
-	if filter.GetKey() != "name" {
-		return nil, fmt.Errorf("gce_instances: Invalid filter key: %s. Only filtering by name is supported", filter.GetKey())
-	}
-	return regexp.Compile(filter.GetRegex())
-}
-
 // listResources returns the list of resource records, where each record
 // consists of an instance name and the IP address associated with it. IP address
 // to return is selected based on the provided ipConfig.
-func (il *gceInstancesLister) listResources(filter *pb.Filter, ipConfig *pb.IPConfig) (resources []*pb.Resource) {
-	nameRegex, err := compileFilter(filter)
-	if err != nil {
-		il.l.Error(err)
-		return
+func (il *gceInstancesLister) listResources(filters []*pb.Filter, ipConfig *pb.IPConfig) ([]*pb.Resource, error) {
+	var resources []*pb.Resource
+	var nameFilter *filter.RegexFilter
+
+	for _, f := range filters {
+		switch f.GetKey() {
+		case "name":
+			var err error
+			nameFilter, err = filter.NewRegexFilter(f.GetValue())
+			if err != nil {
+				return nil, fmt.Errorf("gce_instances: error creating regex filter from: %s, err: %v", f.GetValue(), err)
+			}
+
+		default:
+			return nil, fmt.Errorf("gce_instances: Invalid filter key: %s", f.GetKey())
+		}
 	}
 
 	niIndex := 0
@@ -80,14 +81,15 @@ func (il *gceInstancesLister) listResources(filter *pb.Filter, ipConfig *pb.IPCo
 
 	il.mu.RLock()
 	defer il.mu.RUnlock()
+
 	for _, name := range il.names {
-		if nameRegex != nil && !nameRegex.MatchString(name) {
+		if nameFilter != nil && !nameFilter.Match(name, il.l) {
 			continue
 		}
+
 		nis := il.cache[name]
 		if len(nis) <= niIndex {
-			il.l.Errorf("gce_instances: instance %s doesn't have network interface at index %d", name, niIndex)
-			continue
+			return nil, fmt.Errorf("gce_instances: instance %s doesn't have network interface at index %d", name, niIndex)
 		}
 		ni := nis[niIndex]
 
@@ -97,14 +99,12 @@ func (il *gceInstancesLister) listResources(filter *pb.Filter, ipConfig *pb.IPCo
 			ip = ni.NetworkIP
 		case pb.IPConfig_PUBLIC:
 			if len(ni.AccessConfigs) == 0 {
-				il.l.Errorf("gce_instances (instance: %s, network_interface: %d): no public IP", name, niIndex)
-				continue
+				return nil, fmt.Errorf("gce_instances (instance: %s, network_interface: %d): no public IP", name, niIndex)
 			}
 			ip = ni.AccessConfigs[0].NatIP
 		case pb.IPConfig_ALIAS:
 			if len(ni.AliasIpRanges) == 0 {
-				il.l.Errorf("gce_instances: instance %s has no alias IP range", name)
-				continue
+				return nil, fmt.Errorf("gce_instances: instance %s has no alias IP range", name)
 			}
 			// Compute API allows specifying CIDR range as an IP address, try that first.
 			if cidrIP := net.ParseIP(ni.AliasIpRanges[0].IpCidrRange); cidrIP != nil {
@@ -113,8 +113,7 @@ func (il *gceInstancesLister) listResources(filter *pb.Filter, ipConfig *pb.IPCo
 			}
 			ciderIP, _, err := net.ParseCIDR(ni.AliasIpRanges[0].IpCidrRange)
 			if err != nil {
-				il.l.Errorf("gce_instances (instance: %s, network_interface: %d): error geting alias IP: %v", name, niIndex, err)
-				continue
+				return nil, fmt.Errorf("gce_instances (instance: %s, network_interface: %d): error geting alias IP: %v", name, niIndex, err)
 			}
 			ip = ciderIP.String()
 		}
@@ -127,7 +126,7 @@ func (il *gceInstancesLister) listResources(filter *pb.Filter, ipConfig *pb.IPCo
 			// more features.
 		})
 	}
-	return
+	return resources, nil
 }
 
 // defaultComputeService returns a compute.Service object, initialized using

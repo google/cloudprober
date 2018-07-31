@@ -166,8 +166,8 @@ func runProbe(ctx context.Context, t *testing.T, inp *inputState) ([]int, chan p
 		Interval: interval,
 		Timeout:  timeout,
 		ProbeConf: &configpb.ProbeConf{
-			Port: proto.Int32(0),
-			Type: &srvType,
+			Port:                    proto.Int32(0),
+			Type:                    &srvType,
 			StatsExportIntervalMsec: proto.Int32(statsInterval),
 			PacketsPerProbe:         proto.Int32(2),
 		},
