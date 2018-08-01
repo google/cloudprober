@@ -26,6 +26,7 @@ package dns
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"sync"
 	"time"
@@ -119,7 +120,11 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	// internally and the underlying net.Conn declares that multiple goroutines
 	// may invoke methods on a net.Conn simultaneously.
 	p.msg = new(dns.Msg)
-	p.msg.SetQuestion(dns.Fqdn(p.c.GetResolvedDomain()), dns.TypeMX)
+	queryType := p.c.GetQueryType()
+	if queryType == configpb.QueryType_NONE || int32(queryType) >= int32(dns.TypeReserved) {
+		return fmt.Errorf("dns_probe(%v): invalid query type %v", name, queryType)
+	}
+	p.msg.SetQuestion(dns.Fqdn(p.c.GetResolvedDomain()), uint16(queryType))
 
 	p.client = new(ClientImpl)
 	// Use ReadTimeout because DialTimeout for UDP is not the RTT.
@@ -167,10 +172,9 @@ func (p *Probe) runProbe(resultsChan chan<- probeutils.ProbeResult) {
 				} else {
 					p.l.Warningf("Target(%s): client.Exchange: %v", fullTarget, err)
 				}
+			} else if resp == nil || resp.Rcode != dns.RcodeSuccess {
+				p.l.Warningf("Target(%s): error in response %v", fullTarget, resp)
 			} else {
-				if resp == nil {
-					p.l.Warningf("Target(%s): Response is nil, but error is also nil", fullTarget)
-				}
 				result.success.Inc()
 				result.latency.AddFloat64(latency.Seconds() / p.opts.LatencyUnit.Seconds())
 			}

@@ -26,12 +26,47 @@ import (
 	"github.com/miekg/dns"
 )
 
+// If question contains a bad domain or type, DNS query response status should
+// contain an error.
+const (
+	questionBadDomain = "nosuchname"
+	questionBadType   = configpb.QueryType_CAA
+)
+
 type mockClient struct{}
 
-func (*mockClient) Exchange(*dns.Msg, string) (*dns.Msg, time.Duration, error) {
-	return new(dns.Msg), time.Millisecond, nil
+// Exchange implementation that returns an error status if the query is for
+// questionBad[Domain|Type]. This allows us to check if query parameters are
+// populated correctly.
+func (*mockClient) Exchange(in *dns.Msg, _ string) (*dns.Msg, time.Duration, error) {
+	out := &dns.Msg{}
+	question := in.Question[0]
+	if question.Name == questionBadDomain+"." || int(question.Qtype) == int(questionBadType) {
+		out.Rcode = dns.RcodeNameError
+	}
+	return out, time.Millisecond, nil
 }
 func (*mockClient) SetReadTimeout(time.Duration) {}
+
+func runProbe(t *testing.T, p *Probe, total, success int64) {
+	p.client = new(mockClient)
+	p.targets = p.opts.Targets.List()
+
+	resultsChan := make(chan probeutils.ProbeResult, len(p.targets))
+	p.runProbe(resultsChan)
+
+	// The resultsChan output iterates through p.targets in the same order.
+	for _, target := range p.targets {
+		r := <-resultsChan
+		result := r.(probeRunResult)
+		if result.total.Int64() != total || result.success.Int64() != success {
+			t.Errorf("Mismatch got (total, success) = (%d, %d), want (%d, %d)", result.total.Int64(), result.success.Int64(), total, success)
+		}
+		if result.Target() != target {
+			t.Errorf("Unexpected target in probe result. Got: %s, Expected: %s", result.Target(), target)
+		}
+	}
+}
 
 func TestRun(t *testing.T) {
 	p := &Probe{}
@@ -43,29 +78,43 @@ func TestRun(t *testing.T) {
 			StatsExportIntervalMsec: proto.Int32(1000),
 		},
 	}
-	p.Init("dns_test", opts)
-	p.client = new(mockClient)
-	p.targets = p.opts.Targets.List()
-
-	resultsChan := make(chan probeutils.ProbeResult, len(p.targets))
-	p.runProbe(resultsChan)
-
-	// Strings that should be in all targets' output.
-	reqStrs := map[string]int64{
-		"total":   1,
-		"success": 1,
+	if err := p.Init("dns_test", opts); err != nil {
+		t.Fatalf("Error creating probe: %v", err)
 	}
+	runProbe(t, p, 1, 1)
+}
 
-	// The resultsChan output iterates through p.targets in the same order.
-	for _, target := range p.targets {
-		r := <-resultsChan
-		result := r.(probeRunResult)
-		if result.total.Int64() != reqStrs["total"] || result.success.Int64() != reqStrs["success"] {
-			t.Errorf("Mismatch got (total, success) = (%d, %d), want (%d, %d)", result.total.Int64(), result.success.Int64(), reqStrs["total"], reqStrs["success"])
-		}
-		if result.Target() != target {
-			t.Errorf("Unexpected target in probe result. Got: %s, Expected: %s", result.Target(), target)
-		}
+func TestProbeType(t *testing.T) {
+	p := &Probe{}
+	badType := questionBadType
+	opts := &options.Options{
+		Targets:  targets.StaticTargets("8.8.8.8"),
+		Interval: 2 * time.Second,
+		Timeout:  time.Second,
+		ProbeConf: &configpb.ProbeConf{
+			StatsExportIntervalMsec: proto.Int32(1000),
+			QueryType:               &badType,
+		},
 	}
-	p.runProbe(resultsChan)
+	if err := p.Init("dns_probe_type_test", opts); err != nil {
+		t.Fatalf("Error creating probe: %v", err)
+	}
+	runProbe(t, p, 1, 0)
+}
+
+func TestBadName(t *testing.T) {
+	p := &Probe{}
+	opts := &options.Options{
+		Targets:  targets.StaticTargets("8.8.8.8"),
+		Interval: 2 * time.Second,
+		Timeout:  time.Second,
+		ProbeConf: &configpb.ProbeConf{
+			StatsExportIntervalMsec: proto.Int32(1000),
+			ResolvedDomain:          proto.String(questionBadDomain),
+		},
+	}
+	if err := p.Init("dns_bad_domain_test", opts); err != nil {
+		t.Fatalf("Error creating probe: %v", err)
+	}
+	runProbe(t, p, 1, 0)
 }
