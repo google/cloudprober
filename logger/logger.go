@@ -155,7 +155,7 @@ func (l *Logger) log(severity logging.Severity, payload interface{}) {
 		payload = textPayload
 	}
 	if l.logc == nil {
-		genericLog(2, severity, textPayload)
+		genericLog(severity, textPayload)
 		return
 	}
 	l.logger.Log(logging.Entry{
@@ -220,7 +220,11 @@ func (l *Logger) Criticalf(format string, args ...interface{}) {
 	l.log(logging.Critical, fmt.Sprintf(format, args...))
 }
 
-func genericLog(depth int, severity logging.Severity, s string) {
+func genericLog(severity logging.Severity, s string) {
+	// Set the caller frame depth to 3 so that can get to the actual caller of
+	// the logger. genericLog -> log -> Info* -> actualCaller
+	depth := 3
+
 	switch severity {
 	case logging.Debug, logging.Info:
 		glog.InfoDepth(depth, s)
