@@ -93,7 +93,7 @@ func (s *FileSurfacer) init(id int64) error {
 			// Write the EventMetrics to file as string.
 			em := <-s.writeChan
 			if _, err := fmt.Fprintf(s.outf, "%s %d %s\n", s.c.GetPrefix(), s.id, em.String()); err != nil {
-				s.l.Warningf("Unable to write data to %s. Err: %v", s.c.GetFilePath(), err)
+				s.l.Errorf("Unable to write data to %s. Err: %v", s.c.GetFilePath(), err)
 			}
 			s.id++
 		}
@@ -102,13 +102,13 @@ func (s *FileSurfacer) init(id int64) error {
 	return nil
 }
 
-// Write takes the data to be written to file (usually set as a GCE instance's
-// serial port). This channel is watched by a goroutine that actually writes
-// data to a file.
+// Write queues the incoming data into a channel. This channel is watched by a
+// goroutine that actually writes data to a file ((usually set as a GCE
+// instance's serial port).
 func (s *FileSurfacer) Write(ctx context.Context, em *metrics.EventMetrics) {
 	select {
 	case s.writeChan <- em:
 	default:
-		s.l.Warningf("FileSurfacer's write channel is full, dropping new data.")
+		s.l.Errorf("FileSurfacer's write channel is full, dropping new data.")
 	}
 }

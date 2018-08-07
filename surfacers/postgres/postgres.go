@@ -254,6 +254,6 @@ func (s *Surfacer) Write(ctx context.Context, em *metrics.EventMetrics) {
 	select {
 	case s.writeChan <- em:
 	default:
-		s.l.Warningf("Surfacer's write channel is full, dropping new data.")
+		s.l.Errorf("Surfacer's write channel is full, dropping new data.")
 	}
 }
