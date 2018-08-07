@@ -162,9 +162,15 @@ func New(config *configpb.SurfacerConf, l *logger.Logger) (*PromSurfacer, error)
 	return ps, nil
 }
 
-// Write simply queues the EventMetrics for later processing.
-func (ps *PromSurfacer) Write(ctxIn context.Context, em *metrics.EventMetrics) {
-	ps.emChan <- em
+// Write queues the incoming data into a channel. This channel is watched by a
+// goroutine that actually processes the data and updates the in-memory
+// database.
+func (ps *PromSurfacer) Write(_ context.Context, em *metrics.EventMetrics) {
+	select {
+	case ps.emChan <- em:
+	default:
+		ps.l.Errorf("PromSurfacer's write channel is full, dropping new data.")
+	}
 }
 
 func promType(em *metrics.EventMetrics) string {
