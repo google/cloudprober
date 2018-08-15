@@ -187,7 +187,7 @@ func (il *gceInstancesLister) expand(reEvalInterval time.Duration) {
 	il.mu.Unlock()
 }
 
-func newGCEInstancesLister(project, apiVersion string, reEvalInterval time.Duration, c *configpb.GCEInstances, l *logger.Logger) (*gceInstancesLister, error) {
+func newGCEInstancesLister(project, apiVersion string, c *configpb.GCEInstances, l *logger.Logger) (*gceInstancesLister, error) {
 	var thisInstance string
 	if metadata.OnGCE() {
 		var err error
@@ -212,6 +212,8 @@ func newGCEInstancesLister(project, apiVersion string, reEvalInterval time.Durat
 		computeSvc:   cs,
 		l:            l,
 	}
+
+	reEvalInterval := time.Duration(c.GetReEvalSec()) * time.Second
 	go func() {
 		il.expand(0)
 		// Introduce a random delay between 0-reEvalInterval before

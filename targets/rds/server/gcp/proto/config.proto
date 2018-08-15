@@ -2,8 +2,16 @@
 // Example config:
 // {
 //   project: 'test-project-id'
+//
+//   # GCE instances
 //   gce_instances {}
-//   regional_forwarding_rules {}
+//
+//   # RTC variables from the config lame-duck-targets, re-evaluated every 10s.
+//   rtc_variables {
+//     rtc_config {
+//       name: "lame-duck-targets"
+//     }
+//   }
 // }
 syntax = "proto2";
 
@@ -13,11 +21,26 @@ message GCEInstances {
   // Zone filter, e.g. zone_filter: "us-east1-*" for all zones in us-east1
   // region.
   optional string zone_filter = 1;
+
+  // How often resources should be evaluated/expanded.
+  optional int32 re_eval_sec = 98 [default = 300];  // default 5 min
 }
 
 message RegionalForwardingRules {
   // Region filter, e.g. "region_filter:europe-*"
   optional string region_filter = 1;
+}
+
+// Runtime configurator variables.
+message RTCVariables {
+  message RTCConfig {
+    required string name = 1;
+
+    // How often RTC variables should be evaluated/expanded.
+    optional int32 re_eval_sec = 2 [default = 10];  // default 10 sec
+  }
+
+  repeated RTCConfig rtc_config = 1;
 }
 
 // GCP provider config.
@@ -34,8 +57,8 @@ message ProviderConfig {
   // NOTE: This is not supported yet.
   optional RegionalForwardingRules regional_forwarding_rules = 3;
 
-  // How often targets should be evaluated/expanded
-  optional int32 re_eval_sec = 98 [default = 300];  // default 5 min
+  // RTC variables discovery options.
+  optional RTCVariables rtc_variables = 4;
 
   // Compute API version.
   optional string api_version = 99 [default = "v1"];
