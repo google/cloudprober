@@ -20,6 +20,7 @@ package filter
 
 import (
 	"regexp"
+	"time"
 
 	"github.com/google/cloudprober/logger"
 )
@@ -43,4 +44,21 @@ func NewRegexFilter(regexStr string) (*RegexFilter, error) {
 // Otherwise, false is returned.
 func (rf *RegexFilter) Match(name string, l *logger.Logger) bool {
 	return rf.re.MatchString(name)
+}
+
+// FreshnessFilter implements a filter that succeeds only if the given time
+// is within a pre-defined duration.
+type FreshnessFilter struct {
+	d time.Duration
+}
+
+// NewFreshnessFilter returns a new freshness filter.
+func NewFreshnessFilter(dStr string) (*FreshnessFilter, error) {
+	d, err := time.ParseDuration(dStr)
+	return &FreshnessFilter{d}, err
+}
+
+// Match returns true if the given time is within a pre-defined duration.
+func (ff *FreshnessFilter) Match(t time.Time, l *logger.Logger) bool {
+	return time.Since(t) < ff.d
 }
