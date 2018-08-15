@@ -33,7 +33,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 
 	"cloud.google.com/go/compute/metadata"
 	"github.com/google/cloudprober/logger"
@@ -44,6 +43,7 @@ import (
 // Provider implements a GCP provider for a ResourceDiscovery server.
 type Provider struct {
 	gceInstances map[string]*gceInstancesLister
+	rtcVariables map[string]*rtcVariablesLister
 }
 
 // ListResources returns the list of resources from the cache.
@@ -62,6 +62,13 @@ func (p *Provider) ListResources(req *pb.ListResourcesRequest) (*pb.ListResource
 			return nil, fmt.Errorf("gcp: GCE instances lister for the project %s not found", project)
 		}
 		resources, err := gil.listResources(req.GetFilter(), req.GetIpConfig())
+		return &pb.ListResourcesResponse{Resources: resources}, err
+	case "rtc_variables":
+		rvl := p.rtcVariables[project]
+		if rvl == nil {
+			return nil, fmt.Errorf("gcp: RTC variables lister for the project %s not found", project)
+		}
+		resources, err := rvl.listResources(req.GetFilter())
 		return &pb.ListResourcesResponse{Resources: resources}, err
 	default:
 		return nil, fmt.Errorf("gcp: unsupported resource type: %s", resType)
@@ -82,16 +89,15 @@ func New(c *configpb.ProviderConfig, l *logger.Logger) (*Provider, error) {
 		projects = append(projects, proj)
 	}
 
-	reEvalInterval := time.Duration(c.GetReEvalSec()) * time.Second
-
 	p := &Provider{
 		gceInstances: make(map[string]*gceInstancesLister),
+		rtcVariables: make(map[string]*rtcVariablesLister),
 	}
 
 	// Enable GCE instances lister if configured.
 	if c.GetGceInstances() != nil {
 		for _, project := range projects {
-			gil, err := newGCEInstancesLister(project, c.GetApiVersion(), reEvalInterval, c.GetGceInstances(), l)
+			gil, err := newGCEInstancesLister(project, c.GetApiVersion(), c.GetGceInstances(), l)
 			if err != nil {
 				return nil, err
 			}
@@ -102,6 +108,17 @@ func New(c *configpb.ProviderConfig, l *logger.Logger) (*Provider, error) {
 	// TODO(manugarg): implement this.
 	if c.GetRegionalForwardingRules() != nil {
 		return nil, errors.New("regional forwarding rules are not supported yet")
+	}
+
+	// Enable RTC variables lister if configured.
+	if c.GetRtcVariables() != nil {
+		for _, project := range projects {
+			rvl, err := newRTCVariablesLister(project, c.GetApiVersion(), c.GetRtcVariables(), l)
+			if err != nil {
+				return nil, err
+			}
+			p.rtcVariables[project] = rvl
+		}
 	}
 	return p, nil
 }

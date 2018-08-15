@@ -55,12 +55,17 @@ func (client *Client) refreshState() {
 func (client *Client) updateState(response *pb.ListResourcesResponse) {
 	client.mu.Lock()
 	defer client.mu.Unlock()
+
 	client.names = make([]string, len(response.GetResources()))
 	for i, res := range response.GetResources() {
-		ip := net.ParseIP(res.GetIp())
-		if ip == nil {
-			client.l.Errorf("rds.client: errors parsing IP address for %s, IP string: %s", res.GetName(), res.GetIp())
-			continue
+		var ip net.IP
+
+		if res.GetIp() != "" {
+			ip = net.ParseIP(res.GetIp())
+			if ip == nil {
+				client.l.Errorf("rds.client: errors parsing IP address for %s, IP string: %s", res.GetName(), res.GetIp())
+				continue
+			}
 		}
 		client.cache[res.GetName()] = ip
 		client.names[i] = res.GetName()
