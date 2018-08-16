@@ -17,6 +17,7 @@ package main
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"flag"
@@ -34,7 +35,7 @@ var (
 	provider  = flag.String("provider", "gcp", "Resource provider")
 	resType   = flag.String("resource_type", "gce_instances", "Resource type")
 	project   = flag.String("project", "", "GCP project")
-	nameRegex = flag.String("name_regex", "", "Name regex")
+	filtersF  = flag.String("filters", "", "Comma separated list of filters, e.g. name=ig-us-central1-a-.*")
 )
 
 func main() {
@@ -54,13 +55,19 @@ func main() {
 		Provider:     proto.String(*provider),
 		ResourcePath: proto.String(fmt.Sprintf("%s/%s", *resType, *project)),
 	}
-	if *nameRegex != "" {
-		c.Request.Filter = []*pb.Filter{
-			&pb.Filter{
-				Key:   proto.String("name"),
-				Value: nameRegex,
-			},
+
+	for _, f := range strings.Split(*filtersF, ",") {
+		if f == "" {
+			continue
 		}
+		fParts := strings.SplitN(f, "=", 2)
+		if len(fParts) != 2 {
+			glog.Exit("bad filter in --filters flag (%s): %s", *filtersF, f)
+		}
+		c.Request.Filter = append(c.Request.Filter, &pb.Filter{
+			Key:   proto.String(fParts[0]),
+			Value: proto.String(fParts[1]),
+		})
 	}
 
 	tgts, err := client.New(c, &logger.Logger{})
