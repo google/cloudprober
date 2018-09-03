@@ -6,7 +6,9 @@ package cloudprober.targets.gce;
 // TargetsConf represents GCE targets, e.g. instances, forwarding rules etc.
 message TargetsConf {
   // If running on GCE, this defaults to the local project.
-  optional string project = 1;
+  // Note: Multiple projects support in targets is experimental and may go away
+  // with future iterations.
+  repeated string project = 1;
 
   oneof type {
     Instances instances = 2;
@@ -42,7 +44,7 @@ message Instances {
   optional NetworkInterface network_interface = 2;
 }
 
-// Represents GCE forwarding rules
+// Represents GCE forwarding rules. Does not support multiple projects
 message ForwardingRules {
 }
 

@@ -30,8 +30,9 @@ type testNetIf struct {
 }
 
 type testInstance struct {
-	name  string
-	netIf []*testNetIf
+	name    string
+	netIf   []*testNetIf
+	project string
 }
 
 func (ti *testInstance) computeInstance() *compute.Instance {
@@ -81,21 +82,23 @@ func TestInstancesTargets(t *testing.T) {
 
 	// Initialize globalInstancesProvider manually for testing, using the testInstances
 	// data. Default initialization invokes GCE APIs which we want to avoid.
-	globalInstancesProvider = &instancesProvider{
+	proj := "proj1"
+	globalInstancesProvider[proj] = &instancesProvider{
 		cache: make(map[string]*compute.Instance),
 	}
 	for _, ti := range testInstances {
-		globalInstancesProvider.cache[ti.name] = ti.computeInstance()
-		globalInstancesProvider.names = append(globalInstancesProvider.names, ti.name)
+		provider := globalInstancesProvider[proj]
+		provider.cache[ti.name] = ti.computeInstance()
+		provider.names = append(provider.names, ti.name)
 	}
-
 	var testIndex int
 
 	// #################################################################
 	// Targets, with first NIC and private IP
 	// #################################################################
 	tgts := &instances{
-		pb: &configpb.Instances{},
+		projects: []string{"proj1"},
+		pb:       &configpb.Instances{},
 	}
 	testListAndResolve(t, tgts, testInstances, testIndex, "private")
 
@@ -104,6 +107,7 @@ func TestInstancesTargets(t *testing.T) {
 	// #################################################################
 	ipType := configpb.Instances_NetworkInterface_PUBLIC
 	tgts = &instances{
+		projects: []string{"proj1"},
 		pb: &configpb.Instances{
 			NetworkInterface: &configpb.Instances_NetworkInterface{
 				IpType: &ipType,
@@ -117,6 +121,7 @@ func TestInstancesTargets(t *testing.T) {
 	// #################################################################
 	ipType = configpb.Instances_NetworkInterface_ALIAS
 	tgts = &instances{
+		projects: []string{"proj1"},
 		pb: &configpb.Instances{
 			NetworkInterface: &configpb.Instances_NetworkInterface{
 				IpType: &ipType,
@@ -131,6 +136,7 @@ func TestInstancesTargets(t *testing.T) {
 	// #################################################################
 	testIndex = 1
 	tgts = &instances{
+		projects: []string{"proj1"},
 		pb: &configpb.Instances{
 			NetworkInterface: &configpb.Instances_NetworkInterface{
 				Index: proto.Int32(int32(testIndex)),
@@ -147,6 +153,7 @@ func TestInstancesTargets(t *testing.T) {
 	testIndex = 1
 	ipType = configpb.Instances_NetworkInterface_PUBLIC
 	tgts = &instances{
+		projects: []string{"proj1"},
 		pb: &configpb.Instances{
 			NetworkInterface: &configpb.Instances_NetworkInterface{
 				Index:  proto.Int32(int32(testIndex)),
@@ -155,6 +162,50 @@ func TestInstancesTargets(t *testing.T) {
 		},
 	}
 	testListAndResolve(t, tgts, testInstances, testIndex, "public")
+}
+
+func TestInstancesDiscoveryAcrossProjects(t *testing.T) {
+	projects := []string{"proj1", "proj2", "proj3", "proj4"}
+	testInstances := []*testInstance{
+		&testInstance{
+			name:    "ins1",
+			project: "proj1",
+		},
+		&testInstance{
+			name:    "ins2",
+			project: "proj2",
+		},
+		&testInstance{
+			name:    "ins3",
+			project: "proj3",
+		},
+		&testInstance{
+			name:    "ins4",
+			project: "proj3",
+		},
+	}
+
+	// Initialize globalInstancesProvider manually for testing, using the testInstances
+	// data. Default initialization invokes GCE APIs which we want to avoid.
+	for _, proj := range projects {
+		globalInstancesProvider[proj] = &instancesProvider{
+			cache: make(map[string]*compute.Instance),
+		}
+	}
+
+	for _, ti := range testInstances {
+		provider := globalInstancesProvider[ti.project]
+		provider.cache[ti.name] = ti.computeInstance()
+		provider.names = append(provider.names, ti.name)
+	}
+
+	tgts := &instances{
+		projects: []string{"proj1", "proj2", "proj3"},
+		pb:       &configpb.Instances{},
+	}
+	if len(tgts.List()) != len(testInstances) {
+		t.Errorf("Got wrong number of targets. Expected: %d, Got: %d", len(testInstances), len(tgts.List()))
+	}
 }
 
 func testListAndResolve(t *testing.T, i *instances, testInstances []*testInstance, testIndex int, ipTypeStr string) {
