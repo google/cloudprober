@@ -72,21 +72,22 @@ type Targets interface {
 
 // New is a helper function to unpack a Targets proto into a Targets interface.
 func New(conf *configpb.TargetsConf, opts *configpb.GlobalOptions, res *dnsRes.Resolver, log *logger.Logger) (t Targets, err error) {
-	proj := conf.GetProject()
-	if proj == "" {
+	projects := conf.GetProject()
+	if projects == nil {
 		if !metadata.OnGCE() {
 			return nil, errors.New("targets.gce.New(): project is required for GCE targets when not running on GCE")
 		}
-		proj, err = metadata.ProjectID()
+		currentProj, err := metadata.ProjectID()
+		projects = append([]string{}, currentProj)
 		if err != nil {
 			return nil, fmt.Errorf("targets.gce.New(): Error getting project ID: %v", err)
 		}
 	}
 	switch conf.Type.(type) {
 	case *configpb.TargetsConf_Instances:
-		t, err = newInstances(proj, opts, conf.GetInstances(), res, log)
+		t, err = newInstances(projects, opts, conf.GetInstances(), res, log)
 	case *configpb.TargetsConf_ForwardingRules:
-		t, err = newForwardingRules(proj, opts, log)
+		t, err = newForwardingRules(projects[0], opts, log)
 	default:
 		err = errors.New("unknown GCE targets type")
 	}
