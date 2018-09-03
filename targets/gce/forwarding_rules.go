@@ -102,13 +102,16 @@ func listForwardingRules(project, apiVersion, region string) ([]*compute.Forward
 func (frp *forwardingRules) expand() {
 	frp.l.Infof("gce.forwardingRules.expand: expanding GCE targets")
 
+	var forwardingRulesList []*compute.ForwardingRule
 	forwardingRules, err := listForwardingRules(frp.project, frp.apiVersion, frp.localRegion)
 	if err != nil {
 		frp.l.Errorf("gce.forwardingRules.expand: error while getting list of all forwardingRules: %v", err)
 		return
 	}
+	forwardingRulesList = append(forwardingRulesList, forwardingRules...)
+
 	var result []string
-	for _, ins := range forwardingRules {
+	for _, ins := range forwardingRulesList {
 		frp.cache[ins.Name] = ins
 		result = append(result, ins.Name)
 	}

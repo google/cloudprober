@@ -77,7 +77,6 @@ func New(ctx context.Context, logName string) (*Logger, error) {
 	if !metadata.OnGCE() {
 		return l, nil
 	}
-
 	projectID, err := metadata.ProjectID()
 	if err != nil {
 		return nil, err
