@@ -62,7 +62,7 @@ func main() {
 		}
 		fParts := strings.SplitN(f, "=", 2)
 		if len(fParts) != 2 {
-			glog.Exit("bad filter in --filters flag (%s): %s", *filtersF, f)
+			glog.Exitf("bad filter in --filters flag (%s): %s", *filtersF, f)
 		}
 		c.Request.Filter = append(c.Request.Filter, &pb.Filter{
 			Key:   proto.String(fParts[0]),
