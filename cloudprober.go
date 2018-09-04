@@ -230,7 +230,7 @@ func (pr *Prober) start(ctx context.Context) {
 			em = <-dataChan
 			var s = em.String()
 			if len(s) > logger.MaxLogEntrySize {
-				glog.Warningf("Metric entry for timestamp %d dropped due to large size: %d", em.Timestamp, len(s))
+				glog.Warningf("Metric entry for timestamp %v dropped due to large size: %d", em.Timestamp, len(s))
 				continue
 			}
 
