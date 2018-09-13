@@ -1,0 +1,11 @@
+syntax = "proto2";
+
+package cloudprober.servers.grpc;
+
+message ServerConf {
+  optional int32 port = 1 [default = 3142];
+
+  // Enables gRPC reflection for publicly visible services, allowing grpc_cli to
+  // work. See https://grpc.io/grpc/core/md_doc_server_reflection_tutorial.html.
+  optional bool enable_reflection = 2 [default = false];
+}
