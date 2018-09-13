@@ -1,5 +1,6 @@
 syntax = "proto2";
 
+import "github.com/google/cloudprober/servers/grpc/proto/config.proto";
 import "github.com/google/cloudprober/servers/http/proto/config.proto";
 import "github.com/google/cloudprober/servers/udp/proto/config.proto";
 
@@ -9,11 +10,13 @@ message ServerDef {
   enum Type {
     HTTP = 0;
     UDP = 1;
+    GRPC = 2;
   }
   required Type type = 1;
 
   oneof server {
     http.ServerConf http_server = 2;
     udp.ServerConf udp_server = 3;
+    grpc.ServerConf grpc_server = 4;
   }
 }
