@@ -217,6 +217,7 @@ func (l *Logger) Errorf(format string, args ...interface{}) {
 // Criticalf logs formatted text messages with logging level "Critical".
 func (l *Logger) Criticalf(format string, args ...interface{}) {
 	l.log(logging.Critical, fmt.Sprintf(format, args...))
+	os.Exit(1)
 }
 
 func genericLog(severity logging.Severity, s string) {
