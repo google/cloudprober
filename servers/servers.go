@@ -22,6 +22,7 @@ import (
 
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
+	"github.com/google/cloudprober/servers/grpc"
 	"github.com/google/cloudprober/servers/http"
 	configpb "github.com/google/cloudprober/servers/proto"
 	"github.com/google/cloudprober/servers/udp"
@@ -54,6 +55,8 @@ func Init(initCtx context.Context, serverDefs []*configpb.ServerDef) (servers []
 			server, err = http.New(initCtx, serverDef.GetHttpServer(), l)
 		case configpb.ServerDef_UDP:
 			server, err = udp.New(initCtx, serverDef.GetUdpServer(), l)
+		case configpb.ServerDef_GRPC:
+			server, err = grpc.New(initCtx, serverDef.GetGrpcServer(), l)
 		}
 		if err != nil {
 			return
