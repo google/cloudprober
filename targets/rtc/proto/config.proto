@@ -51,4 +51,8 @@ message TargetsConf {
   // How often targets should be evaluated. Any number less than or equal to 0
   // will result in no target caching (targets will be reevaluated on demand).
   optional int32 re_eval_sec = 6 [default = 0];
+  // The alphanumeric ID of the project which this instance is member of
+  // (not project number)
+  // e.g. bbmc-cloudprober-instance-cxkdsa123
+  repeated string project_id = 7;
 }

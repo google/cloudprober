@@ -17,7 +17,6 @@ package rtcservice
 import (
 	"encoding/base64"
 	"errors"
-	"fmt"
 
 	runtimeconfig "google.golang.org/api/runtimeconfig/v1beta1"
 )
@@ -32,6 +31,11 @@ type Stub struct {
 // in-memory map.
 func NewStub() *Stub {
 	return &Stub{make(map[string]*runtimeconfig.Variable)}
+}
+
+// GetProject is needed in order to correctly implement the Configuration interface
+func (s *Stub) GetProject() string {
+	return ""
 }
 
 // Write will add or change a key/val pair.
@@ -61,21 +65,20 @@ func (s *Stub) Delete(key string) error {
 
 // Val gets the value associated with a variable.
 func (s *Stub) Val(v *runtimeconfig.Variable) ([]byte, error) {
-	v = s.m[v.Name]
-	if v == nil {
-		return nil, fmt.Errorf("rtc_stub: key %q not in map", v.Name)
-	}
+	// v = s.m[v.Name]
+	// if v == nil {
+	// 	return nil, fmt.Errorf("rtc_stub: key %q not in map", v.Name)
+	// }
 	return base64.StdEncoding.DecodeString(v.Value)
 }
 
-// List provides all vals in the map. To match the behavior of rtc.go, this
-// will not include the value (to test that your code does not rely on such a
-// behavior).
+// List provides all vals in the map.
 func (s *Stub) List() ([]*runtimeconfig.Variable, error) {
 	vals := make([]*runtimeconfig.Variable, 0, len(s.m))
 	for _, v := range s.m {
 		vals = append(vals, &runtimeconfig.Variable{
 			Name:       v.Name,
+			Value:      v.Value,
 			UpdateTime: v.UpdateTime,
 		})
 	}

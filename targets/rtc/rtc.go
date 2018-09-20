@@ -16,6 +16,7 @@
 package rtc
 
 import (
+	"encoding/base64"
 	"fmt"
 	"net"
 	"strings"
@@ -47,8 +48,8 @@ import (
 // however, Targets will ignore sufficiently old RTC entries, as configured by
 // "exp_msec" in the TargetsConf protobuf.
 type Targets struct {
-	rtc rtcservice.Config
-	l   *logger.Logger
+	rtcs []rtcservice.Config
+	l    *logger.Logger
 	// Expire is a filter on the UpdateTime field of runtimeconfig.Variable.
 	expire time.Duration
 	// groups is a filter on the group_tag of a variables protobuf.
@@ -56,7 +57,9 @@ type Targets struct {
 	// addrTag is the address which an rtc target should resolve to.
 	addrTag string
 
-	cacheMu     sync.RWMutex
+	cacheMu sync.RWMutex
+	// TODO(andradag): Make the cache a per-rtc value, modify the evalList
+	// and updateCache to iterate over RTCs
 	cache       []string
 	cacheTicker *time.Ticker
 
@@ -88,22 +91,36 @@ func (t *Targets) Resolve(name string, ipVer int) (net.IP, error) {
 // between "groups" and the groups in RtcTargetInfo, the entry will be filtered out.
 func (t *Targets) List() []string {
 	if t.cacheTicker == nil {
-		return t.evalList()
+		resp, err := t.evalList()
+		if err != nil {
+			t.l.Errorf("Error when listing rtc targets: %s", err)
+		}
+		return resp
 	}
 	t.cacheMu.RLock()
 	defer t.cacheMu.RUnlock()
 	return append([]string{}, t.cache...)
 }
 
-// runc preiodically re-fills the targets cache.
-func (t *Targets) runc() {
+// updateCacheResults tries to get the list of targets. It doesn't update cache
+// in case of transient errors
+func (t *Targets) updateCacheResults() {
+	newtargs, err := t.evalList()
+	if err != nil {
+		return
+	}
 	t.cacheMu.Lock()
-	t.cache = t.evalList()
-	t.cacheMu.Unlock()
+	defer t.cacheMu.Unlock()
+
+	t.cache = newtargs
+	return
+}
+
+// runc periodically re-fills the targets cache.
+func (t *Targets) runc() {
+	t.updateCacheResults()
 	for _ = range t.cacheTicker.C {
-		t.cacheMu.Lock()
-		t.cache = t.evalList()
-		t.cacheMu.Unlock()
+		t.updateCacheResults()
 	}
 }
 
@@ -114,11 +131,15 @@ func (t *Targets) runc() {
 // the majority of elements are outdated, it is likely a critical error has
 // occurred with RTC. In this case (if caching was enabled), we will fall back
 // on the last known-good list.
-func (t *Targets) evalList() []string {
-	resp, err := t.rtc.List()
-	if err != nil {
-		t.l.Errorf("rtc.evalList() : unable to produce RTC list : %v", err)
-		return nil
+func (t *Targets) evalList() ([]string, error) {
+	var resp []*runtimeconfig.Variable
+	for _, rtc := range t.rtcs {
+		targets, err := rtc.List()
+		if err != nil {
+			t.l.Warningf("rtc.evalList() : unable to produce RTC list for project %s : %v", rtc.GetProject(), err)
+			return nil, err
+		}
+		resp = append(resp, targets...)
 	}
 
 	var targs []string
@@ -155,11 +176,11 @@ func (t *Targets) evalList() []string {
 		defer t.cacheMu.RUnlock()
 		if t.cache != nil {
 			t.l.Warningf("rtc.evalList(): falling back to cache due to stale entire")
-			return t.cache
+			return t.cache, nil
 		}
 	}
 
-	return targs
+	return targs, nil
 }
 
 // targsFromVar produces the target associated with a variable in an rtcservice.Config,
@@ -167,7 +188,7 @@ func (t *Targets) evalList() []string {
 // updated.
 func (t *Targets) targsFromVar(v *runtimeconfig.Variable) (string, error) {
 	// Get the Value
-	val, err := t.rtc.Val(v)
+	val, err := base64.StdEncoding.DecodeString(v.Value)
 	if err != nil {
 		return "", err
 	}
@@ -214,11 +235,21 @@ func (t *Targets) targsFromVar(v *runtimeconfig.Variable) (string, error) {
 }
 
 // New returns an rtc resolver / lister, given a defining protobuf.
-func New(pb *configpb.TargetsConf, proj string, l *logger.Logger) (*Targets, error) {
-	rtc, err := rtcservice.New(proj, pb.GetCfg(), nil)
-	if err != nil {
-		err = fmt.Errorf("newRTC: Error building rtc client %v for targets: %v", pb.GetCfg(), err)
-		return nil, err
+func New(pb *configpb.TargetsConf, localProject string, l *logger.Logger) (*Targets, error) {
+	var rtcs []rtcservice.Config
+
+	projectIDs := pb.GetProjectId()
+	if len(projectIDs) < 1 {
+		projectIDs = append(projectIDs, localProject)
+	}
+
+	for _, projID := range projectIDs {
+		rtc, err := rtcservice.New(projID, pb.GetCfg(), nil)
+		if err != nil {
+			err = fmt.Errorf("newRTC: Error building rtc client %v for targets: %v", pb.GetCfg(), err)
+			return nil, err
+		}
+		rtcs = append(rtcs, rtc)
 	}
 
 	expire := time.Duration(pb.GetExpireMsec()) * time.Millisecond
@@ -229,7 +260,7 @@ func New(pb *configpb.TargetsConf, proj string, l *logger.Logger) (*Targets, err
 	}
 
 	t := &Targets{
-		rtc:      rtc,
+		rtcs:     rtcs,
 		l:        l,
 		expire:   expire,
 		groups:   gs,

@@ -229,7 +229,7 @@ Nextrow:
 			rtc.WriteTime(v.value.GetInstanceName(), encoded, v.updatetime)
 		}
 		targs := &Targets{
-			rtc:      rtc,
+			rtcs:     []rtcservice.Config{rtc},
 			expire:   time.Second,
 			l:        l,
 			groups:   r.groups,
@@ -366,7 +366,77 @@ Nextrow:
 			rtc.WriteTime(v.value.GetInstanceName(), encoded, v.updatetime)
 		}
 		targs := &Targets{
-			rtc:      rtc,
+			rtcs:     []rtcservice.Config{rtc},
+			expire:   time.Second,
+			l:        l,
+			addrTag:  r.resAddr,
+			cache:    r.cache,
+			nameToIP: make(map[string]net.IP),
+		}
+		// List targets
+		got := targs.List()
+		sort.Strings(got)
+		sort.Strings(r.want)
+
+		if diff := pretty.Compare(r.want, got); diff != "" {
+			t.Errorf("%v : got diff:\n%s", r.name, diff)
+		}
+	}
+}
+
+func TestDiscoveryAcrossProjects(t *testing.T) {
+	const (
+		// Now
+		t0 = "2016-12-06T02:43:40.558291428Z"
+	)
+	t0t, err := time.Parse(time.RFC3339Nano, t0)
+	if err != nil {
+		t.Fatal("Unable to parse time 0: ", err)
+	}
+	// Sets a static time for calls to timeNow()
+	timeNow = func() time.Time { return t0t }
+	l := &logger.Logger{}
+
+	var rows = []struct {
+		name    string
+		vars    []targInfo
+		resAddr string
+		cache   []string
+		want    []string
+	}{
+		{"Test normal usage across projects",
+			[]targInfo{
+				{
+					value: mkTargetInfo("host1", []string{}, []addr{
+						addr{tag: "ip1", addr: "1.1.1.1"}}),
+					updatetime: t0},
+				{
+					value: mkTargetInfo("host2", []string{}, []addr{
+						addr{tag: "ip1", addr: "1.1.1.1"}}),
+					updatetime: t0}},
+			"ip1", []string{"cache"},
+			[]string{"host1", "host2"}},
+	}
+
+	// For every row, setup the experiment, and see if listing returns r.want. If
+	// test setup fails, we skip to next row.
+Nextrow:
+	for id, r := range rows {
+		// Setup targs
+		var rtcs []rtcservice.Config
+		for _, v := range r.vars {
+			rtc := rtcservice.NewStub()
+			data, err := proto.Marshal(v.value)
+			if err != nil {
+				t.Errorf("In test row %v : %v : Unable to marshal pb %v", id, r.name, v.value)
+				continue Nextrow
+			}
+			encoded := base64.StdEncoding.EncodeToString(data)
+			rtc.WriteTime(v.value.GetInstanceName(), encoded, v.updatetime)
+			rtcs = append(rtcs, rtc)
+		}
+		targs := &Targets{
+			rtcs:     rtcs,
 			expire:   time.Second,
 			l:        l,
 			addrTag:  r.resAddr,
