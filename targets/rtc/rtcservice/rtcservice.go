@@ -45,14 +45,15 @@ import (
 // It represents a single runtime configuration, allowing one to read and write
 // variables to the configuration.
 type Config interface {
+	// GetProject returns the project name for the configuration
+	GetProject() string
 	// Write adds or changes a key value pair to a configuration.
 	Write(key string, val []byte) error
 	// Delete removes a variable from a configuration.
 	Delete(key string) error
 	// Val returns the Value stored by a variable.
 	Val(v *runtimeconfig.Variable) ([]byte, error)
-	// List lists all variables in a configuration. These variables will not
-	// include their Text or Value fields.
+	// List lists all variables in a configuration.
 	List() ([]*runtimeconfig.Variable, error)
 	// FilterList will list all variables in a configuration, filtering variable
 	// names by the filter string. This mirrors the behavior found in
@@ -103,6 +104,11 @@ func getService(c *http.Client) (*runtimeconfig.ProjectsConfigsVariablesService,
 		return nil, err
 	}
 	return runtimeconfig.NewProjectsConfigsVariablesService(rtcService), nil
+}
+
+// GetProject will return the alphanumeric project ID for the configuration
+func (s *impl) GetProject() string {
+	return s.proj
 }
 
 // Write will add or change key/val pair in the configuration for s's project
