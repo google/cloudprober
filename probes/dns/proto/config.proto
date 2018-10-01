@@ -55,4 +55,8 @@ message ProbeConf {
 
   // DNS Query Type
   optional QueryType query_type = 3 [default = MX];
+
+  // Minimum number of answers expected. Default behavior is to return success
+  // if DNS response status is NOERROR.
+  optional uint32 min_answers = 4 [default = 0];
 }

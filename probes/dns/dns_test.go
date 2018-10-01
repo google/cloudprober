@@ -15,6 +15,7 @@
 package dns
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -44,11 +45,15 @@ func (*mockClient) Exchange(in *dns.Msg, _ string) (*dns.Msg, time.Duration, err
 	if question.Name == questionBadDomain+"." || int(question.Qtype) == int(questionBadType) {
 		out.Rcode = dns.RcodeNameError
 	}
+	a, err := dns.NewRR(fmt.Sprintf("%s. 3600 IN A 192.168.0.1", question.Name))
+	if err != nil {
+		out.Answer = []dns.RR{a}
+	}
 	return out, time.Millisecond, nil
 }
 func (*mockClient) SetReadTimeout(time.Duration) {}
 
-func runProbe(t *testing.T, p *Probe, total, success int64) {
+func runProbe(t *testing.T, testName string, p *Probe, total, success int64) {
 	p.client = new(mockClient)
 	p.targets = p.opts.Targets.List()
 
@@ -60,10 +65,12 @@ func runProbe(t *testing.T, p *Probe, total, success int64) {
 		r := <-resultsChan
 		result := r.(probeRunResult)
 		if result.total.Int64() != total || result.success.Int64() != success {
-			t.Errorf("Mismatch got (total, success) = (%d, %d), want (%d, %d)", result.total.Int64(), result.success.Int64(), total, success)
+			t.Errorf("test(%s): result mismatch got (total, success) = (%d, %d), want (%d, %d)",
+				testName, result.total.Int64(), result.success.Int64(), total, success)
 		}
 		if result.Target() != target {
-			t.Errorf("Unexpected target in probe result. Got: %s, Expected: %s", result.Target(), target)
+			t.Errorf("test(%s): unexpected target in probe result. got: %s, want: %s",
+				testName, result.Target(), target)
 		}
 	}
 }
@@ -81,7 +88,7 @@ func TestRun(t *testing.T) {
 	if err := p.Init("dns_test", opts); err != nil {
 		t.Fatalf("Error creating probe: %v", err)
 	}
-	runProbe(t, p, 1, 1)
+	runProbe(t, "basic", p, 1, 1)
 }
 
 func TestProbeType(t *testing.T) {
@@ -99,7 +106,7 @@ func TestProbeType(t *testing.T) {
 	if err := p.Init("dns_probe_type_test", opts); err != nil {
 		t.Fatalf("Error creating probe: %v", err)
 	}
-	runProbe(t, p, 1, 0)
+	runProbe(t, "probetype", p, 1, 0)
 }
 
 func TestBadName(t *testing.T) {
@@ -116,5 +123,33 @@ func TestBadName(t *testing.T) {
 	if err := p.Init("dns_bad_domain_test", opts); err != nil {
 		t.Fatalf("Error creating probe: %v", err)
 	}
-	runProbe(t, p, 1, 0)
+	runProbe(t, "baddomain", p, 1, 0)
+}
+
+func TestAnswerCheck(t *testing.T) {
+	p := &Probe{}
+	opts := &options.Options{
+		Targets:  targets.StaticTargets("8.8.8.8"),
+		Interval: 2 * time.Second,
+		Timeout:  time.Second,
+		ProbeConf: &configpb.ProbeConf{
+			StatsExportIntervalMsec: proto.Int32(1000),
+			MinAnswers:              proto.Uint32(1),
+		},
+	}
+	if err := p.Init("dns_probe_answer_check_test", opts); err != nil {
+		t.Fatalf("Error creating probe: %v", err)
+	}
+	// expect success minAnswers == num answers returned == 1.
+	runProbe(t, "matchminanswers", p, 1, 1)
+
+	opts.ProbeConf = &configpb.ProbeConf{
+		StatsExportIntervalMsec: proto.Int32(1000),
+		MinAnswers:              proto.Uint32(2),
+	}
+	if err := p.Init("dns_probe_answer_check_test", opts); err != nil {
+		t.Fatalf("Error creating probe: %v", err)
+	}
+	// expect failure because only one answer returned and two wanted.
+	runProbe(t, "toofewanswers", p, 1, 0)
 }

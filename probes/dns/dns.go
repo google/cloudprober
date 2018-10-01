@@ -141,12 +141,11 @@ func isClientTimeout(err error) bool {
 }
 
 func (p *Probe) runProbe(resultsChan chan<- probeutils.ProbeResult) {
-
 	// Refresh the list of targets to probe.
 	p.targets = p.opts.Targets.List()
 
+	minAnswers := p.c.GetMinAnswers()
 	wg := sync.WaitGroup{}
-
 	for _, target := range p.targets {
 		wg.Add(1)
 
@@ -174,6 +173,9 @@ func (p *Probe) runProbe(resultsChan chan<- probeutils.ProbeResult) {
 				}
 			} else if resp == nil || resp.Rcode != dns.RcodeSuccess {
 				p.l.Warningf("Target(%s): error in response %v", fullTarget, resp)
+			} else if minAnswers > 0 && uint32(len(resp.Answer)) < minAnswers {
+				p.l.Warningf("Target(%s): too few answers - got %d want %d.\n\tAnswerBlock: %v",
+					fullTarget, len(resp.Answer), minAnswers, resp.Answer)
 			} else {
 				result.success.Inc()
 				result.latency.AddFloat64(latency.Seconds() / p.opts.LatencyUnit.Seconds())
