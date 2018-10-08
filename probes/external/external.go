@@ -104,9 +104,13 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	p.c = c
 	p.replyChan = make(chan *serverpb.ProbeReply)
 
+	cmdParts := strings.Split(p.c.GetCommand(), " ")
+	p.cmdName = cmdParts[0]
+	p.cmdArgs = cmdParts[1:len(cmdParts)]
+
 	// Figure out labels we are interested in
 	p.labelKeys = make(map[string]bool)
-	validLabels := []string{"@target@", "@address@", "@probe"}
+	validLabels := []string{"@target@", "@address@", "@probe@"}
 	for _, l := range validLabels {
 		for _, opt := range p.c.GetOptions() {
 			if strings.Contains(opt.GetValue(), l) {
@@ -129,9 +133,6 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		p.l.Errorf("Invalid mode: %s", p.c.GetMode())
 	}
 
-	cmdParts := strings.Split(p.c.GetCommand(), " ")
-	p.cmdName = cmdParts[0]
-	p.cmdArgs = cmdParts[1:len(cmdParts)]
 	p.success = make(map[string]int64)
 	p.total = make(map[string]int64)
 	p.latency = make(map[string]time.Duration)
