@@ -7,4 +7,7 @@ message SurfacerConf {
   // standard output.
   optional string file_path = 1;
   optional string prefix = 2 [default = "cloudprober"];
+
+  // Compress data before writing to the file.
+  optional bool compression_enabled = 3 [default = false];
 }
