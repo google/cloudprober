@@ -65,10 +65,6 @@ func (s *Stub) Delete(key string) error {
 
 // Val gets the value associated with a variable.
 func (s *Stub) Val(v *runtimeconfig.Variable) ([]byte, error) {
-	// v = s.m[v.Name]
-	// if v == nil {
-	// 	return nil, fmt.Errorf("rtc_stub: key %q not in map", v.Name)
-	// }
 	return base64.StdEncoding.DecodeString(v.Value)
 }
 
