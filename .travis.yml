@@ -7,7 +7,7 @@ matrix:
 language: go
 
 go:
- - 1.10
+ - "1.10"
  
 install:
  - go get -t ./...
