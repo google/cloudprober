@@ -17,6 +17,7 @@ package grpc
 
 import (
 	"context"
+	"net"
 	"reflect"
 	"testing"
 	"time"
@@ -43,6 +44,7 @@ func TestGRPCSuccess(t *testing.T) {
 		t.Fatalf("Unable to create grpc server: %v", err)
 	}
 	go srv.Start(ctx, nil)
+	<-srv.ready
 
 	listenAddr := srv.ln.Addr().String()
 	conn, err := grpc.Dial(listenAddr, grpc.WithInsecure())
@@ -74,5 +76,50 @@ func TestGRPCSuccess(t *testing.T) {
 	t.Logf("EchoResponse: <%v>", string(echoResp.Blob))
 	if !reflect.DeepEqual(echoResp.Blob, echoReq.Blob) {
 		t.Errorf("Echo response mismatch: got %v want %v", echoResp.Blob, echoReq.Blob)
+	}
+}
+
+func TestInjection(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	cfg := &configpb.ServerConf{
+		Port: proto.Int32(0),
+	}
+	l := &logger.Logger{}
+
+	// Setup a grpc server, similar to setupDefaultServer
+	grpcSrv := grpc.NewServer()
+	ln, err := net.Listen("tcp", ":0")
+	if err != nil {
+		t.Fatalf("Unable to open socket for listening: %v", err)
+	}
+	defer ln.Close()
+
+	srv, err := New(ctx, cfg, l)
+	if err != nil {
+		t.Fatalf("Unable to create grpc server: %v", err)
+	}
+	srv.InjectGRPCServer(grpcSrv)
+	go grpcSrv.Serve(ln)
+	time.Sleep(time.Second)
+
+	listenAddr := ln.Addr().String()
+	conn, err := grpc.Dial(listenAddr, grpc.WithInsecure())
+	if err != nil {
+		t.Fatalf("Unable to connect to grpc server at %v: %v", listenAddr, err)
+	}
+
+	client := grpcpb.NewProberClient(conn)
+	timedCtx, timedCancel := context.WithTimeout(ctx, time.Second)
+	defer timedCancel()
+	sReq := &spb.StatusRequest{}
+	sResp, err := client.ServerStatus(timedCtx, sReq)
+	if err != nil {
+		t.Errorf("ServerStatus call error: %v", err)
+	}
+	t.Logf("Uptime: %v", sResp.GetUptimeUs())
+	if sResp.GetUptimeUs() == 0 {
+		t.Error("Uptime not being incremented.")
 	}
 }

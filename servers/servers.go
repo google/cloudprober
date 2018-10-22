@@ -42,6 +42,8 @@ type Server interface {
 }
 
 // Init initializes cloudprober servers, based on the provided config.
+// TODO: Modify Init to take in a list of pre-setup servers that can be passed
+// to the probe servers.
 func Init(initCtx context.Context, serverDefs []*configpb.ServerDef) (servers []Server, err error) {
 	for _, serverDef := range serverDefs {
 		var l *logger.Logger
