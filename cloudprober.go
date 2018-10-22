@@ -40,11 +40,13 @@ import (
 	"github.com/google/cloudprober/metrics"
 	"github.com/google/cloudprober/probes"
 	"github.com/google/cloudprober/servers"
+	cpgrpc "github.com/google/cloudprober/servers/grpc"
 	"github.com/google/cloudprober/surfacers"
 	"github.com/google/cloudprober/sysvars"
 	"github.com/google/cloudprober/targets/lameduck"
 	rdsserver "github.com/google/cloudprober/targets/rds/server"
 	"github.com/google/cloudprober/targets/rtc/rtcreporter"
+	"google.golang.org/grpc"
 )
 
 const (
@@ -283,4 +285,22 @@ func GetConfig() string {
 	proberMu.Lock()
 	defer proberMu.Unlock()
 	return prober.textConfig
+}
+
+// InjectGRPCServer injects the provided gRPC server into all cloudprober gRPC
+// servers (if any). It is the callers responsibility to start/stop serving on
+// the gRPC server. Returns an error if any cloudprober gRPC server rejects the
+// injection.
+func InjectGRPCServer(srv *grpc.Server) error {
+	proberMu.Lock()
+	defer proberMu.Unlock()
+	for _, s := range prober.Servers {
+		cpgrpcSrv, ok := s.(*cpgrpc.Server)
+		if ok {
+			if err := cpgrpcSrv.InjectGRPCServer(srv); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
