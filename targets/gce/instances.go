@@ -17,6 +17,7 @@ package gce
 import (
 	"errors"
 	"fmt"
+	"math/rand"
 	"net"
 	"sync"
 	"time"
@@ -190,11 +191,8 @@ func initGlobalInstancesProvider(projects []string, apiVersion string, reEvalInt
 			// starting the refresh loop. If there are multiple cloudprober
 			// instances, this will make sure that each instance calls GCE
 			// API at a different point of time.
-
-			// randomDelaySec := rand.Intn(int(reEvalInterval.Seconds()))
-			//  time.Sleep(time.Duration(randomDelaySec) * time.Second)
-			reEvalInterval = time.Duration(2) * time.Second
-			time.Sleep(reEvalInterval)
+			randomDelaySec := rand.Intn(int(reEvalInterval.Seconds()))
+			time.Sleep(time.Duration(randomDelaySec) * time.Second)
 			for _ = range time.Tick(reEvalInterval) {
 				provider.expand(reEvalInterval)
 			}
