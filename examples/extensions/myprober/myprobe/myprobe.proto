@@ -1,0 +1,24 @@
+// This protobuf defines a new cloudprober probe type.
+syntax = "proto2";
+
+import "github.com/google/cloudprober/probes/proto/config.proto";
+
+package cloudprober;
+
+message ProbeConf {
+  // Redis operation
+  enum Op {
+    GET = 0;
+    SET = 1;
+    DELETE = 2;
+  }
+  required Op op = 1;
+
+  // Key and value for the redis operation
+  required string key = 2;
+  optional string value = 3;
+}
+
+extend probes.ProbeDef {
+  optional ProbeConf redis_probe = 200;
+}
