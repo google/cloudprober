@@ -63,7 +63,7 @@ enable them by running the following command:
 options`](http://github.com/google/cloudprober/tree/master/probes/http/config.proto)
 
 HTTP probe is be used to send HTTP(s) requests to a target and verify that a
-response is received. Apart from core probe mertrics (total, success and
+response is received. Apart from core probe metrics (total, success and
 latency), HTTP probes also export a map of response code counts. Requests are
 marked as failed if there is a timeout.
 
@@ -111,5 +111,4 @@ External probe can be configured in two modes:
    automatically starts the external program if it's not running at the time of
    the probe execution. Cloudprober and external probe process communicate with
    each other over stdin/stdout using protobuf messages defined in
-   [server.proto](
-   https://github.com/google/cloudprober/blob/master/probes/external/serverutils/server.proto).
+   [server.proto](https://github.com/google/cloudprober/blob/master/probes/external/serverutils/server.proto).
