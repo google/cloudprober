@@ -86,7 +86,7 @@ cloudprober 1519..4 1519583412 labels=ptype=external,probe=redis_probe,dst= succ
 ```
 
 You can import this data in prometheus following the process outlined at:
-[Running Prometheus]({{< ref "getting-started.md#running-prometheus" >}}). Before doing that, let's make it more interesting.
+[Running Prometheus]({{< ref "/getting-started.md#running-prometheus" >}}). Before doing that, let's make it more interesting.
 
 ## Distributions
 How nice will it be if we could find distribution of the set and get latency. If tail latency was too high, it could explain the random timeouts in your application. Fortunately, it's very easy to create distributions in Cloudprober. You just need to add the following section to your probe definition:
