@@ -3,7 +3,7 @@ syntax = "proto2";
 
 import "github.com/google/cloudprober/probes/proto/config.proto";
 
-package cloudprober;
+package myprober;
 
 message ProbeConf {
   // Redis operation
@@ -19,6 +19,6 @@ message ProbeConf {
   optional string value = 3;
 }
 
-extend probes.ProbeDef {
+extend cloudprober.probes.ProbeDef {
   optional ProbeConf redis_probe = 200;
 }
