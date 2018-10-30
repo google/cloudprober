@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+  
+  
+  
+  
+   <html class="no-js"> 
+
+  <head lang="en-us">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,user-scalable=no,initial-scale=1,maximum-scale=1">
+    <meta http-equiv="X-UA-Compatible" content="IE=10" />
+    <title>Extending Cloudprober - Cloudprober</title>
+    <meta name="generator" content="Hugo 0.48" />
+
+    
+    <link rel="canonical" href="https://cloudprober.org/how-to/extensions/">
+    
+
+    <meta property="og:url" content="https://cloudprober.org/how-to/extensions/">
+    <meta property="og:title" content="Cloudprober">
+    
+    <meta name="apple-mobile-web-app-title" content="Cloudprober">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+    <link rel="shortcut icon" type="image/x-icon" href="https://cloudprober.org/images/favicon.ico">
+    <link rel="icon" type="image/x-icon" href="https://cloudprober.org/images/favicon.ico">
+
+    <style>
+      @font-face {
+        font-family: 'Icon';
+        src: url('https://cloudprober.org/fonts/icon.eot');
+        src: url('https://cloudprober.org/fonts/icon.eot')
+               format('embedded-opentype'),
+             url('https://cloudprober.org/fonts/icon.woff')
+               format('woff'),
+             url('https://cloudprober.org/fonts/icon.ttf')
+               format('truetype'),
+             url('https://cloudprober.org/fonts/icon.svg')
+               format('svg');
+        font-weight: normal;
+        font-style: normal;
+      }
+    </style>
+
+    <link rel="stylesheet" href="https://cloudprober.org/stylesheets/application.css">
+    <link rel="stylesheet" href="https://cloudprober.org/stylesheets/temporary.css">
+    <link rel="stylesheet" href="https://cloudprober.org/stylesheets/palettes.css">
+    <link rel="stylesheet" href="https://cloudprober.org/stylesheets/highlight/highlight.css">
+
+    
+    
+    
+    <link rel="stylesheet" href="//fonts.googleapis.com/css?family=Roboto:400,700|Roboto&#43;Mono">
+    <style>
+      body, input {
+        font-family: 'Roboto', Helvetica, Arial, sans-serif;
+      }
+      pre, code {
+        font-family: 'Roboto Mono', 'Courier New', 'Courier', monospace;
+      }
+    </style>
+
+    
+    <script src="https://cloudprober.org/javascripts/modernizr.js"></script>
+
+    
+
+  </head>
+  <body class=" ">
+
+
+
+	
+	
+
+
+<div class="backdrop">
+	<div class="backdrop-paper"></div>
+</div>
+
+<input class="toggle" type="checkbox" id="toggle-drawer">
+<input class="toggle" type="checkbox" id="toggle-search">
+<label class="toggle-button overlay" for="toggle-drawer"></label>
+
+<header class="header">
+	<nav aria-label="Header">
+  <div class="bar default">
+    <div class="button button-menu" role="button" aria-label="Menu">
+      <label class="toggle-button icon icon-menu" for="toggle-drawer">
+        <span></span>
+      </label>
+    </div>
+    <div class="stretch">
+      <div class="title">
+        Extending Cloudprober
+      </div>
+    </div>
+
+    
+
+    
+    
+        
+  </div>
+  <div class="bar search">
+    <div class="button button-close" role="button" aria-label="Close">
+      <label class="toggle-button icon icon-back" for="toggle-search"></label>
+    </div>
+    <div class="stretch">
+      <div class="field">
+        <input class="query" type="text" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck>
+      </div>
+    </div>
+    <div class="button button-reset" role="button" aria-label="Search">
+      <button class="toggle-button icon icon-close" id="reset-search"></button>
+    </div>
+  </div>
+</nav>
+</header>
+
+<main class="main">
+	<div class="drawer">
+		<nav aria-label="Navigation">
+  <a href="https://github.com/google/cloudprober" class="project">
+    <div class="banner">
+      
+      <div class="name">
+        <strong>Cloudprober </strong>
+        
+          <br>
+          google/cloudprober
+        
+      </div>
+    </div>
+  </a>
+
+  <div class="scrollable">
+    <div class="wrapper">
+      
+        <ul class="repo">
+          <li class="repo-download">
+            <a href="https://github.com/google/cloudprober/archive/master.zip" target="_blank" title="Download" data-action="download">
+              <i class="icon icon-download"></i> Download
+            </a>
+          </li>
+          <li class="repo-stars">
+            <a href="https://github.com/google/cloudprober/stargazers" target="_blank" title="Stargazers" data-action="star">
+              <i class="icon icon-star"></i> Stars
+              <span class="count">&ndash;</span>
+            </a>
+          </li>
+        </ul>
+        <hr>
+      
+
+      <div class="toc">
+        
+        <ul>
+          
+
+
+
+
+<li>
+  
+    
+
+
+
+<a  title="Overview" href="https://cloudprober.org/">
+	
+	Overview
+</a>
+
+
+
+  
+</li>
+
+
+
+<li>
+  
+    
+
+
+
+<a  title="Getting Started" href="https://cloudprober.org/getting-started/">
+	
+	Getting Started
+</a>
+
+
+
+  
+</li>
+
+
+
+<li>
+  
+    
+
+
+
+<a  title="What is a Probe" href="https://cloudprober.org/concepts/probe/">
+	
+	What is a Probe
+</a>
+
+
+
+  
+</li>
+
+
+
+<li>
+  
+    <span class="section">How-Tos</span>
+    <ul>
+      
+        
+        
+
+
+
+<a  title="External Probe" href="https://cloudprober.org/how-to/external-probe/">
+	
+	External Probe
+</a>
+
+
+
+      
+        
+        
+
+
+
+<a class="current" title="Extending Cloudprober" href="https://cloudprober.org/how-to/extensions/">
+	
+	Extending Cloudprober
+</a>
+
+
+<ul id="scrollspy">
+</ul>
+
+
+      
+    </ul>
+  
+</li>
+
+
+        </ul>
+        
+
+        
+      </div>
+    </div>
+  </div>
+</nav>
+
+	</div>
+
+	<article class="article">
+		<div class="wrapper">
+			<h1>Extending Cloudprober </h1>
+
+			
+
+<p>Cloudprober allows you to extend it across &ldquo;probe&rdquo; and &ldquo;target&rdquo; dimensions,
+that is, you can add new probe and target types to it without having to fork
+the entire codebase. Note that to extend cloudprober in this way, you will have
+to maintain your own cloudprober binary (which is mostly a wrapper around the
+&ldquo;cloudprober package&rdquo;), but you&rsquo;ll be able to use rest of the cloudprober code
+from the common location.</p>
+
+<h2 id="sample-probe-type">Sample probe type</h2>
+
+<p>To demonstrate how it works, let&rsquo;s add a new probe-type to Cloudprober. We&rsquo;ll
+take the sample redis probe that we added in the
+<a href="https://cloudprober.org/how-to/external-probe/#sample-probe">external probe how-to</a>,
+and convert it into a probe type that one can easily re-use. Let&rsquo;s say that
+this probe-type provides a way to test redis server functionality and it takes
+the following options - operation (GET vs SET vs DELETE), key, value. This
+probe&rsquo;s configuration looks like this:</p>
+
+<div class="highlight" style="background: #f8f8f8"><pre style="line-height: 125%"><code class="language-bash" data-lang="bash"><span></span>probe <span style="color: #666666">{</span>
+  name: <span style="color: #BA2121">&quot;redis_set&quot;</span>
+  type: EXTENSION
+  targets <span style="color: #666666">{</span>
+    host_names: <span style="color: #BA2121">&quot;localhost:6379&quot;</span>
+  <span style="color: #666666">}</span>
+  redis_probe <span style="color: #666666">{</span>
+    op: <span style="color: #BA2121">&quot;set&quot;</span>
+    key: <span style="color: #BA2121">&quot;testkey&quot;</span>
+    value: <span style="color: #BA2121">&quot;testval&quot;</span>
+  <span style="color: #666666">}</span>
+<span style="color: #666666">}</span>
+</code></pre></div>
+
+
+<p>To make cloudprober understand this config, we&rsquo;ll have to do a few things:</p>
+
+<ul>
+<li><p>Define the probe config in a protobuf (.proto) file and mark it as an
+extension of the overall config.</p></li>
+
+<li><p>Implement the probe type, possibly as a Go package, even though it can
+be embedded directly into the top-level binary.</p></li>
+
+<li><p>Create a new cloudprober binary that includes the new probe type package.</p></li>
+</ul>
+
+<h2 id="protobuf-for-the-new-probe-type">Protobuf for the new probe type</h2>
+
+<p>Let&rsquo;s create a new directory for our code: <code>$GOPATH/src/myprober</code>.</p>
+
+<div class="highlight" style="background: #f8f8f8"><pre style="line-height: 125%"><code class="language-protobuf" data-lang="protobuf"><span></span><span style="color: #408080; font-style: italic">// File: $GOPATH/src/myprober/myprobe/myprobe.proto</span>
+
+<span style="color: #7D9029">syntax</span> <span style="color: #666666">=</span> <span style="color: #BA2121">&quot;proto2&quot;</span>;
+
+<span style="color: #008000; font-weight: bold">import</span> <span style="color: #BA2121">&quot;github.com/google/cloudprober/probes/proto/config.proto&quot;</span>;
+
+<span style="color: #008000; font-weight: bold">package</span> <span style="color: #0000FF; font-weight: bold">myprober</span>;
+
+<span style="color: #008000; font-weight: bold">message</span> <span style="color: #0000FF; font-weight: bold">ProbeConf</span> {
+  <span style="color: #408080; font-style: italic">// Redis operation</span>
+  <span style="color: #008000; font-weight: bold">required</span> <span style="color: #B00040">string</span> <span style="color: #7D9029">op</span> <span style="color: #666666">=</span> <span style="color: #666666">1</span>;
+
+  <span style="color: #408080; font-style: italic">// Key and value for the redis operation</span>
+  <span style="color: #008000; font-weight: bold">required</span> <span style="color: #B00040">string</span> <span style="color: #7D9029">key</span> <span style="color: #666666">=</span> <span style="color: #666666">2</span>;
+  <span style="color: #008000; font-weight: bold">optional</span> <span style="color: #B00040">string</span> <span style="color: #7D9029">value</span> <span style="color: #666666">=</span> <span style="color: #666666">3</span>;
+}
+
+<span style="color: #008000; font-weight: bold">extend</span> <span style="color: #0000FF; font-weight: bold">cloudprober</span><span style="color: #666666">.</span>probes.ProbeDef {
+  <span style="color: #008000; font-weight: bold">optional</span> ProbeConf <span style="color: #7D9029">redis_probe</span> <span style="color: #666666">=</span> <span style="color: #666666">200</span>;
+}
+</code></pre></div>
+
+
+<p>Let&rsquo;s generate Go code for this protobuf:</p>
+
+<div class="highlight" style="background: #f8f8f8"><pre style="line-height: 125%"><code class="language-shell" data-lang="shell"><span></span><span style="color: #408080; font-style: italic"># From the myprober directory</span>
+protoc --go_out<span style="color: #666666">=</span>.,import_path<span style="color: #666666">=</span>myprobe:. --proto_path<span style="color: #666666">=</span><span style="color: #19177C">$GOPATH</span>/src:. myprobe/*.proto
+
+$ ls myprobe/
+myprobe.pb.go  myprobe.proto
+</code></pre></div>
+
+
+<h2 id="implement-the-probe-type">Implement the probe type</h2>
+
+<p>Now let&rsquo;s implement our probe type. Our probe type should implement the
+<a href="https://godoc.org/github.com/google/cloudprober/probes#Probe">probes.Probe</a> interface.</p>
+
+<div class="highlight" style="background: #f8f8f8"><pre style="line-height: 125%"><code class="language-go" data-lang="go"><span></span><span style="color: #408080; font-style: italic">// Full listing:</span>
+<span style="color: #408080; font-style: italic">// github.com/google/cloudprober/examples/extensions/myprober/myprobe/myprobe.go</span>
+
+<span style="color: #008000; font-weight: bold">package</span> myprobe
+
+<span style="color: #408080; font-style: italic">// Probe holds aggregate information about all probe runs, per-target.</span>
+<span style="color: #008000; font-weight: bold">type</span> Probe <span style="color: #008000; font-weight: bold">struct</span> {
+  name    <span style="color: #B00040">string</span>
+  c       <span style="color: #666666">*</span>configpb.ProbeConf
+  targets []<span style="color: #B00040">string</span>
+  opts    <span style="color: #666666">*</span>options.Options
+  <span style="color: #666666">...</span>
+}
+
+<span style="color: #408080; font-style: italic">// Init initializes the probe with the given params.</span>
+<span style="color: #008000; font-weight: bold">func</span> Init(name <span style="color: #B00040">string</span>, opts <span style="color: #666666">*</span>options.Options) <span style="color: #B00040">error</span> {
+  c, ok <span style="color: #666666">:=</span> opts.ProbeConf.(<span style="color: #666666">*</span>ProbeConf)
+  <span style="color: #008000; font-weight: bold">if</span> !ok {
+    <span style="color: #008000; font-weight: bold">return</span> fmt.Errorf(<span style="color: #BA2121">&quot;not a my probe config&quot;</span>)
+  }
+  <span style="color: #408080; font-style: italic">// initialize p fields, p.name = name, etc.</span>
+}
+
+<span style="color: #408080; font-style: italic">// Start runs the probe indefinitely, at the configured interval.</span>
+<span style="color: #008000; font-weight: bold">func</span> (p <span style="color: #666666">*</span>Probe) Start(ctx context.Context, dataChan <span style="color: #008000; font-weight: bold">chan</span> <span style="color: #666666">*</span>metrics.EventMetrics) {
+  probeTicker <span style="color: #666666">:=</span> time.NewTicker(p.opts.Interval)
+
+  <span style="color: #008000; font-weight: bold">for</span> {
+    <span style="color: #008000; font-weight: bold">select</span> {
+    <span style="color: #008000; font-weight: bold">case</span> <span style="color: #666666">&lt;-</span>ctx.Done():
+      probeTicker.Stop()
+      <span style="color: #008000; font-weight: bold">return</span>
+    <span style="color: #008000; font-weight: bold">case</span> <span style="color: #666666">&lt;-</span>probeTicker.C:
+      <span style="color: #008000; font-weight: bold">for</span> _, em <span style="color: #666666">:=</span> <span style="color: #008000; font-weight: bold">range</span> p.res {
+        dataChan <span style="color: #666666">&lt;-</span> em
+      }
+      p.targets = p.opts.Targets.List()
+      <span style="color: #666666">...</span>
+      probeCtx, cancelFunc <span style="color: #666666">:=</span> context.WithDeadline(ctx, time.Now().Add(p.opts.Timeout))
+      p.runProbe(probeCtx)
+      cancelFunc()
+    }
+  }
+}
+
+<span style="color: #408080; font-style: italic">// runProbe runs probe for all targets and update EventMetrics.</span>
+<span style="color: #008000; font-weight: bold">func</span> (p <span style="color: #666666">*</span>Probe) runProbe(ctx context.Context) {
+  p.targets = p.opts.Targets.List()
+
+  <span style="color: #008000; font-weight: bold">var</span> wg sync.WaitGroup
+  <span style="color: #008000; font-weight: bold">for</span> _, target <span style="color: #666666">:=</span> <span style="color: #008000; font-weight: bold">range</span> p.targets {
+    wg.Add(<span style="color: #666666">1</span>)
+
+    <span style="color: #008000; font-weight: bold">go</span> <span style="color: #008000; font-weight: bold">func</span>(target <span style="color: #B00040">string</span>, em <span style="color: #666666">*</span>metrics.EventMetrics) {
+      <span style="color: #008000; font-weight: bold">defer</span> wg.Done()
+      em.Metric(<span style="color: #BA2121">&quot;total&quot;</span>).AddInt64(<span style="color: #666666">1</span>)
+      start <span style="color: #666666">:=</span> time.Now()
+      err <span style="color: #666666">:=</span> p.runProbeForTarget(ctx, target) <span style="color: #408080; font-style: italic">// run probe just for a single target</span>
+      <span style="color: #008000; font-weight: bold">if</span> err <span style="color: #666666">!=</span> <span style="color: #008000; font-weight: bold">nil</span> {
+        p.l.Errorf(err.Error())
+        <span style="color: #008000; font-weight: bold">return</span>
+      }
+      em.Metric(<span style="color: #BA2121">&quot;success&quot;</span>).AddInt64(<span style="color: #666666">1</span>)
+      em.Metric(<span style="color: #BA2121">&quot;latency&quot;</span>).AddFloat64(time.Now().Sub(start).Seconds() <span style="color: #666666">/</span> p.opts.LatencyUnit.Seconds())
+    }(target, p.res[target])
+
+  }
+
+  wg.Wait()
+}
+</code></pre></div>
+
+
+<p>(Full listing: <a href="https://github.com/google/cloudprober/blob/master/examples/extensions/myprober/myprobe/myprobe.go">https://github.com/google/cloudprober/blob/master/examples/extensions/myprober/myprobe/myprobe.go</a>)</p>
+
+<p>This probe type sets or gets (depending on the configuration) a key-valye in
+redis and records success and time taken (latency) if operation is successful.</p>
+
+<h2 id="implement-a-cloudprober-binary-that-includes-support-for-our-probe">Implement a cloudprober binary that includes support for our probe</h2>
+
+<p><div class="highlight" style="background: #f8f8f8"><pre style="line-height: 125%"><code class="language-go" data-lang="go"><span></span><span style="color: #408080; font-style: italic">// Full listing:</span>
+<span style="color: #408080; font-style: italic">// github.com/google/cloudprober/examples/extensions/myprober/myprober.go</span>
+
+<span style="color: #008000; font-weight: bold">package</span> main
+
+<span style="color: #666666">...</span>
+
+<span style="color: #008000; font-weight: bold">func</span> main() {
+  flag.Parse()
+
+  <span style="color: #408080; font-style: italic">// Register our probe type</span>
+  probes.RegisterProbeType(<span style="color: #008000">int</span>(myprobe.E_RedisProbe.Field),
+                           <span style="color: #008000; font-weight: bold">func</span>() probes.Probe { <span style="color: #008000; font-weight: bold">return</span> <span style="color: #666666">&amp;</span>myprobe.Probe{} })
+
+  err <span style="color: #666666">:=</span> cloudprober.InitFromConfig(getConfig()) <span style="color: #408080; font-style: italic">// getConfig not shown here.</span>
+  <span style="color: #008000; font-weight: bold">if</span> err <span style="color: #666666">!=</span> <span style="color: #008000; font-weight: bold">nil</span> {
+    glog.Exitf(<span style="color: #BA2121">&quot;Error initializing cloudprober. Err: %v&quot;</span>, err)
+  }
+
+  <span style="color: #408080; font-style: italic">// web.Init sets up web UI for cloudprober.</span>
+  web.Init()
+
+  cloudprober.Start(context.Background())
+
+  <span style="color: #408080; font-style: italic">// Wait forever</span>
+  <span style="color: #008000; font-weight: bold">select</span> {}
+}
+</code></pre></div>
+
+(Full listing: <a href="https://github.com/google/cloudprober/blob/master/examples/extensions/myprober/myprober.go">https://github.com/google/cloudprober/blob/master/examples/extensions/myprober/myprober.go</a>)</p>
+
+<p>Let&rsquo;s write a test config that uses the newly defined probe type:</p>
+
+<p><div class="highlight" style="background: #f8f8f8"><pre style="line-height: 125%"><code class="language-bash" data-lang="bash"><span></span>probe <span style="color: #666666">{</span>
+  name: <span style="color: #BA2121">&quot;redis_set&quot;</span>
+  type: EXTENSION
+  interval_msec: <span style="color: #666666">10000</span>
+  timeout_msec: <span style="color: #666666">5000</span>
+  targets <span style="color: #666666">{</span>
+    host_names: <span style="color: #BA2121">&quot;localhost:6379&quot;</span>
+  <span style="color: #666666">}</span>
+  <span style="color: #666666">[</span>myprober.redis_probe<span style="color: #666666">]</span> <span style="color: #666666">{</span>
+    op: <span style="color: #BA2121">&quot;set&quot;</span>
+    key: <span style="color: #BA2121">&quot;testkey&quot;</span>
+    value: <span style="color: #BA2121">&quot;testval&quot;</span>
+  <span style="color: #666666">}</span>
+<span style="color: #666666">}</span>
+</code></pre></div>
+
+(Full listing: <a href="https://github.com/google/cloudprober/blob/master/examples/extensions/myprober/myprober.cfg">https://github.com/google/cloudprober/blob/master/examples/extensions/myprober/myprober.cfg</a>)</p>
+
+<p>Let&rsquo;s compile our prober and run it with the above config:</p>
+
+<div class="highlight" style="background: #f8f8f8"><pre style="line-height: 125%"><code class="language-bash" data-lang="bash"><span></span>go build ./myprober.go
+./myprober --config_file<span style="color: #666666">=</span>myprober.cfg
+</code></pre></div>
+
+
+<p>you should see an output like the following:</p>
+
+<pre><code>cloudprober 1540848577649139842 1540848587 labels=ptype=redis,probe=redis_set,dst=localhost:6379 total=31 success=31 latency=70579.823
+cloudprober 1540848577649139843 1540848887 labels=ptype=sysvars,probe=sysvars hostname=&quot;manugarg-macbookpro5.roam.corp.google.com&quot; start_timestamp=&quot;1540848577&quot;
+cloudprober 1540848577649139844 1540848887 labels=ptype=sysvars,probe=sysvars uptime_msec=310007.784 gc_time_msec=0.000 mallocs=14504 frees=826
+cloudprober 1540848577649139845 1540848887 labels=ptype=sysvars,probe=sysvars goroutines=12 mem_stats_sys_bytes=7211256
+cloudprober 1540848577649139846 1540848587 labels=ptype=redis,probe=redis_set,dst=localhost:6379 total=32 success=32 latency=72587.981
+cloudprober 1540848577649139847 1540848897 labels=ptype=sysvars,probe=sysvars hostname=&quot;manugarg-macbookpro5.roam.corp.google.com&quot; start_timestamp=&quot;1540848577&quot;
+cloudprober 1540848577649139848 1540848897 labels=ptype=sysvars,probe=sysvars uptime_msec=320006.541 gc_time_msec=0.000 mallocs=14731 frees=844
+cloudprober 1540848577649139849 1540848897 labels=ptype=sysvars,probe=sysvars goroutines=12 mem_stats_sys_bytes=7211256
+</code></pre>
+
+<p>You can import this data in prometheus following the process outlined at:
+<a href="https://cloudprober.org/getting-started/#running-prometheus">Running Prometheus</a>.</p>
+
+<h2 id="conclusion">Conclusion</h2>
+
+<p>The article shows how to add a new probe type to cloudprober. Extending
+cloudprober allows you to implement new probe types that may make sense for your
+organization, but not for the open source community. You have to implement the
+logic for the probe type, but other cloudprober features work as it is &ndash;
+targets, metrics (e.g. latency distribution if you configure it), surfacers -
+data can be multiple systems simultaneously, etc.</p>
+
+
+			<aside class="copyright" role="note">
+				
+				Documentation built with
+				<a href="https://www.gohugo.io" target="_blank">Hugo</a>
+				using the
+				<a href="http://github.com/digitalcraftsman/hugo-material-docs" target="_blank">Material</a> theme.
+			</aside>
+
+			<footer class="footer">
+				
+			</footer>
+		</div>
+	</article>
+
+	<div class="results" role="status" aria-live="polite">
+		<div class="scrollable">
+			<div class="wrapper">
+				<div class="meta"></div>
+				<div class="list"></div>
+			</div>
+		</div>
+	</div>
+</main>
+
+    <script>
+    
+      var base_url = 'https:\/\/cloudprober.org\/';
+      var repo_id  = 'google\/cloudprober';
+    
+    </script>
+
+    <script src="https://cloudprober.org/javascripts/application.js"></script>
+    
+
+    <script>
+      /* Add headers to scrollspy */
+      var headers   = document.getElementsByTagName("h2");
+      var scrollspy = document.getElementById('scrollspy');
+
+      if(scrollspy) {
+        if(headers.length > 0) {
+          for(var i = 0; i < headers.length; i++) {
+            var li = document.createElement("li");
+            li.setAttribute("class", "anchor");
+
+            var a  = document.createElement("a");
+            a.setAttribute("href", "#" + headers[i].id);
+            a.setAttribute("title", headers[i].innerHTML);
+            a.innerHTML = headers[i].innerHTML;
+
+            li.appendChild(a)
+            scrollspy.appendChild(li);
+          }
+        } else {
+          scrollspy.parentElement.removeChild(scrollspy)
+        }
+
+
+        /* Add permanent link next to the headers */
+        var headers = document.querySelectorAll("h1, h2, h3, h4, h5, h6");
+
+        for(var i = 0; i < headers.length; i++) {
+            var a = document.createElement("a");
+            a.setAttribute("class", "headerlink");
+            a.setAttribute("href", "#" + headers[i].id);
+            a.setAttribute("title", "Permanent link")
+            a.innerHTML = "¶";
+            headers[i].appendChild(a);
+        }
+      }
+    </script>
+
+    
+      <script>
+        (function(i,s,o,g,r,a,m){
+          i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){(i[r].q=i[r].q||
+          []).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+          m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;
+          m.parentNode.insertBefore(a,m)
+        })(window, document,
+          'script', '//www.google-analytics.com/analytics.js', 'ga');
+         
+        ga('create', 'UA-79661-8', 'auto');
+        ga('set', 'anonymizeIp', true);
+        ga('send', 'pageview');
+         
+        var buttons = document.querySelectorAll('a');
+        Array.prototype.map.call(buttons, function(item) {
+          if (item.host != document.location.host) {
+            item.addEventListener('click', function() {
+              var action = item.getAttribute('data-action') || 'follow';
+              ga('send', 'event', 'outbound', action, item.href);
+            });
+          }
+        });
+         
+        var query = document.querySelector('.query');
+        query.addEventListener('blur', function() {
+          if (this.value) {
+            var path = document.location.pathname;
+            ga('send', 'pageview', path + '?q=' + this.value);
+          }
+        });
+      </script>
+    
+
+    <script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.8.0/highlight.min.js"></script>
+    <script>hljs.initHighlightingOnLoad();</script>
+  </body>
+</html>
+

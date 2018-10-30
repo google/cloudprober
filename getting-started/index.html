@@ -10,7 +10,7 @@
     <meta name="viewport" content="width=device-width,user-scalable=no,initial-scale=1,maximum-scale=1">
     <meta http-equiv="X-UA-Compatible" content="IE=10" />
     <title>Getting Started - Cloudprober</title>
-    <meta name="generator" content="Hugo 0.37.1" />
+    <meta name="generator" content="Hugo 0.48" />
 
     
     <link rel="canonical" href="https://cloudprober.org/getting-started/">
@@ -237,6 +237,19 @@
 
 
       
+        
+        
+
+
+
+<a  title="Extending Cloudprober" href="https://cloudprober.org/how-to/extensions/">
+	
+	Extending Cloudprober
+</a>
+
+
+
+      
     </ul>
   
 </li>
@@ -289,7 +302,7 @@ You can download and run the latest docker image using the following command:</p
 and write metrics to stdout in cloudprober&rsquo;s line protocol format (to be
 documented). It will also start a <a href="http://prometheus.io">Prometheus</a> exporter
 at: <a href="http://localhost:9313">http://localhost:9313</a> (you can change the default port through the
-environment varible CLOUDPROBER_PORT).</p>
+environment variable CLOUDPROBER_PORT).</p>
 
 <p>Since sysvars variables are not very interesting themselves, lets add a simple
 config that probes Google&rsquo;s homepage:</p>
@@ -309,12 +322,12 @@ EOF
 </code></pre>
 
 <p>This config adds an HTTP probe that accesses the homepage of the target
-&ldquo;www.google.com&rdquo; every 5s with a timout of 1s. Cloudprober configuration is
+&ldquo;www.google.com&rdquo; every 5s with a timeout of 1s. Cloudprober configuration is
 specified in the text protobuf format, with config schema described by the
-proto file: <a href="https://github.com/google/cloudprober/blob/master/config/config.proto">config.proto
+proto file: <a href="https://github.com/google/cloudprober/blob/master/config/proto/config.proto">config.proto
 </a>.</p>
 
-<p>Assuming that you saved this file at /tmp/cloudprober.cfg (following the
+<p>Assuming that you saved this file at <code>/tmp/cloudprober.cfg</code> (following the
 command above), you can have cloudprober use this config file using the following command line:</p>
 
 <pre><code class="language-shell">./cloudprober --config_file /tmp/cloudprober.cfg
@@ -345,8 +358,7 @@ make pretty graphs for us.</p>
 
 <h2 id="running-prometheus">Running Prometheus</h2>
 
-<p>Download prometheus binary from its <a href="https://prometheus.io/download/">release page
-</a>. You can use a config like the following
+<p>Download prometheus binary from its <a href="https://prometheus.io/download/">release page</a>. You can use a config like the following
 to scrape cloudprober running on the same host.</p>
 
 <pre><code class="language-shell"># Write config to a file in /tmp
