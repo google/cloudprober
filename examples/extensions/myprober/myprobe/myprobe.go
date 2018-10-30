@@ -2,7 +2,7 @@ package myprobe
 
 import (
 	"context"
-	fmt "fmt"
+	"fmt"
 	"sync"
 	"time"
 
