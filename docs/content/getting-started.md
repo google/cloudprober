@@ -32,7 +32,7 @@ Without any config, cloudprober will run only the "sysvars" module (no probes)
 and write metrics to stdout in cloudprober's line protocol format (to be
 documented). It will also start a [Prometheus](http://prometheus.io) exporter
 at: http://localhost:9313 (you can change the default port through the
-environment varible CLOUDPROBER_PORT).
+environment variable CLOUDPROBER_PORT).
 
 Since sysvars variables are not very interesting themselves, lets add a simple
 config that probes Google's homepage:
@@ -53,12 +53,12 @@ EOF
 ```
 
 This config adds an HTTP probe that accesses the homepage of the target
-"www.google.com" every 5s with a timout of 1s. Cloudprober configuration is
+"www.google.com" every 5s with a timeout of 1s. Cloudprober configuration is
 specified in the text protobuf format, with config schema described by the
 proto file: [config.proto
 ](https://github.com/google/cloudprober/blob/master/config/proto/config.proto).
 
-Assuming that you saved this file at /tmp/cloudprober.cfg (following the
+Assuming that you saved this file at `/tmp/cloudprober.cfg` (following the
 command above), you can have cloudprober use this config file using the following command line:
 
 ```shell
@@ -91,8 +91,7 @@ make pretty graphs for us.
 
 ## Running Prometheus
 
-Download prometheus binary from its [release page
-](https://prometheus.io/download/). You can use a config like the following
+Download prometheus binary from its [release page](https://prometheus.io/download/). You can use a config like the following
 to scrape cloudprober running on the same host.
 
 ```shell
