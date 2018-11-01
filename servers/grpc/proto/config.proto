@@ -8,4 +8,9 @@ message ServerConf {
   // Enables gRPC reflection for publicly visible services, allowing grpc_cli to
   // work. See https://grpc.io/grpc/core/md_doc_server_reflection_tutorial.html.
   optional bool enable_reflection = 2 [default = false];
+
+  // If use_dedicated_server is set to true, then create a new gRPC server
+  // to handle probes. Otherwise, attempt to reuse gRPC server from runconfig
+  // if that was set.
+  optional bool use_dedicated_server = 3 [default = true];
 }

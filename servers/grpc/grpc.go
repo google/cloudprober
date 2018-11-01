@@ -17,6 +17,7 @@ package grpc
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"time"
@@ -32,18 +33,18 @@ import (
 	grpcpb "github.com/google/cloudprober/servers/grpc/proto"
 	spb "github.com/google/cloudprober/servers/grpc/proto"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
+	"google3/third_party/cloudprober/config/runconfig"
 )
 
 // Server implements a gRPCServer.
 type Server struct {
-	c           *configpb.ServerConf
-	ln          net.Listener
-	ready       chan bool
-	grpcSrv     *grpc.Server
-	healthSrv   *health.Server
-	l           *logger.Logger
-	startTime   time.Time
-	injectedSrv bool
+	c            *configpb.ServerConf
+	ln           net.Listener
+	grpcSrv      *grpc.Server
+	healthSrv    *health.Server
+	l            *logger.Logger
+	startTime    time.Time
+	dedicatedSrv bool
 }
 
 // Echo reflects back the incoming message.
@@ -60,14 +61,32 @@ func (s *Server) ServerStatus(ctx context.Context, req *spb.StatusRequest) (*spb
 
 // New returns a Server.
 func New(initCtx context.Context, c *configpb.ServerConf, l *logger.Logger) (*Server, error) {
-	return &Server{
-		c:     c,
-		l:     l,
-		ready: make(chan bool),
-	}, nil
+	srv := &Server{
+		c: c,
+		l: l,
+	}
+
+	if c.GetUseDedicatedServer() {
+		if err := srv.newGRPCServer(initCtx); err != nil {
+			return nil, err
+		}
+		srv.dedicatedSrv = true
+		return srv, nil
+	}
+
+	defGRPCSrv := runconfig.DefaultGRPCServer()
+	if defGRPCSrv == nil {
+		return nil, errors.New("initialization of gRPC server failed as default gRPC server is not configured")
+	}
+	l.Warningf("Reusing global gRPC server %v to handle gRPC probes", defGRPCSrv)
+	srv.grpcSrv = defGRPCSrv
+	srv.dedicatedSrv = false
+	srv.startTime = time.Now()
+	grpcpb.RegisterProberServer(defGRPCSrv, srv)
+	return srv, nil
 }
 
-func (s *Server) setupDefaultServer(ctx context.Context) error {
+func (s *Server) newGRPCServer(ctx context.Context) error {
 	grpcSrv := grpc.NewServer()
 	healthSrv := health.NewServer()
 	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", s.c.GetPort()))
@@ -87,36 +106,18 @@ func (s *Server) setupDefaultServer(ctx context.Context) error {
 
 	grpcpb.RegisterProberServer(grpcSrv, s)
 	healthpb.RegisterHealthServer(grpcSrv, healthSrv)
-	close(s.ready)
-
-	return nil
-}
-
-// InjectGRPCServer allows caller to attach an externally configured gRPC
-// server to implement and serve Cloudprober's services. Caller has to
-// start, serve and stop the gRPC server.
-func (s *Server) InjectGRPCServer(grpcServer *grpc.Server) error {
-	if s.grpcSrv != nil {
-		return fmt.Errorf("gRPC server already attached: %v(injected=%v)", s.grpcSrv, s.injectedSrv)
-	}
-	s.grpcSrv = grpcServer
-	s.injectedSrv = true
-	s.startTime = time.Now()
-	grpcpb.RegisterProberServer(grpcServer, s)
 	return nil
 }
 
 // Start starts the gRPC server and serves requests until the context is
 // canceled or the gRPC server panics.
 func (s *Server) Start(ctx context.Context, dataChan chan<- *metrics.EventMetrics) error {
-	if s.injectedSrv {
+	if !s.dedicatedSrv {
 		// Nothing to do as caller owns server. Wait till context is done.
 		<-ctx.Done()
 		return nil
 	}
-	if err := s.setupDefaultServer(ctx); err != nil {
-		return err
-	}
+
 	s.l.Infof("Starting gRPC server at %s", s.ln.Addr().String())
 	go func() {
 		<-ctx.Done()
