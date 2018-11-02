@@ -36,6 +36,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/config"
 	configpb "github.com/google/cloudprober/config/proto"
+	"github.com/google/cloudprober/config/runconfig"
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
 	"github.com/google/cloudprober/probes"
@@ -45,7 +46,6 @@ import (
 	"github.com/google/cloudprober/targets/lameduck"
 	rdsserver "github.com/google/cloudprober/targets/rds/server"
 	"github.com/google/cloudprober/targets/rtc/rtcreporter"
-	"google3/third_party/cloudprober/config/runconfig"
 )
 
 const (

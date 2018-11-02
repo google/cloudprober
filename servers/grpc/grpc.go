@@ -27,13 +27,13 @@ import (
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/reflection"
 
+	"github.com/google/cloudprober/config/runconfig"
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
 	configpb "github.com/google/cloudprober/servers/grpc/proto"
 	grpcpb "github.com/google/cloudprober/servers/grpc/proto"
 	spb "github.com/google/cloudprober/servers/grpc/proto"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
-	"google3/third_party/cloudprober/config/runconfig"
 )
 
 // Server implements a gRPCServer.
