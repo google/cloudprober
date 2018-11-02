@@ -13,7 +13,7 @@
 // limitations under the License.
 
 /*
-Package server provides a ResourceDiscovery gRPC server implementaion. It can
+Package server provides a ResourceDiscovery gRPC server implementation. It can
 either be used a standalone server, using the binary in the "cmd" subdirectory,
 or it can run as a part of the cloudprober binary.
 */
