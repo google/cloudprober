@@ -118,7 +118,7 @@ func (p *Probe) payloadToMetrics(target, payload string) *metrics.EventMetrics {
 				for _, s := range strings.Split(val, ",") {
 					f, err := strconv.ParseFloat(s, 64)
 					if err != nil {
-						p.l.Warningf("Unsupported value in probe payload: %s", val)
+						p.l.Warningf("Unsupported value for metric %s in probe payload (expected comma separated list of float64s): %s", metricName, val)
 						continue
 					}
 					mv.AddFloat64(f)
@@ -126,7 +126,7 @@ func (p *Probe) payloadToMetrics(target, payload string) *metrics.EventMetrics {
 			case *metrics.Float:
 				f, err := strconv.ParseFloat(val, 64)
 				if err != nil {
-					p.l.Warningf("Unsupported value in probe payload: %s", val)
+					p.l.Warningf("Unsupported value for metric %s in probe payload (expected float64): %s", metricName, val)
 					continue
 				}
 				mv.AddFloat64(f)
@@ -142,7 +142,7 @@ func (p *Probe) payloadToMetrics(target, payload string) *metrics.EventMetrics {
 		}
 		f, err := strconv.ParseFloat(val, 64)
 		if err != nil {
-			p.l.Warningf("Unsupported value in probe payload: %s", val)
+			p.l.Warningf("Unsupported value in probe payload for new metric name %s (expected float64): %s", metricName, val)
 			continue
 		}
 		em.AddMetric(metricName, metrics.NewFloat(f))
