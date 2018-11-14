@@ -50,6 +50,7 @@ import (
 	"github.com/google/cloudprober/metrics"
 	"github.com/google/cloudprober/probes/options"
 	configpb "github.com/google/cloudprober/probes/ping/proto"
+	"github.com/google/cloudprober/probes/probeutils"
 	"golang.org/x/net/icmp"
 	"golang.org/x/net/ipv4"
 	"golang.org/x/net/ipv6"
@@ -80,14 +81,6 @@ type Probe struct {
 	target2addr map[string]net.Addr
 	ip2target   map[string]string
 }
-
-// addresser is used for tests, allowing net.InterfaceByName to be mocked.
-type addr interface {
-	Addrs() ([]net.Addr, error)
-}
-
-// interfaceByName is a mocking point for net.InterfaceByName, used for tests.
-var interfaceByName = func(s string) (addr, error) { return net.InterfaceByName(s) }
 
 // Init initliazes the probe with the given params.
 func (p *Probe) Init(name string, opts *options.Options) error {
@@ -125,7 +118,7 @@ func (p *Probe) setSourceFromConfig() error {
 	case *configpb.ProbeConf_SourceIp:
 		p.source = p.c.GetSourceIp()
 	case *configpb.ProbeConf_SourceInterface:
-		s, err := resolveIntfAddr(p.c.GetSourceInterface())
+		s, err := probeutils.ResolveIntfAddr(p.c.GetSourceInterface())
 		if err != nil {
 			return err
 		}

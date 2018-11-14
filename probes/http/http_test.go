@@ -15,8 +15,10 @@
 package http
 
 import (
+	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"testing"
 	"time"
@@ -128,6 +130,100 @@ func TestRun(t *testing.T) {
 					t.Errorf("Unexpected target in probe result. Got: %s, Expected: %s", result.Target(), opts.Targets.List()[i])
 				}
 			}
+		}
+	}
+}
+
+type intf struct {
+	addrs []net.Addr
+}
+
+func (i *intf) Addrs() ([]net.Addr, error) {
+	return i.addrs, nil
+}
+
+func mockInterfaceByName(iname string, addrs []string) {
+	ips := make([]net.Addr, len(addrs))
+	for i, a := range addrs {
+		ips[i] = &net.IPAddr{IP: net.ParseIP(a)}
+	}
+	i := &intf{addrs: ips}
+	probeutils.InterfaceByName = func(name string) (probeutils.Addr, error) {
+		if name != iname {
+			return nil, errors.New("device not found")
+		}
+		return i, nil
+	}
+}
+
+func TestInitSourceIP(t *testing.T) {
+	rows := []struct {
+		name       string
+		sourceIP   string
+		sourceIntf string
+		intf       string
+		intfAddrs  []string
+		want       string
+		wantError  bool
+	}{
+		{
+			name:     "Use IP",
+			sourceIP: "1.1.1.1",
+			want:     "1.1.1.1",
+		},
+		{
+			name:     "IP not set",
+			sourceIP: "",
+			want:     "",
+		},
+		{
+			name:       "Interface with no adders fails",
+			sourceIntf: "eth1",
+			intf:       "eth1",
+			wantError:  true,
+		},
+		{
+			name:       "Unknown interface fails",
+			sourceIntf: "eth1",
+			intf:       "eth0",
+			wantError:  true,
+		},
+		{
+			name:       "Uses first addr for interface",
+			sourceIntf: "eth1",
+			intf:       "eth1",
+			intfAddrs:  []string{"1.1.1.1", "2.2.2.2"},
+			want:       "1.1.1.1",
+		},
+	}
+
+	for _, r := range rows {
+		c := &configpb.ProbeConf{}
+		if r.sourceIP != "" {
+			c.Source = &configpb.ProbeConf_SourceIp{r.sourceIP}
+		} else if r.sourceIntf != "" {
+			c.Source = &configpb.ProbeConf_SourceInterface{r.sourceIntf}
+			mockInterfaceByName(r.intf, r.intfAddrs)
+		}
+
+		p := &Probe{}
+		opts := &options.Options{
+			Targets:   targets.StaticTargets("test.com"),
+			Interval:  2 * time.Second,
+			Timeout:   time.Second,
+			ProbeConf: c,
+		}
+		err := p.Init("http_test", opts)
+
+		if (err != nil) != r.wantError {
+			t.Errorf("Row %q: newProbe() gave error %q, want error is %v", r.name, err, r.wantError)
+			continue
+		}
+		if r.wantError {
+			continue
+		}
+		if source, _ := p.getSourceFromConfig(); source != r.want {
+			t.Errorf("Row %q: p.source = %q, want %q", r.name, source, r.want)
 		}
 	}
 }

@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"net"
 	"time"
 
 	"github.com/google/cloudprober/logger"
@@ -126,4 +127,41 @@ func VerifyPayloadPattern(payload, pattern []byte) error {
 		return fmt.Errorf("payload doesn't have 0s padding in the last 'payloadSize mod patternSize' bytes: %v", payload)
 	}
 	return nil
+}
+
+// Addr is used for tests, allowing net.InterfaceByName to be mocked.
+type Addr interface {
+	Addrs() ([]net.Addr, error)
+}
+
+// InterfaceByName is a mocking point for net.InterfaceByName, used for tests.
+var InterfaceByName = func(s string) (Addr, error) { return net.InterfaceByName(s) }
+
+// ResolveIntfAddr takes the name of a network interface, and returns the first ip
+// address listed for this interface. This is typically the IPv4 address.
+func ResolveIntfAddr(intfName string) (string, error) {
+	i, err := InterfaceByName(intfName)
+	if err != nil {
+		return "", fmt.Errorf("resolveIntfAddr(%v) got error getting interface: %v", intfName, err)
+	}
+
+	addrs, err := i.Addrs()
+	if err != nil {
+		return "", fmt.Errorf("resolveIntfAddr(%v) got error getting addresses for interface: %v", intfName, err)
+	} else if len(addrs) == 0 {
+		return "", fmt.Errorf("resolveIntfAddr(%v) go 0 addrs for interface", intfName)
+	}
+
+	// i.Addrs() mostly returns network addresses of the form "172.17.90.252/23".
+	// This bit of code will pull the IP address from this address.
+	var ip net.IP
+	switch v := addrs[0].(type) {
+	case *net.IPNet:
+		ip = v.IP
+	case *net.IPAddr:
+		ip = v.IP
+	default:
+		return "", fmt.Errorf("resolveIntfAddr(%v) found unknown type for first address: %T", intfName, v)
+	}
+	return ip.String(), nil
 }
