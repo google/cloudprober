@@ -59,20 +59,22 @@ type Probe struct {
 // types instead of metrics.AtomicInt.
 // probeRunResult implements the probeutils.ProbeResult interface.
 type probeRunResult struct {
-	target     string
-	total      metrics.Int
-	success    metrics.Int
-	latency    metrics.Value
-	timeouts   metrics.Int
-	respCodes  *metrics.Map
-	respBodies *metrics.Map
+	target            string
+	total             metrics.Int
+	success           metrics.Int
+	latency           metrics.Value
+	timeouts          metrics.Int
+	respCodes         *metrics.Map
+	respBodies        *metrics.Map
+	validationFailure *metrics.Map
 }
 
 func newProbeRunResult(target string, opts *options.Options) probeRunResult {
 	prr := probeRunResult{
-		target:     target,
-		respCodes:  metrics.NewMap("code", &metrics.Int{}),
-		respBodies: metrics.NewMap("resp", &metrics.Int{}),
+		target:            target,
+		respCodes:         metrics.NewMap("code", &metrics.Int{}),
+		respBodies:        metrics.NewMap("resp", &metrics.Int{}),
+		validationFailure: metrics.NewMap("validator", &metrics.Int{}),
 	}
 	if opts.LatencyDist != nil {
 		prr.latency = opts.LatencyDist.Clone()
@@ -92,7 +94,8 @@ func (prr probeRunResult) Metrics() *metrics.EventMetrics {
 		AddMetric("latency", prr.latency).
 		AddMetric("timeouts", &prr.timeouts).
 		AddMetric("resp-code", prr.respCodes).
-		AddMetric("resp-body", prr.respBodies)
+		AddMetric("resp-body", prr.respBodies).
+		AddMetric("validation_failure", prr.validationFailure)
 }
 
 // Target returns the p.target. This method is part of the probeutils.ProbeResult
@@ -185,6 +188,20 @@ func (p *Probe) httpRequest(req *http.Request, result *probeRunResult) {
 		}
 	}
 
+	if p.opts.Validators != nil {
+		for name, v := range p.opts.Validators {
+			success, err := v.Validate(resp, respBody)
+			if err != nil {
+				p.l.Errorf("Error while running the validator %s: %v", name, err)
+				continue
+			}
+			if !success {
+				result.validationFailure.IncKey(name)
+				p.l.Debugf("Target:%s, URL:%s, http.runProbe: validation %s failed.", req.Host, req.URL.String(), name)
+				return
+			}
+		}
+	}
 	result.success.Inc()
 	result.latency.AddFloat64(latency.Seconds() / p.opts.LatencyUnit.Seconds())
 	if p.c.GetExportResponseAsMetrics() {

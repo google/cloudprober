@@ -39,6 +39,7 @@ import (
 	"github.com/google/cloudprober/targets"
 	"github.com/google/cloudprober/targets/lameduck"
 	targetspb "github.com/google/cloudprober/targets/proto"
+	"github.com/google/cloudprober/validators"
 )
 
 const (
@@ -109,6 +110,44 @@ func getExtensionProbe(p *configpb.ProbeDef) (Probe, interface{}, error) {
 	return newProbeFunc(), value, nil
 }
 
+// buildProbeOptions builds probe's options using the provided config and some global params.
+func buildProbeOptions(p *configpb.ProbeDef, ldLister lameduck.Lister, globalTargetsOpts *targetspb.GlobalTargetsOptions, l *logger.Logger) (*options.Options, error) {
+	opts := &options.Options{
+		Interval: time.Duration(p.GetIntervalMsec()) * time.Millisecond,
+		Timeout:  time.Duration(p.GetTimeoutMsec()) * time.Millisecond,
+	}
+
+	var err error
+	if opts.Logger, err = newLogger(p.GetName()); err != nil {
+		return nil, fmt.Errorf("error in initializing logger for the probe (%s): %v", p.GetName(), err)
+	}
+
+	if opts.Targets, err = targets.New(p.GetTargets(), ldLister, globalTargetsOpts, l, opts.Logger); err != nil {
+		return nil, err
+	}
+
+	if latencyDist := p.GetLatencyDistribution(); latencyDist != nil {
+		var d *metrics.Distribution
+		if d, err = metrics.NewDistributionFromProto(latencyDist); err != nil {
+			return nil, fmt.Errorf("error creating distribution from the specification (%v): %v", latencyDist, err)
+		}
+		opts.LatencyDist = d
+	}
+
+	// latency_unit is specified as a human-readable string, e.g. ns, ms, us etc.
+	if opts.LatencyUnit, err = time.ParseDuration("1" + p.GetLatencyUnit()); err != nil {
+		return nil, fmt.Errorf("failed to parse the latency unit (%s): %v", p.GetLatencyUnit(), err)
+	}
+
+	if len(p.GetValidator()) > 0 {
+		opts.Validators, err = validators.Init(p.GetValidator(), opts.Logger)
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize validators: %v", err)
+		}
+	}
+	return opts, nil
+}
+
 // Init initializes the probes defined in the config.
 func Init(probeProtobufs []*configpb.ProbeDef, globalTargetsOpts *targetspb.GlobalTargetsOptions, l *logger.Logger, sysVars map[string]string) (map[string]Probe, error) {
 	ldLister, err := lameduck.GetDefaultLister()
@@ -132,28 +171,11 @@ func Init(probeProtobufs []*configpb.ProbeDef, globalTargetsOpts *targetspb.Glob
 			return nil, fmt.Errorf("bad config: probe %s is already defined", p.GetName())
 		}
 
-		// Build probe options.
-		opts := &options.Options{
-			Interval: time.Duration(p.GetIntervalMsec()) * time.Millisecond,
-			Timeout:  time.Duration(p.GetTimeoutMsec()) * time.Millisecond,
-		}
-		if opts.Logger, err = newLogger(p.GetName()); err != nil {
-			return nil, fmt.Errorf("error in initializing logger for the probe (%s): %v", p.GetName(), err)
-		}
-		if opts.Targets, err = targets.New(p.GetTargets(), ldLister, globalTargetsOpts, l, opts.Logger); err != nil {
+		opts, err := buildProbeOptions(p, ldLister, globalTargetsOpts, l)
+		if err != nil {
 			return nil, err
 		}
-		if latencyDist := p.GetLatencyDistribution(); latencyDist != nil {
-			var d *metrics.Distribution
-			if d, err = metrics.NewDistributionFromProto(latencyDist); err != nil {
-				return nil, fmt.Errorf("error creating distribution from the specification (%v): %v", latencyDist, err)
-			}
-			opts.LatencyDist = d
-		}
-		// latency_unit is specified as a human-readable string, e.g. ns, ms, us etc.
-		if opts.LatencyUnit, err = time.ParseDuration("1" + p.GetLatencyUnit()); err != nil {
-			return nil, fmt.Errorf("failed to parse the latency unit (%s): %v", p.GetLatencyUnit(), err)
-		}
+
 		l.Infof("Creating a %s probe: %s", p.GetType(), p.GetName())
 		probe, err := initProbe(p, opts)
 		if err != nil {

@@ -1,0 +1,13 @@
+syntax = "proto2";
+
+package cloudprober.validators.http;
+
+message Validator {
+  // Comma-separated list of success status codes and code ranges.
+  // Example: success_stauts_codes: 200-299,301,302
+  optional string success_status_codes = 1;
+  // Comma-separated list of failure status codes and code ranges. If there is
+  // an overloap between success and failure status codes, failure status codes
+  // take precedence over success status codes.
+  optional string failure_status_codes = 2;
+}
