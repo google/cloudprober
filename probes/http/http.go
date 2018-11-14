@@ -132,6 +132,18 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	// This allows us to send multiple requests over the same connection.
 	transport.(*http.Transport).MaxIdleConnsPerHost = 1
 
+	// Extract source IP from config if present and set in transport.
+	if p.c.GetSource() != nil {
+		source, err := p.getSourceFromConfig()
+		if err != nil {
+			return err
+		}
+
+		if err := p.setSourceInTransport(transport.(*http.Transport), source); err != nil {
+			return err
+		}
+	}
+
 	// Clients are safe for concurrent use by multiple goroutines.
 	p.client = &http.Client{
 		Transport: transport,
@@ -139,6 +151,46 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	}
 
 	return nil
+}
+
+// setSourceInTransport sets the provided source IP of the probe in the HTTP Transport.
+func (p *Probe) setSourceInTransport(transport *http.Transport, source string) error {
+	sourceIP := net.ParseIP(source)
+	if sourceIP == nil {
+		return fmt.Errorf("invalid source IP: %s", source)
+	}
+	sourceAddr := net.TCPAddr{
+		IP: sourceIP,
+	}
+
+	dialer := &net.Dialer{
+		LocalAddr: &sourceAddr,
+		Timeout:   30 * time.Second,
+		KeepAlive: 30 * time.Second,
+		DualStack: true,
+	}
+	transport.DialContext = dialer.DialContext
+
+	return nil
+}
+
+// getSourceFromConfig returns the source IP from the config either directly
+// or by resolving the network interface to an IP, depending on which is provided.
+func (p *Probe) getSourceFromConfig() (string, error) {
+	switch p.c.Source.(type) {
+	case *configpb.ProbeConf_SourceIp:
+		return p.c.GetSourceIp(), nil
+	case *configpb.ProbeConf_SourceInterface:
+		intf := p.c.GetSourceInterface()
+		s, err := probeutils.ResolveIntfAddr(intf)
+		if err != nil {
+			return "", err
+		}
+		p.l.Infof("Using %v as source address for interface %s.", s, intf)
+		return s, nil
+	default:
+		return "", fmt.Errorf("unknown source type: %v", p.c.GetSource())
+	}
 }
 
 // Return true if the underlying error indicates a http.Client timeout.

@@ -28,6 +28,7 @@ import (
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/probes/options"
 	configpb "github.com/google/cloudprober/probes/ping/proto"
+	"github.com/google/cloudprober/probes/probeutils"
 	"github.com/google/cloudprober/targets"
 	"golang.org/x/net/icmp"
 	"golang.org/x/net/ipv4"
@@ -199,7 +200,7 @@ func mockInterfaceByName(iname string, addrs []string) {
 		ips[i] = &net.IPAddr{IP: net.ParseIP(a)}
 	}
 	i := &intf{addrs: ips}
-	interfaceByName = func(name string) (addr, error) {
+	probeutils.InterfaceByName = func(name string) (probeutils.Addr, error) {
 		if name != iname {
 			return nil, errors.New("device not found")
 		}

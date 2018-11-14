@@ -77,30 +77,3 @@ func resolveAddr(t string, ver int) (net.IP, error) {
 	}
 	return nil, fmt.Errorf("no good IPs found for the ip version (%d). IPs found: %q", ver, ips)
 }
-
-// resolveIntfAddr takes the name of a network interface, and returns the first ip
-// address listed for this interface. This is typically the IPv4 address.
-func resolveIntfAddr(intfName string) (string, error) {
-	i, err := interfaceByName(intfName)
-	if err != nil {
-		return "", fmt.Errorf("ping.resolveIntfAddr(%v) got error getting interface: %v", intfName, err)
-	}
-	addrs, err := i.Addrs()
-	if err != nil {
-		return "", fmt.Errorf("ping.resolveIntfAddr(%v) got error getting addresses for interface: %v", intfName, err)
-	} else if len(addrs) == 0 {
-		return "", fmt.Errorf("ping.resolveIntfAddr(%v) go 0 addrs for interface", intfName)
-	}
-	// i.Addrs() mostly returns network addresses of the form "172.17.90.252/23".
-	// This bit of code will pull the IP address from this address.
-	var ip net.IP
-	switch v := addrs[0].(type) {
-	case *net.IPNet:
-		ip = v.IP
-	case *net.IPAddr:
-		ip = v.IP
-	default:
-		return "", fmt.Errorf("ping.resolveIntfAddr(%v) found unknown type for first address: %T", intfName, v)
-	}
-	return ip.String(), nil
-}
