@@ -23,6 +23,7 @@ import (
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
 	"github.com/google/cloudprober/targets"
+	"github.com/google/cloudprober/validators"
 )
 
 // Options encapsulates common probe options.
@@ -33,4 +34,5 @@ type Options struct {
 	ProbeConf         interface{} // Probe-type specific config
 	LatencyDist       *metrics.Distribution
 	LatencyUnit       time.Duration
+	Validators        map[string]validators.Validator
 }

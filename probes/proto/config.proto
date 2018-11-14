@@ -8,6 +8,7 @@ import "github.com/google/cloudprober/probes/ping/proto/config.proto";
 import "github.com/google/cloudprober/probes/udp/proto/config.proto";
 import "github.com/google/cloudprober/probes/udplistener/proto/config.proto";
 import "github.com/google/cloudprober/targets/proto/targets.proto";
+import "github.com/google/cloudprober/validators/proto/config.proto";
 
 package cloudprober.probes;
 
@@ -53,6 +54,9 @@ message ProbeDef {
   // Latency unit. Any string that's parseable by time.ParseDuration.
   // Valid values: "ns", "us" (or "µs"), "ms", "s", "m", "h".
   optional string latency_unit = 8 [default = "us"];
+
+  // Validators are in experimental phase right now and can change at any time.
+  repeated validators.Validator validator = 9;
 
   oneof probe {
     ping.ProbeConf ping_probe = 20;
