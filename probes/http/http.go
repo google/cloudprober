@@ -241,6 +241,8 @@ func (p *Probe) httpRequest(req *http.Request, result *probeRunResult) {
 	}
 
 	if p.opts.Validators != nil {
+		validationFailed := false
+
 		for name, v := range p.opts.Validators {
 			success, err := v.Validate(resp, respBody)
 			if err != nil {
@@ -250,10 +252,15 @@ func (p *Probe) httpRequest(req *http.Request, result *probeRunResult) {
 			if !success {
 				result.validationFailure.IncKey(name)
 				p.l.Debugf("Target:%s, URL:%s, http.runProbe: validation %s failed.", req.Host, req.URL.String(), name)
-				return
+				validationFailed = true
 			}
 		}
+		// If any validation failed, return now, leaving the success and latency counters unchanged.
+		if validationFailed {
+			return
+		}
 	}
+
 	result.success.Inc()
 	result.latency.AddFloat64(latency.Seconds() / p.opts.LatencyUnit.Seconds())
 	if p.c.GetExportResponseAsMetrics() {
