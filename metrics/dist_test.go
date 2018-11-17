@@ -58,6 +58,50 @@ func TestNewDistributionFromProto(t *testing.T) {
 	}
 }
 
+func TestNewExponentialDistribution(t *testing.T) {
+	rows := []struct {
+		name              string
+		base, scaleFactor float64
+		numBuckets        int
+		expectedLB        []float64
+		wantError         bool
+	}{
+		{
+			name:        "Base:2,SF:1,NB:6",
+			base:        2,
+			scaleFactor: 1,
+			numBuckets:  6,
+			expectedLB:  []float64{math.Inf(-1), 0, 1, 2, 4, 8, 16, 32},
+		},
+		{
+			name:        "Base:2,SF:.01,NB:7",
+			base:        2,
+			scaleFactor: 0.01,
+			numBuckets:  7,
+			expectedLB:  []float64{math.Inf(-1), 0, .01, .02, .04, .08, .16, .32, .64},
+		},
+		{
+			name:        "Base too low - Base:1,SF:.01,NB:7",
+			base:        1,
+			scaleFactor: 0.01,
+			numBuckets:  7,
+			wantError:   true,
+		},
+	}
+
+	for _, testRow := range rows {
+		d, err := NewExponentialDistribution(testRow.base, testRow.scaleFactor, testRow.numBuckets)
+		if (err != nil) != testRow.wantError {
+			t.Errorf("Row %s: error %v, want error is %v", testRow.name, err, testRow.wantError)
+		}
+		if len(testRow.expectedLB) != 0 {
+			if !reflect.DeepEqual(d.lowerBounds, testRow.expectedLB) {
+				t.Errorf("Unexpected lower bounds for exponential distribution. d.lowerBounds=%v, want=%v.", d.lowerBounds, testRow.expectedLB)
+			}
+		}
+	}
+}
+
 func TestDistAddSample(t *testing.T) {
 	lb := []float64{1, 5, 10, 15, 20, 30, 40, 50}
 	d := NewDistribution(lb)

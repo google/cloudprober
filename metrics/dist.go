@@ -47,10 +47,36 @@ func NewDistribution(lowerBounds []float64) *Distribution {
 	}
 }
 
+// NewExponentialDistribution returns a distribution container with
+// exponentially growing bucket sizes. Buckets' lower bounds are determined as
+// follows:
+// -Inf,
+// 0,
+// scale_factor,
+// scale_factor * base,
+// scale_factor * base^2,
+// ...
+// scale_factor * base^(i-1).., ith bucket
+// ...
+// scale_factor * base^(numBuckets), last element (numBuckets+1-th)
+func NewExponentialDistribution(base, scaleFactor float64, numBuckets int) (*Distribution, error) {
+	if base < 1.01 {
+		return nil, fmt.Errorf("exponential distribution's base (%f) should be at least 1.01", base)
+	}
+	lowerBounds := make([]float64, numBuckets+1)
+	lowerBounds[0] = 0
+	for i := 1; i < len(lowerBounds); i++ {
+		lowerBounds[i] = scaleFactor * math.Pow(base, float64(i-1))
+	}
+	return NewDistribution(lowerBounds), nil
+}
+
 // NewDistributionFromProto returns a new distribution based on the provided
 // protobuf.
 func NewDistributionFromProto(distProto *distpb.Dist) (*Distribution, error) {
+
 	switch distProto.Buckets.(type) {
+
 	case *distpb.Dist_ExplicitBuckets:
 		lbStringA := strings.Split(distProto.GetExplicitBuckets(), ",")
 		lowerBounds := make([]float64, len(lbStringA))
@@ -62,9 +88,12 @@ func NewDistributionFromProto(distProto *distpb.Dist) (*Distribution, error) {
 			lowerBounds[i] = lb
 		}
 		return NewDistribution(lowerBounds), nil
+
 	case *distpb.Dist_ExponentialBuckets:
-		return nil, errors.New("exponential buckets are not supported yet")
+		expb := distProto.GetExponentialBuckets()
+		return NewExponentialDistribution(float64(expb.GetBase()), float64(expb.GetScaleFactor()), int(expb.GetNumBuckets()))
 	}
+
 	return nil, fmt.Errorf("unknown buckets type: %v", distProto.Buckets)
 }
 
