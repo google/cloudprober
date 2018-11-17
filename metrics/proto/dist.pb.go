@@ -33,7 +33,7 @@ func (m *Dist) Reset()         { *m = Dist{} }
 func (m *Dist) String() string { return proto.CompactTextString(m) }
 func (*Dist) ProtoMessage()    {}
 func (*Dist) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dist_b192794f3a0448ca, []int{0}
+	return fileDescriptor_dist_4ea0c9d5cb515dca, []int{0}
 }
 func (m *Dist) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Dist.Unmarshal(m, b)
@@ -163,9 +163,12 @@ func _Dist_OneofSizer(msg proto.Message) (n int) {
 // ExponentialBucket defines a set of num_buckets+2 buckets:
 //   bucket[0] covers (−Inf, 0)
 //   bucket[1] covers [0, scale_factor)
-//   bucket[i] covers [scale_factor*base^(i−2), scale_factor*base^(i−1)) for i > 1 and i <= num_buckets
+//   bucket[2] covers [scale_factor, scale_factor*base)
+//   ...
+//   bucket[i] covers [scale_factor*base^(i−2), scale_factor*base^(i−1))
+//   ...
 //   bucket[num_buckets+1] covers [scale_factor*base^(num_buckets−1), +Inf)
-// base must be at least 1.01.
+// NB: Base must be at least 1.01.
 type ExponentialBuckets struct {
 	ScaleFactor          *float32 `protobuf:"fixed32,1,opt,name=scale_factor,json=scaleFactor,def=1" json:"scale_factor,omitempty"`
 	Base                 *float32 `protobuf:"fixed32,2,opt,name=base,def=2" json:"base,omitempty"`
@@ -179,7 +182,7 @@ func (m *ExponentialBuckets) Reset()         { *m = ExponentialBuckets{} }
 func (m *ExponentialBuckets) String() string { return proto.CompactTextString(m) }
 func (*ExponentialBuckets) ProtoMessage()    {}
 func (*ExponentialBuckets) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dist_b192794f3a0448ca, []int{1}
+	return fileDescriptor_dist_4ea0c9d5cb515dca, []int{1}
 }
 func (m *ExponentialBuckets) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ExponentialBuckets.Unmarshal(m, b)
@@ -230,10 +233,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("github.com/google/cloudprober/metrics/proto/dist.proto", fileDescriptor_dist_b192794f3a0448ca)
+	proto.RegisterFile("github.com/google/cloudprober/metrics/proto/dist.proto", fileDescriptor_dist_4ea0c9d5cb515dca)
 }
 
-var fileDescriptor_dist_b192794f3a0448ca = []byte{
+var fileDescriptor_dist_4ea0c9d5cb515dca = []byte{
 	// 245 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x6c, 0x8e, 0xc1, 0x4b, 0xc3, 0x30,
 	0x18, 0xc5, 0x97, 0x3a, 0x90, 0x7d, 0x53, 0x94, 0x0c, 0xc1, 0x63, 0x99, 0x82, 0x05, 0x21, 0xd1,
