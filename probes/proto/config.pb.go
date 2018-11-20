@@ -84,7 +84,7 @@ func (x *ProbeDef_Type) UnmarshalJSON(data []byte) error {
 	return nil
 }
 func (ProbeDef_Type) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_config_5667224ef4cf7c39, []int{0, 0}
+	return fileDescriptor_config_699221e7c78c5f06, []int{0, 0}
 }
 
 type ProbeDef struct {
@@ -105,6 +105,7 @@ type ProbeDef struct {
 	// Valid values: "ns", "us" (or "µs"), "ms", "s", "m", "h".
 	LatencyUnit *string `protobuf:"bytes,8,opt,name=latency_unit,json=latencyUnit,def=us" json:"latency_unit,omitempty"`
 	// Validators are in experimental phase right now and can change at any time.
+	// They only work for ping and http probes right now.
 	Validator []*proto3.Validator `protobuf:"bytes,9,rep,name=validator" json:"validator,omitempty"`
 	// Types that are valid to be assigned to Probe:
 	//	*ProbeDef_PingProbe
@@ -125,7 +126,7 @@ func (m *ProbeDef) Reset()         { *m = ProbeDef{} }
 func (m *ProbeDef) String() string { return proto.CompactTextString(m) }
 func (*ProbeDef) ProtoMessage()    {}
 func (*ProbeDef) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_5667224ef4cf7c39, []int{0}
+	return fileDescriptor_config_699221e7c78c5f06, []int{0}
 }
 
 var extRange_ProbeDef = []proto.ExtensionRange{
@@ -493,10 +494,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("github.com/google/cloudprober/probes/proto/config.proto", fileDescriptor_config_5667224ef4cf7c39)
+	proto.RegisterFile("github.com/google/cloudprober/probes/proto/config.proto", fileDescriptor_config_699221e7c78c5f06)
 }
 
-var fileDescriptor_config_5667224ef4cf7c39 = []byte{
+var fileDescriptor_config_699221e7c78c5f06 = []byte{
 	// 685 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x93, 0x5f, 0x6f, 0xd3, 0x3c,
 	0x14, 0xc6, 0xd7, 0x7f, 0x6b, 0xe2, 0x76, 0x53, 0xe4, 0x77, 0x7b, 0xdf, 0xac, 0x37, 0x6f, 0x99,
