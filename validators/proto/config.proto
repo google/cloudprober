@@ -1,6 +1,7 @@
 syntax = "proto2";
 
 import "github.com/google/cloudprober/validators/http/proto/config.proto";
+import "github.com/google/cloudprober/validators/integrity/proto/config.proto";
 
 package cloudprober.validators;
 
@@ -8,5 +9,8 @@ message Validator {
   required string name = 1;
   oneof type {
     http.Validator http_validator = 2;
+
+    // Data integrity validator
+    integrity.Validator integrity_validator = 3;
   }
 }

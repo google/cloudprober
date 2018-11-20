@@ -21,6 +21,7 @@ import (
 
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/validators/http"
+	"github.com/google/cloudprober/validators/integrity"
 	configpb "github.com/google/cloudprober/validators/proto"
 )
 
@@ -50,14 +51,20 @@ func Init(validatorConfs []*configpb.Validator, l *logger.Logger) (map[string]Va
 }
 
 func initValidator(validatorConf *configpb.Validator, l *logger.Logger) (validator Validator, err error) {
+	var c interface{}
+
 	switch validatorConf.Type.(type) {
 	case *configpb.Validator_HttpValidator:
 		validator = &http.Validator{}
+		c = validatorConf.GetHttpValidator()
+	case *configpb.Validator_IntegrityValidator:
+		validator = &integrity.Validator{}
+		c = validatorConf.GetIntegrityValidator()
 	default:
 		err = fmt.Errorf("unknown validator type: %v", validatorConf.Type)
 		return
 	}
 
-	err = validator.Init(validatorConf.GetHttpValidator(), l)
+	err = validator.Init(c, l)
 	return
 }

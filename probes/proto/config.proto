@@ -56,6 +56,7 @@ message ProbeDef {
   optional string latency_unit = 8 [default = "us"];
 
   // Validators are in experimental phase right now and can change at any time.
+  // They only work for ping and http probes right now.
   repeated validators.Validator validator = 9;
 
   oneof probe {
