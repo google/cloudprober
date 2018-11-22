@@ -42,7 +42,6 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
-	"os"
 	"sync"
 	"time"
 
@@ -125,14 +124,7 @@ func (p *Probe) setSourceFromConfig() error {
 		p.l.Infof("Using %v as source address.", p.source)
 		p.source = s
 	default:
-		hostname, err := os.Hostname()
-		if err != nil {
-			return fmt.Errorf("error getting hostname from OS: %v", err)
-		}
-		// TODO(manugarg): This name should resolve for the listen method to work.
-		// We should probably change "listen" to use 0.0.0.0 if p.source doesn't
-		// resolve.
-		p.source = hostname
+		p.source = ""
 	}
 	return nil
 }
@@ -142,15 +134,23 @@ func (p *Probe) listen() error {
 	if p.ipVer == 6 {
 		netProto = "ip6:ipv6-icmp"
 	}
+
 	if p.c.GetUseDatagramSocket() {
 		// udp network represents datagram ICMP sockets. The name is a bit
 		// misleading, but that's what Go's icmp package uses.
 		netProto = fmt.Sprintf("udp%d", p.ipVer)
 	}
-	sourceIP, err := resolveAddr(p.source, p.ipVer)
-	if err != nil || sourceIP == nil {
-		return fmt.Errorf("Bad source address: %s, Err: %v", p.source, err)
+
+	// If source is configured, try to resolve it to make sure it has the same
+	// IP version as p.ipVer.
+	if p.source != "" {
+		sourceIP, err := resolveAddr(p.source, p.ipVer)
+		if err != nil || sourceIP == nil {
+			return fmt.Errorf("Bad source address: %s, Err: %v", p.source, err)
+		}
 	}
+
+	var err error
 	p.conn, err = newICMPConn(netProto, p.source)
 	return err
 }
