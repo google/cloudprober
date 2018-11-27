@@ -254,7 +254,9 @@ func listInstances(project, apiVersion string, reEvalInterval time.Duration) ([]
 	return result, nil
 }
 
-// expand will refill the cache, and update names.
+// This function will attempt to refresh the cache of GCE targets.
+// This attempt may fail, in which case the function will log and leave the cache untouched,
+// since it is assumed that the cache will be refreshed by a subsequent call.
 func (ip *instancesProvider) expand(reEvalInterval time.Duration) {
 	ip.l.Infof("gce.instances.expand[%s]: expanding GCE targets", ip.project)
 

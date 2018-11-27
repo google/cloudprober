@@ -98,7 +98,9 @@ func listForwardingRules(project, apiVersion, region string) ([]*compute.Forward
 	return l.Items, nil
 }
 
-// expand will refill the cache, and update names.
+// This function will attempt to refresh the cache of GCE targets.
+// This attempt may fail, in which case the function will log and leave the cache untouched,
+// since it is assumed that the cache will be refreshed by a subsequent call.
 func (frp *forwardingRules) expand() {
 	frp.l.Infof("gce.forwardingRules.expand: expanding GCE targets")
 
