@@ -1,0 +1,7 @@
+syntax = "proto2";
+
+package cloudprober.validators.regex;
+
+message Validator {
+  optional string regex = 1;
+}
