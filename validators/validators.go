@@ -23,6 +23,7 @@ import (
 	"github.com/google/cloudprober/validators/http"
 	"github.com/google/cloudprober/validators/integrity"
 	configpb "github.com/google/cloudprober/validators/proto"
+	"github.com/google/cloudprober/validators/regex"
 )
 
 // Validator interface represents a validator.
@@ -60,6 +61,9 @@ func initValidator(validatorConf *configpb.Validator, l *logger.Logger) (validat
 	case *configpb.Validator_IntegrityValidator:
 		validator = &integrity.Validator{}
 		c = validatorConf.GetIntegrityValidator()
+	case *configpb.Validator_RegexValidator:
+		validator = &regex.Validator{}
+		c = validatorConf.GetRegexValidator()
 	default:
 		err = fmt.Errorf("unknown validator type: %v", validatorConf.Type)
 		return

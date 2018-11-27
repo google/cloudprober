@@ -2,6 +2,7 @@ syntax = "proto2";
 
 import "github.com/google/cloudprober/validators/http/proto/config.proto";
 import "github.com/google/cloudprober/validators/integrity/proto/config.proto";
+import "github.com/google/cloudprober/validators/regex/proto/config.proto";
 
 package cloudprober.validators;
 
@@ -12,5 +13,8 @@ message Validator {
 
     // Data integrity validator
     integrity.Validator integrity_validator = 3;
+
+    // Regex validator
+    regex.Validator regex_validator = 4;
   }
 }
