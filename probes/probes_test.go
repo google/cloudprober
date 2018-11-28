@@ -79,7 +79,7 @@ func TestGetExtensionProbe(t *testing.T) {
 	if probeMap["ext-probe"] == nil {
 		t.Errorf("Extension probe not in the probes map")
 	}
-	_, ok := probeMap["ext-probe"].(*testProbe)
+	_, ok := probeMap["ext-probe"].Probe.(*testProbe)
 	if !ok {
 		t.Errorf("Extension probe (%v) is not of type *testProbe", probeMap["ext-probe"])
 	}

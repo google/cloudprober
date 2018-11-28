@@ -55,7 +55,7 @@ var defaultSurfacers = []*surfacerpb.SurfacerDef{
 }
 
 // initSurfacer initializes and returns a new surfacer based on the config.
-func initSurfacer(s *surfacerpb.SurfacerDef) (Surfacer, error) {
+func initSurfacer(s *surfacerpb.SurfacerDef) (Surfacer, interface{}, error) {
 	// Create a new logger
 	logName := s.GetName()
 	if logName == "" {
@@ -65,57 +65,86 @@ func initSurfacer(s *surfacerpb.SurfacerDef) (Surfacer, error) {
 	// TODO(manugarg): Plumb context here too.
 	l, err := logger.New(context.TODO(), logName)
 	if err != nil {
-		return nil, fmt.Errorf("unable to create cloud logger: %v", err)
+		return nil, nil, fmt.Errorf("unable to create cloud logger: %v", err)
 	}
+
+	var conf interface{}
+	var surfacer Surfacer
 
 	switch s.GetType() {
 	case surfacerpb.Type_PROMETHEUS:
-		return prometheus.New(s.GetPrometheusSurfacer(), l)
+		surfacer, err = prometheus.New(s.GetPrometheusSurfacer(), l)
+		conf = s.GetPrometheusSurfacer()
 	case surfacerpb.Type_STACKDRIVER:
-		return stackdriver.New(s.GetStackdriverSurfacer(), l)
+		surfacer, err = stackdriver.New(s.GetStackdriverSurfacer(), l)
+		conf = s.GetStackdriverSurfacer()
 	case surfacerpb.Type_FILE:
-		return file.New(s.GetFileSurfacer(), l)
+		surfacer, err = file.New(s.GetFileSurfacer(), l)
+		conf = s.GetFileSurfacer()
 	case surfacerpb.Type_POSTGRES:
-		return postgres.New(s.GetPostgresSurfacer(), l)
+		surfacer, err = postgres.New(s.GetPostgresSurfacer(), l)
+		conf = s.GetPostgresSurfacer()
 	case surfacerpb.Type_USER_DEFINED:
 		userDefinedSurfacersMu.Lock()
 		defer userDefinedSurfacersMu.Unlock()
 		surfacer := userDefinedSurfacers[s.GetName()]
 		if surfacer == nil {
-			return nil, fmt.Errorf("unregistered user defined surfacer: %s", s.GetName())
+			return nil, nil, fmt.Errorf("unregistered user defined surfacer: %s", s.GetName())
 		}
-		return surfacer, nil
 	default:
-		return nil, fmt.Errorf("unknown surfacer type: %s", s.GetType())
+		return nil, nil, fmt.Errorf("unknown surfacer type: %s", s.GetType())
 	}
+
+	return surfacer, conf, err
 }
 
-// Surfacer is the base class for all metrics surfacing systems
+// Surfacer is an interface for all metrics surfacing systems
 type Surfacer interface {
 	// Function for writing a piece of metric data to a specified metric
 	// store (or other location).
 	Write(ctx context.Context, em *metrics.EventMetrics)
 }
 
+// SurfacerInfo encapsulates a Surfacer and related info.
+type SurfacerInfo struct {
+	Surfacer
+	Type string
+	Name string
+	Conf string
+}
+
 // Init initializes the surfacers from the config protobufs and returns them as
 // a list.
-func Init(sDefs []*surfacerpb.SurfacerDef) ([]Surfacer, error) {
+func Init(sDefs []*surfacerpb.SurfacerDef) ([]*SurfacerInfo, error) {
 	// If no surfacers are defined, return default surfacers. This behavior
 	// can be disabled by explicitly specifying "surfacer {}" in the config.
 	if len(sDefs) == 0 {
 		sDefs = defaultSurfacers
 	}
 
-	var result []Surfacer
+	var result []*SurfacerInfo
 	for _, sDef := range sDefs {
 		if sDef.GetType() == surfacerpb.Type_NONE {
 			continue
 		}
-		s, err := initSurfacer(sDef)
+		s, conf, err := initSurfacer(sDef)
 		if err != nil {
 			return nil, err
 		}
-		result = append(result, s)
+
+		confStr := ""
+		if conf != nil {
+			if stringer, ok := conf.(fmt.Stringer); ok {
+				confStr = stringer.String()
+			}
+		}
+
+		result = append(result, &SurfacerInfo{
+			Surfacer: s,
+			Type:     sDef.GetType().String(),
+			Name:     sDef.GetName(),
+			Conf:     confStr,
+		})
 	}
 	return result, nil
 }
