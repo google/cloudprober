@@ -19,6 +19,7 @@ package servers
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
@@ -41,10 +42,15 @@ type Server interface {
 	Start(ctx context.Context, dataChan chan<- *metrics.EventMetrics) error
 }
 
+// ServerInfo encapsulates a Server and related info.
+type ServerInfo struct {
+	Server
+	Type string
+	Conf string
+}
+
 // Init initializes cloudprober servers, based on the provided config.
-// TODO: Modify Init to take in a list of pre-setup servers that can be passed
-// to the probe servers.
-func Init(initCtx context.Context, serverDefs []*configpb.ServerDef) (servers []Server, err error) {
+func Init(initCtx context.Context, serverDefs []*configpb.ServerDef) (servers []*ServerInfo, err error) {
 	for _, serverDef := range serverDefs {
 		var l *logger.Logger
 		l, err = newLogger(initCtx, serverDef.GetType().String())
@@ -63,7 +69,19 @@ func Init(initCtx context.Context, serverDefs []*configpb.ServerDef) (servers []
 		if err != nil {
 			return
 		}
-		servers = append(servers, server)
+
+		confStr := ""
+		if serverDef.GetServer() != nil {
+			if stringer, ok := serverDef.GetServer().(fmt.Stringer); ok {
+				confStr = stringer.String()
+			}
+		}
+
+		servers = append(servers, &ServerInfo{
+			Server: server,
+			Type:   serverDef.GetType().String(),
+			Conf:   confStr,
+		})
 	}
 	return
 }

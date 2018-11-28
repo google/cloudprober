@@ -64,12 +64,12 @@ var proberMu sync.Mutex
 
 // Prober represents a collection of probes where each probe implements the Probe interface.
 type Prober struct {
-	Probes         map[string]probes.Probe
-	Servers        []servers.Server
+	Probes         map[string]*probes.ProbeInfo
+	Servers        []*servers.ServerInfo
 	c              *configpb.ProberConfig
 	rdsServer      *rdsserver.Server
 	rtcReporter    *rtcreporter.Reporter
-	surfacers      []surfacers.Surfacer
+	surfacers      []*surfacers.SurfacerInfo
 	serverListener net.Listener
 
 	// Used by GetConfig for /config handler.
@@ -286,4 +286,11 @@ func GetConfig() string {
 	proberMu.Lock()
 	defer proberMu.Unlock()
 	return prober.textConfig
+}
+
+// GetInfo returns information on all the probes, servers and surfacers.
+func GetInfo() (map[string]*probes.ProbeInfo, []*surfacers.SurfacerInfo, []*servers.ServerInfo) {
+	proberMu.Lock()
+	defer proberMu.Unlock()
+	return prober.Probes, prober.surfacers, prober.Servers
 }
