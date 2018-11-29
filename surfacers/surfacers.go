@@ -87,7 +87,7 @@ func initSurfacer(s *surfacerpb.SurfacerDef) (Surfacer, interface{}, error) {
 	case surfacerpb.Type_USER_DEFINED:
 		userDefinedSurfacersMu.Lock()
 		defer userDefinedSurfacersMu.Unlock()
-		surfacer := userDefinedSurfacers[s.GetName()]
+		surfacer = userDefinedSurfacers[s.GetName()]
 		if surfacer == nil {
 			return nil, nil, fmt.Errorf("unregistered user defined surfacer: %s", s.GetName())
 		}
