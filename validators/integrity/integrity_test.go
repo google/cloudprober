@@ -97,23 +97,16 @@ func TestPatternNumBytes(t *testing.T) {
 	testNumBytes := int32(8)
 
 	// Test initializing with pattern with prefix num bytes.
-	testConfig := &configpb.Validator{
-		Pattern: &configpb.Validator_PatternNumBytes{
-			PatternNumBytes: testNumBytes,
-		},
-	}
-
-	v := Validator{}
-	err := v.Init(testConfig, &logger.Logger{})
+	v, err := PatternNumBytesValidator(testNumBytes, &logger.Logger{})
 	if err != nil {
-		t.Errorf("v.Init(%v, l): got error: %v", testConfig, err)
+		t.Errorf("PatternNumBytesValidator(%d, l): got error: %v", testNumBytes, err)
 	}
 
 	if v.patternNumBytes != testNumBytes {
-		t.Errorf("v.Init(%v): v.patternNumBytes=%d, expected=%d", testConfig, v.patternNumBytes, testNumBytes)
+		t.Errorf("PatternNumBytesValidator(%d, l): v.patternNumBytes=%d, expected=%d", testNumBytes, v.patternNumBytes, testNumBytes)
 	}
 
 	// 8-byte long test pattern to be used for respBody generation
 	testPattern := "njk1120sasnl123"[:8]
-	verifyValidate(t, v, testPattern)
+	verifyValidate(t, *v, testPattern)
 }

@@ -22,11 +22,18 @@ import (
 	"github.com/google/cloudprober/probes/probeutils"
 )
 
+const timeBytesSize = 8
+
 func timeToBytes(t time.Time, size int) []byte {
 	nsec := t.UnixNano()
-	var timeBytes [8]byte
-	for i := uint8(0); i < 8; i++ {
-		timeBytes[i] = byte((nsec >> ((7 - i) * 8)) & 0xff)
+	var timeBytes [timeBytesSize]byte
+	for i := uint8(0); i < timeBytesSize; i++ {
+		// To get timeBytes:
+		// 0th byte - shift bits by 56 (7*8) bits, AND with 0xff to get the last 8 bits
+		// 1st byte - shift bits by 48 (6*8) bits, AND with 0xff to get the last 8 bits
+		// ... ...
+		// 7th byte - shift bits by 0 (0*8) bits, AND with 0xff to get the last 8 bits
+		timeBytes[i] = byte((nsec >> ((timeBytesSize - i - 1) * timeBytesSize)) & 0xff)
 	}
 	return probeutils.PatternPayload(timeBytes[:], size)
 }
@@ -41,8 +48,8 @@ func verifyPayload(b []byte) error {
 
 func bytesToTime(b []byte) time.Time {
 	var nsec int64
-	for i := uint8(0); i < 8; i++ {
-		nsec += int64(b[i]) << ((7 - i) * 8)
+	for i := uint8(0); i < timeBytesSize; i++ {
+		nsec += int64(b[i]) << ((timeBytesSize - i - 1) * timeBytesSize)
 	}
 	return time.Unix(0, nsec)
 }

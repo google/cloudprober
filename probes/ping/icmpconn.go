@@ -21,6 +21,7 @@ import (
 	"golang.org/x/net/icmp"
 )
 
+// icmpConn is an interface wrapper for *icmp.PacketConn to allow testing.
 type icmpConn interface {
 	read(buf []byte) (n int, peer net.Addr, err error)
 	write(buf []byte, peer net.Addr) (int, error)

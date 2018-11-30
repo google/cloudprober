@@ -74,3 +74,21 @@ func (v *Validator) Validate(unusedResponseObj interface{}, responseBody []byte)
 
 	return true, nil
 }
+
+// PatternNumBytesValidator returns a data integrity validator with number of
+/// pattern bytes set to patternNumbBytes.
+func PatternNumBytesValidator(patternNumbBytes int32, l *logger.Logger) (*Validator, error) {
+	v := &Validator{}
+
+	vConfig := &configpb.Validator{
+		Pattern: &configpb.Validator_PatternNumBytes{
+			PatternNumBytes: patternNumbBytes,
+		},
+	}
+
+	if err := v.Init(vConfig, l); err != nil {
+		return nil, fmt.Errorf("error initializing data integrity validator: %v", err)
+	}
+
+	return v, nil
+}
