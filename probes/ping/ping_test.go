@@ -20,12 +20,14 @@ import (
 	"net"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/logger"
+	"github.com/google/cloudprober/metrics"
 	"github.com/google/cloudprober/probes/options"
 	configpb "github.com/google/cloudprober/probes/ping/proto"
 	"github.com/google/cloudprober/probes/probeutils"
@@ -45,6 +47,7 @@ func peerToIP(peer net.Addr) string {
 	return ""
 }
 
+// replyPkt creates an ECHO reply packet from the ECHO request packet.
 func replyPkt(pkt []byte, ipVersion int) []byte {
 	protocol := protocolICMP
 	var typ icmp.Type
@@ -59,9 +62,18 @@ func replyPkt(pkt []byte, ipVersion int) []byte {
 	return b
 }
 
+// testICMPConn implements the icmpConn interface.
+// It implements the following packets pipeline:
+//      write(packet) --> sentPackets channel -> read() -> packet
+// It has a per-target channel that receives packets through the "write" call.
+// "read" call fetches packets from that channel and returns them to the
+// caller.
 type testICMPConn struct {
 	sentPackets map[string](chan []byte)
 	c           *configpb.ProbeConf
+
+	flipLastByte   bool
+	flipLastByteMu sync.Mutex
 }
 
 func newTestICMPConn(c *configpb.ProbeConf, targets []string) *testICMPConn {
@@ -75,19 +87,41 @@ func newTestICMPConn(c *configpb.ProbeConf, targets []string) *testICMPConn {
 	return tic
 }
 
+func (tic *testICMPConn) setFlipLastByte() {
+	tic.flipLastByteMu.Lock()
+	defer tic.flipLastByteMu.Unlock()
+	tic.flipLastByte = true
+}
+
 func (tic *testICMPConn) read(buf []byte) (int, net.Addr, error) {
+	// We create per-target select cases, with each target's select-case
+	// pointing to that target's sentPackets channel.
 	var cases []reflect.SelectCase
 	var targets []string
 	for t, ch := range tic.sentPackets {
 		cases = append(cases, reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(ch)})
 		targets = append(targets, t)
 	}
+
+	// Select over the select cases.
 	chosen, value, ok := reflect.Select(cases)
 	if !ok {
 		return 0, nil, fmt.Errorf("nothing to read")
 	}
+
 	pkt := value.Bytes()
-	copy(buf[0:len(pkt)], replyPkt(pkt, int(tic.c.GetIpVersion())))
+
+	// Since we are echoing the packets, copy the received packet into the
+	// provided buffer.
+	respPkt := replyPkt(pkt, int(tic.c.GetIpVersion()))
+	tic.flipLastByteMu.Lock()
+	if tic.flipLastByte {
+		lastByte := ^respPkt[len(respPkt)-1]
+		respPkt = append(respPkt[:len(respPkt)-1], lastByte)
+	}
+	tic.flipLastByteMu.Unlock()
+
+	copy(buf[0:len(pkt)], respPkt)
 	peerIP, _ := resolveAddr(targets[chosen], int(tic.c.GetIpVersion()))
 
 	var peer net.Addr
@@ -98,6 +132,8 @@ func (tic *testICMPConn) read(buf []byte) (int, net.Addr, error) {
 	return len(pkt), peer, nil
 }
 
+// write simply queues packets into the sentPackets channel. These packets are
+// retrieved by the "read" call.
 func (tic *testICMPConn) write(b []byte, peer net.Addr) (int, error) {
 	target := peerToIP(peer)
 	tic.sentPackets[target] <- b
@@ -173,16 +209,22 @@ func newProbe(c *configpb.ProbeConf, t []string) (*Probe, error) {
 			Interval: 2 * time.Second,
 			Timeout:  time.Second,
 		},
-		ipVer:       int(c.GetIpVersion()),
-		l:           &logger.Logger{},
-		sent:        make(map[string]int64),
-		received:    make(map[string]int64),
-		latency:     make(map[string]time.Duration),
+		ipVer:             int(c.GetIpVersion()),
+		l:                 &logger.Logger{},
+		sent:              make(map[string]int64),
+		received:          make(map[string]int64),
+		latency:           make(map[string]time.Duration),
+		validationFailure: make(map[string]*metrics.Map),
+
 		ip2target:   make(map[string]string),
 		target2addr: make(map[string]net.Addr),
 	}
 
 	p.targets = p.opts.Targets.List()
+
+	if err := p.configureIntegrityCheck(); err != nil {
+		return nil, err
+	}
 	return p, p.setSourceFromConfig()
 }
 
@@ -407,6 +449,54 @@ func TestRunProbeIPv6Datagram(t *testing.T) {
 		glog.Infof("target: %s, sent: %d, received: %d, total_rtt: %s", target, p.sent[target], p.received[target], p.latency[target])
 		if p.sent[target] == 0 || (p.sent[target] != p.received[target]) {
 			t.Errorf("We are leaking packets. Sent: %d, Received: %d", p.sent[target], p.received[target])
+		}
+	}
+}
+
+func TestDataIntegrityValidation(t *testing.T) {
+	c := &configpb.ProbeConf{}
+	c.Source = &configpb.ProbeConf_SourceIp{"1.1.1.1"}
+
+	p, err := newProbe(c, []string{"2.2.2.2", "3.3.3.3"})
+	if err != nil {
+		t.Fatalf("Got error from newProbe: %v", err)
+	}
+	tic := newTestICMPConn(c, p.targets)
+	p.conn = tic
+
+	p.runProbe()
+
+	// We'll use sent and rcvd to take a snapshot of the probe counters.
+	sent := make(map[string]int64)
+	rcvd := make(map[string]int64)
+	for _, target := range p.targets {
+		sent[target] = p.sent[target]
+		rcvd[target] = p.received[target]
+
+		glog.Infof("target: %s, sent: %d, received: %d, total_rtt: %s", target, sent[target], rcvd[target], p.latency[target])
+		if sent[target] == 0 || (sent[target] != rcvd[target]) {
+			t.Errorf("We are leaking packets. Sent: %d, Received: %d", sent[target], rcvd[target])
+		}
+	}
+
+	// Set the test icmp connection to flip the last byte.
+	tic.setFlipLastByte()
+
+	// Run probe again, this time we should see data integrity validation failures.
+	p.runProbe()
+	for _, target := range p.targets {
+		glog.Infof("target: %s, sent: %d, received: %d, total_rtt: %s", target, p.sent[target], p.received[target], p.latency[target])
+
+		// Verify that we didn't increased the received counter.
+		if p.received[target] != rcvd[target] {
+			t.Errorf("Unexpected change in received packets. Got: %d, Expected: %d", p.received[target], rcvd[target])
+		}
+
+		// Verify that we increased the validation failure counter.
+		expectedFailures := p.sent[target] - p.received[target]
+		gotFailures := p.validationFailure[target].GetKey(dataIntegrityKey).Int64()
+		if p.validationFailure[target].GetKey(dataIntegrityKey).Int64() != expectedFailures {
+			t.Errorf("p.validationFailure[%s].GetKey(%s)=%d, expected=expectedFailures", target, gotFailures, expectedFailures)
 		}
 	}
 }
