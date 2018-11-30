@@ -496,7 +496,7 @@ func TestDataIntegrityValidation(t *testing.T) {
 		expectedFailures := p.sent[target] - p.received[target]
 		gotFailures := p.validationFailure[target].GetKey(dataIntegrityKey).Int64()
 		if p.validationFailure[target].GetKey(dataIntegrityKey).Int64() != expectedFailures {
-			t.Errorf("p.validationFailure[%s].GetKey(%s)=%d, expected=expectedFailures", target, gotFailures, expectedFailures)
+			t.Errorf("p.validationFailure[%s].GetKey(%s)=%d, expected=%d", target, dataIntegrityKey, gotFailures, expectedFailures)
 		}
 	}
 }
