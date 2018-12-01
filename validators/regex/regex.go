@@ -22,7 +22,6 @@ import (
 	"regexp"
 
 	"github.com/google/cloudprober/logger"
-	configpb "github.com/google/cloudprober/validators/regex/proto"
 )
 
 // Validator implements a regex validator.
@@ -35,18 +34,17 @@ type Validator struct {
 // It compiles the regex in the configuration and returns an error if regex
 // doesn't compile for some reason.
 func (v *Validator) Init(config interface{}, l *logger.Logger) error {
-	c, ok := config.(*configpb.Validator)
+	regexStr, ok := config.(string)
 	if !ok {
 		return fmt.Errorf("%v is not a valid regex validator config", config)
 	}
-
-	if c.GetRegex() == "" {
+	if regexStr == "" {
 		return errors.New("validator regex string cannot be empty")
 	}
 
-	r, err := regexp.Compile(c.GetRegex())
+	r, err := regexp.Compile(regexStr)
 	if err != nil {
-		return fmt.Errorf("error compiling the given regex (%s): %v", c.GetRegex(), err)
+		return fmt.Errorf("error compiling the given regex (%s): %v", regexStr, err)
 	}
 
 	v.r = r

@@ -17,42 +17,34 @@ package regex
 import (
 	"testing"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/logger"
-	configpb "github.com/google/cloudprober/validators/regex/proto"
 )
 
 func TestInvalidConfig(t *testing.T) {
 	// Empty config
-	testConfig := &configpb.Validator{}
+	testConfig := ""
 	v := Validator{}
 	err := v.Init(testConfig, &logger.Logger{})
 	if err == nil {
-		t.Errorf("v.Init(%v, l): expected error but got nil", testConfig)
+		t.Errorf("v.Init(%s, l): expected error but got nil", testConfig)
 	}
 
 	// Invalid regex as Go regex doesn't support negative lookaheads.
-	testConfig = &configpb.Validator{
-		Regex: proto.String("(?!cloudprober)"),
-	}
+	testConfig = "(?!cloudprober)"
 	v = Validator{}
 	err = v.Init(testConfig, &logger.Logger{})
 	if err == nil {
-		t.Errorf("v.Init(%v, l): expected error but got nil", testConfig)
+		t.Errorf("v.Init(%s, l): expected error but got nil", testConfig)
 	}
 }
 
-func verifyValidate(t *testing.T, respBody []byte, regex string, expected bool) {
+func verifyValidate(t *testing.T, respBody []byte, regexStr string, expected bool) {
 	t.Helper()
 	// Test initializing with pattern string.
-	testConfig := &configpb.Validator{
-		Regex: proto.String(regex),
-	}
-
 	v := Validator{}
-	err := v.Init(testConfig, &logger.Logger{})
+	err := v.Init(regexStr, &logger.Logger{})
 	if err != nil {
-		t.Errorf("v.Init(%v, l): got error: %v", testConfig, err)
+		t.Errorf("v.Init(%s, l): got error: %v", regexStr, err)
 	}
 
 	result, err := v.Validate(nil, respBody)
