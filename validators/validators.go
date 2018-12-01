@@ -61,9 +61,9 @@ func initValidator(validatorConf *configpb.Validator, l *logger.Logger) (validat
 	case *configpb.Validator_IntegrityValidator:
 		validator = &integrity.Validator{}
 		c = validatorConf.GetIntegrityValidator()
-	case *configpb.Validator_RegexValidator:
+	case *configpb.Validator_Regex:
 		validator = &regex.Validator{}
-		c = validatorConf.GetRegexValidator()
+		c = validatorConf.GetRegex()
 	default:
 		err = fmt.Errorf("unknown validator type: %v", validatorConf.Type)
 		return
