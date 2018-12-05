@@ -37,6 +37,7 @@ import (
 	"github.com/google/cloudprober/surfacers/stackdriver"
 
 	surfacerpb "github.com/google/cloudprober/surfacers/proto"
+	surfacerspb "github.com/google/cloudprober/surfacers/proto"
 )
 
 var (
@@ -54,8 +55,38 @@ var defaultSurfacers = []*surfacerpb.SurfacerDef{
 	},
 }
 
+// Surfacer is an interface for all metrics surfacing systems
+type Surfacer interface {
+	// Function for writing a piece of metric data to a specified metric
+	// store (or other location).
+	Write(ctx context.Context, em *metrics.EventMetrics)
+}
+
+// SurfacerInfo encapsulates a Surfacer and related info.
+type SurfacerInfo struct {
+	Surfacer
+	Type string
+	Name string
+	Conf string
+}
+
+func inferType(s *surfacerpb.SurfacerDef) surfacerspb.Type {
+	switch s.Surfacer.(type) {
+	case *surfacerpb.SurfacerDef_PrometheusSurfacer:
+		return surfacerspb.Type_PROMETHEUS
+	case *surfacerpb.SurfacerDef_StackdriverSurfacer:
+		return surfacerspb.Type_STACKDRIVER
+	case *surfacerpb.SurfacerDef_FileSurfacer:
+		return surfacerspb.Type_FILE
+	case *surfacerpb.SurfacerDef_PostgresSurfacer:
+		return surfacerspb.Type_POSTGRES
+	}
+
+	return surfacerspb.Type_NONE
+}
+
 // initSurfacer initializes and returns a new surfacer based on the config.
-func initSurfacer(s *surfacerpb.SurfacerDef) (Surfacer, interface{}, error) {
+func initSurfacer(s *surfacerpb.SurfacerDef, sType surfacerspb.Type) (Surfacer, interface{}, error) {
 	// Create a new logger
 	logName := s.GetName()
 	if logName == "" {
@@ -71,7 +102,7 @@ func initSurfacer(s *surfacerpb.SurfacerDef) (Surfacer, interface{}, error) {
 	var conf interface{}
 	var surfacer Surfacer
 
-	switch s.GetType() {
+	switch sType {
 	case surfacerpb.Type_PROMETHEUS:
 		surfacer, err = prometheus.New(s.GetPrometheusSurfacer(), l)
 		conf = s.GetPrometheusSurfacer()
@@ -98,21 +129,6 @@ func initSurfacer(s *surfacerpb.SurfacerDef) (Surfacer, interface{}, error) {
 	return surfacer, conf, err
 }
 
-// Surfacer is an interface for all metrics surfacing systems
-type Surfacer interface {
-	// Function for writing a piece of metric data to a specified metric
-	// store (or other location).
-	Write(ctx context.Context, em *metrics.EventMetrics)
-}
-
-// SurfacerInfo encapsulates a Surfacer and related info.
-type SurfacerInfo struct {
-	Surfacer
-	Type string
-	Name string
-	Conf string
-}
-
 // Init initializes the surfacers from the config protobufs and returns them as
 // a list.
 func Init(sDefs []*surfacerpb.SurfacerDef) ([]*SurfacerInfo, error) {
@@ -124,10 +140,20 @@ func Init(sDefs []*surfacerpb.SurfacerDef) ([]*SurfacerInfo, error) {
 
 	var result []*SurfacerInfo
 	for _, sDef := range sDefs {
-		if sDef.GetType() == surfacerpb.Type_NONE {
-			continue
+		sType := sDef.GetType()
+
+		if sType == surfacerpb.Type_NONE {
+			// Don't do anything if surfacer type is NONE and nothing is defined inside
+			// it: for example: "surfacer{}". This is one of the ways to disable
+			// surfacers as not adding surfacers at all results in default surfacers
+			// being added automatically.
+			if sDef.Surfacer == nil {
+				continue
+			}
+			sType = inferType(sDef)
 		}
-		s, conf, err := initSurfacer(sDef)
+
+		s, conf, err := initSurfacer(sDef, sType)
 		if err != nil {
 			return nil, err
 		}
