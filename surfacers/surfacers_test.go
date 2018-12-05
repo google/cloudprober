@@ -15,6 +15,7 @@
 package surfacers
 
 import (
+	"io/ioutil"
 	"testing"
 
 	"github.com/golang/protobuf/proto"
@@ -44,11 +45,16 @@ func TestEmptyConfig(t *testing.T) {
 }
 
 func TestInferType(t *testing.T) {
+	tmpfile, err := ioutil.TempFile("", "example")
+	if err != nil {
+		t.Fatalf("error creating tempfile for test")
+	}
+
 	s, err := Init([]*surfacerpb.SurfacerDef{
 		{
 			Surfacer: &surfacerpb.SurfacerDef_FileSurfacer{
 				&fileconfigpb.SurfacerConf{
-					FilePath: proto.String("/tmp/x"),
+					FilePath: proto.String(tmpfile.Name()),
 				},
 			},
 		},
