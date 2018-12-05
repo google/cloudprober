@@ -28,6 +28,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strings"
 	"sync"
 	"time"
 
@@ -74,17 +75,12 @@ type Probe struct {
 // (see documentation with statsKeeper below). That's the reason we use metrics.Int
 // types instead of metrics.AtomicInt.
 type probeRunResult struct {
-	target   string
-	total    metrics.Int
-	success  metrics.Int
-	latency  metrics.Float
-	timeouts metrics.Int
-}
-
-func newProbeRunResult(target string) probeRunResult {
-	return probeRunResult{
-		target: target,
-	}
+	target            string
+	total             metrics.Int
+	success           metrics.Int
+	latency           metrics.Float
+	timeouts          metrics.Int
+	validationFailure *metrics.Map
 }
 
 // Metrics converts probeRunResult into metrics.EventMetrics object
@@ -93,7 +89,8 @@ func (prr probeRunResult) Metrics() *metrics.EventMetrics {
 		AddMetric("total", &prr.total).
 		AddMetric("success", &prr.success).
 		AddMetric("latency", &prr.latency).
-		AddMetric("timeouts", &prr.timeouts)
+		AddMetric("timeouts", &prr.timeouts).
+		AddMetric("validation_failure", prr.validationFailure)
 }
 
 // Target returns the p.target.
@@ -140,11 +137,59 @@ func isClientTimeout(err error) bool {
 	return ok && e != nil && e.Timeout()
 }
 
+// validateResponse checks status code and answer section for correctness and
+// returns true if the response is valid. In case of validation failures, it
+// also updates the result structure.
+func (p *Probe) validateResponse(resp *dns.Msg, target string, result *probeRunResult) bool {
+	if resp == nil || resp.Rcode != dns.RcodeSuccess {
+		p.l.Warningf("Target(%s): error in response %v", target, resp)
+		return false
+	}
+
+	// Validate number of answers in response.
+	// TODO: Move this logic to validators.
+	minAnswers := p.c.GetMinAnswers()
+	if minAnswers > 0 && uint32(len(resp.Answer)) < minAnswers {
+		p.l.Warningf("Target(%s): too few answers - got %d want %d.\n\tAnswerBlock: %v",
+			target, len(resp.Answer), minAnswers, resp.Answer)
+		return false
+	}
+
+	if p.opts.Validators == nil {
+		return true
+	}
+	failedValidations := []string{}
+	answers := []string{}
+
+	for _, rr := range resp.Answer {
+		if rr != nil {
+			answers = append(answers, rr.String())
+		}
+	}
+	respBytes := []byte(strings.Join(answers, "\n"))
+	for name, v := range p.opts.Validators {
+		// TODO: pass along "resp" instead of nil when we add a DNS validator.
+		success, err := v.Validate(nil, respBytes)
+		if err != nil {
+			p.l.Errorf("Error while running the validator %s: %v", name, err)
+			continue
+		}
+		if !success {
+			result.validationFailure.IncKey(name)
+			failedValidations = append(failedValidations, name)
+		}
+	}
+	if len(failedValidations) > 0 {
+		p.l.Debugf("Target(%s): validators %v failed. Resp: %v", target, failedValidations, answers)
+		return false
+	}
+	return true
+}
+
 func (p *Probe) runProbe(resultsChan chan<- probeutils.ProbeResult) {
 	// Refresh the list of targets to probe.
 	p.targets = p.opts.Targets.List()
 
-	minAnswers := p.c.GetMinAnswers()
 	wg := sync.WaitGroup{}
 	for _, target := range p.targets {
 		wg.Add(1)
@@ -155,10 +200,9 @@ func (p *Probe) runProbe(resultsChan chan<- probeutils.ProbeResult) {
 			defer wg.Done()
 
 			result := probeRunResult{
-				target: target,
+				target:            target,
+				validationFailure: metrics.NewMap("validator", &metrics.Int{}),
 			}
-
-			// Verified that each request will use different UDP ports.
 
 			fullTarget := net.JoinHostPort(target, "53")
 			result.total.Inc()
@@ -171,16 +215,10 @@ func (p *Probe) runProbe(resultsChan chan<- probeutils.ProbeResult) {
 				} else {
 					p.l.Warningf("Target(%s): client.Exchange: %v", fullTarget, err)
 				}
-			} else if resp == nil || resp.Rcode != dns.RcodeSuccess {
-				p.l.Warningf("Target(%s): error in response %v", fullTarget, resp)
-			} else if minAnswers > 0 && uint32(len(resp.Answer)) < minAnswers {
-				p.l.Warningf("Target(%s): too few answers - got %d want %d.\n\tAnswerBlock: %v",
-					fullTarget, len(resp.Answer), minAnswers, resp.Answer)
-			} else {
+			} else if p.validateResponse(resp, fullTarget, &result) {
 				result.success.Inc()
 				result.latency.AddFloat64(latency.Seconds() / p.opts.LatencyUnit.Seconds())
 			}
-
 			resultsChan <- result
 		}(target, resultsChan)
 	}

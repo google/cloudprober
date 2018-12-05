@@ -15,23 +15,32 @@
 package dns
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/google/cloudprober/logger"
 	configpb "github.com/google/cloudprober/probes/dns/proto"
 	"github.com/google/cloudprober/probes/options"
 	"github.com/google/cloudprober/probes/probeutils"
 	"github.com/google/cloudprober/targets"
+	"github.com/google/cloudprober/validators"
+	validatorpb "github.com/google/cloudprober/validators/proto"
 	"github.com/miekg/dns"
 )
 
 // If question contains a bad domain or type, DNS query response status should
 // contain an error.
 const (
-	questionBadDomain = "nosuchname"
-	questionBadType   = configpb.QueryType_CAA
+	questionBadDomain    = "nosuchname"
+	questionBadType      = configpb.QueryType_CAA
+	answerContent        = " 3600 IN A 192.168.0.1"
+	answerMatchPattern   = "3600"
+	answerNoMatchPattern = "NAA"
+)
+
+var (
+	globalLog = logger.Logger{}
 )
 
 type mockClient struct{}
@@ -45,8 +54,11 @@ func (*mockClient) Exchange(in *dns.Msg, _ string) (*dns.Msg, time.Duration, err
 	if question.Name == questionBadDomain+"." || int(question.Qtype) == int(questionBadType) {
 		out.Rcode = dns.RcodeNameError
 	}
-	a, err := dns.NewRR(fmt.Sprintf("%s. 3600 IN A 192.168.0.1", question.Name))
+	answerStr := question.Name + answerContent
+	a, err := dns.NewRR(answerStr)
 	if err != nil {
+		globalLog.Errorf("Error parsing answer \"%s\": %v", answerStr, err)
+	} else {
 		out.Answer = []dns.RR{a}
 	}
 	return out, time.Millisecond, nil
@@ -152,4 +164,35 @@ func TestAnswerCheck(t *testing.T) {
 	}
 	// expect failure because only one answer returned and two wanted.
 	runProbe(t, "toofewanswers", p, 1, 0)
+}
+
+func TestValidator(t *testing.T) {
+	p := &Probe{}
+	for _, tst := range []struct {
+		name      string
+		pattern   string
+		successCt int64
+	}{
+		{"match", answerMatchPattern, 1},
+		{"nomatch", answerNoMatchPattern, 0},
+	} {
+		valPb := []*validatorpb.Validator{{Name: proto.String(tst.name), Type: &validatorpb.Validator_Regex{tst.pattern}}}
+		validator, err := validators.Init(valPb, nil)
+		if err != nil {
+			t.Fatalf("Error initializing validator for pattern %v: %v", tst.pattern, err)
+		}
+		opts := &options.Options{
+			Targets:  targets.StaticTargets("8.8.8.8"),
+			Interval: 2 * time.Second,
+			Timeout:  time.Second,
+			ProbeConf: &configpb.ProbeConf{
+				StatsExportIntervalMsec: proto.Int32(1000),
+			},
+			Validators: validator,
+		}
+		if err := p.Init("dns_probe_answer_"+tst.name, opts); err != nil {
+			t.Fatalf("Error creating probe: %v", err)
+		}
+		runProbe(t, tst.name, p, 1, tst.successCt)
+	}
 }
