@@ -16,6 +16,7 @@ package surfacers
 
 import (
 	"io/ioutil"
+	"os"
 	"testing"
 
 	"github.com/golang/protobuf/proto"
@@ -49,6 +50,8 @@ func TestInferType(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error creating tempfile for test")
 	}
+
+	defer os.Remove(tmpfile.Name()) // clean up
 
 	s, err := Init([]*surfacerpb.SurfacerDef{
 		{
