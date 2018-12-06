@@ -38,14 +38,6 @@ func timeToBytes(t time.Time, size int) []byte {
 	return probeutils.PatternPayload(timeBytes[:], size)
 }
 
-// verifyPayload verifies that in the provided byte array first 8-bytes are
-// repeated for the rest array, except for the last "len(array) mod 8 bytes".
-func verifyPayload(b []byte) error {
-	// Since we set the pattern ourselves in timeToBytes, we know that the pattern
-	// is 8-bytes long (timestamp).
-	return probeutils.VerifyPayloadPattern(b, b[:8])
-}
-
 func bytesToTime(b []byte) time.Time {
 	var nsec int64
 	for i := uint8(0); i < timeBytesSize; i++ {
