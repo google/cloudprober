@@ -51,7 +51,7 @@ func (x *ProbeConf_ProtocolType) UnmarshalJSON(data []byte) error {
 	return nil
 }
 func (ProbeConf_ProtocolType) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_config_ca5a76e3e2795075, []int{0, 0}
+	return fileDescriptor_config_d95e376e63169085, []int{0, 0}
 }
 
 type ProbeConf_Method int32
@@ -102,7 +102,7 @@ func (x *ProbeConf_Method) UnmarshalJSON(data []byte) error {
 	return nil
 }
 func (ProbeConf_Method) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_config_ca5a76e3e2795075, []int{0, 1}
+	return fileDescriptor_config_d95e376e63169085, []int{0, 1}
 }
 
 type ProbeConf struct {
@@ -127,9 +127,9 @@ type ProbeConf struct {
 	ResolveFirst *bool `protobuf:"varint,4,opt,name=resolve_first,json=resolveFirst,def=0" json:"resolve_first,omitempty"`
 	// Export response (body) count as a metric
 	ExportResponseAsMetrics *bool `protobuf:"varint,5,opt,name=export_response_as_metrics,json=exportResponseAsMetrics,def=0" json:"export_response_as_metrics,omitempty"`
-	// If specified, this string is used for payload's integrity check.
-	// Note: This feature is experimental and will most likely be replaced by a
-	// generic validator framework.
+	// This field is now deprecated and doesn't do anything (except resulting in
+	// a warning). It will be removed in the next release. For data integrity
+	// checks, please use integrity validator.
 	IntegrityCheckPattern *string `protobuf:"bytes,6,opt,name=integrity_check_pattern,json=integrityCheckPattern" json:"integrity_check_pattern,omitempty"`
 	// HTTP request method
 	Method *ProbeConf_Method `protobuf:"varint,7,opt,name=method,enum=cloudprober.probes.http.ProbeConf_Method,def=0" json:"method,omitempty"`
@@ -152,7 +152,7 @@ func (m *ProbeConf) Reset()         { *m = ProbeConf{} }
 func (m *ProbeConf) String() string { return proto.CompactTextString(m) }
 func (*ProbeConf) ProtoMessage()    {}
 func (*ProbeConf) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_ca5a76e3e2795075, []int{0}
+	return fileDescriptor_config_d95e376e63169085, []int{0}
 }
 func (m *ProbeConf) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ProbeConf.Unmarshal(m, b)
@@ -379,7 +379,7 @@ func (m *ProbeConf_Header) Reset()         { *m = ProbeConf_Header{} }
 func (m *ProbeConf_Header) String() string { return proto.CompactTextString(m) }
 func (*ProbeConf_Header) ProtoMessage()    {}
 func (*ProbeConf_Header) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_ca5a76e3e2795075, []int{0, 0}
+	return fileDescriptor_config_d95e376e63169085, []int{0, 0}
 }
 func (m *ProbeConf_Header) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ProbeConf_Header.Unmarshal(m, b)
@@ -421,10 +421,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("github.com/google/cloudprober/probes/http/proto/config.proto", fileDescriptor_config_ca5a76e3e2795075)
+	proto.RegisterFile("github.com/google/cloudprober/probes/http/proto/config.proto", fileDescriptor_config_d95e376e63169085)
 }
 
-var fileDescriptor_config_ca5a76e3e2795075 = []byte{
+var fileDescriptor_config_d95e376e63169085 = []byte{
 	// 577 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x92, 0xdf, 0x6e, 0xd3, 0x30,
 	0x14, 0xc6, 0x97, 0xb5, 0x49, 0xdb, 0xd3, 0x01, 0x91, 0x35, 0xa8, 0x35, 0x09, 0xa9, 0x8c, 0x9b,
