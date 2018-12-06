@@ -43,9 +43,9 @@ message ProbeConf {
   optional bool resolve_first = 4 [default = false];
   // Export response (body) count as a metric
   optional bool export_response_as_metrics = 5 [default = false];
-  // If specified, this string is used for payload's integrity check.
-  // Note: This feature is experimental and will most likely be replaced by a
-  // generic validator framework.
+  // This field is now deprecated and doesn't do anything (except resulting in
+  // a warning). It will be removed in the next release. For data integrity
+  // checks, please use integrity validator.
   optional string integrity_check_pattern = 6;
   // HTTP request method
   optional Method method = 7 [default = GET];

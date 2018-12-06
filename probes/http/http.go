@@ -125,6 +125,10 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		return fmt.Errorf("Invalid Relative URL: %s, must begin with '/'", p.url)
 	}
 
+	if p.c.GetIntegrityCheckPattern() != "" {
+		p.l.Warningf("integrity_check_pattern field is now deprecated and doesn't do anything.")
+	}
+
 	// Needs to be non-nil so we can set parameters on it.
 	transport := http.DefaultTransport
 
@@ -231,14 +235,6 @@ func (p *Probe) httpRequest(req *http.Request, result *probeRunResult) {
 	// Calling Body.Close() allows the TCP connection to be reused.
 	resp.Body.Close()
 	result.respCodes.IncKey(fmt.Sprintf("%d", resp.StatusCode))
-	if p.c.GetIntegrityCheckPattern() != "" && resp.StatusCode == http.StatusOK {
-		err := probeutils.VerifyPayloadPattern(respBody, []byte(p.c.GetIntegrityCheckPattern()))
-		if err != nil {
-			// TODO(manugarg): Increment a counter on data corruption.
-			p.l.Errorf("Target:%s, URL:%s, http.runProbe: possible data corruption, response integrity check failed: %s", req.Host, req.URL.String(), err.Error())
-			return
-		}
-	}
 
 	if p.opts.Validators != nil {
 		validationFailed := false
