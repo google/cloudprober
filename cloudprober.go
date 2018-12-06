@@ -36,7 +36,6 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/config"
 	configpb "github.com/google/cloudprober/config/proto"
-	"github.com/google/cloudprober/config/runconfig"
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
 	"github.com/google/cloudprober/probes"
@@ -107,8 +106,7 @@ func (pr *Prober) initDefaultServer() error {
 
 // InitFromConfig initializes Cloudprober using the provided config.
 func InitFromConfig(configFile string) error {
-	runconfig.Init()
-
+	// Return immediately if prober is already initialized.
 	proberMu.Lock()
 	defer proberMu.Unlock()
 	if prober != nil {

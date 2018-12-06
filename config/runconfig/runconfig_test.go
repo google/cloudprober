@@ -7,7 +7,6 @@ import (
 )
 
 func TestRunConfig(t *testing.T) {
-	Init()
 	if srv := DefaultGRPCServer(); srv != nil {
 		t.Fatalf("RunConfig has server unexpectedly set. Got %v Want nil", srv)
 	}
