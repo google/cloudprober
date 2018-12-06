@@ -34,6 +34,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/google/cloudprober"
 	"github.com/google/cloudprober/config"
+	"github.com/google/cloudprober/config/runconfig"
 	"github.com/google/cloudprober/sysvars"
 	"github.com/google/cloudprober/web"
 )
@@ -141,6 +142,8 @@ func getConfig() string {
 
 func main() {
 	flag.Parse()
+
+	runconfig.SetVersion(version)
 
 	if *versionFlag {
 		fmt.Println(version)

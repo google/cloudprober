@@ -39,7 +39,6 @@ var once sync.Once
 func globalGRPCServer() (*grpc.Server, error) {
 	var err error
 	once.Do(func() {
-		runconfig.Init()
 		err = runconfig.SetDefaultGRPCServer(grpc.NewServer())
 	})
 	if err != nil {

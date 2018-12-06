@@ -28,19 +28,12 @@ import (
 // runConfig stores cloudprober config that is specific to a single invocation.
 // e.g., servers injected by external cloudprober users.
 type runConfig struct {
-	sync.Mutex
+	sync.RWMutex
 	grpcSrv *grpc.Server
+	version string
 }
 
-var rc *runConfig
-var once sync.Once
-
-// Init initializes the global runconfig.
-func Init() {
-	once.Do(func() {
-		rc = &runConfig{}
-	})
-}
+var rc runConfig
 
 // SetDefaultGRPCServer sets the default gRPC server.
 func SetDefaultGRPCServer(s *grpc.Server) error {
@@ -59,4 +52,20 @@ func DefaultGRPCServer() *grpc.Server {
 	rc.Lock()
 	defer rc.Unlock()
 	return rc.grpcSrv
+}
+
+// SetVersion sets the cloudprober version.
+func SetVersion(version string) {
+	rc.Lock()
+	defer rc.Unlock()
+	rc.version = version
+}
+
+// Version returns the runconfig version set through the SetVersion() function
+// call. It's useful only if called after SetVersion(), otherwise it will
+// return an empty string.
+func Version() string {
+	rc.RLock()
+	defer rc.RUnlock()
+	return rc.version
 }
