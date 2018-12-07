@@ -153,7 +153,7 @@ func (l *Logger) log(severity logging.Severity, payload interface{}) {
 		textPayload = textPayload[:MaxLogEntrySize-truncateMsgLen] + truncateMsg
 		payload = textPayload
 	}
-	if l.logc == nil {
+	if l == nil || l.logc == nil {
 		genericLog(severity, textPayload)
 		return
 	}
