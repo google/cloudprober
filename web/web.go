@@ -22,106 +22,34 @@ import (
 	"net/http"
 
 	"github.com/google/cloudprober"
+	"github.com/google/cloudprober/probes"
+	"github.com/google/cloudprober/servers"
+	"github.com/google/cloudprober/surfacers"
 )
 
-const style = `
-<style type="text/css">
-table.status-list {
-  border-collapse: collapse;
-  border-spacing: 0;
-	margin-bottom: 40px;
-	font-family: monospace;
+func execTmpl(tmpl *template.Template, v interface{}) template.HTML {
+	var statusBuf bytes.Buffer
+	err := tmpl.Execute(&statusBuf, v)
+	if err != nil {
+		return template.HTML(template.HTMLEscapeString(err.Error()))
+	}
+	return template.HTML(statusBuf.String())
 }
-table.status-list td,th {
-  border: 1px solid gray;
-  padding: 0.25em 0.5em;
-	max-width: 200px;
-}
-pre {
-    white-space: pre-wrap;
-		word-wrap: break-word;
-}
-</style>`
-
-const probeStatusTmpl = `
-
-<h3>Probes:</h3>
-
-<table class="status-list">
-  <tr>
-    <th>Name</th>
-    <th>Type</th>
-    <th>Interval</th>
-    <th>Timeout</th>
-    <th>Targets</th>
-    <th>Probe Conf</th>
-    <th>Latency Unit</th>
-    <th>Latency Distribution Lower Bounds (if configured) </th>
-  </tr>
-  {{ range . }}
-  <tr>
-    <td>{{.Name}}</td>
-    <td>{{.Type}}</td>
-    <td>{{.Interval}}</td>
-    <td>{{.Timeout}}</td>
-    <td><pre>{{.TargetsDesc}}</pre></td>
-
-    <td>
-    {{if .ProbeConf}}
-      <pre>{{.ProbeConf}}</pre>
-    {{else}}
-      default
-    {{end}}
-    </td>
-
-    <td>{{.LatencyUnit}}</td>
-    <td><pre>{{.LatencyDistLB}}</pre></td>
-  </tr>
-  {{ end }}
-</table>`
-
-const surfacerStatusTmpl = `
-<table class="status-list">
-  <tr>
-    <th>Type</th>
-    <th>Name</th>
-    <th>Conf</th>
-  </tr>
-  {{ range . }}
-  <tr>
-    <td>{{.Type}}</td>
-    <td>{{.Name}}</td>
-    <td>
-    {{if .Conf}}
-      <pre>{{.Conf}}</pre>
-    {{else}}
-      default
-    {{end}}
-    </td>
-  </tr>
-  {{ end }}
-</table>`
 
 // Status returns cloudprober status string.
 func Status() string {
 	var statusBuf bytes.Buffer
 
-	statusBuf.WriteString(style)
 	probeInfo, surfacerInfo, serverInfo := cloudprober.GetInfo()
 
-	// Probes info
-	tmpl, _ := template.New("statusProber").Parse(probeStatusTmpl)
-	tmpl.Execute(&statusBuf, probeInfo)
-
-	// Surfacers info
-	statusBuf.WriteString("<h3>Surfacers</h3>")
-	tmpl, _ = template.New("statusSurfacer").Parse(surfacerStatusTmpl)
-	tmpl.Execute(&statusBuf, surfacerInfo)
-
-	// Servers info
-	statusBuf.WriteString("<h3>Servers</h3>")
-	tmpl, _ = template.New("statusServer").Parse(surfacerStatusTmpl)
-	tmpl.Execute(&statusBuf, serverInfo)
+	tmpl, _ := template.New("statusTmpl").Parse(statusTmpl)
+	tmpl.Execute(&statusBuf, struct {
+		ProbesStatus, ServersStatus, SurfacersStatus interface{}
+	}{
+		ProbesStatus:    execTmpl(probes.StatusTmpl, probeInfo),
+		SurfacersStatus: execTmpl(surfacers.StatusTmpl, surfacerInfo),
+		ServersStatus:   execTmpl(servers.StatusTmpl, serverInfo),
+	})
 
 	return statusBuf.String()
 }

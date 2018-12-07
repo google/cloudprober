@@ -20,6 +20,7 @@ package servers
 import (
 	"context"
 	"fmt"
+	"html/template"
 
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
@@ -32,6 +33,32 @@ import (
 const (
 	logsNamePrefix = "cloudprober"
 )
+
+// StatusTmpl variable stores the HTML template suitable to generate the
+// servers' status for cloudprober's /status page. It expects an array of
+// ServerInfo objects as input.
+var StatusTmpl = template.Must(template.New("statusTmpl").Parse(`
+<table class="status-list">
+  <tr>
+    <th>Type</th>
+    <th>Name</th>
+    <th>Conf</th>
+  </tr>
+  {{ range . }}
+  <tr>
+    <td>{{.Type}}</td>
+    <td>{{.Name}}</td>
+    <td>
+    {{if .Conf}}
+      <pre>{{.Conf}}</pre>
+    {{else}}
+      default
+    {{end}}
+    </td>
+  </tr>
+  {{ end }}
+</table>
+`))
 
 func newLogger(ctx context.Context, logName string) (*logger.Logger, error) {
 	return logger.New(ctx, logsNamePrefix+"."+logName)
