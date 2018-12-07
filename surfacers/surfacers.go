@@ -26,6 +26,7 @@ package surfacers
 import (
 	"context"
 	"fmt"
+	"html/template"
 	"strings"
 	"sync"
 
@@ -44,6 +45,32 @@ var (
 	userDefinedSurfacers   = make(map[string]Surfacer)
 	userDefinedSurfacersMu sync.Mutex
 )
+
+// StatusTmpl variable stores the HTML template suitable to generate the
+// surfacers' status for cloudprober's /status page. It expects an array of
+// SurfacerInfo objects as input.
+var StatusTmpl = template.Must(template.New("statusTmpl").Parse(`
+<table class="status-list">
+  <tr>
+    <th>Type</th>
+    <th>Name</th>
+    <th>Conf</th>
+  </tr>
+  {{ range . }}
+  <tr>
+    <td>{{.Type}}</td>
+    <td>{{.Name}}</td>
+    <td>
+    {{if .Conf}}
+      <pre>{{.Conf}}</pre>
+    {{else}}
+      default
+    {{end}}
+    </td>
+  </tr>
+  {{ end }}
+</table>
+`))
 
 // Default surfacers. These surfacers are enabled if no surfacer is defined.
 var defaultSurfacers = []*surfacerpb.SurfacerDef{
