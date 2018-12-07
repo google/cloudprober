@@ -77,7 +77,7 @@ type Probe struct {
 	targets           []string
 	sent              map[string]int64
 	received          map[string]int64
-	latency           map[string]time.Duration
+	latency           map[string]metrics.Value
 	validationFailure map[string]*metrics.Map
 	conn              icmpConn
 	runCnt            uint64
@@ -104,7 +104,7 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	p.ipVer = int(p.c.GetIpVersion())
 	p.sent = make(map[string]int64)
 	p.received = make(map[string]int64)
-	p.latency = make(map[string]time.Duration)
+	p.latency = make(map[string]metrics.Value)
 	p.validationFailure = make(map[string]*metrics.Map)
 	p.ip2target = make(map[string]string)
 	p.target2addr = make(map[string]net.Addr)
@@ -117,6 +117,22 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		return err
 	}
 	return p.listen()
+}
+
+func (p *Probe) latencyForTarget(target string) metrics.Value {
+	if val, ok := p.latency[target]; ok {
+		return val
+	}
+
+	var latencyValue metrics.Value
+	if p.opts.LatencyDist != nil {
+		latencyValue = p.opts.LatencyDist.Clone()
+	} else {
+		latencyValue = metrics.NewFloat(0)
+	}
+	p.latency[target] = latencyValue
+
+	return latencyValue
 }
 
 // Adds an integrity validator if data integrity checks are not disabled.
@@ -372,7 +388,7 @@ func (p *Probe) recvPackets(runID uint16, tracker chan bool) {
 		}
 
 		p.received[target]++
-		p.latency[target] += rtt
+		p.latencyForTarget(target).AddFloat64(rtt.Seconds() / p.opts.LatencyUnit.Seconds())
 		p.l.Debugf("Reply from=%s id=%d seq=%d rtt=%s", target, pkt.ID, pkt.Seq, rtt)
 	}
 }
@@ -444,7 +460,7 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 			em := metrics.NewEventMetrics(ts).
 				AddMetric("total", metrics.NewInt(p.sent[t])).
 				AddMetric("success", metrics.NewInt(p.received[t])).
-				AddMetric("latency", metrics.NewFloat(p.latency[t].Seconds()/p.opts.LatencyUnit.Seconds())).
+				AddMetric("latency", p.latencyForTarget(t)).
 				AddLabel("ptype", "ping").
 				AddLabel("probe", p.name).
 				AddLabel("dst", t)

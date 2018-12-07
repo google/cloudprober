@@ -213,7 +213,7 @@ func newProbe(c *configpb.ProbeConf, t []string) (*Probe, error) {
 		l:                 &logger.Logger{},
 		sent:              make(map[string]int64),
 		received:          make(map[string]int64),
-		latency:           make(map[string]time.Duration),
+		latency:           make(map[string]metrics.Value),
 		validationFailure: make(map[string]*metrics.Map),
 
 		ip2target:   make(map[string]string),
@@ -305,6 +305,26 @@ func TestInitSourceIP(t *testing.T) {
 		if p.source != r.want {
 			t.Errorf("Row %q: p.source = %q, want %q", r.name, p.source, r.want)
 		}
+	}
+}
+
+func TestLatencyForTarget(t *testing.T) {
+	c := &configpb.ProbeConf{}
+	p, err := newProbe(c, []string{"2.2.2.2", "3.3.3.3"})
+	if err != nil {
+		t.Fatalf("Got error from newProbe: %v", err)
+	}
+
+	latVal := p.latencyForTarget("2.2.2.2")
+	if _, ok := latVal.(*metrics.Float); !ok {
+		t.Errorf("latency value type is not metrics.Float: %v", latVal)
+	}
+
+	// Test with latency distribution option set.
+	p.opts.LatencyDist = metrics.NewDistribution([]float64{0.1, 0.2, 0.5})
+	latVal = p.latencyForTarget("3.3.3.3")
+	if _, ok := latVal.(*metrics.Distribution); !ok {
+		t.Errorf("latency value type is not metrics.Distribution: %v", latVal)
 	}
 }
 
