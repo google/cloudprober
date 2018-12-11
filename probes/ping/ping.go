@@ -465,7 +465,7 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 				AddLabel("probe", p.name).
 				AddLabel("dst", t)
 
-			dataChan <- em.Clone()
+			dataChan <- em
 			p.l.Info(em.String())
 		}
 	}
