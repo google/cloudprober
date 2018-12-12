@@ -75,6 +75,11 @@ func parseEnvVars(envVarsName string) map[string]string {
 	return envVars
 }
 
+// StartTime returns cloudprober's start time.
+func StartTime() time.Time {
+	return startTime
+}
+
 // Init initializes the sysvars module's global data structure. Init makes sure
 // to initialize only once, further calls are a no-op. If needed, userVars
 // can be passed to Init to add custom variables to sysVars. This can be useful
