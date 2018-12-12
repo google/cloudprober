@@ -41,13 +41,11 @@ var StatusTmpl = template.Must(template.New("statusTmpl").Parse(`
 <table class="status-list">
   <tr>
     <th>Type</th>
-    <th>Name</th>
     <th>Conf</th>
   </tr>
   {{ range . }}
   <tr>
     <td>{{.Type}}</td>
-    <td>{{.Name}}</td>
     <td>
     {{if .Conf}}
       <pre>{{.Conf}}</pre>

@@ -26,8 +26,8 @@ var StatusTmpl = template.Must(template.New("statusTmpl").Parse(`
     <th>Type</th>
     <th>Interval</th>
     <th>Timeout</th>
-    <th width="20%">Targets</th>
-    <th width="40%">Probe Conf</th>
+    <th width="20%%">Targets</th>
+    <th width="30%%">Probe Conf</th>
     <th>Latency Unit</th>
     <th>Latency Distribution Lower Bounds (if configured) </th>
   </tr>
