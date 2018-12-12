@@ -202,7 +202,9 @@ func Init(probeProtobufs []*configpb.ProbeDef, globalTargetsOpts *targetspb.Glob
 
 		// If probeConf supports String() function, use it for status page.
 		probeConfStr := ""
-		if stringer, ok := probeConf.(fmt.Stringer); ok {
+		if msg, ok := probeConf.(proto.Message); ok {
+			probeConfStr = proto.MarshalTextString(msg)
+		} else if stringer, ok := probeConf.(fmt.Stringer); ok {
 			probeConfStr = stringer.String()
 		}
 

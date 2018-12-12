@@ -20,11 +20,14 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"time"
 
 	"github.com/google/cloudprober"
+	"github.com/google/cloudprober/config/runconfig"
 	"github.com/google/cloudprober/probes"
 	"github.com/google/cloudprober/servers"
 	"github.com/google/cloudprober/surfacers"
+	"github.com/google/cloudprober/sysvars"
 )
 
 func execTmpl(tmpl *template.Template, v interface{}) template.HTML {
@@ -41,11 +44,16 @@ func Status() string {
 	var statusBuf bytes.Buffer
 
 	probeInfo, surfacerInfo, serverInfo := cloudprober.GetInfo()
+	startTime := sysvars.StartTime()
+	uptime := time.Since(startTime)
 
 	tmpl, _ := template.New("statusTmpl").Parse(statusTmpl)
 	tmpl.Execute(&statusBuf, struct {
-		ProbesStatus, ServersStatus, SurfacersStatus interface{}
+		Version, StartTime, Uptime, ProbesStatus, ServersStatus, SurfacersStatus interface{}
 	}{
+		Version:         runconfig.Version(),
+		StartTime:       startTime.Format(time.RFC1123),
+		Uptime:          uptime.String(),
 		ProbesStatus:    execTmpl(probes.StatusTmpl, probeInfo),
 		SurfacersStatus: execTmpl(surfacers.StatusTmpl, surfacerInfo),
 		ServersStatus:   execTmpl(servers.StatusTmpl, serverInfo),
