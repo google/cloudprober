@@ -19,7 +19,6 @@ package servers
 
 import (
 	"context"
-	"fmt"
 	"html/template"
 
 	"github.com/google/cloudprober/logger"
@@ -28,6 +27,7 @@ import (
 	"github.com/google/cloudprober/servers/http"
 	configpb "github.com/google/cloudprober/servers/proto"
 	"github.com/google/cloudprober/servers/udp"
+	"github.com/google/cloudprober/web/formatutils"
 )
 
 const (
@@ -82,30 +82,29 @@ func Init(initCtx context.Context, serverDefs []*configpb.ServerDef) (servers []
 		if err != nil {
 			return
 		}
+
+		var conf interface{}
 		var server Server
+
 		switch serverDef.GetType() {
 		case configpb.ServerDef_HTTP:
 			server, err = http.New(initCtx, serverDef.GetHttpServer(), l)
+			conf = serverDef.GetHttpServer()
 		case configpb.ServerDef_UDP:
 			server, err = udp.New(initCtx, serverDef.GetUdpServer(), l)
+			conf = serverDef.GetUdpServer()
 		case configpb.ServerDef_GRPC:
 			server, err = grpc.New(initCtx, serverDef.GetGrpcServer(), l)
+			conf = serverDef.GetGrpcServer()
 		}
 		if err != nil {
 			return
 		}
 
-		confStr := ""
-		if serverDef.GetServer() != nil {
-			if stringer, ok := serverDef.GetServer().(fmt.Stringer); ok {
-				confStr = stringer.String()
-			}
-		}
-
 		servers = append(servers, &ServerInfo{
 			Server: server,
 			Type:   serverDef.GetType().String(),
-			Conf:   confStr,
+			Conf:   formatutils.ConfToString(conf),
 		})
 	}
 	return

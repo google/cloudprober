@@ -36,6 +36,7 @@ import (
 	"github.com/google/cloudprober/surfacers/postgres"
 	"github.com/google/cloudprober/surfacers/prometheus"
 	"github.com/google/cloudprober/surfacers/stackdriver"
+	"github.com/google/cloudprober/web/formatutils"
 
 	surfacerpb "github.com/google/cloudprober/surfacers/proto"
 	surfacerspb "github.com/google/cloudprober/surfacers/proto"
@@ -185,18 +186,11 @@ func Init(sDefs []*surfacerpb.SurfacerDef) ([]*SurfacerInfo, error) {
 			return nil, err
 		}
 
-		confStr := ""
-		if conf != nil {
-			if stringer, ok := conf.(fmt.Stringer); ok {
-				confStr = stringer.String()
-			}
-		}
-
 		result = append(result, &SurfacerInfo{
 			Surfacer: s,
-			Type:     sDef.GetType().String(),
+			Type:     sType.String(),
 			Name:     sDef.GetName(),
-			Conf:     confStr,
+			Conf:     formatutils.ConfToString(conf),
 		})
 	}
 	return result, nil
