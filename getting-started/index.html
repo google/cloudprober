@@ -279,7 +279,7 @@
 If you have Go 1.9 or higher installed and GOPATH environment variable properly set up, you
 can download and install <code>cloudprober</code> using the following commands:</p>
 
-<pre><code>go get github.com/google/cloudprober
+<pre><code class="language-shell">go get github.com/google/cloudprober
 GOBIN=$GOPATH/bin go install $GOPATH/src/github.com/google/cloudprober/cmd/cloudprober.go
 </code></pre></li>
 
@@ -290,7 +290,7 @@ project&rsquo;s <a href="http://github.com/google/cloudprober/releases">releases
 <li><p><strong>Docker Image</strong><br />
 You can download and run the latest docker image using the following command:</p>
 
-<pre><code>docker run --net host cloudprober/cloudprober
+<pre><code class="language-shell">docker run --net host cloudprober/cloudprober
 # Note: --net host provides better network performance and makes port forwarding
 # management easier.
 </code></pre></li>
@@ -302,7 +302,7 @@ You can download and run the latest docker image using the following command:</p
 and write metrics to stdout in cloudprober&rsquo;s line protocol format (to be
 documented). It will also start a <a href="http://prometheus.io">Prometheus</a> exporter
 at: <a href="http://localhost:9313">http://localhost:9313</a> (you can change the default port through the
-environment variable CLOUDPROBER_PORT).</p>
+environment variable _CLOUDPROBER<em>PORT</em>).</p>
 
 <p>Since sysvars variables are not very interesting themselves, lets add a simple
 config that probes Google&rsquo;s homepage:</p>
@@ -340,11 +340,19 @@ command:</p>
     cloudprober/cloudprober
 </code></pre>
 
-<p><em>While running on GCE, the entire config can also be passed through the custom
-metadata attribute cloudprober_config</em>.</p>
+<p><em>Note: While running on GCE, cloudprober config can also be provided through a
+custom metadata attribute: cloudprober_config</em>.</p>
 
-<p>You&rsquo;ll see probe metrics at the URL: <a href="http://hostname:9313/metrics">http://hostname:9313/metrics</a> and at
-stdout:</p>
+<h2 id="verification">Verification</h2>
+
+<p>One quick way to verify that cloudprober got the correct config, is to access
+the URL <a href="http://localhost:9313/config">http://localhost:9313/config</a> (through cURL or in browser). It returns
+the config that cloudprober is using. You can also get a peek its current
+status at the URL (<em>replace localhost by the actual hostname if not running
+locally</em>): <a href="http://localhost:9313/status">http://localhost:9313/status</a>.</p>
+
+<p>You should be able to see the generated metrics at <a href="http://locahost:9313/metrics">http://locahost:9313/metrics</a>
+(prometheus format) and the stdout (cloudprober format):</p>
 
 <pre><code>cloudprober 1500590430132947313 1500590520 labels=ptype=http,probe=google-http,dst=www.google.com total=17 success=17 latency=1808357 timeouts=0 resp-code=map:code,200:17
 cloudprober 1500590430132947314 1500590530 labels=ptype=sysvars,probe=sysvars hostname=&quot;manugarg-workstation&quot; uptime=100
@@ -353,8 +361,8 @@ cloudprober 1500590430132947315 1500590530 labels=ptype=http,probe=google-http,d
 
 <p>This information is good for debugging monitoring issues, but to really make
 sense of this data, you&rsquo;ll need to feed this data to another monitoring system
-like StackDriver or Prometheus. Lets set up a Prometheus and Grafana stack to
-make pretty graphs for us.</p>
+like <em>Prometheus</em> or <em>StackDriver</em>. Lets set up a Prometheus and Grafana stack
+to make pretty graphs for us.</p>
 
 <h2 id="running-prometheus">Running Prometheus</h2>
 
