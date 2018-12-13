@@ -40,6 +40,7 @@ import (
 	"github.com/google/cloudprober/targets/lameduck"
 	targetspb "github.com/google/cloudprober/targets/proto"
 	"github.com/google/cloudprober/validators"
+	"github.com/google/cloudprober/web/formatutils"
 )
 
 const (
@@ -200,14 +201,6 @@ func Init(probeProtobufs []*configpb.ProbeDef, globalTargetsOpts *targetspb.Glob
 			latencyDistLB = fmt.Sprintf("%v", opts.LatencyDist.Data().LowerBounds)
 		}
 
-		// If probeConf supports String() function, use it for status page.
-		probeConfStr := ""
-		if msg, ok := probeConf.(proto.Message); ok {
-			probeConfStr = proto.MarshalTextString(msg)
-		} else if stringer, ok := probeConf.(fmt.Stringer); ok {
-			probeConfStr = stringer.String()
-		}
-
 		probes[p.GetName()] = &ProbeInfo{
 			Probe:         probe,
 			Name:          p.GetName(),
@@ -217,7 +210,7 @@ func Init(probeProtobufs []*configpb.ProbeDef, globalTargetsOpts *targetspb.Glob
 			TargetsDesc:   p.Targets.String(),
 			LatencyDistLB: latencyDistLB,
 			LatencyUnit:   opts.LatencyUnit.String(),
-			ProbeConf:     probeConfStr,
+			ProbeConf:     formatutils.ConfToString(probeConf),
 		}
 	}
 
