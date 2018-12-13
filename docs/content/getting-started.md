@@ -10,7 +10,7 @@ title: Getting Started
 * __From Source__\
 If you have Go 1.9 or higher installed and GOPATH environment variable properly set up, you
 can download and install `cloudprober` using the following commands:
-```
+```shell
 go get github.com/google/cloudprober
 GOBIN=$GOPATH/bin go install $GOPATH/src/github.com/google/cloudprober/cmd/cloudprober.go
 ```
@@ -21,7 +21,7 @@ project's [releases page](http://github.com/google/cloudprober/releases).
 
 * __Docker Image__\
 You can download and run the latest docker image using the following command:
-```
+```shell
 docker run --net host cloudprober/cloudprober
 # Note: --net host provides better network performance and makes port forwarding
 # management easier.
@@ -32,7 +32,7 @@ Without any config, cloudprober will run only the "sysvars" module (no probes)
 and write metrics to stdout in cloudprober's line protocol format (to be
 documented). It will also start a [Prometheus](http://prometheus.io) exporter
 at: http://localhost:9313 (you can change the default port through the
-environment variable CLOUDPROBER_PORT).
+environment variable _CLOUDPROBER_PORT_).
 
 Since sysvars variables are not very interesting themselves, lets add a simple
 config that probes Google's homepage:
@@ -72,11 +72,19 @@ docker run --net host -v /tmp/cloudprober.cfg:/etc/cloudprober.cfg \
     cloudprober/cloudprober
 ```
 
-_While running on GCE, the entire config can also be passed through the custom
-metadata attribute cloudprober\_config_.
+_Note: While running on GCE, cloudprober config can also be provided through a
+custom metadata attribute: cloudprober\_config_.
 
-You'll see probe metrics at the URL: http://hostname:9313/metrics and at
-stdout:
+## Verification
+
+One quick way to verify that cloudprober got the correct config, is to access
+the URL http://localhost:9313/config (through cURL or in browser). It returns
+the config that cloudprober is using. You can also get a peek its current
+status at the URL (_replace localhost by the actual hostname if not running
+locally_): http://localhost:9313/status.
+
+You should be able to see the generated metrics at http://locahost:9313/metrics
+(prometheus format) and the stdout (cloudprober format):
 
 ```
 cloudprober 1500590430132947313 1500590520 labels=ptype=http,probe=google-http,dst=www.google.com total=17 success=17 latency=1808357 timeouts=0 resp-code=map:code,200:17
@@ -86,8 +94,8 @@ cloudprober 1500590430132947315 1500590530 labels=ptype=http,probe=google-http,d
 
 This information is good for debugging monitoring issues, but to really make
 sense of this data, you'll need to feed this data to another monitoring system
-like StackDriver or Prometheus. Lets set up a Prometheus and Grafana stack to
-make pretty graphs for us.
+like _Prometheus_ or _StackDriver_. Lets set up a Prometheus and Grafana stack
+to make pretty graphs for us.
 
 ## Running Prometheus
 
