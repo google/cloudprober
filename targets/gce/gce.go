@@ -87,7 +87,7 @@ func New(conf *configpb.TargetsConf, opts *configpb.GlobalOptions, res *dnsRes.R
 	case *configpb.TargetsConf_Instances:
 		t, err = newInstances(projects, opts, conf.GetInstances(), res, log)
 	case *configpb.TargetsConf_ForwardingRules:
-		t, err = newForwardingRules(projects[0], opts, log)
+		t, err = newForwardingRules(projects[0], opts, conf.GetForwardingRules(), log)
 	default:
 		err = errors.New("unknown GCE targets type")
 	}

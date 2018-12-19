@@ -26,8 +26,6 @@ import (
 	"github.com/google/cloudprober/logger"
 	configpb "github.com/google/cloudprober/targets/gce/proto"
 	dnsRes "github.com/google/cloudprober/targets/resolver"
-	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/google"
 	compute "google.golang.org/api/compute/v1"
 )
 
@@ -217,15 +215,11 @@ func (ip *instancesProvider) list() []string {
 // listInstances runs equivalent API calls as "gcloud compute instances list",
 // and is what is used to populate the cache.
 func listInstances(project, apiVersion string, reEvalInterval time.Duration) ([]*compute.Instance, error) {
-	client, err := google.DefaultClient(oauth2.NoContext, compute.ComputeScope)
+	cs, err := defaultComputeService(apiVersion)
 	if err != nil {
 		return nil, err
 	}
-	cs, err := compute.New(client)
-	if err != nil {
-		return nil, err
-	}
-	cs.BasePath = "https://www.googleapis.com/compute/" + apiVersion + "/projects/"
+
 	zonesList, err := cs.Zones.List(project).Do()
 	if err != nil {
 		return nil, err
