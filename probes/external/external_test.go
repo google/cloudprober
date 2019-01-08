@@ -34,12 +34,31 @@ import (
 	"github.com/google/cloudprober/targets"
 )
 
-// stratProbeServer starts a test probe server to work with the TestProbeServer
+func isDone(doneChan chan struct{}) bool {
+	// If we are done, return immediately.
+	select {
+	case <-doneChan:
+		return true
+	default:
+	}
+	return false
+}
+
+// startProbeServer starts a test probe server to work with the TestProbeServer
 // test below.
-func startProbeServer(t *testing.T, testPayload string, r io.Reader, w io.WriteCloser) {
+func startProbeServer(t *testing.T, testPayload string, r io.Reader, w io.WriteCloser, doneChan chan struct{}) {
+	rd := bufio.NewReader(r)
 	for {
-		req, err := serverutils.ReadProbeRequest(bufio.NewReader(r))
+		if isDone(doneChan) {
+			return
+		}
+
+		req, err := serverutils.ReadProbeRequest(rd)
 		if err != nil {
+			// Normal failure because we are finished.
+			if isDone(doneChan) {
+				return
+			}
 			t.Errorf("Error reading probe request. Err: %v", err)
 			return
 		}
@@ -109,7 +128,7 @@ func runAndVerifyProbe(t *testing.T, p *Probe, action string, tgts []string, tot
 	return nil
 }
 
-func testProbeServerSetup(t *testing.T, readErrorCh chan error) (*Probe, string) {
+func testProbeServerSetup(t *testing.T, readErrorCh chan error) (*Probe, string, chan struct{}) {
 	// We create two pairs of pipes to establish communication between this prober
 	// and the test probe server (defined above).
 	// Test probe server input pipe. We writes on w1 and external command reads
@@ -127,7 +146,8 @@ func testProbeServerSetup(t *testing.T, readErrorCh chan error) (*Probe, string)
 
 	testPayload := "p90 45\n"
 	// Start probe server in a goroutine
-	go startProbeServer(t, testPayload, r1, w2)
+	doneChan := make(chan struct{})
+	go startProbeServer(t, testPayload, r1, w2, doneChan)
 
 	p := &Probe{}
 	p.Init("testProbe", &options.Options{
@@ -143,29 +163,28 @@ func testProbeServerSetup(t *testing.T, readErrorCh chan error) (*Probe, string)
 				},
 			},
 		},
-		Timeout: 5 * time.Second,
+		Timeout: 1 * time.Second,
 	})
 	p.cmdRunning = true // don't try to start the probe server
 	p.cmdStdin = w1
 	p.cmdStdout = r2
 	p.mode = "server"
 
-	// Start the goroutine that reads probe replies. We don't use the done
-	// channel here. It's only to satisfy the readProbeReplies interface.
-	done := make(chan struct{})
+	// Start the goroutine that reads probe replies.
 	go func() {
-		err := p.readProbeReplies(done)
+		err := p.readProbeReplies(doneChan)
 		if readErrorCh != nil {
 			readErrorCh <- err
 			close(readErrorCh)
 		}
 	}()
 
-	return p, testPayload
+	return p, testPayload, doneChan
 }
 
 func TestProbeServer(t *testing.T) {
-	p, _ := testProbeServerSetup(t, nil)
+	p, _, doneChan := testProbeServerSetup(t, nil)
+	defer close(doneChan)
 
 	total, success := make(map[string]int64), make(map[string]int64)
 
@@ -204,7 +223,8 @@ func TestProbeServer(t *testing.T) {
 
 func TestProbeServerRemotePipeClose(t *testing.T) {
 	readErrorCh := make(chan error)
-	p, _ := testProbeServerSetup(t, readErrorCh)
+	p, _, doneChan := testProbeServerSetup(t, readErrorCh)
+	defer close(doneChan)
 
 	total, success := make(map[string]int64), make(map[string]int64)
 	// Remote pipe close
@@ -226,7 +246,8 @@ func TestProbeServerRemotePipeClose(t *testing.T) {
 
 func TestProbeServerLocalPipeClose(t *testing.T) {
 	readErrorCh := make(chan error)
-	p, _ := testProbeServerSetup(t, readErrorCh)
+	p, _, doneChan := testProbeServerSetup(t, readErrorCh)
+	defer close(doneChan)
 
 	total, success := make(map[string]int64), make(map[string]int64)
 	// Local pipe close
