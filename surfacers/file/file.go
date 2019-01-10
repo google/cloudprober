@@ -140,7 +140,8 @@ func compressBytes(inBytes []byte) (string, error) {
 func (c *compressionBuffer) flush() {
 	// Retrieve bytes from the buffer (c.buf) and reset it.
 	c.Lock()
-	inBytes := c.buf.Bytes()
+	inBytes := make([]byte, len(c.buf.Bytes()))
+	copy(inBytes, c.buf.Bytes())
 	c.buf.Reset()
 	c.lines = 0
 	c.Unlock()
