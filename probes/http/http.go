@@ -266,9 +266,11 @@ func (p *Probe) httpRequest(req *http.Request, result *probeRunResult) {
 	}
 }
 
-func (p *Probe) runProbe(resultsChan chan<- probeutils.ProbeResult) {
+func (p *Probe) runProbe(ctx context.Context, resultsChan chan<- probeutils.ProbeResult) {
 	// Refresh the list of targets to probe.
 	p.targets = p.opts.Targets.List()
+	reqCtx, cancelReqCtx := context.WithTimeout(ctx, p.opts.Timeout)
+	defer cancelReqCtx()
 
 	wg := sync.WaitGroup{}
 	for _, target := range p.targets {
@@ -307,7 +309,7 @@ func (p *Probe) runProbe(resultsChan chan<- probeutils.ProbeResult) {
 			}
 
 			for i := 0; i < int(p.c.GetRequestsPerProbe()); i++ {
-				p.httpRequest(req, &result)
+				p.httpRequest(req.WithContext(reqCtx), &result)
 				time.Sleep(time.Duration(p.c.GetRequestsIntervalMsec()) * time.Millisecond)
 			}
 			resultsChan <- result
@@ -343,6 +345,6 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 			return
 		default:
 		}
-		p.runProbe(resultsChan)
+		p.runProbe(ctx, resultsChan)
 	}
 }

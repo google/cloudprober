@@ -15,6 +15,7 @@
 package http
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -62,7 +63,7 @@ func testProbe(opts *options.Options) ([]probeRunResult, error) {
 	p.client.Transport = newTestTransport()
 
 	resultsChan := make(chan probeutils.ProbeResult, len(p.targets))
-	p.runProbe(resultsChan)
+	p.runProbe(context.Background(), resultsChan)
 
 	results := make([]probeRunResult, len(p.targets))
 	// The resultsChan output iterates through p.targets in the same order.
