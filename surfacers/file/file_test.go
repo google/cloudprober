@@ -21,6 +21,7 @@ lead to flakiness in the future.
 */
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io/ioutil"
@@ -130,6 +131,7 @@ func TestCompressBytes(t *testing.T) {
 
 func TestCompressionBufferFlush(t *testing.T) {
 	c := &compressionBuffer{
+		buf:     new(bytes.Buffer),
 		outChan: make(chan string, 1000),
 		l:       &logger.Logger{},
 	}

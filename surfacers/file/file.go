@@ -63,7 +63,7 @@ type FileSurfacer struct {
 // compressionBuffer stores the data that is ready to be compressed.
 type compressionBuffer struct {
 	sync.Mutex
-	buf     bytes.Buffer
+	buf     *bytes.Buffer
 	lines   int
 	l       *logger.Logger
 	outChan chan string
@@ -71,6 +71,7 @@ type compressionBuffer struct {
 
 func newCompressionBuffer(ctx context.Context, outf *os.File, l *logger.Logger) *compressionBuffer {
 	c := &compressionBuffer{
+		buf:     new(bytes.Buffer),
 		outChan: make(chan string, 1000),
 		l:       l,
 	}
@@ -138,11 +139,12 @@ func compressBytes(inBytes []byte) (string, error) {
 
 // flush compresses the data in buffer and writes it to outChan.
 func (c *compressionBuffer) flush() {
-	// Retrieve bytes from the buffer (c.buf) and reset it.
+	// Retrieve bytes from the buffer (c.buf) and get a new buffer for c.
 	c.Lock()
-	inBytes := make([]byte, len(c.buf.Bytes()))
-	copy(inBytes, c.buf.Bytes())
-	c.buf.Reset()
+	inBytes := c.buf.Bytes()
+
+	// Start c's new buf with the same capacity as old buf.
+	c.buf = bytes.NewBuffer(make([]byte, 0, c.buf.Cap()))
 	c.lines = 0
 	c.Unlock()
 
