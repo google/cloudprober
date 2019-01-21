@@ -45,7 +45,7 @@ More probe types can be added through cloudprober extensions (to be documented).
 ### Ping
 
 [`Code`](http://github.com/google/cloudprober/tree/master/probes/ping) | [`Config
-options`](http://github.com/google/cloudprober/tree/master/probes/ping/config.proto)
+options`](http://github.com/google/cloudprober/tree/master/probes/ping/proto/config.proto)
 
 Ping probe type implements a fast ping prober, that can probe hundreds of
 targets in parallel. Probe results are reported as number of packets sent
@@ -60,7 +60,7 @@ enable them by running the following command:
 ### HTTP
 
 [`Code`](http://github.com/google/cloudprober/tree/master/probes/http) | [`Config
-options`](http://github.com/google/cloudprober/tree/master/probes/http/config.proto)
+options`](http://github.com/google/cloudprober/tree/master/probes/http/proto/config.proto)
 
 HTTP probe is be used to send HTTP(s) requests to a target and verify that a
 response is received. Apart from core probe metrics (total, success and
@@ -70,7 +70,7 @@ marked as failed if there is a timeout.
 ### UDP
 
 [`Code`](http://github.com/google/cloudprober/tree/master/probes/udp) | [`Config
-options`](http://github.com/google/cloudprober/tree/master/probes/udp/config.proto)
+options`](http://github.com/google/cloudprober/tree/master/probes/udp/proto/config.proto)
 
 UDP probe sends a UDP packet to the configured targets. UDP probe (and all
 other probes that use ports) provides more coverage for the network elements on
@@ -81,7 +81,7 @@ each time.
 ### DNS
 
 [`Code`](http://github.com/google/cloudprober/tree/master/probes/dns) | [`Config
-options`](http://github.com/google/cloudprober/tree/master/probes/dns/config.proto)
+options`](http://github.com/google/cloudprober/tree/master/probes/dns/proto/config.proto)
 
 DNS probe type is implemented in a similar way as other probes except for that
 it sends DNS requests to the target.
@@ -89,7 +89,7 @@ it sends DNS requests to the target.
 ### External
 
 [`Code`](http://github.com/google/cloudprober/tree/master/probes/external) | [`Config
-options`](http://github.com/google/cloudprober/tree/master/probes/external/config.proto)
+options`](http://github.com/google/cloudprober/tree/master/probes/external/proto/config.proto)
 
 External probe type allows running arbitrary probes through cloudprober. For an
 external probe, actual probe logic resides in an external program; cloudprober
