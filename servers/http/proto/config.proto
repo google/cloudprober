@@ -1,9 +1,31 @@
+// Copyright 2017-2019 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 syntax = "proto2";
 
 package cloudprober.servers.http;
 
+// Next available tag = 10
 message ServerConf {
   optional int32 port = 1 [default = 3141];
+
+  // tls_cert_file and tls_key_file field should be set for HTTPS.
+  enum ProtocolType {
+    HTTP = 0;
+    HTTPS = 1;
+  }
+  optional ProtocolType protocol = 6 [default = HTTP];
 
   // Maximum duration for reading the entire request, including the body.
   optional int32 read_timeout_ms = 2 [default = 10000];  // default: 10s
@@ -14,6 +36,15 @@ message ServerConf {
   // Maximum amount of time to wait for the next request when keep-alives are
   // enabled.
   optional int32 idle_timeout_ms = 4 [default = 60000];  // default: 1m
+
+  // Certificate file to use for HTTPS servers.
+  optional string tls_cert_file = 7;
+
+  // Private key file corresponding to the certificate above.
+  optional string tls_key_file = 8;
+
+  // Disable HTTP/2 for HTTPS servers.
+  optional bool disable_http2 = 9;
 
   message PatternDataHandler {
     // Response sizes to server, e.g. 1024.

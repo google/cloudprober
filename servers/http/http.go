@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 2017-2019 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ package http
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"net"
@@ -146,6 +147,12 @@ func New(initCtx context.Context, c *configpb.ServerConf, l *logger.Logger) (*Se
 		l.Warning(err)
 	}
 
+	if c.GetProtocol() == configpb.ServerConf_HTTPS {
+		if c.GetTlsCertFile() == "" || c.GetTlsKeyFile() == "" {
+			return nil, errors.New("tls_cert_file and tls_key_file are required for HTTPS servers")
+		}
+	}
+
 	// Cleanup listener if initCtx is canceled.
 	go func() {
 		<-initCtx.Done()
@@ -188,6 +195,7 @@ func (s *Server) Start(ctx context.Context, dataChan chan<- *metrics.EventMetric
 	serverMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		s.handler(w, r, statsChan)
 	})
+
 	s.l.Infof("Starting HTTP server at: %s", laddr)
 	srv := &http.Server{
 		Addr:         laddr,
@@ -203,6 +211,15 @@ func (s *Server) Start(ctx context.Context, dataChan chan<- *metrics.EventMetric
 		srv.Close()
 	}()
 
+	// HTTP/2 is enabled by default for HTTPS servers. To disable it, TLSNextProto
+	// should be non-nil and set to an empty dict.
+	if s.c.GetDisableHttp2() {
+		srv.TLSNextProto = make(map[string]func(*http.Server, *tls.Conn, http.Handler))
+	}
+
 	// Following returns only in case of an error.
-	return srv.Serve(s.ln)
+	if s.c.GetProtocol() == configpb.ServerConf_HTTP {
+		return srv.Serve(s.ln)
+	}
+	return srv.ServeTLS(s.ln, s.c.GetTlsCertFile(), s.c.GetTlsKeyFile())
 }
