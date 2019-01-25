@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/google/cloudprober/logger"
@@ -36,24 +37,20 @@ import (
 
 const statsExportInterval = 10 * time.Second
 
-// OK a string returned as successful indication by "/", and "/healthcheck".
-const OK = "ok"
+// OK is the response returned as successful indication by "/", and "/healthcheck".
+var OK = "ok"
 
 // statsKeeper manages the stats and exports those stats at a regular basis.
 // Currently we only maintain the number of requests received per URL.
-func (s *Server) statsKeeper(name string, statsChan <-chan string) {
-	reqMetric := metrics.NewMap("url", metrics.NewInt(0))
-	em := metrics.NewEventMetrics(time.Now()).
-		AddMetric("req", reqMetric).
-		AddLabel("module", name)
+func (s *Server) statsKeeper(name string) {
 	doExport := time.Tick(s.statsInterval)
 	for {
 		select {
-		case url := <-statsChan:
-			reqMetric.IncKey(url)
 		case ts := <-doExport:
-			em.Timestamp = ts
-			s.dataChan <- em.Clone()
+			em := metrics.NewEventMetrics(ts).
+				AddMetric("req", s.reqMetric).
+				AddLabel("module", name)
+			s.dataChan <- em
 			s.l.Info(em.String())
 		}
 	}
@@ -84,7 +81,7 @@ func (s *Server) lameduckHandler(w http.ResponseWriter) {
 	if lameduck, err := s.lameduckStatus(); err != nil {
 		fmt.Fprintf(w, "HTTP Server: Error getting lameduck status: %v", err)
 	} else {
-		fmt.Fprint(w, lameduck)
+		w.Write([]byte(strconv.FormatBool(lameduck)))
 	}
 }
 
@@ -96,11 +93,11 @@ func (s *Server) healthcheckHandler(w http.ResponseWriter) {
 	if lameduck {
 		http.Error(w, "lameduck", http.StatusServiceUnavailable)
 	} else {
-		fmt.Fprint(w, OK)
+		w.Write([]byte(OK))
 	}
 }
 
-func (s *Server) handler(w http.ResponseWriter, r *http.Request, statsChan chan<- string) {
+func (s *Server) handler(w http.ResponseWriter, r *http.Request) {
 	switch r.URL.Path {
 	case "/lameduck":
 		s.lameduckHandler(w)
@@ -112,14 +109,9 @@ func (s *Server) handler(w http.ResponseWriter, r *http.Request, statsChan chan<
 			http.Error(w, "not found", http.StatusNotFound)
 			return
 		}
-		fmt.Fprint(w, res)
+		w.Write(res)
 	}
-	select {
-	case statsChan <- r.URL.Path:
-	default:
-		s.l.Warning("Was not able to send a URL to the stats channel.")
-	}
-	return
+	s.reqMetric.IncKey(r.URL.Path)
 }
 
 // Server implements a basic single-threaded, fast response web server.
@@ -127,7 +119,8 @@ type Server struct {
 	c                 *configpb.ServerConf
 	ln                net.Listener
 	instanceName      string
-	staticURLResTable map[string]string
+	staticURLResTable map[string][]byte
+	reqMetric         *metrics.Map
 	dataChan          chan<- *metrics.EventMetrics
 	statsInterval     time.Duration
 	ldLister          lameduck.Lister // Lameduck lister
@@ -160,15 +153,17 @@ func New(initCtx context.Context, c *configpb.ServerConf, l *logger.Logger) (*Se
 	}()
 
 	return &Server{
-		c:             c,
-		l:             l,
-		ln:            ln,
-		ldLister:      ldLister,
+		c:        c,
+		l:        l,
+		ln:       ln,
+		ldLister: ldLister,
+
+		reqMetric:     metrics.NewMap("url", metrics.NewInt(0)),
 		statsInterval: statsExportInterval,
 		instanceName:  sysvars.Vars()["instance"],
-		staticURLResTable: map[string]string{
-			"/":         OK,
-			"/instance": sysvars.Vars()["instance"],
+		staticURLResTable: map[string][]byte{
+			"/":         []byte(OK),
+			"/instance": []byte(sysvars.Vars()["instance"]),
 		},
 	}, nil
 }
@@ -178,24 +173,18 @@ func New(initCtx context.Context, c *configpb.ServerConf, l *logger.Logger) (*Se
 func (s *Server) Start(ctx context.Context, dataChan chan<- *metrics.EventMetrics) error {
 	s.dataChan = dataChan
 
-	// 100 outstanding stats update requests
-	statsChan := make(chan string, 100)
-
 	laddr := s.ln.Addr().String()
-	go s.statsKeeper(fmt.Sprintf("http-server-%s", laddr), statsChan)
+	go s.statsKeeper(fmt.Sprintf("http-server-%s", laddr))
 
 	for _, dh := range s.c.GetPatternDataHandler() {
 		size := int(dh.GetResponseSize())
 		resp := string(probeutils.PatternPayload([]byte(dh.GetPattern()), size))
-		s.staticURLResTable[fmt.Sprintf("/data_%d", size)] = resp
+		s.staticURLResTable[fmt.Sprintf("/data_%d", size)] = []byte(resp)
 	}
 
 	// Not using default server mux as we may run multiple HTTP servers, e.g. for testing.
 	serverMux := http.NewServeMux()
-	serverMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		s.handler(w, r, statsChan)
-	})
-
+	serverMux.HandleFunc("/", s.handler)
 	s.l.Infof("Starting HTTP server at: %s", laddr)
 	srv := &http.Server{
 		Addr:         laddr,
