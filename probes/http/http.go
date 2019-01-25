@@ -18,6 +18,7 @@ package http
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -166,6 +167,12 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		if err := p.setSourceInTransport(transport, source); err != nil {
 			return err
 		}
+	}
+
+	if p.c.GetDisableHttp2() {
+		// HTTP/2 is enabled by default if server supports it. Setting TLSNextProto
+		// to an empty dict is the only to disable it.
+		transport.TLSNextProto = make(map[string]func(string, *tls.Conn) http.RoundTripper)
 	}
 
 	// Clients are safe for concurrent use by multiple goroutines.
