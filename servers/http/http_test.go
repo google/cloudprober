@@ -59,9 +59,10 @@ func testServer(ctx context.Context, t *testing.T, insName string, ldLister lame
 		statsInterval: 2 * time.Second,
 		instanceName:  insName,
 		ldLister:      ldLister,
-		staticURLResTable: map[string]string{
-			"/":         OK,
-			"/instance": insName,
+		reqMetric:     metrics.NewMap("url", metrics.NewInt(0)),
+		staticURLResTable: map[string][]byte{
+			"/":         []byte(OK),
+			"/instance": []byte(insName),
 		},
 	}
 
