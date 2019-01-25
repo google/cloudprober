@@ -201,7 +201,7 @@ func TestSuccess(t *testing.T) {
 	}
 
 	mPkts := metrics.NewInt(pkts)
-	mPktsSuccess := metrics.NewInt(pkts - 1)
+	mPktsSuccess := metrics.NewInt(pkts)
 	wantRes := &probeRunResult{
 		target:  res.target,
 		total:   *mPkts,
@@ -230,7 +230,7 @@ func TestDiscards(t *testing.T) {
 	}
 
 	mPkts := metrics.NewInt(pkts)
-	mPktsSuccess := metrics.NewInt(pkts - 1)
+	mPktsSuccess := metrics.NewInt(pkts)
 	wantRes := &probeRunResult{
 		target:  res.target,
 		total:   *mPkts,
@@ -258,7 +258,7 @@ func TestLoss(t *testing.T) {
 	_, _, res, errs := runProbe(ctx, t, inp)
 
 	mPkts := metrics.NewInt(pkts)
-	mPktsSuccess := metrics.NewInt(pkts - 3)
+	mPktsSuccess := metrics.NewInt(pkts - 2)
 	wantRes := &probeRunResult{
 		target:  res.target,
 		total:   *mPkts,

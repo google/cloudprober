@@ -155,7 +155,7 @@ func TestSeqHandling(t *testing.T) {
 	// Receive the message and process it. Seq and srcs should match.
 	// This will be the first message for the flow:
 	//		=> Flowstate should be created.
-	// 		=> We do not expect success in the result.
+	// 		=> We expect success in the result.
 	msg, err := NewMessage(msgBytes)
 	if err != nil {
 		t.Fatalf("Error processing message: %v", err)
@@ -174,9 +174,9 @@ func TestSeqHandling(t *testing.T) {
 	if rxFS.seq != seq {
 		t.Errorf("Seq number mismatch. got %d want %d.", rxFS.seq, seq)
 	}
-	if res.Success || res.LostCount > 0 || res.Delayed {
+	if !res.Success || res.LostCount > 0 || res.Delayed {
 		t.Errorf("Success, lostCount, delayed mismatch. got (%v %v %v) want (%v %v %v)",
-			res.Success, res.LostCount, res.Delayed, false, 0, false)
+			res.Success, res.LostCount, res.Delayed, true, 0, false)
 	}
 
 	// Send a message with an older seq number.
@@ -295,16 +295,15 @@ func TestMultiplePorts(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error processing message: %v", err)
 	}
+	// Inject flow state on rx side with seq == msg.Seq - 2 (=> one lost pkt).
+	rxFS2 := rxFSM.FlowState(src, "2", dst)
+	rxFS2.seq = msg.Seq() - 2
 	res = msg.ProcessOneWay(rxFSM, rxTS)
-	rxFS2 := res.FS
-	if rxFS2 == nil || rxFSM.FlowState(src, "2", dst) != rxFS2 {
-		t.Errorf("Expected sender to appear in FlowStateMap struct, got %v", rxFSM.FlowState(src, "2", dst))
+	if rxFS2.seq != msg.Seq() {
+		t.Errorf("Flow state not updated, seq number mismatch. got %d want %d.", rxFS2.seq, msg.Seq())
 	}
-	if rxFS2.seq != seq+2 {
-		t.Errorf("Seq number mismatch. got %d want %d.", rxFS2.seq, seq+2)
-	}
-	if res.Success || res.LostCount > 0 || res.Delayed {
+	if res.Success || res.LostCount != 1 || res.Delayed {
 		t.Errorf("Success, lostCount, delayed mismatch. got (%v %v %v) want (%v %v %v)",
-			res.Success, res.LostCount, res.Delayed, false, 0, false)
+			res.Success, res.LostCount, res.Delayed, false, 1, false)
 	}
 }
