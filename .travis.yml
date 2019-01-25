@@ -3,6 +3,7 @@ matrix:
   - os: linux
     dist: trusty
   - os: osx
+    env: EXTRA_TEST_FLAGS="-tag skip_udp_probe_test"
 
 language: go
 
@@ -13,7 +14,7 @@ install:
  - go get -t ./...
 
 script:
- - go test -v -race -covermode=atomic ./...
+ - go test ${EXTRA_TEST_FLAGS} -v -race -covermode=atomic ./...
 
 go_import_path: github.com/google/cloudprober
 
