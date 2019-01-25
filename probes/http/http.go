@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 2017-2019 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -129,12 +129,32 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		p.l.Warningf("integrity_check_pattern field is now deprecated and doesn't do anything.")
 	}
 
-	// Needs to be non-nil so we can set parameters on it.
-	transport := http.DefaultTransport
+	if p.c.GetRequestsPerProbe() != 1 {
+		p.l.Warningf("requests_per_probe field is now deprecated and will be removed in future releases.")
+	}
 
-	// Keep idle connections open until we explicitly close them.
-	// This allows us to send multiple requests over the same connection.
-	transport.(*http.Transport).MaxIdleConnsPerHost = 1
+	// Create a transport for our use. This is mostly based on
+	// http.DefaultTransport with some timeouts changed.
+	// TODO(manugarg): Considering cloning DefaultTransport once
+	// https://github.com/golang/go/issues/26013 is fixed.
+	transport := &http.Transport{
+		DialContext: (&net.Dialer{
+			Timeout:   p.opts.Timeout,
+			KeepAlive: 30 * time.Second, // TCP keep-alive
+			DualStack: true,
+		}).DialContext,
+		MaxIdleConns:        256, // http.DefaultTransport.MaxIdleConns: 100.
+		TLSHandshakeTimeout: p.opts.Timeout,
+	}
+
+	// If HTTP keep-alives are not enabled (default), disable HTTP keep-alive in
+	// transport.
+	if !p.c.GetKeepAlive() {
+		transport.DisableKeepAlives = true
+	} else {
+		// If it's been more than 2 probe intervals since connection was used, close it.
+		transport.IdleConnTimeout = 2 * p.opts.Interval
+	}
 
 	// Extract source IP from config if present and set in transport.
 	if p.c.GetSource() != nil {
@@ -143,7 +163,7 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 			return err
 		}
 
-		if err := p.setSourceInTransport(transport.(*http.Transport), source); err != nil {
+		if err := p.setSourceInTransport(transport, source); err != nil {
 			return err
 		}
 	}
@@ -317,13 +337,6 @@ func (p *Probe) runProbe(ctx context.Context, resultsChan chan<- probeutils.Prob
 
 	// Wait until all probes are done.
 	wg.Wait()
-
-	// Don't re-use TCP connections between probe runs.
-	if transport, ok := p.client.Transport.(*http.Transport); ok {
-		transport.CloseIdleConnections()
-	} else {
-		p.l.Warningf("HTTP Client Transport is not http.Transport, should never happen except for testing.")
-	}
 }
 
 // Start starts and runs the probe indefinitely.
@@ -337,7 +350,7 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 	}
 	go probeutils.StatsKeeper(ctx, "http", p.name, time.Duration(p.c.GetStatsExportIntervalMsec())*time.Millisecond, targetsFunc, resultsChan, dataChan, p.l)
 
-	for _ = range time.Tick(p.opts.Interval) {
+	for range time.Tick(p.opts.Interval) {
 		// Don't run another probe if context is canceled already.
 		select {
 		case <-ctx.Done():
