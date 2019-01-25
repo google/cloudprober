@@ -3,7 +3,7 @@ matrix:
   - os: linux
     dist: trusty
   - os: osx
-    env: EXTRA_TEST_FLAGS="-tag skip_udp_probe_test"
+    env: EXTRA_TEST_FLAGS="-tags skip_udp_probe_test"
 
 language: go
 
