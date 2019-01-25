@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Workaround to skip UDP tests using a tag, until
+// https://github.com/google/cloudprober/issues/199 is fixed.
+// +build !skip_udp_probe_test
+
 package udp
 
 import (
