@@ -69,8 +69,6 @@ const (
 	bytesInUint64 = 8
 	// If msgSeq - prevSeq is lesser than this number, assume src restart.
 	delayedThreshold = 300
-	// If lost count is greater than seconds in a day, assume src restart.
-	lostThreshold = 3600 * 24
 )
 
 var constants msgpb.Constants
@@ -264,14 +262,15 @@ func (m *Message) ProcessOneWay(fsm *FlowStateMap, rxTS time.Time) *Results {
 
 	msgSeq := m.Seq()
 	seqDelta := int64(msgSeq - fs.seq)
-	// Reset flow state if any of the conditions are met.
-	// a) fs.seq == 0 => first packet in sequence.
-	// b) m.Seq is too far behind => src might have been reset.
-	// c) m.Seq is too far ahead => receiver has gone out of sync for some reason.
-	if fs.seq == 0 || seqDelta <= -delayedThreshold || seqDelta > lostThreshold {
+	// Reset flow state and declare success if any of the conditions are met.
+	// 	a) msg.seq == 1 => sender likely restarted.
+	//  b) fs.seq == 0  => listener restarted and flow state begins at 0
+	//  c) msg.seq too far behind fs.seq => unlikely to be a delayed msg.
+	if msgSeq == 1 || fs.seq == 0 || seqDelta <= -delayedThreshold {
 		fs.seq = msgSeq
 		fs.msgTS = srcTS
 		fs.rxTS = rxTS
+		res.Success = true
 		return res
 	}
 
