@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 2017-2019 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -421,5 +421,28 @@ func TestSendRequest(t *testing.T) {
 	}
 	if got, want := opts[0].GetValue(), target; got != target {
 		t.Errorf("opts[0].GetValue() = %q, want %q", got, want)
+	}
+}
+
+func TestLatencyForTarget(t *testing.T) {
+	p := &Probe{}
+	err := p.Init("testprobe", &options.Options{
+		ProbeConf: &configpb.ProbeConf{},
+		Targets:   targets.StaticTargets("2.2.2.2"),
+	})
+	if err != nil {
+		t.Fatalf("Got error from newProbe: %v", err)
+	}
+
+	latVal := p.latencyForTarget("2.2.2.2")
+	if _, ok := latVal.(*metrics.Float); !ok {
+		t.Errorf("latency value type is not metrics.Float: %v", latVal)
+	}
+
+	// Test with latency distribution option set.
+	p.opts.LatencyDist = metrics.NewDistribution([]float64{0.1, 0.2, 0.5})
+	latVal = p.latencyForTarget("3.3.3.3")
+	if _, ok := latVal.(*metrics.Distribution); !ok {
+		t.Errorf("latency value type is not metrics.Distribution: %v", latVal)
 	}
 }

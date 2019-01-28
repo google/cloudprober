@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 2017-2019 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -82,7 +82,7 @@ type Probe struct {
 	replyChan  chan *serverpb.ProbeReply
 	success    map[string]int64         // total probe successes
 	total      map[string]int64         // total number of probes
-	latency    map[string]time.Duration // cumulative probe latency, in microseconds.
+	latency    map[string]metrics.Value // cumulative probe latency, in microseconds.
 
 	// EventMetrics created from external probe process output
 	defaultPayloadMetrics *metrics.EventMetrics
@@ -135,7 +135,7 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 
 	p.success = make(map[string]int64)
 	p.total = make(map[string]int64)
-	p.latency = make(map[string]time.Duration)
+	p.latency = make(map[string]metrics.Value)
 
 	p.payloadMetrics = make(map[string]*metrics.EventMetrics)
 	return p.initPayloadMetrics()
@@ -276,11 +276,27 @@ func (p *Probe) readProbeReplies(done chan struct{}) error {
 
 }
 
+func (p *Probe) latencyForTarget(target string) metrics.Value {
+	if val, ok := p.latency[target]; ok {
+		return val
+	}
+
+	var latencyValue metrics.Value
+	if p.opts.LatencyDist != nil {
+		latencyValue = p.opts.LatencyDist.Clone()
+	} else {
+		latencyValue = metrics.NewFloat(0)
+	}
+	p.latency[target] = latencyValue
+
+	return latencyValue
+}
+
 func (p *Probe) defaultMetrics(target string) *metrics.EventMetrics {
 	return metrics.NewEventMetrics(time.Now()).
 		AddMetric("success", metrics.NewInt(p.success[target])).
 		AddMetric("total", metrics.NewInt(p.total[target])).
-		AddMetric("latency", metrics.NewFloat(p.latency[target].Seconds()/p.opts.LatencyUnit.Seconds())).
+		AddMetric("latency", p.latencyForTarget(target)).
 		AddLabel("ptype", "external").
 		AddLabel("probe", p.name).
 		AddLabel("dst", target)
@@ -378,7 +394,7 @@ func (p *Probe) runServerProbe(ctx context.Context, dataChan chan *metrics.Event
 					p.l.Errorf("Probe for target %v failed with error message: %s", reqInfo.target, rep.GetErrorMessage())
 				} else {
 					p.success[reqInfo.target]++
-					p.latency[reqInfo.target] += time.Since(reqInfo.timestamp)
+					p.latencyForTarget(reqInfo.target).AddFloat64(time.Since(reqInfo.timestamp).Seconds() / p.opts.LatencyUnit.Seconds())
 				}
 				em := p.defaultMetrics(reqInfo.target)
 				dataChan <- em
@@ -441,7 +457,7 @@ func (p *Probe) runOnceProbe(ctx context.Context, dataChan chan *metrics.EventMe
 				}
 			} else {
 				p.success[target]++
-				p.latency[target] += time.Since(startTime)
+				p.latencyForTarget(target).AddFloat64(time.Since(startTime).Seconds() / p.opts.LatencyUnit.Seconds())
 			}
 
 			em := p.defaultMetrics(target)
@@ -470,7 +486,7 @@ func (p *Probe) runProbe(ctx context.Context, dataChan chan *metrics.EventMetric
 
 // Start starts and runs the probe indefinitely.
 func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) {
-	for _ = range time.Tick(p.opts.Interval) {
+	for range time.Tick(p.opts.Interval) {
 		// Don't run another probe if context is canceled already.
 		select {
 		case <-ctx.Done():
