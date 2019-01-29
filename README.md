@@ -61,6 +61,6 @@ mind sharing how you use it by adding a comment to the [issue #123](
 https://github.com/google/cloudprober/issues/123). It will be a great help in
 planning Cloudprober's future progression.
 
-Join [Cloudprober Group](https://groups.google.com/forum/#!forum/cloudprober) for
-discussion and release announcements.
-
+Join [Cloudprober Slack](https://cloudprober.slack.com) or [mailing list](
+https://groups.google.com/forum/#!forum/cloudprober) for questions and
+discussion about Cloudprober.
