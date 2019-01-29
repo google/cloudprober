@@ -78,7 +78,7 @@ type probeRunResult struct {
 	target            string
 	total             metrics.Int
 	success           metrics.Int
-	latency           metrics.Float
+	latency           metrics.Value
 	timeouts          metrics.Int
 	validationFailure *metrics.Map
 }
@@ -88,7 +88,7 @@ func (prr probeRunResult) Metrics() *metrics.EventMetrics {
 	return metrics.NewEventMetrics(time.Now()).
 		AddMetric("total", &prr.total).
 		AddMetric("success", &prr.success).
-		AddMetric("latency", &prr.latency).
+		AddMetric("latency", prr.latency).
 		AddMetric("timeouts", &prr.timeouts).
 		AddMetric("validation_failure", prr.validationFailure)
 }
@@ -202,6 +202,12 @@ func (p *Probe) runProbe(resultsChan chan<- probeutils.ProbeResult) {
 			result := probeRunResult{
 				target:            target,
 				validationFailure: metrics.NewMap("validator", &metrics.Int{}),
+			}
+
+			if p.opts.LatencyDist != nil {
+				result.latency = p.opts.LatencyDist.Clone()
+			} else {
+				result.latency = metrics.NewFloat(0)
 			}
 
 			fullTarget := net.JoinHostPort(target, "53")
