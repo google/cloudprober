@@ -141,8 +141,8 @@ func (p *Probe) configureIntegrityCheck() error {
 		return nil
 	}
 
-	if p.opts.Validators["data-integrity"] != nil {
-		p.l.Warningf("Not adding data-integrity validator as there is already a validator with the name \"data-integrity\": %v", p.opts.Validators["data-integrity"])
+	if p.opts.Validators[dataIntegrityKey] != nil {
+		p.l.Warningf("Not adding data-integrity validator as there is already a validator with the name \"%s\": %v", dataIntegrityKey, p.opts.Validators[dataIntegrityKey])
 		return nil
 	}
 
@@ -238,6 +238,7 @@ func (p *Probe) packetToSend(runID, seq uint16) []byte {
 	if p.ipVer == 6 {
 		typ = ipv6.ICMPTypeEchoRequest
 	}
+
 	pbytes, err := (&icmp.Message{
 		Type: typ, Code: 0,
 		Body: &icmp.Echo{
@@ -245,6 +246,7 @@ func (p *Probe) packetToSend(runID, seq uint16) []byte {
 			Data: timeToBytes(time.Now(), int(p.c.GetPayloadSize())),
 		},
 	}).Marshal(nil)
+
 	if err != nil {
 		// It should never happen.
 		p.l.Criticalf("Error marshalling the ICMP message. Err: %v", err)
@@ -254,7 +256,8 @@ func (p *Probe) packetToSend(runID, seq uint16) []byte {
 
 func (p *Probe) sendPackets(runID uint16, tracker chan bool) {
 	seq := runID & uint16(0xff00)
-	for i := int32(0); i < p.c.GetPacketsPerProbe(); i++ {
+	packetsSent := int32(0)
+	for {
 		for _, target := range p.targets {
 			if p.target2addr[target] == nil {
 				p.l.Debugf("Skipping unresolved target: %s", target)
@@ -267,6 +270,11 @@ func (p *Probe) sendPackets(runID uint16, tracker chan bool) {
 			}
 			tracker <- true
 			p.sent[target]++
+		}
+
+		packetsSent++
+		if packetsSent >= p.c.GetPacketsPerProbe() {
+			break
 		}
 		seq++
 		time.Sleep(time.Duration(p.c.GetPacketsIntervalMsec()) * time.Millisecond)
