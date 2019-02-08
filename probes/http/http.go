@@ -334,8 +334,15 @@ func (p *Probe) runProbe(ctx context.Context, resultsChan chan<- probeutils.Prob
 				req.Header.Set(header.GetName(), header.GetValue())
 			}
 
-			for i := 0; i < int(p.c.GetRequestsPerProbe()); i++ {
+			numRequests := int32(0)
+			for {
 				p.httpRequest(req.WithContext(reqCtx), &result)
+
+				numRequests++
+				if numRequests >= p.c.GetRequestsPerProbe() {
+					break
+				}
+				// Sleep for requests_interval_msec before continuing.
 				time.Sleep(time.Duration(p.c.GetRequestsIntervalMsec()) * time.Millisecond)
 			}
 			resultsChan <- result
