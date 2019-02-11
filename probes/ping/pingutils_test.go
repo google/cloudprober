@@ -7,7 +7,7 @@ import (
 )
 
 func TestTimeToBytes(t *testing.T) {
-	ti := time.Now()
+	ti := time.Now().UnixNano()
 
 	timeBytes := timeToBytes(ti, 8)
 
@@ -28,8 +28,8 @@ func TestTimeToBytes(t *testing.T) {
 
 		// Verify that time bytes are intact.
 		ts := bytesToTime(bytesBuf)
-		if ts.UnixNano() != ti.UnixNano() {
-			t.Errorf("Got incorrect timestamp: %d, expected: %d", ts.UnixNano(), ti.UnixNano())
+		if ts != ti {
+			t.Errorf("Got incorrect timestamp: %d, expected: %d", ts, ti)
 		}
 	}
 }
