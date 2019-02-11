@@ -243,7 +243,7 @@ func (p *Probe) packetToSend(runID, seq uint16) []byte {
 		Type: typ, Code: 0,
 		Body: &icmp.Echo{
 			ID: int(runID), Seq: int(seq),
-			Data: timeToBytes(time.Now(), int(p.c.GetPayloadSize())),
+			Data: timeToBytes(time.Now().UnixNano(), int(p.c.GetPayloadSize())),
 		},
 	}).Marshal(nil)
 
@@ -283,11 +283,13 @@ func (p *Probe) sendPackets(runID uint16, tracker chan bool) {
 	close(tracker)
 }
 
-func (p *Probe) fetchPacket(pktbuf []byte) (net.IP, *icmp.Message, error) {
+func (p *Probe) fetchPacket(pktbuf []byte) (net.IP, *icmp.Message, int64, error) {
 	n, peer, err := p.conn.read(pktbuf)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, 0, err
 	}
+	fetchTime := time.Now().UnixNano()
+
 	var peerIP net.IP
 	switch peer := peer.(type) {
 	case *net.UDPAddr:
@@ -301,9 +303,9 @@ func (p *Probe) fetchPacket(pktbuf []byte) (net.IP, *icmp.Message, error) {
 	}
 	m, err := icmp.ParseMessage(proto, pktbuf[:n])
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, 0, err
 	}
-	return peerIP, m, nil
+	return peerIP, m, fetchTime, nil
 }
 
 func (p *Probe) recvPackets(runID uint16, tracker chan bool) {
@@ -327,7 +329,7 @@ func (p *Probe) recvPackets(runID uint16, tracker chan bool) {
 				return
 			}
 		}
-		peerIP, m, err := p.fetchPacket(pktbuf)
+		peerIP, m, fetchTime, err := p.fetchPacket(pktbuf)
 		if err != nil {
 			p.l.Warning(err.Error())
 			if neterr, ok := err.(*net.OpError); ok && neterr.Timeout() {
@@ -349,7 +351,7 @@ func (p *Probe) recvPackets(runID uint16, tracker chan bool) {
 			continue
 		}
 
-		rtt := time.Since(bytesToTime(pkt.Data))
+		rtt := time.Duration(fetchTime-bytesToTime(pkt.Data)) * time.Nanosecond
 
 		// check if this packet belongs to this run
 		if !matchPacket(runID, pkt.ID, pkt.Seq, p.c.GetUseDatagramSocket()) {

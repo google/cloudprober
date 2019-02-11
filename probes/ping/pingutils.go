@@ -17,15 +17,13 @@ package ping
 import (
 	"fmt"
 	"net"
-	"time"
 
 	"github.com/google/cloudprober/probes/probeutils"
 )
 
 const timeBytesSize = 8
 
-func timeToBytes(t time.Time, size int) []byte {
-	nsec := t.UnixNano()
+func timeToBytes(unixNano int64, size int) []byte {
 	var timeBytes [timeBytesSize]byte
 	for i := uint8(0); i < timeBytesSize; i++ {
 		// To get timeBytes:
@@ -33,17 +31,17 @@ func timeToBytes(t time.Time, size int) []byte {
 		// 1st byte - shift bits by 48 (6*8) bits, AND with 0xff to get the last 8 bits
 		// ... ...
 		// 7th byte - shift bits by 0 (0*8) bits, AND with 0xff to get the last 8 bits
-		timeBytes[i] = byte((nsec >> ((timeBytesSize - i - 1) * timeBytesSize)) & 0xff)
+		timeBytes[i] = byte((unixNano >> ((timeBytesSize - i - 1) * timeBytesSize)) & 0xff)
 	}
 	return probeutils.PatternPayload(timeBytes[:], size)
 }
 
-func bytesToTime(b []byte) time.Time {
-	var nsec int64
+func bytesToTime(b []byte) int64 {
+	var unixNano int64
 	for i := uint8(0); i < timeBytesSize; i++ {
-		nsec += int64(b[i]) << ((timeBytesSize - i - 1) * timeBytesSize)
+		unixNano += int64(b[i]) << ((timeBytesSize - i - 1) * timeBytesSize)
 	}
-	return time.Unix(0, nsec)
+	return unixNano
 }
 
 // ipVersion tells if an IP address is IPv4 or IPv6.
