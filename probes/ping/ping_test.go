@@ -216,7 +216,7 @@ func newProbe(c *configpb.ProbeConf, t []string) (*Probe, error) {
 		latency:           make(map[string]metrics.Value),
 		validationFailure: make(map[string]*metrics.Map),
 
-		ip2target:   make(map[string]string),
+		ip2target:   make(map[[16]byte]string),
 		target2addr: make(map[string]net.Addr),
 	}
 

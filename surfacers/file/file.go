@@ -23,6 +23,8 @@ import (
 	"encoding/base64"
 	"fmt"
 	"os"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -111,7 +113,7 @@ func (c *compressionBuffer) writeLine(line string) {
 	triggerFlush := false
 
 	c.Lock()
-	c.buf.WriteString(line + "\n")
+	c.buf.WriteString(line)
 	c.lines++
 	if c.lines >= compressionBufferMaxLines {
 		triggerFlush = true
@@ -191,17 +193,23 @@ func (s *FileSurfacer) processInput(ctx context.Context) {
 		select {
 		// Write the EventMetrics to file as string.
 		case em := <-s.inChan:
-			emStr := fmt.Sprintf("%s %d %s", s.c.GetPrefix(), s.id, em.String())
+			var emStr strings.Builder
+			emStr.WriteString(s.c.GetPrefix())
+			emStr.WriteByte(' ')
+			emStr.WriteString(strconv.FormatInt(s.id, 10))
+			emStr.WriteByte(' ')
+			emStr.WriteString(em.String())
+			emStr.WriteByte('\n')
 			s.id++
 
 			// If compression is not enabled, write line to file and continue.
 			if !s.c.GetCompressionEnabled() {
-				if _, err := fmt.Fprintln(s.outf, emStr); err != nil {
+				if _, err := s.outf.WriteString(emStr.String()); err != nil {
 					s.l.Errorf("Unable to write data to %s. Err: %v", s.c.GetFilePath(), err)
 				}
 				continue
 			}
-			s.compressionBuffer.writeLine(emStr)
+			s.compressionBuffer.writeLine(emStr.String())
 
 		case <-ctx.Done():
 			return

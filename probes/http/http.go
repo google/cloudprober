@@ -24,6 +24,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -260,7 +261,7 @@ func (p *Probe) httpRequest(req *http.Request, result *probeRunResult) {
 
 	// Calling Body.Close() allows the TCP connection to be reused.
 	resp.Body.Close()
-	result.respCodes.IncKey(fmt.Sprintf("%d", resp.StatusCode))
+	result.respCodes.IncKey(strconv.FormatInt(int64(resp.StatusCode), 10))
 
 	if p.opts.Validators != nil {
 		validationFailed := false
