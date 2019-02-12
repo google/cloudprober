@@ -82,7 +82,7 @@ type Probe struct {
 	conn              icmpConn
 	runCnt            uint64
 	target2addr       map[string]net.Addr
-	ip2target         map[string]string
+	ip2target         map[[16]byte]string
 }
 
 // Init initliazes the probe with the given params.
@@ -106,7 +106,7 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	p.received = make(map[string]int64)
 	p.latency = make(map[string]metrics.Value)
 	p.validationFailure = make(map[string]*metrics.Map)
-	p.ip2target = make(map[string]string)
+	p.ip2target = make(map[[16]byte]string)
 	p.target2addr = make(map[string]net.Addr)
 
 	if err := p.configureIntegrityCheck(); err != nil {
@@ -219,7 +219,7 @@ func (p *Probe) resolveTargets() {
 			a = &net.UDPAddr{IP: ip}
 		}
 		p.target2addr[t] = a
-		p.ip2target[ip.String()] = t
+		p.ip2target[ipToKey(ip)] = t
 	}
 }
 
@@ -308,8 +308,14 @@ func (p *Probe) fetchPacket(pktbuf []byte) (net.IP, *icmp.Message, int64, error)
 	return peerIP, m, fetchTime, nil
 }
 
+// We use it to keep track of received packets in recvPackets.
+type packetKey struct {
+	target string
+	seqNo  int
+}
+
 func (p *Probe) recvPackets(runID uint16, tracker chan bool) {
-	received := make(map[string]bool)
+	received := make(map[packetKey]bool)
 	outstandingPkts := 0
 	p.conn.setReadDeadline(time.Now().Add(p.opts.Timeout))
 	pktbuf := make([]byte, 1500)
@@ -336,7 +342,7 @@ func (p *Probe) recvPackets(runID uint16, tracker chan bool) {
 				return
 			}
 		}
-		target := p.ip2target[peerIP.String()]
+		target := p.ip2target[ipToKey(peerIP)]
 		if target == "" {
 			p.l.Debugf("Got a packet from a peer that's not one of my targets: %s\n", peerIP.String())
 			continue
@@ -359,7 +365,7 @@ func (p *Probe) recvPackets(runID uint16, tracker chan bool) {
 			continue
 		}
 
-		key := fmt.Sprintf("%s_%d", target, pkt.Seq)
+		key := packetKey{target, pkt.Seq}
 		// Check if we have already seen this packet.
 		if received[key] {
 			p.l.Infof("Duplicate reply from=%s id=%d seq=%d rtt=%s (DUP)", target, pkt.ID, pkt.Seq, rtt)
@@ -399,7 +405,6 @@ func (p *Probe) recvPackets(runID uint16, tracker chan bool) {
 
 		p.received[target]++
 		p.latencyForTarget(target).AddFloat64(rtt.Seconds() / p.opts.LatencyUnit.Seconds())
-		p.l.Debugf("Reply from=%s id=%d seq=%d rtt=%s", target, pkt.ID, pkt.Seq, rtt)
 	}
 }
 

@@ -74,3 +74,8 @@ func resolveAddr(t string, ver int) (net.IP, error) {
 	}
 	return nil, fmt.Errorf("no good IPs found for the ip version (%d). IPs found: %q", ver, ips)
 }
+
+func ipToKey(ip net.IP) (key [16]byte) {
+	copy(key[:], ip.To16())
+	return
+}

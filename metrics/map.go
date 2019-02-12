@@ -17,7 +17,6 @@ package metrics
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"sort"
 	"sync"
 )
@@ -153,10 +152,10 @@ func (m *Map) String() string {
 	defer m.mu.RUnlock()
 
 	var buf bytes.Buffer
-	buf.WriteString(fmt.Sprintf("map:%s", m.MapName))
+	buf.WriteString("map:" + m.MapName)
 
 	for _, k := range m.keys {
-		buf.WriteString(fmt.Sprintf(",%s:%s", k, m.m[k].String()))
+		buf.WriteString("," + k + ":" + m.m[k].String())
 	}
 	return buf.String()
 }
