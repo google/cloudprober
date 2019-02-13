@@ -26,8 +26,6 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
-	"github.com/google/cloudprober/logger"
-	"github.com/google/cloudprober/metrics"
 	"github.com/google/cloudprober/probes/options"
 	configpb "github.com/google/cloudprober/probes/ping/proto"
 	"github.com/google/cloudprober/probes/probeutils"
@@ -164,8 +162,8 @@ func sendAndCheckPackets(p *Probe, t *testing.T) {
 	}
 
 	for _, target := range p.targets {
-		if int(p.sent[target]) != int(p.c.GetPacketsPerProbe()) {
-			t.Errorf("Mismatch in number of packets recorded to be sent. Sent: %d, Recorded: %d", p.c.GetPacketsPerProbe(), p.sent[target])
+		if int(p.results[target].sent) != int(p.c.GetPacketsPerProbe()) {
+			t.Errorf("Mismatch in number of packets recorded to be sent. Sent: %d, Recorded: %d", p.c.GetPacketsPerProbe(), p.results[target].sent)
 		}
 		if len(tic.sentPackets[target]) != int(p.c.GetPacketsPerProbe()) {
 			t.Errorf("Mismatch in number of packets received. Sent: %d, Got: %d", p.c.GetPacketsPerProbe(), len(tic.sentPackets[target]))
@@ -209,23 +207,8 @@ func newProbe(c *configpb.ProbeConf, t []string) (*Probe, error) {
 			Interval: 2 * time.Second,
 			Timeout:  time.Second,
 		},
-		ipVer:             int(c.GetIpVersion()),
-		l:                 &logger.Logger{},
-		sent:              make(map[string]int64),
-		received:          make(map[string]int64),
-		latency:           make(map[string]metrics.Value),
-		validationFailure: make(map[string]*metrics.Map),
-
-		ip2target:   make(map[[16]byte]string),
-		target2addr: make(map[string]net.Addr),
 	}
-
-	p.targets = p.opts.Targets.List()
-
-	if err := p.configureIntegrityCheck(); err != nil {
-		return nil, err
-	}
-	return p, p.setSourceFromConfig()
+	return p, p.initInternal()
 }
 
 type intf struct {
@@ -305,26 +288,6 @@ func TestInitSourceIP(t *testing.T) {
 		if p.source != r.want {
 			t.Errorf("Row %q: p.source = %q, want %q", r.name, p.source, r.want)
 		}
-	}
-}
-
-func TestLatencyForTarget(t *testing.T) {
-	c := &configpb.ProbeConf{}
-	p, err := newProbe(c, []string{"2.2.2.2", "3.3.3.3"})
-	if err != nil {
-		t.Fatalf("Got error from newProbe: %v", err)
-	}
-
-	latVal := p.latencyForTarget("2.2.2.2")
-	if _, ok := latVal.(*metrics.Float); !ok {
-		t.Errorf("latency value type is not metrics.Float: %v", latVal)
-	}
-
-	// Test with latency distribution option set.
-	p.opts.LatencyDist = metrics.NewDistribution([]float64{0.1, 0.2, 0.5})
-	latVal = p.latencyForTarget("3.3.3.3")
-	if _, ok := latVal.(*metrics.Distribution); !ok {
-		t.Errorf("latency value type is not metrics.Distribution: %v", latVal)
 	}
 }
 
@@ -408,9 +371,9 @@ func TestRunProbe(t *testing.T) {
 	p.conn = newTestICMPConn(c, p.targets)
 	p.runProbe()
 	for _, target := range p.targets {
-		glog.Infof("target: %s, sent: %d, received: %d, total_rtt: %s", target, p.sent[target], p.received[target], p.latency[target])
-		if p.sent[target] == 0 || (p.sent[target] != p.received[target]) {
-			t.Errorf("We are leaking packets. Sent: %d, Received: %d", p.sent[target], p.received[target])
+		glog.Infof("target: %s, sent: %d, received: %d, total_rtt: %s", target, p.results[target].sent, p.results[target].rcvd, p.results[target].latency)
+		if p.results[target].sent == 0 || (p.results[target].sent != p.results[target].rcvd) {
+			t.Errorf("We are leaking packets. Sent: %d, Received: %d", p.results[target].sent, p.results[target].rcvd)
 		}
 	}
 }
@@ -427,9 +390,9 @@ func TestRunProbeIPv6(t *testing.T) {
 	p.conn = newTestICMPConn(c, p.targets)
 	p.runProbe()
 	for _, target := range p.targets {
-		glog.Infof("target: %s, sent: %d, received: %d, total_rtt: %s", target, p.sent[target], p.received[target], p.latency[target])
-		if p.sent[target] == 0 || (p.sent[target] != p.received[target]) {
-			t.Errorf("We are leaking packets. Sent: %d, Received: %d", p.sent[target], p.received[target])
+		glog.Infof("target: %s, sent: %d, received: %d, total_rtt: %s", target, p.results[target].sent, p.results[target].rcvd, p.results[target].latency)
+		if p.results[target].sent == 0 || (p.results[target].sent != p.results[target].rcvd) {
+			t.Errorf("We are leaking packets. Sent: %d, Received: %d", p.results[target].sent, p.results[target].rcvd)
 		}
 	}
 }
@@ -446,9 +409,9 @@ func TestRunProbeDatagram(t *testing.T) {
 	p.conn = newTestICMPConn(c, p.targets)
 	p.runProbe()
 	for _, target := range p.targets {
-		glog.Infof("target: %s, sent: %d, received: %d, total_rtt: %s", target, p.sent[target], p.received[target], p.latency[target])
-		if p.sent[target] == 0 || (p.sent[target] != p.received[target]) {
-			t.Errorf("We are leaking packets. Sent: %d, Received: %d", p.sent[target], p.received[target])
+		glog.Infof("target: %s, sent: %d, received: %d, total_rtt: %s", target, p.results[target].sent, p.results[target].rcvd, p.results[target].latency)
+		if p.results[target].sent == 0 || (p.results[target].sent != p.results[target].rcvd) {
+			t.Errorf("We are leaking packets. Sent: %d, Received: %d", p.results[target].sent, p.results[target].rcvd)
 		}
 	}
 }
@@ -466,9 +429,9 @@ func TestRunProbeIPv6Datagram(t *testing.T) {
 	p.conn = newTestICMPConn(c, p.targets)
 	p.runProbe()
 	for _, target := range p.targets {
-		glog.Infof("target: %s, sent: %d, received: %d, total_rtt: %s", target, p.sent[target], p.received[target], p.latency[target])
-		if p.sent[target] == 0 || (p.sent[target] != p.received[target]) {
-			t.Errorf("We are leaking packets. Sent: %d, Received: %d", p.sent[target], p.received[target])
+		glog.Infof("target: %s, sent: %d, received: %d, total_rtt: %s", target, p.results[target].sent, p.results[target].rcvd, p.results[target].latency)
+		if p.results[target].sent == 0 || (p.results[target].sent != p.results[target].rcvd) {
+			t.Errorf("We are leaking packets. Sent: %d, Received: %d", p.results[target].sent, p.results[target].rcvd)
 		}
 	}
 }
@@ -490,10 +453,10 @@ func TestDataIntegrityValidation(t *testing.T) {
 	sent := make(map[string]int64)
 	rcvd := make(map[string]int64)
 	for _, target := range p.targets {
-		sent[target] = p.sent[target]
-		rcvd[target] = p.received[target]
+		sent[target] = p.results[target].sent
+		rcvd[target] = p.results[target].rcvd
 
-		glog.Infof("target: %s, sent: %d, received: %d, total_rtt: %s", target, sent[target], rcvd[target], p.latency[target])
+		glog.Infof("target: %s, sent: %d, received: %d, total_rtt: %s", target, sent[target], rcvd[target], p.results[target].latency)
 		if sent[target] == 0 || (sent[target] != rcvd[target]) {
 			t.Errorf("We are leaking packets. Sent: %d, Received: %d", sent[target], rcvd[target])
 		}
@@ -505,15 +468,15 @@ func TestDataIntegrityValidation(t *testing.T) {
 	// Run probe again, this time we should see data integrity validation failures.
 	p.runProbe()
 	for _, target := range p.targets {
-		glog.Infof("target: %s, sent: %d, received: %d, total_rtt: %s", target, p.sent[target], p.received[target], p.latency[target])
+		glog.Infof("target: %s, sent: %d, received: %d, total_rtt: %s", target, p.results[target].sent, p.results[target].rcvd, p.results[target].latency)
 
 		// Verify that we didn't increased the received counter.
-		if p.received[target] != rcvd[target] {
-			t.Errorf("Unexpected change in received packets. Got: %d, Expected: %d", p.received[target], rcvd[target])
+		if p.results[target].rcvd != rcvd[target] {
+			t.Errorf("Unexpected change in received packets. Got: %d, Expected: %d", p.results[target].rcvd, rcvd[target])
 		}
 
 		// Verify that we increased the validation failure counter.
-		expectedFailures := p.sent[target] - p.received[target]
+		expectedFailures := p.results[target].sent - p.results[target].rcvd
 		gotFailures := p.validationFailure[target].GetKey(dataIntegrityKey).Int64()
 		if p.validationFailure[target].GetKey(dataIntegrityKey).Int64() != expectedFailures {
 			t.Errorf("p.validationFailure[%s].GetKey(%s)=%d, expected=%d", target, dataIntegrityKey, gotFailures, expectedFailures)

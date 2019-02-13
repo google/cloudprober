@@ -63,6 +63,11 @@ const (
 	dataIntegrityKey = "data-integrity"
 )
 
+type result struct {
+	sent, rcvd int64
+	latency    metrics.Value
+}
+
 // Probe implements a ping probe type that sends ICMP ping packets to the targets and reports
 // back statistics on packets sent, received and the rtt.
 type Probe struct {
@@ -75,14 +80,13 @@ type Probe struct {
 	source            string
 	ipVer             int
 	targets           []string
-	sent              map[string]int64
-	received          map[string]int64
-	latency           map[string]metrics.Value
+	results           map[string]*result
 	validationFailure map[string]*metrics.Map
 	conn              icmpConn
 	runCnt            uint64
 	target2addr       map[string]net.Addr
 	ip2target         map[[16]byte]string
+	useDatagramSocket bool
 }
 
 // Init initliazes the probe with the given params.
@@ -91,48 +95,38 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	if !ok {
 		return errors.New("no ping config")
 	}
+	p.c = c
 	p.name = name
 	p.opts = opts
-	if p.l = opts.Logger; p.l == nil {
-		p.l = &logger.Logger{}
-	}
-	p.c = c
-
-	if p.c.GetPayloadSize() < 8 {
-		return fmt.Errorf("payload_size (%d) cannot be smaller than 8", p.c.GetPayloadSize())
-	}
-	p.ipVer = int(p.c.GetIpVersion())
-	p.sent = make(map[string]int64)
-	p.received = make(map[string]int64)
-	p.latency = make(map[string]metrics.Value)
-	p.validationFailure = make(map[string]*metrics.Map)
-	p.ip2target = make(map[[16]byte]string)
-	p.target2addr = make(map[string]net.Addr)
-
-	if err := p.configureIntegrityCheck(); err != nil {
-		return err
-	}
-
-	if err := p.setSourceFromConfig(); err != nil {
+	if err := p.initInternal(); err != nil {
 		return err
 	}
 	return p.listen()
 }
 
-func (p *Probe) latencyForTarget(target string) metrics.Value {
-	if val, ok := p.latency[target]; ok {
-		return val
+// Helper function to initialize internal data structures, used by tests.
+func (p *Probe) initInternal() error {
+	if p.l = p.opts.Logger; p.l == nil {
+		p.l = &logger.Logger{}
 	}
 
-	var latencyValue metrics.Value
-	if p.opts.LatencyDist != nil {
-		latencyValue = p.opts.LatencyDist.Clone()
-	} else {
-		latencyValue = metrics.NewFloat(0)
+	if p.c.GetPayloadSize() < 8 {
+		return fmt.Errorf("payload_size (%d) cannot be smaller than 8", p.c.GetPayloadSize())
 	}
-	p.latency[target] = latencyValue
 
-	return latencyValue
+	if err := p.configureIntegrityCheck(); err != nil {
+		return err
+	}
+
+	p.ipVer = int(p.c.GetIpVersion())
+	p.targets = p.opts.Targets.List()
+	p.results = make(map[string]*result)
+	p.validationFailure = make(map[string]*metrics.Map)
+	p.ip2target = make(map[[16]byte]string)
+	p.target2addr = make(map[string]net.Addr)
+	p.useDatagramSocket = p.c.GetUseDatagramSocket()
+
+	return p.setSourceFromConfig()
 }
 
 // Adds an integrity validator if data integrity checks are not disabled.
@@ -184,7 +178,7 @@ func (p *Probe) listen() error {
 		netProto = "ip6:ipv6-icmp"
 	}
 
-	if p.c.GetUseDatagramSocket() {
+	if p.useDatagramSocket {
 		// udp network represents datagram ICMP sockets. The name is a bit
 		// misleading, but that's what Go's icmp package uses.
 		netProto = fmt.Sprintf("udp%d", p.ipVer)
@@ -215,11 +209,25 @@ func (p *Probe) resolveTargets() {
 		p.l.Debugf("target: %s, resolved ip: %v", t, ip)
 		var a net.Addr
 		a = &net.IPAddr{IP: ip}
-		if p.c.GetUseDatagramSocket() {
+		if p.useDatagramSocket {
 			a = &net.UDPAddr{IP: ip}
 		}
 		p.target2addr[t] = a
 		p.ip2target[ipToKey(ip)] = t
+
+		// Update results map:
+		if _, ok := p.results[t]; ok {
+			continue
+		}
+		var latencyValue metrics.Value
+		if p.opts.LatencyDist != nil {
+			latencyValue = p.opts.LatencyDist.Clone()
+		} else {
+			latencyValue = metrics.NewFloat(0)
+		}
+		p.results[t] = &result{
+			latency: latencyValue,
+		}
 	}
 }
 
@@ -269,7 +277,7 @@ func (p *Probe) sendPackets(runID uint16, tracker chan bool) {
 				continue
 			}
 			tracker <- true
-			p.sent[target]++
+			p.results[target].sent++
 		}
 
 		packetsSent++
@@ -315,7 +323,8 @@ type packetKey struct {
 }
 
 func (p *Probe) recvPackets(runID uint16, tracker chan bool) {
-	received := make(map[packetKey]bool)
+	// Number of expected packets: p.c.GetPacketsPerProbe() * len(p.targets)
+	received := make(map[packetKey]bool, int(p.c.GetPacketsPerProbe())*len(p.targets))
 	outstandingPkts := 0
 	p.conn.setReadDeadline(time.Now().Add(p.opts.Timeout))
 	pktbuf := make([]byte, 1500)
@@ -342,6 +351,7 @@ func (p *Probe) recvPackets(runID uint16, tracker chan bool) {
 				return
 			}
 		}
+
 		target := p.ip2target[ipToKey(peerIP)]
 		if target == "" {
 			p.l.Debugf("Got a packet from a peer that's not one of my targets: %s\n", peerIP.String())
@@ -360,7 +370,7 @@ func (p *Probe) recvPackets(runID uint16, tracker chan bool) {
 		rtt := time.Duration(fetchTime-bytesToTime(pkt.Data)) * time.Nanosecond
 
 		// check if this packet belongs to this run
-		if !matchPacket(runID, pkt.ID, pkt.Seq, p.c.GetUseDatagramSocket()) {
+		if !matchPacket(runID, pkt.ID, pkt.Seq, p.useDatagramSocket) {
 			p.l.Infof("Reply from=%s id=%d seq=%d rtt=%s Unmatched packet, probably from the last probe run.", target, pkt.ID, pkt.Seq, rtt)
 			continue
 		}
@@ -403,8 +413,10 @@ func (p *Probe) recvPackets(runID uint16, tracker chan bool) {
 			}
 		}
 
-		p.received[target]++
-		p.latencyForTarget(target).AddFloat64(rtt.Seconds() / p.opts.LatencyUnit.Seconds())
+		// Update probe result
+		result := p.results[target]
+		result.rcvd++
+		result.latency.AddFloat64(rtt.Seconds() / p.opts.LatencyUnit.Seconds())
 	}
 }
 
@@ -472,10 +484,11 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 			continue
 		}
 		for _, t := range p.targets {
+			result := p.results[t]
 			em := metrics.NewEventMetrics(ts).
-				AddMetric("total", metrics.NewInt(p.sent[t])).
-				AddMetric("success", metrics.NewInt(p.received[t])).
-				AddMetric("latency", p.latencyForTarget(t)).
+				AddMetric("total", metrics.NewInt(result.sent)).
+				AddMetric("success", metrics.NewInt(result.rcvd)).
+				AddMetric("latency", result.latency).
 				AddLabel("ptype", "ping").
 				AddLabel("probe", p.name).
 				AddLabel("dst", t)
