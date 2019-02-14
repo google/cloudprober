@@ -1,0 +1,25 @@
+version: 1.0.{build}
+clone_folder: c:\gopath\src\github.com\google\cloudprober
+
+environment:
+  GOPATH: c:\gopath
+
+stack: go 1.11
+
+build_script:
+- cmd: >-
+    CD %GOPATH%\src\github.com\google\cloudprober\
+
+    go get -t ./...
+
+    go build ./...
+
+    go test ./...
+
+    SET CGO_ENABLED=0
+
+    go build ./cmd/cloudprober.go
+
+artifacts:
+- path: cloudprober.exe
+  name: Cloudprober Binary
