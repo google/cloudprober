@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 2017-2019 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -202,15 +202,15 @@ func (p *Probe) resolveTargets() {
 	for _, t := range p.targets {
 		ip, err := p.opts.Targets.Resolve(t, p.ipVer)
 		if err != nil {
-			p.l.Warningf("Bad target: %s. Err: %v", t, err)
+			p.l.Warning("Bad target: ", t, ". Err: ", err.Error())
 			p.target2addr[t] = nil
 			continue
 		}
-		p.l.Debugf("target: %s, resolved ip: %v", t, ip)
 		var a net.Addr
-		a = &net.IPAddr{IP: ip}
 		if p.useDatagramSocket {
 			a = &net.UDPAddr{IP: ip}
+		} else {
+			a = &net.IPAddr{IP: ip}
 		}
 		p.target2addr[t] = a
 		p.ip2target[ipToKey(ip)] = t
@@ -257,7 +257,7 @@ func (p *Probe) packetToSend(runID, seq uint16) []byte {
 
 	if err != nil {
 		// It should never happen.
-		p.l.Criticalf("Error marshalling the ICMP message. Err: %v", err)
+		p.l.Critical("Error marshalling the ICMP message. Err: ", err.Error())
 	}
 	return pbytes
 }
@@ -268,10 +268,9 @@ func (p *Probe) sendPackets(runID uint16, tracker chan bool) {
 	for {
 		for _, target := range p.targets {
 			if p.target2addr[target] == nil {
-				p.l.Debugf("Skipping unresolved target: %s", target)
+				p.l.Debug("Skipping unresolved target: ", target)
 				continue
 			}
-			p.l.Debugf("Request to=%s id=%d seq=%d", target, runID, seq)
 			if _, err := p.conn.write(p.packetToSend(runID, seq), p.target2addr[target]); err != nil {
 				p.l.Warning(err.Error())
 				continue
@@ -287,7 +286,6 @@ func (p *Probe) sendPackets(runID uint16, tracker chan bool) {
 		seq++
 		time.Sleep(time.Duration(p.c.GetPacketsIntervalMsec()) * time.Millisecond)
 	}
-	p.l.Debugf("%s: Done sending packets, closing the tracker.", p.name)
 	close(tracker)
 }
 
@@ -354,7 +352,7 @@ func (p *Probe) recvPackets(runID uint16, tracker chan bool) {
 
 		target := p.ip2target[ipToKey(peerIP)]
 		if target == "" {
-			p.l.Debugf("Got a packet from a peer that's not one of my targets: %s\n", peerIP.String())
+			p.l.Debug("Got a packet from a peer that's not one of my targets: ", peerIP.String())
 			continue
 		}
 		if m.Type != ipv4.ICMPTypeEchoReply && m.Type != ipv6.ICMPTypeEchoReply {
@@ -371,14 +369,14 @@ func (p *Probe) recvPackets(runID uint16, tracker chan bool) {
 
 		// check if this packet belongs to this run
 		if !matchPacket(runID, pkt.ID, pkt.Seq, p.useDatagramSocket) {
-			p.l.Infof("Reply from=%s id=%d seq=%d rtt=%s Unmatched packet, probably from the last probe run.", target, pkt.ID, pkt.Seq, rtt)
+			p.l.Info("Reply ", pktString(target, pkt.ID, pkt.Seq, rtt), " Unmatched packet, probably from the last probe run.")
 			continue
 		}
 
 		key := packetKey{target, pkt.Seq}
 		// Check if we have already seen this packet.
 		if received[key] {
-			p.l.Infof("Duplicate reply from=%s id=%d seq=%d rtt=%s (DUP)", target, pkt.ID, pkt.Seq, rtt)
+			p.l.Info("Duplicate reply ", pktString(target, pkt.ID, pkt.Seq, rtt), " (DUP)")
 			continue
 		}
 		received[key] = true
@@ -393,7 +391,7 @@ func (p *Probe) recvPackets(runID uint16, tracker chan bool) {
 			for name, v := range p.opts.Validators {
 				success, err := v.Validate(nil, pkt.Data)
 				if err != nil {
-					p.l.Errorf("Error while running the validator %s: %v", name, err)
+					p.l.Error("Error while running the validator ", name, ": ", err.Error())
 					continue
 				}
 

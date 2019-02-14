@@ -17,6 +17,9 @@ package ping
 import (
 	"fmt"
 	"net"
+	"strconv"
+	"strings"
+	"time"
 
 	"github.com/google/cloudprober/probes/probeutils"
 )
@@ -78,4 +81,17 @@ func resolveAddr(t string, ver int) (net.IP, error) {
 func ipToKey(ip net.IP) (key [16]byte) {
 	copy(key[:], ip.To16())
 	return
+}
+
+func pktString(peer string, id, seq int, rtt time.Duration) string {
+	var b strings.Builder
+	b.WriteString("peer=")
+	b.WriteString(peer)
+	b.WriteString(" id=")
+	b.WriteString(strconv.FormatInt(int64(id), 10))
+	b.WriteString(" seq=")
+	b.WriteString(strconv.FormatInt(int64(seq), 10))
+	b.WriteString(" rtt=")
+	b.WriteString(rtt.String())
+	return b.String()
 }
