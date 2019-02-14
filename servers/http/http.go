@@ -88,7 +88,7 @@ func (s *Server) lameduckHandler(w http.ResponseWriter) {
 func (s *Server) healthcheckHandler(w http.ResponseWriter) {
 	lameduck, err := s.lameduckStatus()
 	if err != nil {
-		s.l.Error(err)
+		s.l.Error(err.Error())
 	}
 	if lameduck {
 		http.Error(w, "lameduck", http.StatusServiceUnavailable)
@@ -137,7 +137,7 @@ func New(initCtx context.Context, c *configpb.ServerConf, l *logger.Logger) (*Se
 	// If we are not able get the default lameduck lister, we only log a warning.
 	ldLister, err := lameduck.GetDefaultLister()
 	if err != nil {
-		l.Warning(err)
+		l.Warning(err.Error())
 	}
 
 	if c.GetProtocol() == configpb.ServerConf_HTTPS {

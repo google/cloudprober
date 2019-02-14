@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 2017-2019 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,11 +18,11 @@ package logger
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/url"
 	"os"
 	"regexp"
+	"strings"
 	"time"
 
 	"cloud.google.com/go/compute/metadata"
@@ -127,39 +127,38 @@ func New(ctx context.Context, logName string) (*Logger, error) {
 	return l, nil
 }
 
-func payloadToString(payload interface{}) string {
-	switch p := payload.(type) {
-	case string:
-		return p
-	case []byte:
-		return string(p)
-	default:
-		b, err := json.Marshal(p)
-		if err != nil {
-			return fmt.Sprintf("%+v", p)
-		}
-		return string(b)
+func payloadToString(payload ...string) string {
+	if len(payload) == 1 {
+		return payload[0]
 	}
+
+	var b strings.Builder
+	for _, s := range payload {
+		b.WriteString(s)
+	}
+	return b.String()
 }
 
-// log sends payload (a JSON encodable object, string or []byte) to cloud logging. If cloud logging
-// client is not initialized (e.g. if not running on GCE) or cloud logging fails for some reason,
-// it writes logs through the traditional logger.
-func (l *Logger) log(severity logging.Severity, payload interface{}) {
-	textPayload := payloadToString(payload)
-	if len(textPayload) > MaxLogEntrySize {
+// log sends payload ([]string) to cloud logging. If cloud logging client is
+// not initialized (e.g. if not running on GCE) or cloud logging fails for some
+// reason, it writes logs through the traditional logger.
+func (l *Logger) log(severity logging.Severity, payload ...string) {
+	payloadStr := payloadToString(payload...)
+
+	if len(payloadStr) > MaxLogEntrySize {
 		truncateMsg := "... (truncated)"
 		truncateMsgLen := len(truncateMsg)
-		textPayload = textPayload[:MaxLogEntrySize-truncateMsgLen] + truncateMsg
-		payload = textPayload
+		payloadStr = payloadStr[:MaxLogEntrySize-truncateMsgLen] + truncateMsg
 	}
+
 	if l == nil || l.logc == nil {
-		genericLog(severity, textPayload)
+		genericLog(severity, payloadStr)
 		return
 	}
+
 	l.logger.Log(logging.Entry{
 		Severity: severity,
-		Payload:  payload,
+		Payload:  payloadStr,
 	})
 }
 
@@ -174,31 +173,31 @@ func (l *Logger) close() error {
 }
 
 // Debug logs messages with logging level set to "Debug".
-func (l *Logger) Debug(payload interface{}) {
+func (l *Logger) Debug(payload ...string) {
 	if *debugLog {
-		l.log(logging.Debug, payload)
+		l.log(logging.Debug, payload...)
 	}
 }
 
 // Info logs messages with logging level set to "Info".
-func (l *Logger) Info(payload interface{}) {
-	l.log(logging.Info, payload)
+func (l *Logger) Info(payload ...string) {
+	l.log(logging.Info, payload...)
 }
 
 // Warning logs messages with logging level set to "Warning".
-func (l *Logger) Warning(payload interface{}) {
-	l.log(logging.Warning, payload)
+func (l *Logger) Warning(payload ...string) {
+	l.log(logging.Warning, payload...)
 }
 
 // Error logs messages with logging level set to "Error".
-func (l *Logger) Error(payload interface{}) {
-	l.log(logging.Error, payload)
+func (l *Logger) Error(payload ...string) {
+	l.log(logging.Error, payload...)
 }
 
 // Critical logs messages with logging level set to "Critical" and
 // exits the process with error status. The buffer is flushed before exiting.
-func (l *Logger) Critical(payload interface{}) {
-	l.log(logging.Critical, payload)
+func (l *Logger) Critical(payload ...string) {
+	l.log(logging.Critical, payload...)
 	if err := l.close(); err != nil {
 		panic(fmt.Sprintf("could not close client: %v", err))
 	}
