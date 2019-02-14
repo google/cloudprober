@@ -66,7 +66,7 @@ func TestParseStatusCodeConfig(t *testing.T) {
 	for _, s := range invalidTestStr {
 		numRanges, err := parseStatusCodeConfig(s)
 		if err == nil {
-			t.Errorf("parseStatusCodeConfig(%s): expected error but got response: %q", s, numRanges)
+			t.Errorf("parseStatusCodeConfig(%s): expected error but got response: %v", s, numRanges)
 		}
 	}
 }

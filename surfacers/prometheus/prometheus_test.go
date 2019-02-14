@@ -46,11 +46,11 @@ func verify(t *testing.T, ps *PromSurfacer, expectedMetrics map[string]testData)
 	for k, td := range expectedMetrics {
 		pm := ps.metrics[td.metricName]
 		if pm == nil {
-			t.Errorf("Metric %s not found in the prometheus metrics: %q", k, ps.metrics)
+			t.Errorf("Metric %s not found in the prometheus metrics: %v", k, ps.metrics)
 			continue
 		}
 		if pm.data[k] == nil {
-			t.Errorf("Data key %s not found in the prometheus metrics: %q", k, pm.data)
+			t.Errorf("Data key %s not found in the prometheus metrics: %v", k, pm.data)
 			continue
 		}
 		if pm.data[k].value != td.value {
