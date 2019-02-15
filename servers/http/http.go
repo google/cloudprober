@@ -65,10 +65,7 @@ func (s *Server) lameduckStatus() (bool, error) {
 		return false, errors.New("lameduck lister not initialized")
 	}
 
-	lameducksList, err := s.ldLister.List()
-	if err != nil {
-		return false, fmt.Errorf("error getting list of lameducking targets: %v", err)
-	}
+	lameducksList := s.ldLister.List()
 	for _, lameduckName := range lameducksList {
 		if s.instanceName == lameduckName {
 			return true, nil

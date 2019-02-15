@@ -49,8 +49,8 @@ type mockLDLister struct {
 	list []string
 }
 
-func (mldl *mockLDLister) List() ([]string, error) {
-	return mldl.list, nil
+func (mldl *mockLDLister) List() []string {
+	return mldl.list
 }
 
 // TestList does not test the targets.New function, and is specifically testing

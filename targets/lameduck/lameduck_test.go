@@ -24,8 +24,8 @@ type mockLDLister struct {
 	list []string
 }
 
-func (mldl *mockLDLister) List() ([]string, error) {
-	return mldl.list, nil
+func (mldl *mockLDLister) List() []string {
+	return mldl.list
 }
 
 func TestDefaultLister(t *testing.T) {
@@ -37,10 +37,7 @@ func TestDefaultLister(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	gotList, err := lister.List()
-	if err != nil {
-		t.Fatal(err)
-	}
+	gotList := lister.List()
 	if !reflect.DeepEqual(gotList, list1) {
 		t.Errorf("Default lister retured: %v, expected: %v", gotList, list1)
 	}
@@ -53,10 +50,7 @@ func TestDefaultLister(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	gotList, err = lister.List()
-	if err != nil {
-		t.Fatal(err)
-	}
+	gotList = lister.List()
 	if !reflect.DeepEqual(gotList, list1) {
 		t.Errorf("Default lister retured: %v, expected: %v", gotList, list1)
 	}

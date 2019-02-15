@@ -27,15 +27,19 @@ import (
 	"time"
 
 	"cloud.google.com/go/compute/metadata"
+	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/logger"
 	configpb "github.com/google/cloudprober/targets/lameduck/proto"
+	rdsclient "github.com/google/cloudprober/targets/rds/client"
+	rdsclient_configpb "github.com/google/cloudprober/targets/rds/client/proto"
+	rdspb "github.com/google/cloudprober/targets/rds/proto"
 	"github.com/google/cloudprober/targets/rtc/rtcservice"
 	runtimeconfig "google.golang.org/api/runtimeconfig/v1beta1"
 )
 
 // Lister is an interface for getting current lameducks.
 type Lister interface {
-	List() ([]string, error)
+	List() []string
 }
 
 // Lameducker provides an interface to Lameduck/Unlameduck an instance.
@@ -128,16 +132,16 @@ func (ldSvc *service) Unlameduck(name string) error {
 }
 
 // List returns the targets that are in lameduck mode.
-func (ldSvc *service) List() ([]string, error) {
+func (ldSvc *service) List() []string {
 	ldSvc.mu.RLock()
 	defer ldSvc.mu.RUnlock()
-	return append([]string{}, ldSvc.names...), nil
+	return append([]string{}, ldSvc.names...)
 }
 
 // NewService creates a new lameduck service using the provided config options
 // and an oauth2 enabled *http.Client; if the client is set to nil, an oauth
 // enabled client is created automatically using GCP default credentials.
-func newService(opts *configpb.Options, hc *http.Client, l *logger.Logger) (*service, error) {
+func newService(opts *configpb.Options, proj string, hc *http.Client, l *logger.Logger) (*service, error) {
 	if opts == nil {
 		return nil, fmt.Errorf("lameduck.Init: failed to construct lameduck Service: no lameDuckOptions given")
 	}
@@ -145,14 +149,6 @@ func newService(opts *configpb.Options, hc *http.Client, l *logger.Logger) (*ser
 		l = &logger.Logger{}
 	}
 
-	proj := opts.GetRuntimeconfigProject()
-	if proj == "" {
-		var err error
-		proj, err = metadata.ProjectID()
-		if err != nil {
-			return nil, fmt.Errorf("lameduck.Init: error while getting project id: %v", err)
-		}
-	}
 	cfg := opts.GetRuntimeconfigName()
 
 	rtc, err := rtcservice.New(proj, cfg, hc)
@@ -167,11 +163,50 @@ func newService(opts *configpb.Options, hc *http.Client, l *logger.Logger) (*ser
 	}, nil
 }
 
+func getProject(opts *configpb.Options) (string, error) {
+	project := opts.GetRuntimeconfigProject()
+	if project == "" {
+		var err error
+		project, err = metadata.ProjectID()
+		if err != nil {
+			return "", fmt.Errorf("lameduck.getProject: error while getting project id: %v", err)
+		}
+	}
+	return project, nil
+}
+
 // NewLameducker creates a new lameducker using the provided config and an
 // oauth2 enabled *http.Client; if the client is set to nil, an oauth enabled
 // client is created automatically using GCP default credentials.
 func NewLameducker(opts *configpb.Options, hc *http.Client, l *logger.Logger) (Lameducker, error) {
-	return newService(opts, hc, l)
+	project, err := getProject(opts)
+	if err != nil {
+		return nil, err
+	}
+	return newService(opts, project, hc, l)
+}
+
+func rdsClient(opts *configpb.Options, project string, l *logger.Logger) (*rdsclient.Client, error) {
+	rdsClientConf := &rdsclient_configpb.ClientConf{
+		ServerAddr: proto.String(opts.GetRdsServerAddr()),
+		Request: &rdspb.ListResourcesRequest{
+			Provider:     proto.String("gcp"),
+			ResourcePath: proto.String(fmt.Sprintf("rtc_variables/%s", project)),
+			Filter: []*rdspb.Filter{
+				{
+					Key:   proto.String("config_name"),
+					Value: proto.String(opts.GetRuntimeconfigName()),
+				},
+				{
+					Key:   proto.String("updated_within"),
+					Value: proto.String(fmt.Sprintf("%ds", opts.GetExpirationSec())),
+				},
+			},
+		},
+		ReEvalSec: proto.Int32(opts.GetReEvalSec()),
+	}
+
+	return rdsclient.New(rdsClientConf, l)
 }
 
 // InitDefaultLister initializes the package using the given arguments. If a
@@ -194,8 +229,22 @@ func InitDefaultLister(opts *configpb.Options, lister Lister, l *logger.Logger) 
 		return nil
 	}
 
+	project, err := getProject(opts)
+	if err != nil {
+		return err
+	}
+
+	if opts.GetUseRds() {
+		c, err := rdsClient(opts, project, l)
+		if err != nil {
+			return err
+		}
+		global.lister = c
+		return nil
+	}
+
 	// Create a new lister and set it up for auto-refresh.
-	ldSvc, err := newService(opts, nil, l)
+	ldSvc, err := newService(opts, project, nil, l)
 	if err != nil {
 		return err
 	}
@@ -203,7 +252,7 @@ func InitDefaultLister(opts *configpb.Options, lister Lister, l *logger.Logger) 
 	ldSvc.expand()
 	go func() {
 		// Update the lameducks every [opts.ReEvalSec] seconds.
-		for _ = range time.Tick(time.Duration(ldSvc.opts.GetReEvalSec()) * time.Second) {
+		for range time.Tick(time.Duration(ldSvc.opts.GetReEvalSec()) * time.Second) {
 			ldSvc.expand()
 		}
 	}()
