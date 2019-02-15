@@ -31,7 +31,6 @@ import (
 	"sync"
 	"time"
 
-	"cloud.google.com/go/compute/metadata"
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/config"
@@ -148,8 +147,14 @@ func (pr *Prober) init() error {
 
 	// Initialize lameduck lister
 	globalTargetsOpts := pr.c.GetGlobalTargetsOptions()
-	if globalTargetsOpts.GetLameDuckOptions() != nil && metadata.OnGCE() {
-		if err := lameduck.InitDefaultLister(globalTargetsOpts.GetLameDuckOptions(), nil, globalLogger); err != nil {
+
+	if globalTargetsOpts.GetLameDuckOptions() != nil {
+		ldLogger, err := pr.newLogger("lame-duck")
+		if err != nil {
+			return fmt.Errorf("error in initializing lame-duck logger: %v", err)
+		}
+
+		if err := lameduck.InitDefaultLister(globalTargetsOpts.GetLameDuckOptions(), nil, ldLogger); err != nil {
 			return err
 		}
 	}

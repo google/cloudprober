@@ -22,4 +22,10 @@ message Options {
   // disappeared, automatic targets expansion will take care of that some time
   // during this expiration period.
   optional int32 expiration_sec = 4 [default = 300];
+
+  // Use an RDS client to get lame-duck-targets.
+  optional bool use_rds = 5;
+
+  // Use an RDS server address
+  optional string rds_server_addr = 6 [default = "localhost:9314"];
 }

@@ -162,11 +162,8 @@ func (t *targets) List() []string {
 
 	// Filter by lameduck
 	if t.ldLister != nil {
-		lameDucksList, err := t.ldLister.List()
-		if err != nil {
-			t.l.Errorf("targets.List: Error getting list of lameducking targets: %v", err)
-			return list
-		}
+		lameDucksList := t.ldLister.List()
+
 		lameDuckMap := make(map[string]bool)
 		for _, i := range lameDucksList {
 			lameDuckMap[i] = true

@@ -16,7 +16,6 @@ package http
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -38,8 +37,8 @@ type fakeLameduckLister struct {
 	err        error
 }
 
-func (f *fakeLameduckLister) List() ([]string, error) {
-	return f.lameducked, f.err
+func (f *fakeLameduckLister) List() []string {
+	return f.lameducked
 }
 
 func TestMain(m *testing.M) {
@@ -163,21 +162,6 @@ func TestLameduckListerNil(t *testing.T) {
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	s, _ := testServer(ctx, t, "testInstance", nil)
-	defer cancelFunc()
-
-	if resp, status := get(t, s.ln, "lameduck"); !strings.Contains(resp, expectedErrMsg) || status != "200 OK" {
-		t.Errorf("Didn't get the expected response for the URL '/lameduck'. got: %q, %q. want it to contain: %q, %q", resp, status, expectedErrMsg, "200 OK")
-	}
-	if resp, status := get(t, s.ln, "healthcheck"); resp != OK || status != "200 OK" {
-		t.Errorf("Didn't get the expected response for the URL '/healthcheck'. got: %q, %q , want: %q, %q", resp, status, OK, "200 OK")
-	}
-}
-
-func TestErrorToGetLameduckList(t *testing.T) {
-	expectedErrMsg := "fake lameduck error message"
-
-	ctx, cancelFunc := context.WithCancel(context.Background())
-	s, _ := testServer(ctx, t, "testInstance", &fakeLameduckLister{nil, errors.New(expectedErrMsg)})
 	defer cancelFunc()
 
 	if resp, status := get(t, s.ln, "lameduck"); !strings.Contains(resp, expectedErrMsg) || status != "200 OK" {
