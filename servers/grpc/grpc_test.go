@@ -104,6 +104,29 @@ func TestGRPCSuccess(t *testing.T) {
 	if !reflect.DeepEqual(echoResp.Blob, echoReq.Blob) {
 		t.Errorf("Echo response mismatch: got %v want %v", echoResp.Blob, echoReq.Blob)
 	}
+
+	wantReadSize := 4
+	readReq := &spb.BlobReadRequest{Size: proto.Int32(int32(wantReadSize))}
+	readResp, err := client.BlobRead(timedCtx, readReq)
+	if err != nil {
+		t.Errorf("Read call error: %v", err)
+	}
+	t.Logf("ReadResponse: <%v>", readResp)
+	readSize := len(readResp.GetBlob())
+	if readSize != wantReadSize {
+		t.Errorf("Read response mismatch: got %v want %v", readSize, wantReadSize)
+	}
+
+	msg = []byte("test_write")
+	writeReq := &spb.BlobWriteRequest{Blob: msg}
+	writeResp, err := client.BlobWrite(timedCtx, writeReq)
+	if err != nil {
+		t.Errorf("Write call error: %v", err)
+	}
+	t.Logf("WriteResponse: <%v>", writeResp)
+	if writeResp.GetSize() != int32(len(msg)) {
+		t.Errorf("Write response mismatch: got %v want %v", writeResp.GetSize(), len(msg))
+	}
 }
 
 func TestInjection(t *testing.T) {
@@ -175,4 +198,50 @@ func TestInjectionOverride(t *testing.T) {
 	if !srv.dedicatedSrv {
 		t.Error("Got dedicatedSrv=false, want true.")
 	}
+}
+
+func TestSizeError(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// global config setup is necessary for gRPC probe server.
+	if _, err := globalGRPCServer(); err != nil {
+		t.Fatalf("Error initializing global config: %v", err)
+	}
+	cfg := &configpb.ServerConf{
+		Port: proto.Int32(0),
+	}
+	l := &logger.Logger{}
+
+	srv, err := New(ctx, cfg, l)
+	if err != nil {
+		t.Fatalf("Unable to create grpc server: %v", err)
+	}
+	go srv.Start(ctx, nil)
+	if !srv.dedicatedSrv {
+		t.Error("Probe server not using dedicated gRPC server.")
+	}
+
+	listenAddr := srv.ln.Addr().String()
+	conn, err := grpc.Dial(listenAddr, grpc.WithInsecure())
+	if err != nil {
+		t.Fatalf("Unable to connect to grpc server at %v: %v", listenAddr, err)
+	}
+
+	client := grpcpb.NewProberClient(conn)
+	timedCtx, timedCancel := context.WithTimeout(ctx, time.Second)
+	defer timedCancel()
+
+	readReq := &spb.BlobReadRequest{Size: proto.Int32(int32(maxMsgSize + 1))}
+	readResp, err := client.BlobRead(timedCtx, readReq)
+	if err == nil {
+		t.Errorf("Read call unexpectedly succeeded: %v", readResp)
+	}
+
+	writeReq := &spb.BlobWriteRequest{Blob: make([]byte, maxMsgSize+1)}
+	writeResp, err := client.BlobWrite(timedCtx, writeReq)
+	if err == nil {
+		t.Errorf("Write call unexpectedly succeeded: %v", writeResp)
+	}
+
 }
