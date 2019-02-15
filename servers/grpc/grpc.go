@@ -30,6 +30,7 @@ import (
 	"github.com/google/cloudprober/config/runconfig"
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
+	"github.com/google/cloudprober/probes/probeutils"
 	configpb "github.com/google/cloudprober/servers/grpc/proto"
 	grpcpb "github.com/google/cloudprober/servers/grpc/proto"
 	spb "github.com/google/cloudprober/servers/grpc/proto"
@@ -45,11 +46,29 @@ type Server struct {
 	l            *logger.Logger
 	startTime    time.Time
 	dedicatedSrv bool
+	msg          []byte
 }
 
+var (
+	maxMsgSize = 1 * 1024 * 1024 // 1MB
+	msgPattern = []byte("cloudprober")
+)
+
 // Echo reflects back the incoming message.
+// TODO: return error if EchoMessage is greater than maxMsgSize.
 func (s *Server) Echo(ctx context.Context, req *spb.EchoMessage) (*spb.EchoMessage, error) {
 	return req, nil
+}
+
+// BlobRead returns a blob of data.
+func (s *Server) BlobRead(ctx context.Context, req *spb.BlobReadRequest) (*spb.BlobReadResponse, error) {
+	reqSize := req.GetSize()
+	if reqSize > int32(maxMsgSize) {
+		return nil, fmt.Errorf("read request size (%d) exceeds max size (%d)", reqSize, maxMsgSize)
+	}
+	return &spb.BlobReadResponse{
+		Blob: s.msg[0:reqSize],
+	}, nil
 }
 
 // ServerStatus returns the current server status.
@@ -59,13 +78,25 @@ func (s *Server) ServerStatus(ctx context.Context, req *spb.StatusRequest) (*spb
 	}, nil
 }
 
+// BlobWrite returns the size of blob in the WriteRequest. It does not operate
+// on the blob.
+func (s *Server) BlobWrite(ctx context.Context, req *spb.BlobWriteRequest) (*spb.BlobWriteResponse, error) {
+	reqSize := int32(len(req.Blob))
+	if reqSize > int32(maxMsgSize) {
+		return nil, fmt.Errorf("write request size (%d) exceeds max size (%d)", reqSize, maxMsgSize)
+	}
+	return &spb.BlobWriteResponse{
+		Size: proto.Int32(reqSize),
+	}, nil
+}
+
 // New returns a Server.
 func New(initCtx context.Context, c *configpb.ServerConf, l *logger.Logger) (*Server, error) {
 	srv := &Server{
 		c: c,
 		l: l,
 	}
-
+	srv.msg = probeutils.PatternPayload(msgPattern, maxMsgSize)
 	if c.GetUseDedicatedServer() {
 		if err := srv.newGRPCServer(initCtx); err != nil {
 			return nil, err

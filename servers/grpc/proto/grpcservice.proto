@@ -14,11 +14,33 @@ message StatusResponse {
   optional int64 uptime_us = 1;
 }
 
+message BlobReadRequest {
+  optional int32 size = 1;
+}
+
+message BlobReadResponse {
+  optional bytes blob = 1;
+}
+
+message BlobWriteRequest {
+  optional bytes blob = 1;
+}
+
+message BlobWriteResponse {
+  optional int32 size = 1;
+}
+
 service Prober {
   // Echo echoes back incoming messages.
   rpc Echo(EchoMessage) returns(EchoMessage) {
   }
+  // BlobRead returns a blob of bytes to the prober.
+  rpc BlobRead(BlobReadRequest) returns(BlobReadResponse) {
+  }
   // ServerStatus returns the current server status.
   rpc ServerStatus(StatusRequest) returns(StatusResponse) {
+  }
+  // BlobWrite allows client to write a blob to the server.
+  rpc BlobWrite(BlobWriteRequest) returns(BlobWriteResponse) {
   }
 }
