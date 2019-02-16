@@ -154,26 +154,30 @@ func (d *Distribution) String() string {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
-	var tokens []string
+	var b strings.Builder
 
-	tokens = append(tokens, fmt.Sprintf("sum:%s", strconv.FormatFloat(d.sum, 'f', -1, 64)))
-	tokens = append(tokens, fmt.Sprintf("count:%d", d.count))
+	b.WriteString("dist:sum:")
+	b.WriteString(strconv.FormatFloat(d.sum, 'f', -1, 64))
+	b.WriteString("|count:")
+	b.WriteString(strconv.FormatInt(d.count, 10))
 
-	tok := "lb:"
-	for _, lb := range d.lowerBounds {
-		tok = fmt.Sprintf("%s%s,", tok, strconv.FormatFloat(lb, 'f', -1, 64))
+	b.WriteString("|lb:")
+	for i, lb := range d.lowerBounds {
+		if i != 0 {
+			b.WriteByte(',')
+		}
+		b.WriteString(strconv.FormatFloat(lb, 'f', -1, 64))
 	}
-	tok = tok[:len(tok)-1] // Remove last ","
-	tokens = append(tokens, tok)
 
-	tok = "bc:"
-	for _, c := range d.bucketCounts {
-		tok = fmt.Sprintf("%s%d,", tok, c)
+	b.WriteString("|bc:")
+	for i, c := range d.bucketCounts {
+		if i != 0 {
+			b.WriteByte(',')
+		}
+		b.WriteString(strconv.FormatInt(c, 10))
 	}
-	tok = tok[:len(tok)-1] // Remove last ","
-	tokens = append(tokens, tok)
 
-	return "dist:" + strings.Join(tokens, "|")
+	return b.String()
 }
 
 // Verify verifies that the distribution is valid.

@@ -116,6 +116,8 @@ func TestEventMetricsUpdate(t *testing.T) {
 func BenchmarkEventMetricsStringer(b *testing.B) {
 	em := newEventMetrics(32, 22, 220100, map[string]int64{
 		"200": 22,
+		"404": 4500,
+		"403": 4500,
 	})
 	// run the em.String() function b.N times
 	for n := 0; n < b.N; n++ {

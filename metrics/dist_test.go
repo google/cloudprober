@@ -226,3 +226,17 @@ func TestParseDistFromString(t *testing.T) {
 		t.Error("No error while parsing invalid distribution string.")
 	}
 }
+
+func BenchmarkDictStringer(b *testing.B) {
+	lb := []float64{1, 5, 15, 30, 45}
+	d := NewDistribution(lb)
+
+	for _, s := range []float64{0.5, 4, 17} {
+		d.AddSample(s)
+	}
+
+	// run the d.String() function b.N times
+	for n := 0; n < b.N; n++ {
+		_ = d.String()
+	}
+}

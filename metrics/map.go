@@ -15,9 +15,9 @@
 package metrics
 
 import (
-	"bytes"
 	"errors"
 	"sort"
+	"strings"
 	"sync"
 )
 
@@ -151,11 +151,15 @@ func (m *Map) String() string {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	var buf bytes.Buffer
-	buf.WriteString("map:" + m.MapName)
+	var b strings.Builder
+	b.WriteString("map:")
+	b.WriteString(m.MapName)
 
 	for _, k := range m.keys {
-		buf.WriteString("," + k + ":" + m.m[k].String())
+		b.WriteByte(',')
+		b.WriteString(k)
+		b.WriteByte(':')
+		b.WriteString(m.m[k].String())
 	}
-	return buf.String()
+	return b.String()
 }
