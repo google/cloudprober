@@ -84,7 +84,7 @@ func newCompressionBuffer(ctx context.Context, outf *os.File, l *logger.Logger) 
 		for {
 			select {
 			case str := <-c.outChan:
-				if _, err := fmt.Fprintln(outf, str); err != nil {
+				if _, err := outf.WriteString(str + "\n"); err != nil {
 					c.l.Errorf("Unable to write data to %s. Err: %v", outf.Name(), err)
 				}
 			case <-ctx.Done():

@@ -15,10 +15,10 @@
 package metrics
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -184,24 +184,16 @@ func (em *EventMetrics) Update(in *EventMetrics) error {
 	}
 }
 
-var bufPool = sync.Pool{
-	New: func() interface{} {
-		// The Pool's New function should generally only return pointer
-		// types, since a pointer can be put into the return interface
-		// value without an allocation:
-		return new(bytes.Buffer)
-	},
-}
-
 // String returns the string representation of the EventMetrics.
 // Note that this is compatible with what vmwatcher understands.
 // Example output string:
 // 1519084040 labels=ptype=http sent=62 rcvd=52 resp-code=map:code,200:44,204:8
 func (em *EventMetrics) String() string {
 	em.mu.RLock()
-	b := bufPool.Get().(*bytes.Buffer)
+	defer em.mu.RUnlock()
 
-	b.Reset()
+	var b strings.Builder
+
 	b.WriteString(strconv.FormatInt(em.Timestamp.Unix(), 10))
 	// Labels section: labels=ptype=http,probe=homepage
 	b.WriteString(" labels=")
@@ -220,8 +212,5 @@ func (em *EventMetrics) String() string {
 		b.WriteByte('=')
 		b.WriteString(em.metrics[name].String())
 	}
-	s := b.String()
-	bufPool.Put(b)
-	em.mu.RUnlock()
-	return s
+	return b.String()
 }
