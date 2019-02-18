@@ -34,7 +34,7 @@ func (m *EchoMessage) Reset()         { *m = EchoMessage{} }
 func (m *EchoMessage) String() string { return proto.CompactTextString(m) }
 func (*EchoMessage) ProtoMessage()    {}
 func (*EchoMessage) Descriptor() ([]byte, []int) {
-	return fileDescriptor_grpcservice_9da4e1993936e470, []int{0}
+	return fileDescriptor_grpcservice_f7cca979873043e0, []int{0}
 }
 func (m *EchoMessage) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_EchoMessage.Unmarshal(m, b)
@@ -72,7 +72,7 @@ func (m *StatusRequest) Reset()         { *m = StatusRequest{} }
 func (m *StatusRequest) String() string { return proto.CompactTextString(m) }
 func (*StatusRequest) ProtoMessage()    {}
 func (*StatusRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_grpcservice_9da4e1993936e470, []int{1}
+	return fileDescriptor_grpcservice_f7cca979873043e0, []int{1}
 }
 func (m *StatusRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_StatusRequest.Unmarshal(m, b)
@@ -110,7 +110,7 @@ func (m *StatusResponse) Reset()         { *m = StatusResponse{} }
 func (m *StatusResponse) String() string { return proto.CompactTextString(m) }
 func (*StatusResponse) ProtoMessage()    {}
 func (*StatusResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_grpcservice_9da4e1993936e470, []int{2}
+	return fileDescriptor_grpcservice_f7cca979873043e0, []int{2}
 }
 func (m *StatusResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_StatusResponse.Unmarshal(m, b)
@@ -137,10 +137,166 @@ func (m *StatusResponse) GetUptimeUs() int64 {
 	return 0
 }
 
+type BlobReadRequest struct {
+	Size                 *int32   `protobuf:"varint,1,opt,name=size" json:"size,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *BlobReadRequest) Reset()         { *m = BlobReadRequest{} }
+func (m *BlobReadRequest) String() string { return proto.CompactTextString(m) }
+func (*BlobReadRequest) ProtoMessage()    {}
+func (*BlobReadRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_grpcservice_f7cca979873043e0, []int{3}
+}
+func (m *BlobReadRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_BlobReadRequest.Unmarshal(m, b)
+}
+func (m *BlobReadRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_BlobReadRequest.Marshal(b, m, deterministic)
+}
+func (dst *BlobReadRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_BlobReadRequest.Merge(dst, src)
+}
+func (m *BlobReadRequest) XXX_Size() int {
+	return xxx_messageInfo_BlobReadRequest.Size(m)
+}
+func (m *BlobReadRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_BlobReadRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_BlobReadRequest proto.InternalMessageInfo
+
+func (m *BlobReadRequest) GetSize() int32 {
+	if m != nil && m.Size != nil {
+		return *m.Size
+	}
+	return 0
+}
+
+type BlobReadResponse struct {
+	Blob                 []byte   `protobuf:"bytes,1,opt,name=blob" json:"blob,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *BlobReadResponse) Reset()         { *m = BlobReadResponse{} }
+func (m *BlobReadResponse) String() string { return proto.CompactTextString(m) }
+func (*BlobReadResponse) ProtoMessage()    {}
+func (*BlobReadResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_grpcservice_f7cca979873043e0, []int{4}
+}
+func (m *BlobReadResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_BlobReadResponse.Unmarshal(m, b)
+}
+func (m *BlobReadResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_BlobReadResponse.Marshal(b, m, deterministic)
+}
+func (dst *BlobReadResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_BlobReadResponse.Merge(dst, src)
+}
+func (m *BlobReadResponse) XXX_Size() int {
+	return xxx_messageInfo_BlobReadResponse.Size(m)
+}
+func (m *BlobReadResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_BlobReadResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_BlobReadResponse proto.InternalMessageInfo
+
+func (m *BlobReadResponse) GetBlob() []byte {
+	if m != nil {
+		return m.Blob
+	}
+	return nil
+}
+
+type BlobWriteRequest struct {
+	Blob                 []byte   `protobuf:"bytes,1,opt,name=blob" json:"blob,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *BlobWriteRequest) Reset()         { *m = BlobWriteRequest{} }
+func (m *BlobWriteRequest) String() string { return proto.CompactTextString(m) }
+func (*BlobWriteRequest) ProtoMessage()    {}
+func (*BlobWriteRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_grpcservice_f7cca979873043e0, []int{5}
+}
+func (m *BlobWriteRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_BlobWriteRequest.Unmarshal(m, b)
+}
+func (m *BlobWriteRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_BlobWriteRequest.Marshal(b, m, deterministic)
+}
+func (dst *BlobWriteRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_BlobWriteRequest.Merge(dst, src)
+}
+func (m *BlobWriteRequest) XXX_Size() int {
+	return xxx_messageInfo_BlobWriteRequest.Size(m)
+}
+func (m *BlobWriteRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_BlobWriteRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_BlobWriteRequest proto.InternalMessageInfo
+
+func (m *BlobWriteRequest) GetBlob() []byte {
+	if m != nil {
+		return m.Blob
+	}
+	return nil
+}
+
+type BlobWriteResponse struct {
+	Size                 *int32   `protobuf:"varint,1,opt,name=size" json:"size,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *BlobWriteResponse) Reset()         { *m = BlobWriteResponse{} }
+func (m *BlobWriteResponse) String() string { return proto.CompactTextString(m) }
+func (*BlobWriteResponse) ProtoMessage()    {}
+func (*BlobWriteResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_grpcservice_f7cca979873043e0, []int{6}
+}
+func (m *BlobWriteResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_BlobWriteResponse.Unmarshal(m, b)
+}
+func (m *BlobWriteResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_BlobWriteResponse.Marshal(b, m, deterministic)
+}
+func (dst *BlobWriteResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_BlobWriteResponse.Merge(dst, src)
+}
+func (m *BlobWriteResponse) XXX_Size() int {
+	return xxx_messageInfo_BlobWriteResponse.Size(m)
+}
+func (m *BlobWriteResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_BlobWriteResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_BlobWriteResponse proto.InternalMessageInfo
+
+func (m *BlobWriteResponse) GetSize() int32 {
+	if m != nil && m.Size != nil {
+		return *m.Size
+	}
+	return 0
+}
+
 func init() {
 	proto.RegisterType((*EchoMessage)(nil), "cloudprober.servers.grpc.EchoMessage")
 	proto.RegisterType((*StatusRequest)(nil), "cloudprober.servers.grpc.StatusRequest")
 	proto.RegisterType((*StatusResponse)(nil), "cloudprober.servers.grpc.StatusResponse")
+	proto.RegisterType((*BlobReadRequest)(nil), "cloudprober.servers.grpc.BlobReadRequest")
+	proto.RegisterType((*BlobReadResponse)(nil), "cloudprober.servers.grpc.BlobReadResponse")
+	proto.RegisterType((*BlobWriteRequest)(nil), "cloudprober.servers.grpc.BlobWriteRequest")
+	proto.RegisterType((*BlobWriteResponse)(nil), "cloudprober.servers.grpc.BlobWriteResponse")
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -157,8 +313,12 @@ const _ = grpc.SupportPackageIsVersion4
 type ProberClient interface {
 	// Echo echoes back incoming messages.
 	Echo(ctx context.Context, in *EchoMessage, opts ...grpc.CallOption) (*EchoMessage, error)
+	// BlobRead returns a blob of bytes to the prober.
+	BlobRead(ctx context.Context, in *BlobReadRequest, opts ...grpc.CallOption) (*BlobReadResponse, error)
 	// ServerStatus returns the current server status.
 	ServerStatus(ctx context.Context, in *StatusRequest, opts ...grpc.CallOption) (*StatusResponse, error)
+	// BlobWrite allows client to write a blob to the server.
+	BlobWrite(ctx context.Context, in *BlobWriteRequest, opts ...grpc.CallOption) (*BlobWriteResponse, error)
 }
 
 type proberClient struct {
@@ -178,9 +338,27 @@ func (c *proberClient) Echo(ctx context.Context, in *EchoMessage, opts ...grpc.C
 	return out, nil
 }
 
+func (c *proberClient) BlobRead(ctx context.Context, in *BlobReadRequest, opts ...grpc.CallOption) (*BlobReadResponse, error) {
+	out := new(BlobReadResponse)
+	err := c.cc.Invoke(ctx, "/cloudprober.servers.grpc.Prober/BlobRead", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *proberClient) ServerStatus(ctx context.Context, in *StatusRequest, opts ...grpc.CallOption) (*StatusResponse, error) {
 	out := new(StatusResponse)
 	err := c.cc.Invoke(ctx, "/cloudprober.servers.grpc.Prober/ServerStatus", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *proberClient) BlobWrite(ctx context.Context, in *BlobWriteRequest, opts ...grpc.CallOption) (*BlobWriteResponse, error) {
+	out := new(BlobWriteResponse)
+	err := c.cc.Invoke(ctx, "/cloudprober.servers.grpc.Prober/BlobWrite", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -191,8 +369,12 @@ func (c *proberClient) ServerStatus(ctx context.Context, in *StatusRequest, opts
 type ProberServer interface {
 	// Echo echoes back incoming messages.
 	Echo(context.Context, *EchoMessage) (*EchoMessage, error)
+	// BlobRead returns a blob of bytes to the prober.
+	BlobRead(context.Context, *BlobReadRequest) (*BlobReadResponse, error)
 	// ServerStatus returns the current server status.
 	ServerStatus(context.Context, *StatusRequest) (*StatusResponse, error)
+	// BlobWrite allows client to write a blob to the server.
+	BlobWrite(context.Context, *BlobWriteRequest) (*BlobWriteResponse, error)
 }
 
 func RegisterProberServer(s *grpc.Server, srv ProberServer) {
@@ -217,6 +399,24 @@ func _Prober_Echo_Handler(srv interface{}, ctx context.Context, dec func(interfa
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Prober_BlobRead_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BlobReadRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ProberServer).BlobRead(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/cloudprober.servers.grpc.Prober/BlobRead",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ProberServer).BlobRead(ctx, req.(*BlobReadRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Prober_ServerStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(StatusRequest)
 	if err := dec(in); err != nil {
@@ -235,6 +435,24 @@ func _Prober_ServerStatus_Handler(srv interface{}, ctx context.Context, dec func
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Prober_BlobWrite_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BlobWriteRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ProberServer).BlobWrite(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/cloudprober.servers.grpc.Prober/BlobWrite",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ProberServer).BlobWrite(ctx, req.(*BlobWriteRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 var _Prober_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "cloudprober.servers.grpc.Prober",
 	HandlerType: (*ProberServer)(nil),
@@ -244,8 +462,16 @@ var _Prober_serviceDesc = grpc.ServiceDesc{
 			Handler:    _Prober_Echo_Handler,
 		},
 		{
+			MethodName: "BlobRead",
+			Handler:    _Prober_BlobRead_Handler,
+		},
+		{
 			MethodName: "ServerStatus",
 			Handler:    _Prober_ServerStatus_Handler,
+		},
+		{
+			MethodName: "BlobWrite",
+			Handler:    _Prober_BlobWrite_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
@@ -253,25 +479,30 @@ var _Prober_serviceDesc = grpc.ServiceDesc{
 }
 
 func init() {
-	proto.RegisterFile("github.com/google/cloudprober/servers/grpc/proto/grpcservice.proto", fileDescriptor_grpcservice_9da4e1993936e470)
+	proto.RegisterFile("github.com/google/cloudprober/servers/grpc/proto/grpcservice.proto", fileDescriptor_grpcservice_f7cca979873043e0)
 }
 
-var fileDescriptor_grpcservice_9da4e1993936e470 = []byte{
-	// 245 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x8f, 0x41, 0x4b, 0xf3, 0x40,
-	0x10, 0x86, 0x1b, 0xbe, 0xf2, 0x61, 0xa7, 0xd5, 0xc3, 0x9c, 0x4a, 0x3d, 0xa8, 0x0b, 0x62, 0x2f,
-	0xee, 0x8a, 0x3f, 0x41, 0xf0, 0xa8, 0x48, 0x8a, 0x5e, 0x4b, 0xb2, 0x0e, 0xdb, 0x40, 0x92, 0x59,
-	0x77, 0x76, 0xfd, 0x87, 0xfe, 0x2f, 0xc9, 0x46, 0xa1, 0x1e, 0x8a, 0xde, 0x86, 0x77, 0xde, 0x07,
-	0x9e, 0x17, 0xee, 0x5c, 0x13, 0x77, 0xa9, 0xd6, 0x96, 0x3b, 0xe3, 0x98, 0x5d, 0x4b, 0xc6, 0xb6,
-	0x9c, 0x5e, 0x7d, 0xe0, 0x9a, 0x82, 0x11, 0x0a, 0xef, 0x14, 0xc4, 0xb8, 0xe0, 0xad, 0xf1, 0x81,
-	0x23, 0xe7, 0x73, 0x88, 0x1b, 0x4b, 0x3a, 0x27, 0xb8, 0xdc, 0x23, 0xf4, 0x17, 0xa1, 0x87, 0x9a,
-	0xba, 0x80, 0xf9, 0xbd, 0xdd, 0xf1, 0x03, 0x89, 0x54, 0x8e, 0x10, 0x61, 0x5a, 0xb7, 0x5c, 0x2f,
-	0x8b, 0xf3, 0x62, 0xbd, 0x28, 0xf3, 0xad, 0x6e, 0xe0, 0x78, 0x13, 0xab, 0x98, 0xa4, 0xa4, 0xb7,
-	0x44, 0x12, 0xf1, 0x0c, 0xe6, 0xb6, 0x6d, 0xa8, 0x8f, 0xdb, 0xbe, 0xea, 0x28, 0x77, 0x67, 0x25,
-	0x8c, 0xd1, 0x63, 0xd5, 0x91, 0xba, 0x86, 0x93, 0x6f, 0x42, 0x3c, 0xf7, 0x42, 0x78, 0x0a, 0xb3,
-	0xe4, 0x63, 0xd3, 0xd1, 0x36, 0x49, 0x06, 0xfe, 0x95, 0x47, 0x63, 0xf0, 0x2c, 0xb7, 0x1f, 0x05,
-	0xfc, 0x7f, 0xca, 0x6e, 0xf8, 0x02, 0xd3, 0x41, 0x07, 0x2f, 0xf5, 0x21, 0x63, 0xbd, 0xa7, 0xbb,
-	0xfa, 0x5b, 0x4d, 0x4d, 0xd0, 0xc2, 0x62, 0x93, 0xbf, 0xa3, 0x17, 0x5e, 0x1d, 0x06, 0x7f, 0x6c,
-	0x5d, 0xad, 0x7f, 0x2f, 0x8e, 0x13, 0xd5, 0xe4, 0x33, 0x00, 0x00, 0xff, 0xff, 0x19, 0xd5, 0x0b,
-	0x5a, 0xaa, 0x01, 0x00, 0x00,
+var fileDescriptor_grpcservice_f7cca979873043e0 = []byte{
+	// 330 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x91, 0xcd, 0x4e, 0xfa, 0x40,
+	0x14, 0xc5, 0xff, 0x04, 0xfe, 0x06, 0x2e, 0xf8, 0x75, 0x57, 0xa4, 0x2e, 0xd4, 0x26, 0x08, 0x6a,
+	0x6c, 0x8d, 0x8f, 0x40, 0xe2, 0x52, 0x63, 0x86, 0xa8, 0x4b, 0xd2, 0x0e, 0xd7, 0x32, 0x49, 0xcb,
+	0xd4, 0xf9, 0x70, 0xe1, 0x63, 0xf8, 0xc4, 0x86, 0x29, 0x85, 0x8a, 0x12, 0xd8, 0xdd, 0xdc, 0xfc,
+	0xce, 0x39, 0x33, 0xe7, 0xc2, 0x30, 0x11, 0x66, 0x6a, 0xe3, 0x80, 0xcb, 0x2c, 0x4c, 0xa4, 0x4c,
+	0x52, 0x0a, 0x79, 0x2a, 0xed, 0x24, 0x57, 0x32, 0x26, 0x15, 0x6a, 0x52, 0x1f, 0xa4, 0x74, 0x98,
+	0xa8, 0x9c, 0x87, 0xb9, 0x92, 0x46, 0xba, 0x71, 0xbe, 0x16, 0x9c, 0x02, 0xb7, 0xc1, 0x6e, 0x45,
+	0x11, 0x2c, 0x14, 0xc1, 0x1c, 0xf3, 0xcf, 0xa1, 0x7d, 0xcf, 0xa7, 0xf2, 0x81, 0xb4, 0x8e, 0x12,
+	0x42, 0x84, 0x46, 0x9c, 0xca, 0xb8, 0x5b, 0x3b, 0xab, 0x0d, 0x3a, 0xcc, 0xcd, 0xfe, 0x2d, 0xec,
+	0x8f, 0x4c, 0x64, 0xac, 0x66, 0xf4, 0x6e, 0x49, 0x1b, 0x3c, 0x85, 0x36, 0x4f, 0x05, 0xcd, 0xcc,
+	0x78, 0x16, 0x65, 0xe4, 0xd8, 0x16, 0x83, 0x62, 0xf5, 0x18, 0x65, 0xe4, 0xdf, 0xc0, 0x41, 0xa9,
+	0xd0, 0xb9, 0x9c, 0x69, 0xc2, 0x13, 0x68, 0xd9, 0xdc, 0x88, 0x8c, 0xc6, 0x56, 0x3b, 0x41, 0x9d,
+	0x35, 0x8b, 0xc5, 0xb3, 0xf6, 0x7b, 0x70, 0x38, 0x4c, 0x65, 0xcc, 0x28, 0x9a, 0x94, 0x11, 0x08,
+	0x0d, 0x2d, 0x3e, 0x0b, 0xef, 0xff, 0xcc, 0xcd, 0xfe, 0x05, 0x1c, 0xad, 0xb0, 0x85, 0xef, 0x5f,
+	0xef, 0x5d, 0x70, 0xaf, 0x4a, 0x18, 0xaa, 0xf8, 0xfd, 0xe2, 0xfa, 0x70, 0x5c, 0xe1, 0x56, 0x86,
+	0xeb, 0xc1, 0x77, 0x5f, 0x75, 0xd8, 0x7b, 0x72, 0xdd, 0xe1, 0x0b, 0x34, 0xe6, 0x75, 0x61, 0x2f,
+	0xd8, 0xd4, 0x68, 0x50, 0xa9, 0xd3, 0xdb, 0x0d, 0xf3, 0xff, 0x21, 0x87, 0x66, 0xf9, 0x37, 0xbc,
+	0xdc, 0x2c, 0x5a, 0xab, 0xc9, 0xbb, 0xda, 0x05, 0x2d, 0x7e, 0xe6, 0x42, 0x3a, 0x23, 0x87, 0x14,
+	0xc7, 0xc1, 0xfe, 0x66, 0xf5, 0x8f, 0x83, 0x7b, 0x83, 0xed, 0xe0, 0x32, 0xe4, 0x0d, 0x5a, 0xcb,
+	0x56, 0x71, 0xcb, 0xfb, 0xaa, 0x27, 0xf2, 0xae, 0x77, 0x62, 0xcb, 0x9c, 0xef, 0x00, 0x00, 0x00,
+	0xff, 0xff, 0x9b, 0xd7, 0xce, 0x02, 0x17, 0x03, 0x00, 0x00,
 }
