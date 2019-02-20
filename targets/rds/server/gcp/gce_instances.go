@@ -220,6 +220,7 @@ func newGCEInstancesLister(project, apiVersion string, c *configpb.GCEInstances,
 		// starting the refresh loop. If there are multiple cloudprober
 		// gceInstances, this will make sure that each instance calls GCE
 		// API at a different point of time.
+		rand.Seed(time.Now().UnixNano())
 		randomDelaySec := rand.Intn(int(reEvalInterval.Seconds()))
 		time.Sleep(time.Duration(randomDelaySec) * time.Second)
 		for _ = range time.Tick(reEvalInterval) {

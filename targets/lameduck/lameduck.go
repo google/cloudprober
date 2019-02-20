@@ -21,6 +21,7 @@ package lameduck
 import (
 	"errors"
 	"fmt"
+	"math/rand"
 	"net/http"
 	"strings"
 	"sync"
@@ -251,6 +252,14 @@ func InitDefaultLister(opts *configpb.Options, lister Lister, l *logger.Logger) 
 
 	ldSvc.expand()
 	go func() {
+		// Introduce a random delay between 0-reEvalInterval before
+		// starting the refresh loop. If there are multiple cloudprober
+		// instances, this will make sure that each instance calls GCE
+		// API at a different point of time.
+		rand.Seed(time.Now().UnixNano())
+		randomDelaySec := rand.Intn(int(ldSvc.opts.GetReEvalSec()))
+		time.Sleep(time.Duration(randomDelaySec) * time.Second)
+
 		// Update the lameducks every [opts.ReEvalSec] seconds.
 		for range time.Tick(time.Duration(ldSvc.opts.GetReEvalSec()) * time.Second) {
 			ldSvc.expand()
