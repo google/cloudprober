@@ -121,9 +121,10 @@ func New(c *configpb.ClientConf, l *logger.Logger) (*Client, error) {
 		// refreshState loop. If there are multiple cloudprober instances, this will
 		// make sure that each instance calls RDS server at a different point of
 		// time.
+		rand.Seed(time.Now().UnixNano())
 		randomDelaySec := rand.Intn(int(reEvalInterval.Seconds()))
 		time.Sleep(time.Duration(randomDelaySec) * time.Second)
-		for _ = range time.Tick(reEvalInterval) {
+		for range time.Tick(reEvalInterval) {
 			client.refreshState()
 		}
 	}()
