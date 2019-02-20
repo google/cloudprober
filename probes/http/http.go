@@ -169,7 +169,10 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		DialContext:         dialer.DialContext,
 		MaxIdleConns:        256, // http.DefaultTransport.MaxIdleConns: 100.
 		TLSHandshakeTimeout: p.opts.Timeout,
-		TLSClientConfig:     &tls.Config{InsecureSkipVerify: p.c.GetDisableCertValidation()},
+	}
+
+	if p.c.GetDisableCertValidation() {
+		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 	}
 
 	// If HTTP keep-alives are not enabled (default), disable HTTP keep-alive in
