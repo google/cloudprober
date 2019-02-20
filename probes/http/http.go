@@ -265,22 +265,24 @@ func (p *Probe) httpRequest(req *http.Request, result *probeRunResult) {
 	result.respCodes.IncKey(strconv.FormatInt(int64(resp.StatusCode), 10))
 
 	if p.opts.Validators != nil {
-		validationFailed := false
+		var failedValidations []string
 
-		for name, v := range p.opts.Validators {
+		for _, v := range p.opts.Validators {
 			success, err := v.Validate(resp, respBody)
 			if err != nil {
-				p.l.Errorf("Error while running the validator %s: %v", name, err)
+				p.l.Error("Error while running the validator ", v.Name, ": ", err.Error())
 				continue
 			}
 			if !success {
-				result.validationFailure.IncKey(name)
-				p.l.Debugf("Target:%s, URL:%s, http.runProbe: validation %s failed.", req.Host, req.URL.String(), name)
-				validationFailed = true
+				result.validationFailure.IncKey(v.Name)
+				failedValidations = append(failedValidations, v.Name)
 			}
 		}
-		// If any validation failed, return now, leaving the success and latency counters unchanged.
-		if validationFailed {
+
+		// If any validation failed, return now, leaving the success and latency
+		// counters unchanged.
+		if len(failedValidations) > 0 {
+			p.l.Debugf("Target:%s, URL:%s, http.runProbe: failed validations: %v.", req.Host, req.URL.String(), failedValidations)
 			return
 		}
 	}
