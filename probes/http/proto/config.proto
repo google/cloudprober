@@ -2,7 +2,7 @@ syntax = "proto2";
 
 package cloudprober.probes.http;
 
-// Next tag: 14
+// Next tag: 15
 message ProbeConf {
   enum ProtocolType {
     HTTP = 0;
@@ -63,6 +63,10 @@ message ProbeConf {
   // Golang HTTP client automatically enables HTTP/2 if server supports it. This
   // option disables that behavior to enforce HTTP/1.1 for testing purpose.
   optional bool disable_http2 = 13;
+
+  // Disable TLS certificate validation. If set to true, any certificate
+  // presented by the server for any host name will be accepted.
+  optional bool disable_cert_validation = 14;
 
   // Requests per probe (Deprecated).
   // This field is now deprecated and will be removed in future releases.
