@@ -139,12 +139,34 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	// http.DefaultTransport with some timeouts changed.
 	// TODO(manugarg): Considering cloning DefaultTransport once
 	// https://github.com/golang/go/issues/26013 is fixed.
+	dialer := &net.Dialer{
+		Timeout:   p.opts.Timeout,
+		KeepAlive: 30 * time.Second, // TCP keep-alive
+		DualStack: true,
+	}
+
+	// Extract source IP from config if present and set in transport.
+	// TODO(manugarg): Remove this block this after release v0.10.2.
+	if p.c.GetSource() != nil {
+		p.l.Warning("Setting source in probe-type config is now deprecated. See corresponding config.proto for more information.")
+
+		sourceIP, err := p.getSourceFromConfig()
+		if err != nil {
+			return err
+		}
+		dialer.LocalAddr = &net.TCPAddr{
+			IP: sourceIP,
+		}
+	}
+
+	if p.opts.SourceIP != nil {
+		dialer.LocalAddr = &net.TCPAddr{
+			IP: p.opts.SourceIP,
+		}
+	}
+
 	transport := &http.Transport{
-		DialContext: (&net.Dialer{
-			Timeout:   p.opts.Timeout,
-			KeepAlive: 30 * time.Second, // TCP keep-alive
-			DualStack: true,
-		}).DialContext,
+		DialContext:         dialer.DialContext,
 		MaxIdleConns:        256, // http.DefaultTransport.MaxIdleConns: 100.
 		TLSHandshakeTimeout: p.opts.Timeout,
 		TLSClientConfig:     &tls.Config{InsecureSkipVerify: p.c.GetDisableCertValidation()},
@@ -157,18 +179,6 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	} else {
 		// If it's been more than 2 probe intervals since connection was used, close it.
 		transport.IdleConnTimeout = 2 * p.opts.Interval
-	}
-
-	// Extract source IP from config if present and set in transport.
-	if p.c.GetSource() != nil {
-		source, err := p.getSourceFromConfig()
-		if err != nil {
-			return err
-		}
-
-		if err := p.setSourceInTransport(transport, source); err != nil {
-			return err
-		}
 	}
 
 	if p.c.GetDisableHttp2() {
@@ -185,43 +195,29 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	return nil
 }
 
-// setSourceInTransport sets the provided source IP of the probe in the HTTP Transport.
-func (p *Probe) setSourceInTransport(transport *http.Transport, source string) error {
-	sourceIP := net.ParseIP(source)
-	if sourceIP == nil {
-		return fmt.Errorf("invalid source IP: %s", source)
-	}
-	sourceAddr := net.TCPAddr{
-		IP: sourceIP,
-	}
-
-	dialer := &net.Dialer{
-		LocalAddr: &sourceAddr,
-		Timeout:   30 * time.Second,
-		KeepAlive: 30 * time.Second,
-		DualStack: true,
-	}
-	transport.DialContext = dialer.DialContext
-
-	return nil
-}
-
 // getSourceFromConfig returns the source IP from the config either directly
-// or by resolving the network interface to an IP, depending on which is provided.
-func (p *Probe) getSourceFromConfig() (string, error) {
+// or by resolving the network interface to an IP, depending on the
+// provided config option.
+// TODO(manugarg): Remove this block this after release v0.10.2.
+func (p *Probe) getSourceFromConfig() (net.IP, error) {
 	switch p.c.Source.(type) {
 	case *configpb.ProbeConf_SourceIp:
-		return p.c.GetSourceIp(), nil
+		sourceIP := net.ParseIP(p.c.GetSourceIp())
+		if sourceIP == nil {
+			return nil, fmt.Errorf("invalid source IP: %s", p.c.GetSourceIp())
+		}
+		return sourceIP, nil
+
 	case *configpb.ProbeConf_SourceInterface:
 		intf := p.c.GetSourceInterface()
 		s, err := probeutils.ResolveIntfAddr(intf)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 		p.l.Infof("Using %v as source address for interface %s.", s, intf)
 		return s, nil
 	default:
-		return "", fmt.Errorf("unknown source type: %v", p.c.GetSource())
+		return nil, fmt.Errorf("unknown source type: %v", p.c.GetSource())
 	}
 }
 

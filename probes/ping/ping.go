@@ -126,7 +126,20 @@ func (p *Probe) initInternal() error {
 	p.target2addr = make(map[string]net.Addr)
 	p.useDatagramSocket = p.c.GetUseDatagramSocket()
 
-	return p.setSourceFromConfig()
+	// TODO(manugarg): Remove this block this after release v0.10.2.
+	if p.c.GetSource() != nil {
+		p.l.Warning("Setting source in probe-type config is now deprecated. See corresponding config.proto for more information.")
+
+		if err := p.setSourceFromConfig(); err != nil {
+			return err
+		}
+	}
+
+	if p.opts.SourceIP != nil {
+		p.source = p.opts.SourceIP.String()
+	}
+
+	return nil
 }
 
 // Adds an integrity validator if data integrity checks are not disabled.
@@ -154,6 +167,7 @@ func (p *Probe) configureIntegrityCheck() error {
 
 // setSourceFromConfig sets the source for ping probes. This is where we listen
 // for the replies.
+// TODO(manugarg): Remove this block this after release v0.10.2.
 func (p *Probe) setSourceFromConfig() error {
 	switch p.c.Source.(type) {
 	case *configpb.ProbeConf_SourceIp:
@@ -164,7 +178,7 @@ func (p *Probe) setSourceFromConfig() error {
 			return err
 		}
 		p.l.Infof("Using %v as source address.", p.source)
-		p.source = s
+		p.source = s.String()
 	default:
 		p.source = ""
 	}

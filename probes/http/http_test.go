@@ -175,7 +175,7 @@ func TestInitSourceIP(t *testing.T) {
 		{
 			name:     "IP not set",
 			sourceIP: "",
-			want:     "",
+			want:     "<nil>",
 		},
 		{
 			name:       "Interface with no adders fails",
@@ -223,8 +223,8 @@ func TestInitSourceIP(t *testing.T) {
 		if r.wantError {
 			continue
 		}
-		if source, _ := p.getSourceFromConfig(); source != r.want {
-			t.Errorf("Row %q: p.source = %q, want %q", r.name, source, r.want)
+		if source, _ := p.getSourceFromConfig(); source.String() != r.want {
+			t.Errorf("Row %q: source= %q, want %q", r.name, source, r.want)
 		}
 	}
 }

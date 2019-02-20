@@ -5,10 +5,19 @@ package cloudprober.probes.ping;
 message ProbeConf {
   // Set the source address to send packets from, either by providing an address
   // or a network interface.
+  // NOTE: Setting source address using these fields is now deprecated and will
+  // be removed after release v0.10.2. To set source, please modify the outer
+  // probe configuration.
+  // probe {
+  //   type: PING
+  //   source_interface: eth1
+  //   ping_probe {}
+  // }
   oneof source {
     string source_ip = 3;
     string source_interface = 4;
   }
+
   // Packets per probe
   optional int32 packets_per_probe = 6 [default = 2];
   // How long to wait between two packets to the same target
