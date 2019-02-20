@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+/*
+Package probeutils implements utilities that are shared across multiple probe
+types.
+*/
 package probeutils
 
 import (
@@ -139,17 +143,17 @@ var InterfaceByName = func(s string) (Addr, error) { return net.InterfaceByName(
 
 // ResolveIntfAddr takes the name of a network interface, and returns the first ip
 // address listed for this interface. This is typically the IPv4 address.
-func ResolveIntfAddr(intfName string) (string, error) {
+func ResolveIntfAddr(intfName string) (net.IP, error) {
 	i, err := InterfaceByName(intfName)
 	if err != nil {
-		return "", fmt.Errorf("resolveIntfAddr(%v) got error getting interface: %v", intfName, err)
+		return nil, fmt.Errorf("resolveIntfAddr(%v) got error getting interface: %v", intfName, err)
 	}
 
 	addrs, err := i.Addrs()
 	if err != nil {
-		return "", fmt.Errorf("resolveIntfAddr(%v) got error getting addresses for interface: %v", intfName, err)
+		return nil, fmt.Errorf("resolveIntfAddr(%v) got error getting addresses for interface: %v", intfName, err)
 	} else if len(addrs) == 0 {
-		return "", fmt.Errorf("resolveIntfAddr(%v) go 0 addrs for interface", intfName)
+		return nil, fmt.Errorf("resolveIntfAddr(%v) go 0 addrs for interface", intfName)
 	}
 
 	// i.Addrs() mostly returns network addresses of the form "172.17.90.252/23".
@@ -161,7 +165,7 @@ func ResolveIntfAddr(intfName string) (string, error) {
 	case *net.IPAddr:
 		ip = v.IP
 	default:
-		return "", fmt.Errorf("resolveIntfAddr(%v) found unknown type for first address: %T", intfName, v)
+		return nil, fmt.Errorf("resolveIntfAddr(%v) found unknown type for first address: %T", intfName, v)
 	}
-	return ip.String(), nil
+	return ip, nil
 }

@@ -21,6 +21,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"regexp"
 	"sync"
 	"time"
@@ -33,6 +34,7 @@ import (
 	httpprobe "github.com/google/cloudprober/probes/http"
 	"github.com/google/cloudprober/probes/options"
 	"github.com/google/cloudprober/probes/ping"
+	"github.com/google/cloudprober/probes/probeutils"
 	configpb "github.com/google/cloudprober/probes/proto"
 	"github.com/google/cloudprober/probes/udp"
 	"github.com/google/cloudprober/probes/udplistener"
@@ -90,6 +92,7 @@ type ProbeInfo struct {
 	LatencyDistLB string
 	LatencyUnit   string
 	ProbeConf     string
+	SourceIP      string
 }
 
 func newLogger(probeName string) (*logger.Logger, error) {
@@ -122,6 +125,26 @@ func getExtensionProbe(p *configpb.ProbeDef) (Probe, interface{}, error) {
 		return nil, nil, fmt.Errorf("no probes registered for the extension: %d", field)
 	}
 	return newProbeFunc(), value, nil
+}
+
+// getSourceFromConfig returns the source IP from the config either directly
+// or by resolving the network interface to an IP, depending on which is provided.
+func getSourceIPFromConfig(p *configpb.ProbeDef, l *logger.Logger) (net.IP, error) {
+	switch p.SourceIpConfig.(type) {
+
+	case *configpb.ProbeDef_SourceIp:
+		sourceIP := net.ParseIP(p.GetSourceIp())
+		if sourceIP == nil {
+			return nil, fmt.Errorf("invalid source IP: %s", p.GetSourceIp())
+		}
+		return sourceIP, nil
+
+	case *configpb.ProbeDef_SourceInterface:
+		return probeutils.ResolveIntfAddr(p.GetSourceInterface())
+
+	default:
+		return nil, fmt.Errorf("unknown source type: %v", p.GetSourceIpConfig())
+	}
 }
 
 // buildProbeOptions builds probe's options using the provided config and some global params.
@@ -159,6 +182,14 @@ func buildProbeOptions(p *configpb.ProbeDef, ldLister lameduck.Lister, globalTar
 			return nil, fmt.Errorf("failed to initialize validators: %v", err)
 		}
 	}
+
+	if p.GetSourceIpConfig() != nil {
+		opts.SourceIP, err = getSourceIPFromConfig(p, l)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get source address for the probe: %v", err)
+		}
+	}
+
 	return opts, nil
 }
 
@@ -196,22 +227,24 @@ func Init(probeProtobufs []*configpb.ProbeDef, globalTargetsOpts *targetspb.Glob
 			return nil, err
 		}
 
-		latencyDistLB := ""
-		if opts.LatencyDist != nil {
-			latencyDistLB = fmt.Sprintf("%v", opts.LatencyDist.Data().LowerBounds)
+		probeInfo := &ProbeInfo{
+			Probe:       probe,
+			Name:        p.GetName(),
+			Type:        p.GetType().String(),
+			Interval:    opts.Interval.String(),
+			Timeout:     opts.Timeout.String(),
+			TargetsDesc: p.Targets.String(),
+			LatencyUnit: opts.LatencyUnit.String(),
+			ProbeConf:   formatutils.ConfToString(probeConf),
 		}
 
-		probes[p.GetName()] = &ProbeInfo{
-			Probe:         probe,
-			Name:          p.GetName(),
-			Type:          p.GetType().String(),
-			Interval:      opts.Interval.String(),
-			Timeout:       opts.Timeout.String(),
-			TargetsDesc:   p.Targets.String(),
-			LatencyDistLB: latencyDistLB,
-			LatencyUnit:   opts.LatencyUnit.String(),
-			ProbeConf:     formatutils.ConfToString(probeConf),
+		if opts.LatencyDist != nil {
+			probeInfo.LatencyDistLB = fmt.Sprintf("%v", opts.LatencyDist.Data().LowerBounds)
 		}
+		if opts.SourceIP != nil {
+			probeInfo.SourceIP = opts.SourceIP.String()
+		}
+		probes[p.GetName()] = probeInfo
 	}
 
 	return probes, nil

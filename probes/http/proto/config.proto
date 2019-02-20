@@ -30,9 +30,18 @@ message ProbeConf {
   optional string relative_url = 2;
   // Port, default is 80 for HTTP and 443 for HTTPS
   optional int32 port = 3;
+
   // Set the source address to send packets from, either by providing an address
   // or a network interface. Note: the source can also be configured dynamically
   // using an environment variable.
+  // NOTE: Setting source address using these fields is now deprecated and will
+  // be removed after release v0.10.2. To set source, please modify the outer
+  // probe configuration. Example:
+  // probe {
+  //   type: HTTP
+  //   source_interface: eth1
+  //   http_probe {}
+  // }
   oneof source {
     string source_ip = 10;
     string source_interface = 11;
@@ -42,16 +51,21 @@ message ProbeConf {
   // module, Otherwise, we resolve the target first to an IP address and
   // make a request using that while passing target name as Host header.
   optional bool resolve_first = 4 [default = false];
+
   // Export response (body) count as a metric
   optional bool export_response_as_metrics = 5 [default = false];
+
   // This field is now deprecated and doesn't do anything (except resulting in
   // a warning). It will be removed in the next release. For data integrity
   // checks, please use integrity validator.
   optional string integrity_check_pattern = 6;
+
   // HTTP request method
   optional Method method = 7 [default = GET];
+
   // HTTP request headers
   repeated Header headers = 8;
+
   // Request body.
   optional string body = 9;
 

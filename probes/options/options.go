@@ -18,6 +18,7 @@ Package options provides a shared interface to common probe options.
 package options
 
 import (
+	"net"
 	"time"
 
 	"github.com/google/cloudprober/logger"
@@ -35,4 +36,5 @@ type Options struct {
 	LatencyDist       *metrics.Distribution
 	LatencyUnit       time.Duration
 	Validators        []*validators.ValidatorWithName
+	SourceIP          net.IP
 }
