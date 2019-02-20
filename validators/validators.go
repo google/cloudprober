@@ -36,16 +36,35 @@ type Validator interface {
 	Validate(responseObject interface{}, responseBody []byte) (bool, error)
 }
 
+// ValidatorWithName encapsulate a Validator and its name.
+type ValidatorWithName struct {
+	Name      string
+	Validator Validator
+}
+
+// Validate is simply a wrapper around the encapsulated Validator's Validate
+// method.
+func (vwn *ValidatorWithName) Validate(responseObject interface{}, responseBody []byte) (bool, error) {
+	return vwn.Validator.Validate(responseObject, responseBody)
+}
+
 // Init initializes the validators defined in the config.
-func Init(validatorConfs []*configpb.Validator, l *logger.Logger) (map[string]Validator, error) {
-	validators := make(map[string]Validator)
+func Init(validatorConfs []*configpb.Validator, l *logger.Logger) ([]*ValidatorWithName, error) {
+	var validators []*ValidatorWithName
+	names := make(map[string]bool)
 
 	for _, vc := range validatorConfs {
+		if names[vc.GetName()] {
+			return nil, fmt.Errorf("validator %s is defined twice", vc.GetName())
+		}
+
 		v, err := initValidator(vc, l)
 		if err != nil {
 			return nil, err
 		}
-		validators[vc.GetName()] = v
+
+		validators = append(validators, &ValidatorWithName{vc.GetName(), v})
+		names[vc.GetName()] = true
 	}
 
 	return validators, nil

@@ -135,9 +135,11 @@ func (p *Probe) configureIntegrityCheck() error {
 		return nil
 	}
 
-	if p.opts.Validators[dataIntegrityKey] != nil {
-		p.l.Warningf("Not adding data-integrity validator as there is already a validator with the name \"%s\": %v", dataIntegrityKey, p.opts.Validators[dataIntegrityKey])
-		return nil
+	for _, v := range p.opts.Validators {
+		if v.Name == dataIntegrityKey {
+			p.l.Warningf("Not adding data-integrity validator as there is already a validator with the name \"%s\": %v", dataIntegrityKey, v)
+			return nil
+		}
 	}
 
 	v, err := integrity.PatternNumBytesValidator(timeBytesSize, p.l)
@@ -145,10 +147,7 @@ func (p *Probe) configureIntegrityCheck() error {
 		return err
 	}
 
-	if p.opts.Validators == nil {
-		p.opts.Validators = make(map[string]validators.Validator)
-	}
-	p.opts.Validators[dataIntegrityKey] = v
+	p.opts.Validators = append(p.opts.Validators, &validators.ValidatorWithName{Name: dataIntegrityKey, Validator: v})
 
 	return nil
 }
@@ -388,10 +387,10 @@ func (p *Probe) recvPackets(runID uint16, tracker chan bool) {
 		if p.opts.Validators != nil {
 			var failedValidations []string
 
-			for name, v := range p.opts.Validators {
+			for _, v := range p.opts.Validators {
 				success, err := v.Validate(nil, pkt.Data)
 				if err != nil {
-					p.l.Error("Error while running the validator ", name, ": ", err.Error())
+					p.l.Error("Error while running the validator ", v.Name, ": ", err.Error())
 					continue
 				}
 
@@ -399,12 +398,13 @@ func (p *Probe) recvPackets(runID uint16, tracker chan bool) {
 					if p.validationFailure[target] == nil {
 						p.validationFailure[target] = metrics.NewMap("validator", &metrics.Int{})
 					}
-					p.validationFailure[target].IncKey(name)
-					failedValidations = append(failedValidations, name)
+					p.validationFailure[target].IncKey(v.Name)
+					failedValidations = append(failedValidations, v.Name)
 				}
 			}
 
-			// If any validation failed, return now, leaving the success and latency counters unchanged.
+			// If any validation failed, return now, leaving the success and latency
+			// counters unchanged.
 			if len(failedValidations) > 0 {
 				p.l.Debugf("Target:%s, ping.recvPackets: failed validations: %v.", target, failedValidations)
 				continue

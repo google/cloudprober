@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 2017-2019 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -166,17 +166,18 @@ func (p *Probe) validateResponse(resp *dns.Msg, target string, result *probeRunR
 			answers = append(answers, rr.String())
 		}
 	}
+
 	respBytes := []byte(strings.Join(answers, "\n"))
-	for name, v := range p.opts.Validators {
+	for _, v := range p.opts.Validators {
 		// TODO: pass along "resp" instead of nil when we add a DNS validator.
 		success, err := v.Validate(nil, respBytes)
 		if err != nil {
-			p.l.Errorf("Error while running the validator %s: %v", name, err)
+			p.l.Error("Error while running the validator ", v.Name, ": ", err.Error())
 			continue
 		}
 		if !success {
-			result.validationFailure.IncKey(name)
-			failedValidations = append(failedValidations, name)
+			result.validationFailure.IncKey(v.Name)
+			failedValidations = append(failedValidations, v.Name)
 		}
 	}
 	if len(failedValidations) > 0 {
