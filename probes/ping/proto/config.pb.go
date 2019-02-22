@@ -21,6 +21,14 @@ const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 type ProbeConf struct {
 	// Set the source address to send packets from, either by providing an address
 	// or a network interface.
+	// NOTE: Setting source address using these fields is now deprecated and will
+	// be removed after release v0.10.2. To set source, please modify the outer
+	// probe configuration.
+	// probe {
+	//   type: PING
+	//   source_interface: eth1
+	//   ping_probe {}
+	// }
 	//
 	// Types that are valid to be assigned to Source:
 	//	*ProbeConf_SourceIp
@@ -62,7 +70,7 @@ func (m *ProbeConf) Reset()         { *m = ProbeConf{} }
 func (m *ProbeConf) String() string { return proto.CompactTextString(m) }
 func (*ProbeConf) ProtoMessage()    {}
 func (*ProbeConf) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_c49f911c247a6fe8, []int{0}
+	return fileDescriptor_config_de369758f73e2d6f, []int{0}
 }
 func (m *ProbeConf) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ProbeConf.Unmarshal(m, b)
@@ -255,10 +263,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("github.com/google/cloudprober/probes/ping/proto/config.proto", fileDescriptor_config_c49f911c247a6fe8)
+	proto.RegisterFile("github.com/google/cloudprober/probes/ping/proto/config.proto", fileDescriptor_config_de369758f73e2d6f)
 }
 
-var fileDescriptor_config_c49f911c247a6fe8 = []byte{
+var fileDescriptor_config_de369758f73e2d6f = []byte{
 	// 389 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x4c, 0x91, 0xdf, 0x6b, 0xd5, 0x30,
 	0x18, 0x86, 0xad, 0xfb, 0x61, 0x9b, 0x4d, 0xe6, 0x72, 0x38, 0x2e, 0x37, 0x42, 0x11, 0x84, 0x03,
