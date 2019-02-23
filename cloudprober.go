@@ -47,7 +47,6 @@ import (
 )
 
 const (
-	logsNamePrefix    = "cloudprober"
 	sysvarsModuleName = "sysvars"
 )
 
@@ -72,10 +71,6 @@ type Prober struct {
 
 	// Used by GetConfig for /config handler.
 	textConfig string
-}
-
-func (pr *Prober) newLogger(probeName string) (*logger.Logger, error) {
-	return logger.New(context.Background(), logsNamePrefix+"."+probeName)
 }
 
 func (pr *Prober) initDefaultServer() error {
@@ -114,7 +109,7 @@ func InitFromConfig(configFile string) error {
 
 	pr := &Prober{}
 	// Initialize sysvars module
-	l, err := pr.newLogger(sysvarsModuleName)
+	l, err := logger.NewCloudproberLog(sysvarsModuleName)
 	if err != nil {
 		return err
 	}
@@ -140,7 +135,7 @@ func (pr *Prober) init() error {
 
 	// Create a global logger. Each component gets its own logger on successful
 	// creation. For everything else, we use a global logger.
-	globalLogger, err := pr.newLogger("global")
+	globalLogger, err := logger.NewCloudproberLog("global")
 	if err != nil {
 		return fmt.Errorf("error in initializing global logger: %v", err)
 	}
@@ -149,7 +144,7 @@ func (pr *Prober) init() error {
 	globalTargetsOpts := pr.c.GetGlobalTargetsOptions()
 
 	if globalTargetsOpts.GetLameDuckOptions() != nil {
-		ldLogger, err := pr.newLogger("lame-duck")
+		ldLogger, err := logger.NewCloudproberLog("lame-duck")
 		if err != nil {
 			return fmt.Errorf("error in initializing lame-duck logger: %v", err)
 		}
@@ -187,7 +182,7 @@ func (pr *Prober) init() error {
 
 	// Initialize RDS server, if configured.
 	if c := pr.c.GetRdsServer(); c != nil {
-		l, err := pr.newLogger("rds-server")
+		l, err := logger.NewCloudproberLog("rds-server")
 		if err != nil {
 			goto cleanupInit
 		}
@@ -198,7 +193,7 @@ func (pr *Prober) init() error {
 
 	// Initialize RTC reporter, if configured.
 	if opts := pr.c.GetRtcReportOptions(); opts != nil {
-		l, err := pr.newLogger("rtc-reporter")
+		l, err := logger.NewCloudproberLog("rtc-reporter")
 		if err != nil {
 			goto cleanupInit
 		}

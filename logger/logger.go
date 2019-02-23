@@ -39,6 +39,11 @@ var (
 )
 
 const (
+	// Prefix for the cloudprober stackdriver log names.
+	cloudproberPrefix = "cloudprober."
+)
+
+const (
 	// Regular Expression for all characters that are illegal for log names
 	//	Ref: https://cloud.google.com/logging/docs/api/ref_v2beta1/rest/v2beta1/LogEntry
 	disapprovedRegExp = "[^A-Za-z0-9_/.-]"
@@ -68,6 +73,12 @@ type Logger struct {
 	// should get a different Logger object (embedding that probe's probe id) but
 	// sharing the same logging client. We could then make probe id one of the
 	// metadata on all logging messages.
+}
+
+// NewCloudproberLog is a convenient wrapper around New that sets context to
+// context.Background and attaches cloudprober prefix to log names.
+func NewCloudproberLog(component string) (*Logger, error) {
+	return New(context.Background(), cloudproberPrefix+component)
 }
 
 // New returns a new Logger object with cloud logging client initialized if running on GCE.

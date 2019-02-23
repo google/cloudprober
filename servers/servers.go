@@ -30,10 +30,6 @@ import (
 	"github.com/google/cloudprober/web/formatutils"
 )
 
-const (
-	logsNamePrefix = "cloudprober"
-)
-
 // StatusTmpl variable stores the HTML template suitable to generate the
 // servers' status for cloudprober's /status page. It expects an array of
 // ServerInfo objects as input.
@@ -58,10 +54,6 @@ var StatusTmpl = template.Must(template.New("statusTmpl").Parse(`
 </table>
 `))
 
-func newLogger(ctx context.Context, logName string) (*logger.Logger, error) {
-	return logger.New(ctx, logsNamePrefix+"."+logName)
-}
-
 // Server interface has only one method: Start.
 type Server interface {
 	Start(ctx context.Context, dataChan chan<- *metrics.EventMetrics) error
@@ -78,7 +70,7 @@ type ServerInfo struct {
 func Init(initCtx context.Context, serverDefs []*configpb.ServerDef) (servers []*ServerInfo, err error) {
 	for _, serverDef := range serverDefs {
 		var l *logger.Logger
-		l, err = newLogger(initCtx, serverDef.GetType().String())
+		l, err = logger.NewCloudproberLog(serverDef.GetType().String())
 		if err != nil {
 			return
 		}
