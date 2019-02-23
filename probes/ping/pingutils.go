@@ -22,6 +22,8 @@ import (
 	"time"
 
 	"github.com/google/cloudprober/probes/probeutils"
+	"golang.org/x/net/ipv4"
+	"golang.org/x/net/ipv6"
 )
 
 const timeBytesSize = 8
@@ -83,14 +85,23 @@ func ipToKey(ip net.IP) (key [16]byte) {
 	return
 }
 
-func pktString(peer string, id, seq int, rtt time.Duration) string {
+func validEchoReply(ipVer int, typeByte byte) bool {
+	switch ipVer {
+	case 6:
+		return ipv6.ICMPType(typeByte) == ipv6.ICMPTypeEchoReply
+	default:
+		return ipv4.ICMPType(typeByte) == ipv4.ICMPTypeEchoReply
+	}
+}
+
+func (pkt *rcvdPkt) String(rtt time.Duration) string {
 	var b strings.Builder
 	b.WriteString("peer=")
-	b.WriteString(peer)
+	b.WriteString(pkt.target)
 	b.WriteString(" id=")
-	b.WriteString(strconv.FormatInt(int64(id), 10))
+	b.WriteString(strconv.FormatInt(int64(pkt.id), 10))
 	b.WriteString(" seq=")
-	b.WriteString(strconv.FormatInt(int64(seq), 10))
+	b.WriteString(strconv.FormatInt(int64(pkt.seq), 10))
 	b.WriteString(" rtt=")
 	b.WriteString(rtt.String())
 	return b.String()
