@@ -35,12 +35,15 @@ func TestTimeToBytes(t *testing.T) {
 }
 
 func TestPktString(t *testing.T) {
-	id, seq := 5, 456
-	target := "test-target"
+	testPkt := &rcvdPkt{
+		id:     5,
+		seq:    456,
+		target: "test-target",
+	}
 	rtt := 5 * time.Millisecond
 	expectedString := "peer=test-target id=5 seq=456 rtt=5ms"
-	got := pktString(target, id, seq, rtt)
+	got := testPkt.String(rtt)
 	if got != expectedString {
-		t.Errorf("pktString(%s %d, %d, %s): expected=%s wanted=%s", target, id, seq, rtt, got, expectedString)
+		t.Errorf("pktString(%q, %s): expected=%s wanted=%s", testPkt, rtt, got, expectedString)
 	}
 }

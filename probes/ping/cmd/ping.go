@@ -53,10 +53,11 @@ func main() {
 	}
 
 	opts := &options.Options{
-		Targets:   targets.StaticTargets(*targetsF),
-		Interval:  2 * time.Second,
-		Timeout:   time.Second,
-		ProbeConf: probeConfig,
+		Targets:     targets.StaticTargets(*targetsF),
+		Interval:    2 * time.Second,
+		Timeout:     time.Second,
+		LatencyUnit: 1 * time.Millisecond,
+		ProbeConf:   probeConfig,
 	}
 	p := &ping.Probe{}
 	if err := p.Init("ping", opts); err != nil {

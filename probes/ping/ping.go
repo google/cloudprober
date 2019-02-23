@@ -38,10 +38,12 @@ package ping
 
 import (
 	"context"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"math/rand"
 	"net"
+	"strings"
 	"sync"
 	"time"
 
@@ -249,8 +251,8 @@ func (p *Probe) resolveTargets() {
 // does that matching for us. It rewrites the ICMP id of the outgoing packets with the
 // fake local port selected at the time of the socket creation and uses the same criteria
 // to forward incoming packets to the sockets.
-func matchPacket(runID uint16, pktID, pktSeq int, datagramSocket bool) bool {
-	return runID>>8 == uint16(pktSeq)>>8 && (datagramSocket || uint16(pktID) == runID)
+func matchPacket(runID, pktID, pktSeq uint16, datagramSocket bool) bool {
+	return runID>>8 == pktSeq>>8 && (datagramSocket || pktID == runID)
 }
 
 func (p *Probe) packetToSend(runID, seq uint16) []byte {
@@ -302,35 +304,17 @@ func (p *Probe) sendPackets(runID uint16, tracker chan bool) {
 	close(tracker)
 }
 
-func (p *Probe) fetchPacket(pktbuf []byte) (net.IP, *icmp.Message, int64, error) {
-	n, peer, err := p.conn.read(pktbuf)
-	if err != nil {
-		return nil, nil, 0, err
-	}
-	fetchTime := time.Now().UnixNano()
-
-	var peerIP net.IP
-	switch peer := peer.(type) {
-	case *net.UDPAddr:
-		peerIP = peer.IP
-	case *net.IPAddr:
-		peerIP = peer.IP
-	}
-	proto := protocolICMP
-	if p.ipVer == 6 {
-		proto = protocolIPv6ICMP
-	}
-	m, err := icmp.ParseMessage(proto, pktbuf[:n])
-	if err != nil {
-		return nil, nil, 0, err
-	}
-	return peerIP, m, fetchTime, nil
+type rcvdPkt struct {
+	id, seq uint16
+	data    []byte
+	tsUnix  int64
+	target  string
 }
 
 // We use it to keep track of received packets in recvPackets.
 type packetKey struct {
 	target string
-	seqNo  int
+	seqNo  uint16
 }
 
 func (p *Probe) recvPackets(runID uint16, tracker chan bool) {
@@ -355,41 +339,66 @@ func (p *Probe) recvPackets(runID uint16, tracker chan bool) {
 				return
 			}
 		}
-		peerIP, m, fetchTime, err := p.fetchPacket(pktbuf)
+
+		// Read packet from the socket
+		n, peer, err := p.conn.read(pktbuf)
+
 		if err != nil {
 			p.l.Warning(err.Error())
+			// if it's a timeout, return immediately.
 			if neterr, ok := err.(*net.OpError); ok && neterr.Timeout() {
 				return
 			}
+			continue
 		}
+		if n < 8 {
+			p.l.Warning("invalid ICMP echo packet")
+			continue
+		}
+		// Reset pktbuf to only read bytes
+		pktbuf = pktbuf[:n]
 
-		target := p.ip2target[ipToKey(peerIP)]
+		// Record fetch time before further processing.
+		fetchTime := time.Now()
+
+		var ip net.IP
+		if p.useDatagramSocket {
+			ip = peer.(*net.UDPAddr).IP
+		} else {
+			ip = peer.(*net.IPAddr).IP
+		}
+		target := p.ip2target[ipToKey(ip)]
 		if target == "" {
-			p.l.Debug("Got a packet from a peer that's not one of my targets: ", peerIP.String())
-			continue
-		}
-		if m.Type != ipv4.ICMPTypeEchoReply && m.Type != ipv6.ICMPTypeEchoReply {
+			p.l.Debug("Got a packet from a peer that's not one of my targets: ", peer.String())
 			continue
 		}
 
-		pkt, ok := m.Body.(*icmp.Echo)
-		if !ok {
-			p.l.Error("Got wrong packet in ICMP echo reply.") // should never happen
+		if !validEchoReply(p.ipVer, pktbuf[0]) {
+			p.l.Warning("Not a valid ICMP echo reply packet from: ", target)
 			continue
 		}
 
-		rtt := time.Duration(fetchTime-bytesToTime(pkt.Data)) * time.Nanosecond
+		var pkt = rcvdPkt{
+			tsUnix: fetchTime.UnixNano(),
+			target: target,
+			// ICMP packet body starts from the 5th byte
+			id:   binary.BigEndian.Uint16(pktbuf[4:6]),
+			seq:  binary.BigEndian.Uint16(pktbuf[6:8]),
+			data: pktbuf[8:],
+		}
+
+		rtt := time.Duration(pkt.tsUnix-bytesToTime(pkt.data)) * time.Nanosecond
 
 		// check if this packet belongs to this run
-		if !matchPacket(runID, pkt.ID, pkt.Seq, p.useDatagramSocket) {
-			p.l.Info("Reply ", pktString(target, pkt.ID, pkt.Seq, rtt), " Unmatched packet, probably from the last probe run.")
+		if !matchPacket(runID, pkt.id, pkt.seq, p.useDatagramSocket) {
+			p.l.Info("Reply ", pkt.String(rtt), " Unmatched packet, probably from the last probe run.")
 			continue
 		}
 
-		key := packetKey{target, pkt.Seq}
+		key := packetKey{pkt.target, pkt.seq}
 		// Check if we have already seen this packet.
 		if received[key] {
-			p.l.Info("Duplicate reply ", pktString(target, pkt.ID, pkt.Seq, rtt), " (DUP)")
+			p.l.Info("Duplicate reply ", pkt.String(rtt), " (DUP)")
 			continue
 		}
 		received[key] = true
@@ -402,17 +411,17 @@ func (p *Probe) recvPackets(runID uint16, tracker chan bool) {
 			var failedValidations []string
 
 			for _, v := range p.opts.Validators {
-				success, err := v.Validate(nil, pkt.Data)
+				success, err := v.Validate(nil, pkt.data)
 				if err != nil {
 					p.l.Error("Error while running the validator ", v.Name, ": ", err.Error())
 					continue
 				}
 
 				if !success {
-					if p.validationFailure[target] == nil {
-						p.validationFailure[target] = metrics.NewMap("validator", &metrics.Int{})
+					if p.validationFailure[pkt.target] == nil {
+						p.validationFailure[pkt.target] = metrics.NewMap("validator", &metrics.Int{})
 					}
-					p.validationFailure[target].IncKey(v.Name)
+					p.validationFailure[pkt.target].IncKey(v.Name)
 					failedValidations = append(failedValidations, v.Name)
 				}
 			}
@@ -420,13 +429,13 @@ func (p *Probe) recvPackets(runID uint16, tracker chan bool) {
 			// If any validation failed, return now, leaving the success and latency
 			// counters unchanged.
 			if len(failedValidations) > 0 {
-				p.l.Debugf("Target:%s, ping.recvPackets: failed validations: %v.", target, failedValidations)
+				p.l.Debug("Target:", pkt.target, " ping.recvPackets: failed validations: ", strings.Join(failedValidations, ","), ".")
 				continue
 			}
 		}
 
 		// Update probe result
-		result := p.results[target]
+		result := p.results[pkt.target]
 		result.rcvd++
 		result.latency.AddFloat64(rtt.Seconds() / p.opts.LatencyUnit.Seconds())
 	}
