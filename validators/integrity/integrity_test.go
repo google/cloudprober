@@ -86,8 +86,8 @@ func TestPatternString(t *testing.T) {
 		t.Errorf("v.Init(%v, l): got error: %v", testConfig, err)
 	}
 
-	if v.patternString != testPattern {
-		t.Errorf("v.Init(%v): v.patternString=%s, expected=%s", testConfig, v.patternString, testPattern)
+	if string(v.pattern) != testPattern {
+		t.Errorf("v.Init(%v): v.patternString=%s, expected=%s", testConfig, string(v.pattern), testPattern)
 	}
 
 	verifyValidate(t, v, testPattern)

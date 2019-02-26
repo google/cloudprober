@@ -26,7 +26,7 @@ import (
 
 // Validator implements an integrity validator.
 type Validator struct {
-	patternString   string
+	pattern         []byte
 	patternNumBytes int32
 
 	l *logger.Logger
@@ -41,12 +41,12 @@ func (v *Validator) Init(config interface{}, l *logger.Logger) error {
 
 	switch c.GetPattern().(type) {
 	case *configpb.Validator_PatternString:
-		v.patternString = c.GetPatternString()
+		v.pattern = []byte(c.GetPatternString())
 	case *configpb.Validator_PatternNumBytes:
 		v.patternNumBytes = c.GetPatternNumBytes()
 	}
 
-	if v.patternString == "" && v.patternNumBytes == 0 {
+	if len(v.pattern) == 0 && v.patternNumBytes == 0 {
 		return fmt.Errorf("bad integrity validator config (%v): one of pattern_string and pattern_num_bytes should be set", c)
 	}
 
@@ -57,7 +57,7 @@ func (v *Validator) Init(config interface{}, l *logger.Logger) error {
 // Validate validates the provided responseBody for data integrity errors, for
 // example, data corruption.
 func (v *Validator) Validate(unusedResponseObj interface{}, responseBody []byte) (bool, error) {
-	pattern := []byte(v.patternString)
+	pattern := v.pattern
 	if len(pattern) == 0 {
 		if len(responseBody) < int(v.patternNumBytes) {
 			return false, fmt.Errorf("response (%s) is smaller than the number of pattern bytes (%d)", responseBody, v.patternNumBytes)
