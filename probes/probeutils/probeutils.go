@@ -121,13 +121,13 @@ func VerifyPayloadPattern(payload, pattern []byte) error {
 		bN := payload[0:patternSize]    // Next pattern sized bytes
 		payload = payload[patternSize:] // Shift payload for next iteration
 
-		if bytes.Compare(bN, pattern) != 0 {
+		if !bytes.Equal(bN, pattern) {
 			return fmt.Errorf("bytes are not in the expected format. payload[%d-Replica]=%v, pattern=%v", i, bN, pattern)
 		}
 	}
 
 	// Verity that remaining bytes in payload are all zeros.
-	if bytes.Compare(payload, make([]byte, len(payload))) != 0 {
+	if !bytes.Equal(payload, make([]byte, len(payload))) {
 		return fmt.Errorf("payload doesn't have 0s padding in the last 'payloadSize mod patternSize' bytes: %v", payload)
 	}
 	return nil
