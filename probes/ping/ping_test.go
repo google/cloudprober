@@ -477,9 +477,9 @@ func TestDataIntegrityValidation(t *testing.T) {
 
 		// Verify that we increased the validation failure counter.
 		expectedFailures := p.results[target].sent - p.results[target].rcvd
-		gotFailures := p.validationFailure[target].GetKey(dataIntegrityKey).Int64()
-		if p.validationFailure[target].GetKey(dataIntegrityKey).Int64() != expectedFailures {
-			t.Errorf("p.validationFailure[%s].GetKey(%s)=%d, expected=%d", target, dataIntegrityKey, gotFailures, expectedFailures)
+		gotFailures := p.results[target].validationFailure.GetKey(dataIntegrityKey).Int64()
+		if gotFailures != expectedFailures {
+			t.Errorf("p.results[%s].validationFailure.GetKey(%s)=%d, expected=%d", target, dataIntegrityKey, gotFailures, expectedFailures)
 		}
 	}
 }
