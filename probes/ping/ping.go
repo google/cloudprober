@@ -66,8 +66,9 @@ const (
 )
 
 type result struct {
-	sent, rcvd int64
-	latency    metrics.Value
+	sent, rcvd        int64
+	latency           metrics.Value
+	validationFailure *metrics.Map
 }
 
 // Probe implements a ping probe type that sends ICMP ping packets to the targets and reports
@@ -83,7 +84,6 @@ type Probe struct {
 	ipVer             int
 	targets           []string
 	results           map[string]*result
-	validationFailure map[string]*metrics.Map
 	conn              icmpConn
 	runCnt            uint64
 	target2addr       map[string]net.Addr
@@ -123,7 +123,6 @@ func (p *Probe) initInternal() error {
 	p.ipVer = int(p.c.GetIpVersion())
 	p.targets = p.opts.Targets.List()
 	p.results = make(map[string]*result)
-	p.validationFailure = make(map[string]*metrics.Map)
 	p.ip2target = make(map[[16]byte]string)
 	p.target2addr = make(map[string]net.Addr)
 	p.useDatagramSocket = p.c.GetUseDatagramSocket()
@@ -241,7 +240,8 @@ func (p *Probe) resolveTargets() {
 			latencyValue = metrics.NewFloat(0)
 		}
 		p.results[t] = &result{
-			latency: latencyValue,
+			latency:           latencyValue,
+			validationFailure: metrics.NewMap("validator", metrics.NewInt(0)),
 		}
 	}
 }
@@ -407,6 +407,9 @@ func (p *Probe) recvPackets(runID uint16, tracker chan bool) {
 		// we were looking for.
 		outstandingPkts--
 
+		// Update probe result
+		result := p.results[pkt.target]
+
 		if p.opts.Validators != nil {
 			var failedValidations []string
 
@@ -418,10 +421,7 @@ func (p *Probe) recvPackets(runID uint16, tracker chan bool) {
 				}
 
 				if !success {
-					if p.validationFailure[pkt.target] == nil {
-						p.validationFailure[pkt.target] = metrics.NewMap("validator", &metrics.Int{})
-					}
-					p.validationFailure[pkt.target].IncKey(v.Name)
+					result.validationFailure.IncKey(v.Name)
 					failedValidations = append(failedValidations, v.Name)
 				}
 			}
@@ -434,8 +434,6 @@ func (p *Probe) recvPackets(runID uint16, tracker chan bool) {
 			}
 		}
 
-		// Update probe result
-		result := p.results[pkt.target]
 		result.rcvd++
 		result.latency.AddFloat64(rtt.Seconds() / p.opts.LatencyUnit.Seconds())
 	}
@@ -513,6 +511,9 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 				AddLabel("ptype", "ping").
 				AddLabel("probe", p.name).
 				AddLabel("dst", t)
+			if p.opts.Validators != nil {
+				em.AddMetric("validation_failure", result.validationFailure)
+			}
 
 			dataChan <- em
 			p.l.Info(em.String())
