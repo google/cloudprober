@@ -16,7 +16,6 @@
 package http
 
 import (
-	"bytes"
 	"context"
 	"crypto/tls"
 	"fmt"
@@ -38,6 +37,7 @@ import (
 
 const (
 	maxResponseSizeForMetrics = 128
+	targetsUpdateInterval     = 1 * time.Minute
 )
 
 // Probe holds aggregate information about all probe runs, per-target.
@@ -49,10 +49,17 @@ type Probe struct {
 	client *http.Client
 
 	// book-keeping params
-	targets  []string
-	protocol string
-	method   string
-	url      string
+	targets      []string
+	httpRequests map[string]*http.Request
+	protocol     string
+	method       string
+	url          string
+
+	// How often to resolve targets (in probe counts), initialized to
+	// targetsUpdateInterval / p.opts.Interval. Targets and associated data
+	// structures are updated when (runCnt % targetsUpdateFrequency) == 0
+	targetsUpdateFrequency int64
+	runCnt                 int64
 }
 
 // probeRunResult captures the results of a single probe run. The way we work with
@@ -119,9 +126,9 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	}
 	p.c = c
 
-	p.targets = p.opts.Targets.List()
 	p.protocol = strings.ToLower(p.c.GetProtocol().String())
 	p.method = p.c.GetMethod().String()
+
 	p.url = p.c.GetRelativeUrl()
 	if len(p.url) > 0 && p.url[0] != '/' {
 		return fmt.Errorf("Invalid Relative URL: %s, must begin with '/'", p.url)
@@ -195,6 +202,14 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		Transport: transport,
 	}
 
+	// Update targets once in Init(). It's also called periodically in Start(), at
+	// targetsUpdateInterval.
+	p.updateTargets()
+	p.targetsUpdateFrequency = targetsUpdateInterval.Nanoseconds() / p.opts.Interval.Nanoseconds()
+	if p.targetsUpdateFrequency == 0 {
+		p.targetsUpdateFrequency = 1
+	}
+
 	return nil
 }
 
@@ -237,9 +252,10 @@ func isClientTimeout(err error) bool {
 }
 
 // httpRequest executes an HTTP request and updates the provided result struct.
-func (p *Probe) httpRequest(req *http.Request, result *probeRunResult) {
+func (p *Probe) doHTTPRequest(req *http.Request, result *probeRunResult) {
 	start := time.Now()
 	result.total.Inc()
+
 	resp, err := p.client.Do(req)
 	latency := time.Since(start)
 
@@ -295,51 +311,43 @@ func (p *Probe) httpRequest(req *http.Request, result *probeRunResult) {
 	}
 }
 
-func (p *Probe) runProbe(ctx context.Context, resultsChan chan<- probeutils.ProbeResult) {
-	// Refresh the list of targets to probe.
+func (p *Probe) updateTargets() {
 	p.targets = p.opts.Targets.List()
+
+	if p.httpRequests == nil {
+		p.httpRequests = make(map[string]*http.Request, len(p.targets))
+	}
+
+	for _, target := range p.targets {
+		req := p.httpRequestForTarget(target)
+		if req != nil {
+			p.httpRequests[target] = req
+		}
+	}
+}
+
+func (p *Probe) runProbe(ctx context.Context, resultsChan chan<- probeutils.ProbeResult) {
 	reqCtx, cancelReqCtx := context.WithTimeout(ctx, p.opts.Timeout)
 	defer cancelReqCtx()
 
 	wg := sync.WaitGroup{}
 	for _, target := range p.targets {
+		req := p.httpRequests[target]
+		if req == nil {
+			continue
+		}
+
 		wg.Add(1)
 
 		// Launch a separate goroutine for each target.
 		// Write probe results to the "stats" channel.
-		go func(target string, resultsChan chan<- probeutils.ProbeResult) {
+		go func(target string, req *http.Request, resultsChan chan<- probeutils.ProbeResult) {
 			defer wg.Done()
 			result := newProbeRunResult(target, p.opts)
 
-			// Prepare HTTP.Request for Client.Do
-			host := target
-			if p.c.GetResolveFirst() {
-				ip, err := p.opts.Targets.Resolve(target, 4) // Support IPv4 for now, should be a config option.
-				if err != nil {
-					p.l.Errorf("Target:%s,  http.runProbe: error resolving the target: %v", target, err)
-					return
-				}
-				host = ip.String()
-			}
-			if p.c.GetPort() != 0 {
-				host = fmt.Sprintf("%s:%d", host, p.c.GetPort())
-			}
-			url := fmt.Sprintf("%s://%s%s", p.protocol, host, p.url)
-			req, err := http.NewRequest(p.method, url, bytes.NewBufferString(p.c.GetBody()))
-			if err != nil {
-				p.l.Errorf("Target:%s, URL: %s, http.runProbe: error creating HTTP req: %v", target, url, err)
-				return
-			}
-			// Following line is important only for the cases where we resolve the target first.
-			req.Host = target
-
-			for _, header := range p.c.GetHeaders() {
-				req.Header.Set(header.GetName(), header.GetValue())
-			}
-
 			numRequests := int32(0)
 			for {
-				p.httpRequest(req.WithContext(reqCtx), &result)
+				p.doHTTPRequest(req.WithContext(reqCtx), &result)
 
 				numRequests++
 				if numRequests >= p.c.GetRequestsPerProbe() {
@@ -349,7 +357,7 @@ func (p *Probe) runProbe(ctx context.Context, resultsChan chan<- probeutils.Prob
 				time.Sleep(time.Duration(p.c.GetRequestsIntervalMsec()) * time.Millisecond)
 			}
 			resultsChan <- result
-		}(target, resultsChan)
+		}(target, req, resultsChan)
 	}
 
 	// Wait until all probes are done.
@@ -374,6 +382,12 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 			return
 		default:
 		}
+
+		if (p.runCnt % p.targetsUpdateFrequency) == 0 {
+			p.updateTargets()
+		}
+		p.runCnt++
+
 		p.runProbe(ctx, resultsChan)
 	}
 }

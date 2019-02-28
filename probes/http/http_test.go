@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 2017-2019 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,16 +15,18 @@
 package http
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
-	"io"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"testing"
 	"time"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/google/cloudprober/metrics"
 	configpb "github.com/google/cloudprober/probes/http/proto"
 	"github.com/google/cloudprober/probes/options"
 	"github.com/google/cloudprober/probes/probeutils"
@@ -40,18 +42,31 @@ func newTestTransport() *testTransport {
 }
 
 // This mocks the Body of an http.Response.
-type testReadCloser struct{}
+type testReadCloser struct {
+	b *bytes.Buffer
+}
 
 func (trc *testReadCloser) Read(p []byte) (n int, err error) {
-	return 0, io.EOF
+	return trc.b.Read(p)
 }
 func (trc *testReadCloser) Close() error {
 	return nil
 }
 
 func (tt *testTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	return &http.Response{Body: &testReadCloser{}}, nil
+	b, err := ioutil.ReadAll(req.Body)
+	if err != nil {
+		return nil, err
+	}
+	req.Body.Close()
+
+	return &http.Response{
+		Body: &testReadCloser{
+			b: bytes.NewBuffer(b),
+		},
+	}, nil
 }
+
 func (tt *testTransport) CancelRequest(req *http.Request) {}
 
 func testProbe(opts *options.Options) ([]probeRunResult, error) {
@@ -132,6 +147,48 @@ func TestRun(t *testing.T) {
 				}
 			}
 		}
+	}
+}
+
+func TestProbeWithBody(t *testing.T) {
+
+	testBody := "TestHTTPBody"
+	// Build the expected response code map
+	expectedMap := metrics.NewMap("resp", metrics.NewInt(0))
+	expectedMap.IncKey(testBody)
+	expected := expectedMap.String()
+
+	p := &Probe{}
+	err := p.Init("http_test", &options.Options{
+		Targets:  targets.StaticTargets("test.com"),
+		Interval: 2 * time.Second,
+		ProbeConf: &configpb.ProbeConf{
+			Body:                    &testBody,
+			ExportResponseAsMetrics: proto.Bool(true),
+		},
+	})
+
+	if err != nil {
+		t.Errorf("Error while initializing probe: %v", err)
+	}
+	p.client.Transport = newTestTransport()
+
+	resultsChan := make(chan probeutils.ProbeResult, len(p.targets))
+
+	// Probe 1st run
+	p.runProbe(context.Background(), resultsChan)
+	result := <-resultsChan
+	got := result.(probeRunResult).respBodies.String()
+	if got != expected {
+		t.Errorf("response map: got=%s, expected=%s", got, expected)
+	}
+
+	// Probe 2nd run (we should get the same request body).
+	p.runProbe(context.Background(), resultsChan)
+	result = <-resultsChan
+	got = result.(probeRunResult).respBodies.String()
+	if got != expected {
+		t.Errorf("response map: got=%s, expected=%s", got, expected)
 	}
 }
 
