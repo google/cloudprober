@@ -28,7 +28,7 @@ import (
 
 const timeBytesSize = 8
 
-func timeToBytes(unixNano int64, size int) []byte {
+func preparePayload(payload []byte, unixNano int64) {
 	var timeBytes [timeBytesSize]byte
 	for i := uint8(0); i < timeBytesSize; i++ {
 		// To get timeBytes:
@@ -38,7 +38,7 @@ func timeToBytes(unixNano int64, size int) []byte {
 		// 7th byte - shift bits by 0 (0*8) bits, AND with 0xff to get the last 8 bits
 		timeBytes[i] = byte((unixNano >> ((timeBytesSize - i - 1) * timeBytesSize)) & 0xff)
 	}
-	return probeutils.PatternPayload(timeBytes[:], size)
+	probeutils.PatternPayload(payload, timeBytes[:])
 }
 
 func bytesToTime(b []byte) int64 {

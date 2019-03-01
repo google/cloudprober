@@ -115,21 +115,23 @@ func TestPayloadVerification(t *testing.T) {
 
 	// Verify that for the larger payload sizes we get replicas of the same
 	// bytes.
-	for _, size := range []int{256, 999, 2048, 4 * len(testBytes)} {
-		bytesBuf := PatternPayload(testBytes, size)
+	for _, size := range []int{4, 256, 999, 2048, 4 * len(testBytes)} {
+		payload := make([]byte, size)
+
+		PatternPayload(payload, testBytes)
 
 		var expectedBuf []byte
 		for i := 0; i < size/len(testBytes); i++ {
 			expectedBuf = append(expectedBuf, testBytes...)
 		}
-		// Pad 0s in the end.
-		expectedBuf = append(expectedBuf, make([]byte, size-len(expectedBuf))...)
-		if !reflect.DeepEqual(bytesBuf, expectedBuf) {
-			t.Errorf("Bytes array:\n%o\n\nExpected:\n%o", bytesBuf, expectedBuf)
+		// Remaining bytes
+		expectedBuf = append(expectedBuf, testBytes[:size-len(expectedBuf)]...)
+		if !reflect.DeepEqual(payload, expectedBuf) {
+			t.Errorf("Bytes array:\n%o\n\nExpected:\n%o", payload, expectedBuf)
 		}
 
 		// Verify payload.
-		err := VerifyPayloadPattern(bytesBuf, testBytes)
+		err := VerifyPayloadPattern(payload, testBytes)
 		if err != nil {
 			t.Errorf("Data verification error: %v", err)
 		}
@@ -138,10 +140,11 @@ func TestPayloadVerification(t *testing.T) {
 
 func benchmarkVerifyPayloadPattern(size int, b *testing.B) {
 	testBytes := []byte("test bytes")
-	bytesBuf := PatternPayload(testBytes, size)
+	payload := make([]byte, size)
+	PatternPayload(payload, testBytes)
 
 	for n := 0; n < b.N; n++ {
-		VerifyPayloadPattern(bytesBuf, testBytes)
+		VerifyPayloadPattern(payload, testBytes)
 	}
 }
 

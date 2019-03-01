@@ -95,21 +95,14 @@ func StatsKeeper(ctx context.Context, ptype, name string, exportInterval time.Du
 }
 
 // PatternPayload builds a payload that can be verified using VerifyPayloadPattern.
-// It repeats the pattern to fill a []byte slice of finalSize. Last remaining
-// bytes (finalSize mod patternSize) are left unpopulated (hence set to 0
-// bytes). If final payload size is smaller than the pattern size, we return
-// the pattern unmodified.
-func PatternPayload(pattern []byte, finalSize int) []byte {
-	if len(pattern) >= finalSize {
-		return pattern
-	}
-	b := make([]byte, finalSize)
+// It repeats the pattern to fill the payload []byte slice. Last remaining
+// bytes (len(payload) mod patternSize) are left unpopulated (hence set to 0
+// bytes).
+func PatternPayload(payload, pattern []byte) {
 	patternSize := len(pattern)
-	// We create finalSize/patternSize replicas of the payload.
-	for nReplica := 0; nReplica < finalSize/patternSize; nReplica++ {
-		copy(b[nReplica*patternSize:], pattern)
+	for i := 0; i < len(payload); i += patternSize {
+		copy(payload[i:], pattern)
 	}
-	return b
 }
 
 // VerifyPayloadPattern verifies the payload built using PatternPayload.
@@ -126,10 +119,10 @@ func VerifyPayloadPattern(payload, pattern []byte) error {
 		}
 	}
 
-	// Verity that remaining bytes in payload are all zeros.
-	if !bytes.Equal(payload, make([]byte, len(payload))) {
-		return fmt.Errorf("payload doesn't have 0s padding in the last 'payloadSize mod patternSize' bytes: %v", payload)
+	if !bytes.Equal(payload, pattern[:len(payload)]) {
+		return fmt.Errorf("last %d bytes are not in the expected format. payload=%v, expected=%v", len(payload), payload, pattern[:len(payload)])
 	}
+
 	return nil
 }
 
