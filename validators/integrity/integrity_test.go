@@ -40,8 +40,12 @@ func verifyValidate(t *testing.T, v Validator, testPattern string) {
 		wantErr  bool
 	}{
 		{
-			respBody: append([]byte{}, []byte(testPattern[:3])...), // response smaller than pattern
-			expected: false,
+			// Response smaller than the pattern but bytes matche the pattern bytes.
+			// It should pass when the pattern is specified (TestPatternString)
+			// and fail when pattern is supposed to be derived from the payload by
+			// looking at first N bytes (TestPatternNumBytes).
+			respBody: append([]byte{}, []byte(testPattern[:3])...),
+			expected: v.patternNumBytes == 0, // Pass when pattern num bytes are not given.
 			wantErr:  v.patternNumBytes > 3,
 		},
 		{
@@ -53,19 +57,19 @@ func verifyValidate(t *testing.T, v Validator, testPattern string) {
 			expected: false,
 		},
 		{
-			// "test-ctest-c" with padding of 2 zero bytes
-			respBody: append([]byte(strings.Repeat(testPattern, 2)), make([]byte, 2)...),
+			// "test-ctest-c" with partial testPattern in the end.
+			respBody: append([]byte(strings.Repeat(testPattern, 2)), testPattern[:2]...),
 			expected: true,
 		},
 	}
 
-	for _, r := range rows {
+	for i, r := range rows {
 		result, err := v.Validate(nil, r.respBody)
 		if (err != nil) != r.wantErr {
-			t.Errorf("v.Validate(nil, %s): err=%v, expectedError(bool)=%v", string(r.respBody), err, r.wantErr)
+			t.Errorf("v.Validate(nil, %s), row #%d: err=%v, expectedError(bool)=%v", string(r.respBody), i, err, r.wantErr)
 		}
 		if result != r.expected {
-			t.Errorf("v.Validate(nil, %s): result=%v expected=%v", string(r.respBody), result, r.expected)
+			t.Errorf("v.Validate(nil, %s), row #%d: result=%v expected=%v", string(r.respBody), i, result, r.expected)
 		}
 	}
 }

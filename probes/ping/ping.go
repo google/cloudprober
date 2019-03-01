@@ -255,18 +255,21 @@ func matchPacket(runID, pktID, pktSeq uint16, datagramSocket bool) bool {
 	return runID>>8 == pktSeq>>8 && (datagramSocket || pktID == runID)
 }
 
-func (p *Probe) packetToSend(runID, seq uint16) []byte {
+func (p *Probe) packetToSend(payload []byte, runID, seq uint16) []byte {
 	var typ icmp.Type
 	typ = ipv4.ICMPTypeEcho
 	if p.ipVer == 6 {
 		typ = ipv6.ICMPTypeEchoRequest
 	}
 
+	// Fill payload with the bytes corresponding to current time.
+	preparePayload(payload, time.Now().UnixNano())
+
 	pbytes, err := (&icmp.Message{
 		Type: typ, Code: 0,
 		Body: &icmp.Echo{
 			ID: int(runID), Seq: int(seq),
-			Data: timeToBytes(time.Now().UnixNano(), int(p.c.GetPayloadSize())),
+			Data: payload,
 		},
 	}).Marshal(nil)
 
@@ -280,13 +283,14 @@ func (p *Probe) packetToSend(runID, seq uint16) []byte {
 func (p *Probe) sendPackets(runID uint16, tracker chan bool) {
 	seq := runID & uint16(0xff00)
 	packetsSent := int32(0)
+	payload := make([]byte, p.c.GetPayloadSize())
 	for {
 		for _, target := range p.targets {
 			if p.target2addr[target] == nil {
 				p.l.Debug("Skipping unresolved target: ", target)
 				continue
 			}
-			if _, err := p.conn.write(p.packetToSend(runID, seq), p.target2addr[target]); err != nil {
+			if _, err := p.conn.write(p.packetToSend(payload, runID, seq), p.target2addr[target]); err != nil {
 				p.l.Warning(err.Error())
 				continue
 			}

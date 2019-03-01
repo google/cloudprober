@@ -96,7 +96,8 @@ func New(initCtx context.Context, c *configpb.ServerConf, l *logger.Logger) (*Se
 		c: c,
 		l: l,
 	}
-	srv.msg = probeutils.PatternPayload(msgPattern, maxMsgSize)
+	srv.msg = make([]byte, maxMsgSize)
+	probeutils.PatternPayload(srv.msg, msgPattern)
 	if c.GetUseDedicatedServer() {
 		if err := srv.newGRPCServer(initCtx); err != nil {
 			return nil, err
