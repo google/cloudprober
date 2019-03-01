@@ -51,66 +51,32 @@ type Probe struct {
 	// book-keeping params
 	targets      []string
 	httpRequests map[string]*http.Request
+	results      map[string]*result
 	protocol     string
 	method       string
 	url          string
+
+	// Run counter, used to decide when to update targets or export
+	// stats.
+	runCnt int64
 
 	// How often to resolve targets (in probe counts), initialized to
 	// targetsUpdateInterval / p.opts.Interval. Targets and associated data
 	// structures are updated when (runCnt % targetsUpdateFrequency) == 0
 	targetsUpdateFrequency int64
-	runCnt                 int64
+
+	// How often to export metrics (in probe counts), initialized to
+	// statsExportInterval / p.opts.Interval. Metrics are exported when
+	// (runCnt % statsExportFrequency) == 0
+	statsExportFrequency int64
 }
 
-// probeRunResult captures the results of a single probe run. The way we work with
-// stats makes sure that probeRunResult and its fields are not accessed concurrently
-// (see documentation with statsKeeper below). That's the reason we use metrics.Int
-// types instead of metrics.AtomicInt.
-// probeRunResult implements the probeutils.ProbeResult interface.
-type probeRunResult struct {
-	target            string
-	total             metrics.Int
-	success           metrics.Int
-	latency           metrics.Value
-	timeouts          metrics.Int
-	respCodes         *metrics.Map
-	respBodies        *metrics.Map
-	validationFailure *metrics.Map
-}
-
-func newProbeRunResult(target string, opts *options.Options) probeRunResult {
-	prr := probeRunResult{
-		target:            target,
-		respCodes:         metrics.NewMap("code", &metrics.Int{}),
-		respBodies:        metrics.NewMap("resp", &metrics.Int{}),
-		validationFailure: metrics.NewMap("validator", &metrics.Int{}),
-	}
-	if opts.LatencyDist != nil {
-		prr.latency = opts.LatencyDist.Clone()
-	} else {
-		prr.latency = metrics.NewFloat(0)
-	}
-	return prr
-}
-
-// Metrics converts probeRunResult into a slice of the metrics that is suitable for
-// working with metrics.EventMetrics. This method is part of the probeutils.ProbeResult
-// interface.
-func (prr probeRunResult) Metrics() *metrics.EventMetrics {
-	return metrics.NewEventMetrics(time.Now()).
-		AddMetric("total", &prr.total).
-		AddMetric("success", &prr.success).
-		AddMetric("latency", prr.latency).
-		AddMetric("timeouts", &prr.timeouts).
-		AddMetric("resp-code", prr.respCodes).
-		AddMetric("resp-body", prr.respBodies).
-		AddMetric("validation_failure", prr.validationFailure)
-}
-
-// Target returns the p.target. This method is part of the probeutils.ProbeResult
-// interface.
-func (prr probeRunResult) Target() string {
-	return prr.target
+type result struct {
+	total, success, timeouts int64
+	latency                  metrics.Value
+	respCodes                *metrics.Map
+	respBodies               *metrics.Map
+	validationFailure        *metrics.Map
 }
 
 // Init initializes the probe with the given params.
@@ -202,7 +168,13 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		Transport: transport,
 	}
 
-	// Update targets once in Init(). It's also called periodically in Start(), at
+	p.statsExportFrequency = int64(p.c.GetStatsExportIntervalMsec()) * 1e6 / p.opts.Interval.Nanoseconds()
+	if p.statsExportFrequency == 0 {
+		p.statsExportFrequency = 1
+	}
+
+	// Update targets and associated data structures (requests and results) once
+	// in Init(). It's also called periodically in Start(), at
 	// targetsUpdateInterval.
 	p.updateTargets()
 	p.targetsUpdateFrequency = targetsUpdateInterval.Nanoseconds() / p.opts.Interval.Nanoseconds()
@@ -252,26 +224,26 @@ func isClientTimeout(err error) bool {
 }
 
 // httpRequest executes an HTTP request and updates the provided result struct.
-func (p *Probe) doHTTPRequest(req *http.Request, result *probeRunResult) {
+func (p *Probe) doHTTPRequest(req *http.Request, result *result) {
 	start := time.Now()
-	result.total.Inc()
+	result.total++
 
 	resp, err := p.client.Do(req)
 	latency := time.Since(start)
 
 	if err != nil {
 		if isClientTimeout(err) {
-			p.l.Warningf("Target:%s, URL:%s, http.runProbe: timeout error: %v", req.Host, req.URL.String(), err)
-			result.timeouts.Inc()
+			p.l.Warning("Target:", req.Host, ", URL:", req.URL.String(), ", http.doHTTPRequest: timeout error: ", err.Error())
+			result.timeouts++
 			return
 		}
-		p.l.Warningf("Target(%s): client.Get: %v", req.Host, err)
+		p.l.Warning("Target:", req.Host, ", URL:", req.URL.String(), ", http.doHTTPRequest: ", err.Error())
 		return
 	}
 
 	respBody, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		p.l.Warningf("Target:%s, URL:%s, http.runProbe: error in reading response from target: %v", req.Host, req.URL.String(), err)
+		p.l.Warning("Target:", req.Host, ", URL:", req.URL.String(), ", http.doHTTPRequest: ", err.Error())
 		return
 	}
 
@@ -297,12 +269,12 @@ func (p *Probe) doHTTPRequest(req *http.Request, result *probeRunResult) {
 		// If any validation failed, return now, leaving the success and latency
 		// counters unchanged.
 		if len(failedValidations) > 0 {
-			p.l.Debugf("Target:%s, URL:%s, http.runProbe: failed validations: %v.", req.Host, req.URL.String(), failedValidations)
+			p.l.Debug("Target:", req.Host, ", URL:", req.URL.String(), ", http.doHTTPRequest: failed validations: ", strings.Join(failedValidations, ","))
 			return
 		}
 	}
 
-	result.success.Inc()
+	result.success++
 	result.latency.AddFloat64(latency.Seconds() / p.opts.LatencyUnit.Seconds())
 	if p.c.GetExportResponseAsMetrics() {
 		if len(respBody) <= maxResponseSizeForMetrics {
@@ -318,15 +290,36 @@ func (p *Probe) updateTargets() {
 		p.httpRequests = make(map[string]*http.Request, len(p.targets))
 	}
 
+	if p.results == nil {
+		p.results = make(map[string]*result, len(p.targets))
+	}
+
 	for _, target := range p.targets {
+		// Update HTTP request
 		req := p.httpRequestForTarget(target)
 		if req != nil {
 			p.httpRequests[target] = req
 		}
+
+		// Add missing result objects
+		if p.results[target] == nil {
+			var latencyValue metrics.Value
+			if p.opts.LatencyDist != nil {
+				latencyValue = p.opts.LatencyDist.Clone()
+			} else {
+				latencyValue = metrics.NewFloat(0)
+			}
+			p.results[target] = &result{
+				latency:           latencyValue,
+				respCodes:         metrics.NewMap("code", metrics.NewInt(0)),
+				respBodies:        metrics.NewMap("resp", metrics.NewInt(0)),
+				validationFailure: metrics.NewMap("validator", metrics.NewInt(0)),
+			}
+		}
 	}
 }
 
-func (p *Probe) runProbe(ctx context.Context, resultsChan chan<- probeutils.ProbeResult) {
+func (p *Probe) runProbe(ctx context.Context) {
 	reqCtx, cancelReqCtx := context.WithTimeout(ctx, p.opts.Timeout)
 	defer cancelReqCtx()
 
@@ -340,14 +333,11 @@ func (p *Probe) runProbe(ctx context.Context, resultsChan chan<- probeutils.Prob
 		wg.Add(1)
 
 		// Launch a separate goroutine for each target.
-		// Write probe results to the "stats" channel.
-		go func(target string, req *http.Request, resultsChan chan<- probeutils.ProbeResult) {
+		go func(target string, req *http.Request) {
 			defer wg.Done()
-			result := newProbeRunResult(target, p.opts)
-
 			numRequests := int32(0)
 			for {
-				p.doHTTPRequest(req.WithContext(reqCtx), &result)
+				p.doHTTPRequest(req.WithContext(reqCtx), p.results[target])
 
 				numRequests++
 				if numRequests >= p.c.GetRequestsPerProbe() {
@@ -356,8 +346,7 @@ func (p *Probe) runProbe(ctx context.Context, resultsChan chan<- probeutils.Prob
 				// Sleep for requests_interval_msec before continuing.
 				time.Sleep(time.Duration(p.c.GetRequestsIntervalMsec()) * time.Millisecond)
 			}
-			resultsChan <- result
-		}(target, req, resultsChan)
+		}(target, req)
 	}
 
 	// Wait until all probes are done.
@@ -366,16 +355,7 @@ func (p *Probe) runProbe(ctx context.Context, resultsChan chan<- probeutils.Prob
 
 // Start starts and runs the probe indefinitely.
 func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) {
-	resultsChan := make(chan probeutils.ProbeResult, len(p.targets))
-
-	// This function is used by StatsKeeper to get the latest list of targets.
-	// TODO(manugarg): Make p.targets mutex protected as it's read and written by concurrent goroutines.
-	targetsFunc := func() []string {
-		return p.targets
-	}
-	go probeutils.StatsKeeper(ctx, "http", p.name, time.Duration(p.c.GetStatsExportIntervalMsec())*time.Millisecond, targetsFunc, resultsChan, dataChan, p.l)
-
-	for range time.Tick(p.opts.Interval) {
+	for ts := range time.Tick(p.opts.Interval) {
 		// Don't run another probe if context is canceled already.
 		select {
 		case <-ctx.Done():
@@ -383,11 +363,35 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 		default:
 		}
 
+		// Update targets if its the turn for that.
 		if (p.runCnt % p.targetsUpdateFrequency) == 0 {
 			p.updateTargets()
 		}
 		p.runCnt++
 
-		p.runProbe(ctx, resultsChan)
+		p.runProbe(ctx)
+
+		if (p.runCnt % p.statsExportFrequency) == 0 {
+			for _, target := range p.targets {
+				result := p.results[target]
+				em := metrics.NewEventMetrics(ts).
+					AddMetric("total", metrics.NewInt(result.total)).
+					AddMetric("success", metrics.NewInt(result.success)).
+					AddMetric("latency", result.latency).
+					AddMetric("timeouts", metrics.NewInt(result.timeouts)).
+					AddMetric("resp-code", result.respCodes).
+					AddMetric("resp-body", result.respBodies).
+					AddLabel("ptype", "http").
+					AddLabel("probe", p.name).
+					AddLabel("dst", target)
+
+				if p.opts.Validators != nil {
+					em.AddMetric("validation_failure", result.validationFailure)
+				}
+
+				dataChan <- em
+				p.l.Info(em.String())
+			}
+		}
 	}
 }

@@ -69,7 +69,7 @@ func (tt *testTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 
 func (tt *testTransport) CancelRequest(req *http.Request) {}
 
-func testProbe(opts *options.Options) ([]probeRunResult, error) {
+func testProbe(opts *options.Options) ([]*result, error) {
 	p := &Probe{}
 	err := p.Init("http_test", opts)
 	if err != nil {
@@ -77,14 +77,11 @@ func testProbe(opts *options.Options) ([]probeRunResult, error) {
 	}
 	p.client.Transport = newTestTransport()
 
-	resultsChan := make(chan probeutils.ProbeResult, len(p.targets))
-	p.runProbe(context.Background(), resultsChan)
+	p.runProbe(context.Background())
 
-	results := make([]probeRunResult, len(p.targets))
-	// The resultsChan output iterates through p.targets in the same order.
-	for i := range p.targets {
-		r := <-resultsChan
-		results[i] = r.(probeRunResult)
+	var results []*result
+	for _, target := range p.targets {
+		results = append(results, p.results[target])
 	}
 	return results, nil
 }
@@ -137,13 +134,10 @@ func TestRun(t *testing.T) {
 				t.Errorf("Unexpected initialization error: %v", err)
 			}
 		} else {
-			for i, result := range results {
-				got := fmt.Sprintf("total: %d, success: %d", result.total.Int64(), result.success.Int64())
+			for _, result := range results {
+				got := fmt.Sprintf("total: %d, success: %d", result.total, result.success)
 				if got != test.want {
 					t.Errorf("Mismatch got '%s', want '%s'", got, test.want)
-				}
-				if result.Target() != opts.Targets.List()[i] {
-					t.Errorf("Unexpected target in probe result. Got: %s, Expected: %s", result.Target(), opts.Targets.List()[i])
 				}
 			}
 		}
@@ -153,6 +147,7 @@ func TestRun(t *testing.T) {
 func TestProbeWithBody(t *testing.T) {
 
 	testBody := "TestHTTPBody"
+	testTarget := "test.com"
 	// Build the expected response code map
 	expectedMap := metrics.NewMap("resp", metrics.NewInt(0))
 	expectedMap.IncKey(testBody)
@@ -160,7 +155,7 @@ func TestProbeWithBody(t *testing.T) {
 
 	p := &Probe{}
 	err := p.Init("http_test", &options.Options{
-		Targets:  targets.StaticTargets("test.com"),
+		Targets:  targets.StaticTargets(testTarget),
 		Interval: 2 * time.Second,
 		ProbeConf: &configpb.ProbeConf{
 			Body:                    &testBody,
@@ -173,20 +168,18 @@ func TestProbeWithBody(t *testing.T) {
 	}
 	p.client.Transport = newTestTransport()
 
-	resultsChan := make(chan probeutils.ProbeResult, len(p.targets))
-
 	// Probe 1st run
-	p.runProbe(context.Background(), resultsChan)
-	result := <-resultsChan
-	got := result.(probeRunResult).respBodies.String()
+	p.runProbe(context.Background())
+	got := p.results[testTarget].respBodies.String()
 	if got != expected {
 		t.Errorf("response map: got=%s, expected=%s", got, expected)
 	}
 
 	// Probe 2nd run (we should get the same request body).
-	p.runProbe(context.Background(), resultsChan)
-	result = <-resultsChan
-	got = result.(probeRunResult).respBodies.String()
+	p.runProbe(context.Background())
+	expectedMap.IncKey(testBody)
+	expected = expectedMap.String()
+	got = p.results[testTarget].respBodies.String()
 	if got != expected {
 		t.Errorf("response map: got=%s, expected=%s", got, expected)
 	}
