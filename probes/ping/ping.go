@@ -43,6 +43,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -54,15 +55,14 @@ import (
 	"github.com/google/cloudprober/probes/probeutils"
 	"github.com/google/cloudprober/validators"
 	"github.com/google/cloudprober/validators/integrity"
-	"golang.org/x/net/icmp"
-	"golang.org/x/net/ipv4"
-	"golang.org/x/net/ipv6"
 )
 
 const (
 	protocolICMP     = 1
 	protocolIPv6ICMP = 58
 	dataIntegrityKey = "data-integrity"
+	icmpHeaderSize   = 8
+	minPacketSize    = icmpHeaderSize + timeBytesSize // 16
 )
 
 type result struct {
@@ -112,8 +112,8 @@ func (p *Probe) initInternal() error {
 		p.l = &logger.Logger{}
 	}
 
-	if p.c.GetPayloadSize() < 8 {
-		return fmt.Errorf("payload_size (%d) cannot be smaller than 8", p.c.GetPayloadSize())
+	if p.c.GetPayloadSize() < timeBytesSize {
+		return fmt.Errorf("payload_size (%d) cannot be smaller than %d", p.c.GetPayloadSize(), timeBytesSize)
 	}
 
 	if err := p.configureIntegrityCheck(); err != nil {
@@ -255,42 +255,22 @@ func matchPacket(runID, pktID, pktSeq uint16, datagramSocket bool) bool {
 	return runID>>8 == pktSeq>>8 && (datagramSocket || pktID == runID)
 }
 
-func (p *Probe) packetToSend(payload []byte, runID, seq uint16) []byte {
-	var typ icmp.Type
-	typ = ipv4.ICMPTypeEcho
-	if p.ipVer == 6 {
-		typ = ipv6.ICMPTypeEchoRequest
-	}
-
-	// Fill payload with the bytes corresponding to current time.
-	preparePayload(payload, time.Now().UnixNano())
-
-	pbytes, err := (&icmp.Message{
-		Type: typ, Code: 0,
-		Body: &icmp.Echo{
-			ID: int(runID), Seq: int(seq),
-			Data: payload,
-		},
-	}).Marshal(nil)
-
-	if err != nil {
-		// It should never happen.
-		p.l.Critical("Error marshalling the ICMP message. Err: ", err.Error())
-	}
-	return pbytes
-}
-
 func (p *Probe) sendPackets(runID uint16, tracker chan bool) {
 	seq := runID & uint16(0xff00)
 	packetsSent := int32(0)
-	payload := make([]byte, p.c.GetPayloadSize())
+
+	// Allocate a byte buffer of the size: ICMP Header Size (8) + Payload Size
+	// We re-use the same memory space for all outgoing packets.
+	pktbuf := make([]byte, icmpHeaderSize+p.c.GetPayloadSize())
+
 	for {
 		for _, target := range p.targets {
 			if p.target2addr[target] == nil {
 				p.l.Debug("Skipping unresolved target: ", target)
 				continue
 			}
-			if _, err := p.conn.write(p.packetToSend(payload, runID, seq), p.target2addr[target]); err != nil {
+			p.prepareRequestPacket(pktbuf, runID, seq, time.Now().UnixNano())
+			if _, err := p.conn.write(pktbuf, p.target2addr[target]); err != nil {
 				p.l.Warning(err.Error())
 				continue
 			}
@@ -355,8 +335,8 @@ func (p *Probe) recvPackets(runID uint16, tracker chan bool) {
 			}
 			continue
 		}
-		if n < 8 {
-			p.l.Warning("invalid ICMP echo packet")
+		if n < minPacketSize {
+			p.l.Warning("packet too small: size (", strconv.FormatInt(int64(n), 10), ") < minPacketSize (16)")
 			continue
 		}
 		// Reset pktbuf to only read bytes
