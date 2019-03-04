@@ -132,9 +132,15 @@ func (tic *testICMPConn) read(buf []byte) (int, net.Addr, error) {
 
 // write simply queues packets into the sentPackets channel. These packets are
 // retrieved by the "read" call.
-func (tic *testICMPConn) write(b []byte, peer net.Addr) (int, error) {
+func (tic *testICMPConn) write(in []byte, peer net.Addr) (int, error) {
 	target := peerToIP(peer)
+
+	// Copy incoming bytes slice and store in the internal channel for use
+	// during the read call.
+	b := make([]byte, len(in))
+	copy(b, in)
 	tic.sentPackets[target] <- b
+
 	return len(b), nil
 }
 
