@@ -79,7 +79,14 @@ message ProbeDef {
     string user_defined_probe = 99;
   }
 
+  optional DebugOptions debug_options = 100;
+
   // Extensions allow users to to add new probe types (for example, a probe type
   // that utilizes a custom protocol) in a systematic manner.
   extensions 200 to max;
+}
+
+message DebugOptions {
+  // Whether to log metrics or not.
+  optional bool log_metrics = 1;
 }

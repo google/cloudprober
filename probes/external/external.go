@@ -461,12 +461,13 @@ func (p *Probe) runOnceProbe(ctx context.Context, dataChan chan *metrics.EventMe
 			}
 
 			em := p.defaultMetrics(target)
-			p.l.Info(em.String())
+			p.opts.LogMetrics(em)
+
 			dataChan <- em
 
 			if p.c.GetOutputAsMetrics() {
 				em = p.payloadToMetrics(target, string(b))
-				p.l.Info(em.String())
+				p.opts.LogMetrics(em)
 				dataChan <- em
 			}
 		}(target)

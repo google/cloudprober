@@ -499,8 +499,8 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 				em.AddMetric("validation_failure", result.validationFailure)
 			}
 
+			p.opts.LogMetrics(em)
 			dataChan <- em
-			p.l.Info(em.String())
 		}
 	}
 }
