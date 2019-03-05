@@ -73,7 +73,7 @@ func TestStatsKeeper(t *testing.T) {
 	}
 	dataChan := make(chan *metrics.EventMetrics, len(targets))
 
-	go StatsKeeper(ctx, pType, pName, exportInterval, targetsFunc, resultsChan, dataChan, &logger.Logger{})
+	go StatsKeeper(ctx, pType, pName, exportInterval, targetsFunc, resultsChan, dataChan, nil, &logger.Logger{})
 
 	for _, t := range targets {
 		prr := newProbeRunResult(t)

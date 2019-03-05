@@ -243,7 +243,7 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 	targetsFunc := func() []string {
 		return p.targets
 	}
-	go probeutils.StatsKeeper(ctx, "dns", p.name, time.Duration(p.c.GetStatsExportIntervalMsec())*time.Millisecond, targetsFunc, resultsChan, dataChan, p.l)
+	go probeutils.StatsKeeper(ctx, "dns", p.name, time.Duration(p.c.GetStatsExportIntervalMsec())*time.Millisecond, targetsFunc, resultsChan, dataChan, p.opts.LogMetrics, p.l)
 
 	for range time.Tick(p.opts.Interval) {
 		// Don't run another probe if context is canceled already.

@@ -442,8 +442,11 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 			p.processPackets()
 		case <-statsExportTicker.C:
 			for f, result := range p.res {
-				dataChan <- result.EventMetrics(p.name, f, p.c)
+				em := result.EventMetrics(p.name, f, p.c)
+				p.opts.LogMetrics(em)
+				dataChan <- em
 			}
+
 			p.targets = p.opts.Targets.List()
 			if len(p.targets) > maxTargets {
 				p.l.Warningf("Number of targets (%d) > maxTargets (%d). Truncating the targets list.", len(p.targets), maxTargets)

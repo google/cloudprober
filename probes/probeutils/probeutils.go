@@ -59,7 +59,7 @@ type ProbeResult interface {
 // targets for exporting results,  instead of getting a static list in the
 // arguments. We do that as the list of targets is usually dynamic and is
 // updated on a regular basis.
-func StatsKeeper(ctx context.Context, ptype, name string, exportInterval time.Duration, targetsFunc func() []string, resultsChan <-chan ProbeResult, dataChan chan<- *metrics.EventMetrics, l *logger.Logger) {
+func StatsKeeper(ctx context.Context, ptype, name string, exportInterval time.Duration, targetsFunc func() []string, resultsChan <-chan ProbeResult, dataChan chan<- *metrics.EventMetrics, logMetrics func(*metrics.EventMetrics), l *logger.Logger) {
 	targetMetrics := make(map[string]*metrics.EventMetrics)
 	doExport := time.Tick(exportInterval)
 
@@ -84,7 +84,9 @@ func StatsKeeper(ctx context.Context, ptype, name string, exportInterval time.Du
 					em.AddLabel("probe", name)
 					em.AddLabel("dst", t)
 					em.Timestamp = ts
-					l.Info(em.String())
+					if logMetrics != nil {
+						logMetrics(em)
+					}
 					dataChan <- em.Clone()
 				}
 			}

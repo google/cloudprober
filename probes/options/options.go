@@ -42,6 +42,7 @@ type Options struct {
 	LatencyUnit       time.Duration
 	Validators        []*validators.ValidatorWithName
 	SourceIP          net.IP
+	LogMetrics        func(*metrics.EventMetrics)
 }
 
 // getSourceFromConfig returns the source IP from the config either directly
@@ -64,7 +65,8 @@ func getSourceIPFromConfig(p *configpb.ProbeDef, l *logger.Logger) (net.IP, erro
 	}
 }
 
-// BuildProbeOptions builds probe's options using the provided config and some global params.
+// BuildProbeOptions builds probe's options using the provided config and some
+// global params.
 func BuildProbeOptions(p *configpb.ProbeDef, ldLister lameduck.Lister, globalTargetsOpts *targetspb.GlobalTargetsOptions, l *logger.Logger) (*Options, error) {
 	opts := &Options{
 		Interval: time.Duration(p.GetIntervalMsec()) * time.Millisecond,
@@ -104,6 +106,16 @@ func BuildProbeOptions(p *configpb.ProbeDef, ldLister lameduck.Lister, globalTar
 		opts.SourceIP, err = getSourceIPFromConfig(p, l)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get source address for the probe: %v", err)
+		}
+	}
+
+	if !p.GetDebugOptions().GetLogMetrics() {
+		opts.LogMetrics = func(em *metrics.EventMetrics) {}
+	} else {
+		opts.LogMetrics = func(em *metrics.EventMetrics) {
+			if opts.Logger != nil {
+				opts.Logger.Info(em.String())
+			}
 		}
 	}
 
