@@ -37,12 +37,7 @@ if [ -z "${JOB}" ]; then
   exit 1
 fi
 
-# If IMAGE name is not defined, get it from the project name
-if [ -z "${IMAGE}" ]; then
-  PROJECT=$(curl -s http://metadata/computeMetadata/v1/project/project-id \
-            -H "Metadata-Flavor: Google")
-  IMAGE=gcr.io/${PROJECT}/${JOB}
-fi
+[[ -f "/etc/default/${JOB}" ]] && . "/etc/default/${JOB}"
 
 VERSION=${VERSION:-latest}
 KERNEL_VERSION=$(uname -r)
@@ -60,5 +55,6 @@ docker pull "${IMAGE}:${VERSION}"
 DIGEST=$(docker inspect --format "{{.Id}}" "${IMAGE}:${VERSION}")
 VARS="kernel=${KERNEL_VERSION},google_release=${GOOGLE_RELEASE}"
 VARS="${VARS},${JOB}_tag=${VERSION},${JOB}_version=${DIGEST:0:12}"
-docker run -e "SYSVARS=${VARS}" --net host \
-  --privileged -v /tmp:/tmp "${IMAGE}:${VERSION}"
+
+docker run -e "SYSVARS=${VARS}" -e "CLOUDPROBER_PORT=${CLOUDPROBER_PORT:-""}" \
+  --net host --privileged -v /tmp:/tmp "${IMAGE}:${VERSION}"
