@@ -36,11 +36,15 @@ import (
 
 var (
 	debugLog = flag.Bool("debug_log", false, "Whether to output debug logs or not")
+
+	// LogPrefixEnvVar environment variable is used to determine the stackdriver
+	// log name prefix. Default prefix is "cloudprober".
+	LogPrefixEnvVar = "CLOUDPROBER_LOG_PREFIX"
 )
 
 const (
 	// Prefix for the cloudprober stackdriver log names.
-	cloudproberPrefix = "cloudprober."
+	cloudproberPrefix = "cloudprober"
 )
 
 const (
@@ -52,11 +56,11 @@ const (
 	MaxLogEntrySize = 4096
 )
 
-// Logger implements a logger that logs messages to Google Cloud Logging. It provides a suite
-// of methods where each method correponds to a specific logging.Level, e.g.
-// Error(paylod interface{}). Each method takes a payload that has to either be a
-// JSON-encodable object, a string or a []byte slice (all other types of payload will result
-// in error).
+// Logger implements a logger that logs messages to Google Cloud Logging. It
+// provides a suite of methods where each method corresponds to a specific
+// logging.Level, e.g. Error(paylod interface{}). Each method takes a payload
+// that has to either be a JSON-encodable object, a string or a []byte slice
+// (all other types of payload will result in error).
 //
 // It falls back to logging through the traditional logger if:
 //
@@ -78,7 +82,14 @@ type Logger struct {
 // NewCloudproberLog is a convenient wrapper around New that sets context to
 // context.Background and attaches cloudprober prefix to log names.
 func NewCloudproberLog(component string) (*Logger, error) {
-	return New(context.Background(), cloudproberPrefix+component)
+	cpPrefix := cloudproberPrefix
+
+	envLogPrefix := os.Getenv(LogPrefixEnvVar)
+	if envLogPrefix != "" {
+		cpPrefix = envLogPrefix
+	}
+
+	return New(context.Background(), cpPrefix+"."+component)
 }
 
 // New returns a new Logger object with cloud logging client initialized if running on GCE.
