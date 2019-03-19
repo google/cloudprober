@@ -1,13 +1,13 @@
 syntax = "proto2";
 
+package cloudprober;
+
 import "github.com/google/cloudprober/probes/proto/config.proto";
 import "github.com/google/cloudprober/servers/proto/config.proto";
-import "github.com/google/cloudprober/targets/proto/targets.proto";
 import "github.com/google/cloudprober/surfacers/proto/config.proto";
+import "github.com/google/cloudprober/targets/proto/targets.proto";
 import "github.com/google/cloudprober/targets/rds/server/proto/config.proto";
 import "github.com/google/cloudprober/targets/rtc/rtcreporter/proto/rtcreporter.proto";
-
-package cloudprober;
 
 message ProberConfig {
   // Probes to run.
@@ -28,6 +28,9 @@ message ProberConfig {
   // other probes.
   repeated servers.ServerDef server = 3;
 
+  // Common services related options.
+  // Next tag: 102
+
   // Resource discovery server
   optional targets.rds.ServerConf rds_server = 95;
 
@@ -36,6 +39,11 @@ message ProberConfig {
   // config, default port can be overridden by the environment variable
   // CLOUDPROBER_PORT.
   optional int32 port = 96;
+
+  // Host for the default HTTP server. Default listens on all addresses. If not
+  // specified in the config, default port can be overridden by the environment
+  // variable CLOUDPROBER_HOST.
+  optional string host = 101;
 
   // How often to export system variables. To learn more about system variables:
   // http://godoc.org/github.com/google/cloudprober/sysvars.
