@@ -50,9 +50,11 @@ const (
 	sysvarsModuleName = "sysvars"
 )
 
-// Constants defining the default server port.
+// Constants defining the default server host and port.
 const (
+	DefaultServerHost = ""
 	DefaultServerPort = 9313
+	ServerHostEnvVar  = "CLOUDPROBER_HOST"
 	ServerPortEnvVar  = "CLOUDPROBER_PORT"
 )
 
@@ -74,6 +76,16 @@ type Prober struct {
 }
 
 func (pr *Prober) initDefaultServer() error {
+	serverHost := pr.c.GetHost()
+	if serverHost == "" {
+		serverHost = DefaultServerHost
+		// If ServerHostEnvVar is defined, it will override the default
+		// server host.
+		if host := os.Getenv(ServerHostEnvVar); host != "" {
+			serverHost = host
+		}
+	}
+
 	serverPort := int(pr.c.GetPort())
 	if serverPort == 0 {
 		serverPort = DefaultServerPort
@@ -89,7 +101,7 @@ func (pr *Prober) initDefaultServer() error {
 		}
 	}
 
-	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", serverPort))
+	ln, err := net.Listen("tcp", fmt.Sprintf("%s:%d", serverHost, serverPort))
 	if err != nil {
 		return fmt.Errorf("error while creating listener for default HTTP server. Err: %v", err)
 	}
