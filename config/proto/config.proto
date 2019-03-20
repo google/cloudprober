@@ -45,6 +45,11 @@ message ProberConfig {
   // variable CLOUDPROBER_HOST.
   optional string host = 101;
 
+  // Probes are staggered across time to avoid executing all of them at the
+  // same time. This behavior can be disabled by setting the following option
+  // to true.
+  optional bool disable_jitter = 102 [default = false];
+
   // How often to export system variables. To learn more about system variables:
   // http://godoc.org/github.com/google/cloudprober/sysvars.
   optional int32 sysvars_interval_msec = 97 [default = 10000];

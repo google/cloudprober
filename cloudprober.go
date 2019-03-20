@@ -24,6 +24,7 @@ package cloudprober
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"net"
 	"net/http"
 	"os"
@@ -66,6 +67,7 @@ type Prober struct {
 	Probes         map[string]*probes.ProbeInfo
 	Servers        []*servers.ServerInfo
 	c              *configpb.ProberConfig
+	l              *logger.Logger
 	rdsServer      *rdsserver.Server
 	rtcReporter    *rtcreporter.Reporter
 	surfacers      []*surfacers.SurfacerInfo
@@ -147,7 +149,8 @@ func (pr *Prober) init() error {
 
 	// Create a global logger. Each component gets its own logger on successful
 	// creation. For everything else, we use a global logger.
-	globalLogger, err := logger.NewCloudproberLog("global")
+	var err error
+	pr.l, err = logger.NewCloudproberLog("global")
 	if err != nil {
 		return fmt.Errorf("error in initializing global logger: %v", err)
 	}
@@ -167,7 +170,7 @@ func (pr *Prober) init() error {
 	}
 
 	// Initiliaze probes
-	pr.Probes, err = probes.Init(pr.c.GetProbe(), globalTargetsOpts, globalLogger, sysvars.Vars())
+	pr.Probes, err = probes.Init(pr.c.GetProbe(), globalTargetsOpts, pr.l, sysvars.Vars())
 	if err != nil {
 		return err
 	}
@@ -275,9 +278,46 @@ func (pr *Prober) start(ctx context.Context) {
 		go pr.rtcReporter.Start(ctx)
 	}
 
-	// Start probes, each in its own goroutines
+	if pr.c.GetDisableJitter() {
+		for _, p := range pr.Probes {
+			go p.Start(ctx, dataChan)
+		}
+		return
+	}
+	pr.startProbesWithJitter(ctx, dataChan)
+}
+
+// startProbesWithJitter try to space out probes over time, as much as possible,
+// without making it too complicated. We arrange probes into interval buckets -
+// all probes with the same interval will be part of the same bucket, and we
+// then spread out probes within that interval by introducing a delay of
+// interval / len(probes) between probes. We also introduce a random jitter
+// between different interval buckets.
+func (pr *Prober) startProbesWithJitter(ctx context.Context, dataChan chan *metrics.EventMetrics) {
+	// Seed random number generator.
+	rand.Seed(time.Now().UnixNano())
+
+	// Make interval -> [probe1, probe2, probe3..] map
+	intervalBuckets := make(map[time.Duration][]*probes.ProbeInfo)
 	for _, p := range pr.Probes {
-		go p.Start(ctx, dataChan)
+		intervalBuckets[p.Options.Interval] = append(intervalBuckets[p.Options.Interval], p)
+	}
+
+	for interval, probeInfos := range intervalBuckets {
+		go func(interval time.Duration, probeInfos []*probes.ProbeInfo) {
+			// Introduce a random jitter between interval buckets.
+			randomDelayMsec := rand.Int63n(int64(interval.Seconds() * 1000))
+			time.Sleep(time.Duration(randomDelayMsec) * time.Millisecond)
+
+			interProbeDelay := interval / time.Duration(len(probeInfos))
+
+			// Spread out probes evenly with an interval bucket.
+			for _, p := range probeInfos {
+				pr.l.Info("Starting probe: ", p.Name)
+				go p.Start(ctx, dataChan)
+				time.Sleep(interProbeDelay)
+			}
+		}(interval, probeInfos)
 	}
 }
 
