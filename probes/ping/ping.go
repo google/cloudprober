@@ -325,7 +325,7 @@ func (p *Probe) recvPackets(runID uint16, tracker chan bool) {
 		}
 
 		// Read packet from the socket
-		n, peer, err := p.conn.read(pktbuf)
+		pktLen, peer, err := p.conn.read(pktbuf)
 
 		if err != nil {
 			p.l.Warning(err.Error())
@@ -335,12 +335,10 @@ func (p *Probe) recvPackets(runID uint16, tracker chan bool) {
 			}
 			continue
 		}
-		if n < minPacketSize {
-			p.l.Warning("packet too small: size (", strconv.FormatInt(int64(n), 10), ") < minPacketSize (16)")
+		if pktLen < minPacketSize {
+			p.l.Warning("packet too small: size (", strconv.FormatInt(int64(pktLen), 10), ") < minPacketSize (16), from peer: ", peer.String())
 			continue
 		}
-		// Reset pktbuf to only read bytes
-		pktbuf = pktbuf[:n]
 
 		// Record fetch time before further processing.
 		fetchTime := time.Now()
@@ -368,7 +366,7 @@ func (p *Probe) recvPackets(runID uint16, tracker chan bool) {
 			// ICMP packet body starts from the 5th byte
 			id:   binary.BigEndian.Uint16(pktbuf[4:6]),
 			seq:  binary.BigEndian.Uint16(pktbuf[6:8]),
-			data: pktbuf[8:],
+			data: pktbuf[8:pktLen],
 		}
 
 		rtt := time.Duration(pkt.tsUnix-bytesToTime(pkt.data)) * time.Nanosecond
