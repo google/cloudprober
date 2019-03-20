@@ -75,6 +75,7 @@ type Probe interface {
 // ProbeInfo encapsulates the probe and associated information.
 type ProbeInfo struct {
 	Probe
+	Options       *options.Options
 	Name          string
 	Type          string
 	Interval      string
@@ -150,6 +151,7 @@ func Init(probeProtobufs []*configpb.ProbeDef, globalTargetsOpts *targetspb.Glob
 
 		probeInfo := &ProbeInfo{
 			Probe:       probe,
+			Options:     opts,
 			Name:        p.GetName(),
 			Type:        p.GetType().String(),
 			Interval:    opts.Interval.String(),
