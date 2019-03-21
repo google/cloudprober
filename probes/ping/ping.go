@@ -63,6 +63,7 @@ const (
 	dataIntegrityKey = "data-integrity"
 	icmpHeaderSize   = 8
 	minPacketSize    = icmpHeaderSize + timeBytesSize // 16
+	maxPacketSize    = 1500                           // MTU
 )
 
 type result struct {
@@ -93,11 +94,6 @@ type Probe struct {
 
 // Init initliazes the probe with the given params.
 func (p *Probe) Init(name string, opts *options.Options) error {
-	c, ok := opts.ProbeConf.(*configpb.ProbeConf)
-	if !ok {
-		return errors.New("no ping config")
-	}
-	p.c = c
 	p.name = name
 	p.opts = opts
 	if err := p.initInternal(); err != nil {
@@ -108,12 +104,21 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 
 // Helper function to initialize internal data structures, used by tests.
 func (p *Probe) initInternal() error {
+	c, ok := p.opts.ProbeConf.(*configpb.ProbeConf)
+	if !ok {
+		return errors.New("no ping config")
+	}
+	p.c = c
+
 	if p.l = p.opts.Logger; p.l == nil {
 		p.l = &logger.Logger{}
 	}
 
 	if p.c.GetPayloadSize() < timeBytesSize {
 		return fmt.Errorf("payload_size (%d) cannot be smaller than %d", p.c.GetPayloadSize(), timeBytesSize)
+	}
+	if p.c.GetPayloadSize() > maxPacketSize-icmpHeaderSize {
+		return fmt.Errorf("payload_size (%d) cannot be bigger than %d", p.c.GetPayloadSize(), maxPacketSize-icmpHeaderSize)
 	}
 
 	if err := p.configureIntegrityCheck(); err != nil {
@@ -306,7 +311,7 @@ func (p *Probe) recvPackets(runID uint16, tracker chan bool) {
 	received := make(map[packetKey]bool, int(p.c.GetPacketsPerProbe())*len(p.targets))
 	outstandingPkts := 0
 	p.conn.setReadDeadline(time.Now().Add(p.opts.Timeout))
-	pktbuf := make([]byte, 1500)
+	pktbuf := make([]byte, maxPacketSize)
 	for {
 		// To make sure that we have picked up all the packets sent by the sender, we
 		// use a tracker channel. Whenever sender successfully sends a packet, it notifies

@@ -61,11 +61,11 @@ func testPrepareRequestPacket(t *testing.T, ver int32, size int) {
 	// Build a packet using p.prepareOutPacke
 	p := &Probe{
 		name: "ping_test",
-		c: &configpb.ProbeConf{
-			IpVersion:         proto.Int32(ver),
-			UseDatagramSocket: proto.Bool(false),
-		},
 		opts: &options.Options{
+			ProbeConf: &configpb.ProbeConf{
+				IpVersion:         proto.Int32(ver),
+				UseDatagramSocket: proto.Bool(false),
+			},
 			Targets:  targets.StaticTargets("test.com"),
 			Interval: 2 * time.Second,
 			Timeout:  time.Second,
