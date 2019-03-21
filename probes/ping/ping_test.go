@@ -207,11 +207,11 @@ func sendAndCheckPackets(p *Probe, t *testing.T) {
 func newProbe(c *configpb.ProbeConf, t []string) (*Probe, error) {
 	p := &Probe{
 		name: "ping_test",
-		c:    c,
 		opts: &options.Options{
-			Targets:  targets.StaticTargets(strings.Join(t, ",")),
-			Interval: 2 * time.Second,
-			Timeout:  time.Second,
+			ProbeConf: c,
+			Targets:   targets.StaticTargets(strings.Join(t, ",")),
+			Interval:  2 * time.Second,
+			Timeout:   time.Second,
 		},
 	}
 	return p, p.initInternal()
@@ -367,13 +367,34 @@ func TestSendPacketsIPv6DatagramSocket(t *testing.T) {
 }
 
 // Test runProbe IPv4, raw sockets
-func TestRunProbe(t *testing.T) {
-	c := &configpb.ProbeConf{}
-	c.Source = &configpb.ProbeConf_SourceIp{"1.1.1.1"}
-	p, err := newProbe(c, []string{"2.2.2.2", "3.3.3.3"})
+func testRunProbe(t *testing.T, ipVersion int, useDatagramSocket bool, payloadSize int) {
+	t.Helper()
+
+	c := &configpb.ProbeConf{
+		UseDatagramSocket: proto.Bool(useDatagramSocket),
+	}
+
+	// if payloadSize is non-zero, set it in config.
+	if payloadSize != 0 {
+		c.PayloadSize = proto.Int32(int32(payloadSize))
+	}
+
+	var targets []string
+
+	if ipVersion == 4 {
+		c.Source = &configpb.ProbeConf_SourceIp{"1.1.1.1"}
+		targets = []string{"2.2.2.2", "3.3.3.3", "4.4.4.4"}
+	} else {
+		c.IpVersion = proto.Int32(6)
+		c.Source = &configpb.ProbeConf_SourceIp{"::1"}
+		targets = []string{"::2", "::3", "::4"}
+	}
+
+	p, err := newProbe(c, targets)
 	if err != nil {
 		t.Fatalf("Got error from newProbe: %v", err)
 	}
+
 	p.conn = newTestICMPConn(c, p.targets)
 	p.runProbe()
 	for _, target := range p.targets {
@@ -382,64 +403,36 @@ func TestRunProbe(t *testing.T) {
 			t.Errorf("We are leaking packets. Sent: %d, Received: %d", p.results[target].sent, p.results[target].rcvd)
 		}
 	}
+}
+
+func testRunProbeWithMultipleSizes(t *testing.T, ipVersion int, useDatagramSocket bool) {
+	t.Helper()
+
+	for _, size := range []int{8, 56, 256, 1024, maxPacketSize - icmpHeaderSize} {
+		t.Logf("Running probe with IP%d, with useDatagramSocket: %v, payloadSize: %d", ipVersion, useDatagramSocket, size)
+		testRunProbe(t, ipVersion, useDatagramSocket, size)
+	}
+}
+
+// Test runProbe IPv4, raw sockets
+func TestRunProbe(t *testing.T) {
+	testRunProbeWithMultipleSizes(t, 4, false)
 }
 
 // Test runProbe IPv6, raw sockets
 func TestRunProbeIPv6(t *testing.T) {
-	c := &configpb.ProbeConf{}
-	c.IpVersion = proto.Int32(6)
-	c.Source = &configpb.ProbeConf_SourceIp{"::1"}
-	p, err := newProbe(c, []string{"::2", "::3"})
-	if err != nil {
-		t.Fatalf("Got error from newProbe: %v", err)
-	}
-	p.conn = newTestICMPConn(c, p.targets)
-	p.runProbe()
-	for _, target := range p.targets {
-		glog.Infof("target: %s, sent: %d, received: %d, total_rtt: %s", target, p.results[target].sent, p.results[target].rcvd, p.results[target].latency)
-		if p.results[target].sent == 0 || (p.results[target].sent != p.results[target].rcvd) {
-			t.Errorf("We are leaking packets. Sent: %d, Received: %d", p.results[target].sent, p.results[target].rcvd)
-		}
-	}
+	testRunProbeWithMultipleSizes(t, 6, false)
 }
 
 // Test runProbe IPv4, datagram sockets
 func TestRunProbeDatagram(t *testing.T) {
-	c := &configpb.ProbeConf{}
-	c.UseDatagramSocket = proto.Bool(true)
-	c.Source = &configpb.ProbeConf_SourceIp{"1.1.1.1"}
-	p, err := newProbe(c, []string{"2.2.2.2", "3.3.3.3"})
-	if err != nil {
-		t.Fatalf("Got error from newProbe: %v", err)
-	}
-	p.conn = newTestICMPConn(c, p.targets)
-	p.runProbe()
-	for _, target := range p.targets {
-		glog.Infof("target: %s, sent: %d, received: %d, total_rtt: %s", target, p.results[target].sent, p.results[target].rcvd, p.results[target].latency)
-		if p.results[target].sent == 0 || (p.results[target].sent != p.results[target].rcvd) {
-			t.Errorf("We are leaking packets. Sent: %d, Received: %d", p.results[target].sent, p.results[target].rcvd)
-		}
-	}
+	testRunProbeWithMultipleSizes(t, 4, true)
 }
 
 // Test runProbe IPv6, datagram sockets
 func TestRunProbeIPv6Datagram(t *testing.T) {
-	c := &configpb.ProbeConf{}
-	c.UseDatagramSocket = proto.Bool(true)
-	c.IpVersion = proto.Int32(6)
-	c.Source = &configpb.ProbeConf_SourceIp{"::1"}
-	p, err := newProbe(c, []string{"::2", "::3"})
-	if err != nil {
-		t.Fatalf("Got error from newProbe: %v", err)
-	}
-	p.conn = newTestICMPConn(c, p.targets)
-	p.runProbe()
-	for _, target := range p.targets {
-		glog.Infof("target: %s, sent: %d, received: %d, total_rtt: %s", target, p.results[target].sent, p.results[target].rcvd, p.results[target].latency)
-		if p.results[target].sent == 0 || (p.results[target].sent != p.results[target].rcvd) {
-			t.Errorf("We are leaking packets. Sent: %d, Received: %d", p.results[target].sent, p.results[target].rcvd)
-		}
-	}
+	testRunProbeWithMultipleSizes(t, 6, true)
+
 }
 
 func TestDataIntegrityValidation(t *testing.T) {
