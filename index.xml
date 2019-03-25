@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Cloudprober</title>
+    <link>https://cloudprober.org/</link>
+    <description>Recent content on Cloudprober</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-us</language>
+    <lastBuildDate>Mon, 29 Oct 2018 17:24:32 -0700</lastBuildDate>
+    
+	<atom:link href="https://cloudprober.org/index.xml" rel="self" type="application/rss+xml" />
+    
+    
+    <item>
+      <title>Extending Cloudprober</title>
+      <link>https://cloudprober.org/how-to/extensions/</link>
+      <pubDate>Mon, 29 Oct 2018 17:24:32 -0700</pubDate>
+      
+      <guid>https://cloudprober.org/how-to/extensions/</guid>
+      <description>Cloudprober allows you to extend it across &amp;ldquo;probe&amp;rdquo; and &amp;ldquo;target&amp;rdquo; dimensions, that is, you can add new probe and target types to it without having to fork the entire codebase. Note that to extend cloudprober in this way, you will have to maintain your own cloudprober binary (which is mostly a wrapper around the &amp;ldquo;cloudprober package&amp;rdquo;), but you&amp;rsquo;ll be able to use rest of the cloudprober code from the common location.</description>
+    </item>
+    
+    <item>
+      <title>External Probe</title>
+      <link>https://cloudprober.org/how-to/external-probe/</link>
+      <pubDate>Sun, 08 Oct 2017 17:24:32 -0700</pubDate>
+      
+      <guid>https://cloudprober.org/how-to/external-probe/</guid>
+      <description>External probe type allows you to run arbitrary, complex probes through Cloudprober. An external probe runs an independent external program for actual probing. Cloudprober calculates probe metrics based on program&amp;rsquo;s exit status and time elapsed in execution. Cloudprober also allows external programs to provide additional metrics over stdout.
+Sample Probe To understand how it works, lets create a sample probe that sets and gets a key in a redis server.</description>
+    </item>
+    
+    <item>
+      <title>Probe</title>
+      <link>https://cloudprober.org/concepts/probe/</link>
+      <pubDate>Tue, 25 Jul 2017 17:24:32 -0700</pubDate>
+      
+      <guid>https://cloudprober.org/concepts/probe/</guid>
+      <description>Cloudprober&amp;rsquo;s main task is to run probes. A probe executes something, usually against a set of targets, to verify that the systems are working as expected from consumers&amp;rsquo; point of view. For example, an HTTP probe executes an HTTP request against a web server to verify that the web server is available. Cloudprober probes run repeatedly at a configured interval and export probe results as a set of metrics.</description>
+    </item>
+    
+    <item>
+      <title>Getting Started</title>
+      <link>https://cloudprober.org/getting-started/</link>
+      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+      
+      <guid>https://cloudprober.org/getting-started/</guid>
+      <description>Installation  From Source
+If you have Go 1.9 or higher installed and GOPATH environment variable properly set up, you can download and install cloudprober using the following commands:
+go get github.com/google/cloudprober GOBIN=$GOPATH/bin go install $GOPATH/src/github.com/google/cloudprober/cmd/cloudprober.go  Pre-built Binaries
+You can download the pre-built binaries for Linux, Mac OS and Windows from the project&amp;rsquo;s releases page.
+ Docker Image
+You can download and run the latest docker image using the following command:</description>
+    </item>
+    
+  </channel>
+</rss>

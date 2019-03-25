@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+  
+  
+  
+  
+   <html class="no-js"> 
+
+  <head lang="en-us">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,user-scalable=no,initial-scale=1,maximum-scale=1">
+    <meta http-equiv="X-UA-Compatible" content="IE=10" />
+    <title>Getting Started - Cloudprober</title>
+    <meta name="generator" content="Hugo 0.48" />
+
+    
+    <link rel="canonical" href="https://cloudprober.org/getting-started/">
+    
+
+    <meta property="og:url" content="https://cloudprober.org/getting-started/">
+    <meta property="og:title" content="Cloudprober">
+    
+    <meta name="apple-mobile-web-app-title" content="Cloudprober">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+    <link rel="shortcut icon" type="image/x-icon" href="https://cloudprober.org/images/favicon.ico">
+    <link rel="icon" type="image/x-icon" href="https://cloudprober.org/images/favicon.ico">
+
+    <style>
+      @font-face {
+        font-family: 'Icon';
+        src: url('https://cloudprober.org/fonts/icon.eot');
+        src: url('https://cloudprober.org/fonts/icon.eot')
+               format('embedded-opentype'),
+             url('https://cloudprober.org/fonts/icon.woff')
+               format('woff'),
+             url('https://cloudprober.org/fonts/icon.ttf')
+               format('truetype'),
+             url('https://cloudprober.org/fonts/icon.svg')
+               format('svg');
+        font-weight: normal;
+        font-style: normal;
+      }
+    </style>
+
+    <link rel="stylesheet" href="https://cloudprober.org/stylesheets/application.css">
+    <link rel="stylesheet" href="https://cloudprober.org/stylesheets/temporary.css">
+    <link rel="stylesheet" href="https://cloudprober.org/stylesheets/palettes.css">
+    <link rel="stylesheet" href="https://cloudprober.org/stylesheets/highlight/highlight.css">
+
+    
+    
+    
+    <link rel="stylesheet" href="//fonts.googleapis.com/css?family=Roboto:400,700|Roboto&#43;Mono">
+    <style>
+      body, input {
+        font-family: 'Roboto', Helvetica, Arial, sans-serif;
+      }
+      pre, code {
+        font-family: 'Roboto Mono', 'Courier New', 'Courier', monospace;
+      }
+    </style>
+
+    
+    <script src="https://cloudprober.org/javascripts/modernizr.js"></script>
+
+    
+
+  </head>
+  <body class=" ">
+
+
+
+	
+	
+
+
+<div class="backdrop">
+	<div class="backdrop-paper"></div>
+</div>
+
+<input class="toggle" type="checkbox" id="toggle-drawer">
+<input class="toggle" type="checkbox" id="toggle-search">
+<label class="toggle-button overlay" for="toggle-drawer"></label>
+
+<header class="header">
+	<nav aria-label="Header">
+  <div class="bar default">
+    <div class="button button-menu" role="button" aria-label="Menu">
+      <label class="toggle-button icon icon-menu" for="toggle-drawer">
+        <span></span>
+      </label>
+    </div>
+    <div class="stretch">
+      <div class="title">
+        Getting Started
+      </div>
+    </div>
+
+    
+
+    
+    
+        
+  </div>
+  <div class="bar search">
+    <div class="button button-close" role="button" aria-label="Close">
+      <label class="toggle-button icon icon-back" for="toggle-search"></label>
+    </div>
+    <div class="stretch">
+      <div class="field">
+        <input class="query" type="text" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck>
+      </div>
+    </div>
+    <div class="button button-reset" role="button" aria-label="Search">
+      <button class="toggle-button icon icon-close" id="reset-search"></button>
+    </div>
+  </div>
+</nav>
+</header>
+
+<main class="main">
+	<div class="drawer">
+		<nav aria-label="Navigation">
+  <a href="https://github.com/google/cloudprober" class="project">
+    <div class="banner">
+      
+      <div class="name">
+        <strong>Cloudprober </strong>
+        
+          <br>
+          google/cloudprober
+        
+      </div>
+    </div>
+  </a>
+
+  <div class="scrollable">
+    <div class="wrapper">
+      
+        <ul class="repo">
+          <li class="repo-download">
+            <a href="https://github.com/google/cloudprober/archive/master.zip" target="_blank" title="Download" data-action="download">
+              <i class="icon icon-download"></i> Download
+            </a>
+          </li>
+          <li class="repo-stars">
+            <a href="https://github.com/google/cloudprober/stargazers" target="_blank" title="Stargazers" data-action="star">
+              <i class="icon icon-star"></i> Stars
+              <span class="count">&ndash;</span>
+            </a>
+          </li>
+        </ul>
+        <hr>
+      
+
+      <div class="toc">
+        
+        <ul>
+          
+
+
+
+
+<li>
+  
+    
+
+
+
+<a  title="Overview" href="https://cloudprober.org/">
+	
+	Overview
+</a>
+
+
+
+  
+</li>
+
+
+
+<li>
+  
+    
+
+
+
+<a class="current" title="Getting Started" href="https://cloudprober.org/getting-started/">
+	
+	Getting Started
+</a>
+
+
+<ul id="scrollspy">
+</ul>
+
+
+  
+</li>
+
+
+
+<li>
+  
+    
+
+
+
+<a  title="What is a Probe" href="https://cloudprober.org/concepts/probe/">
+	
+	What is a Probe
+</a>
+
+
+
+  
+</li>
+
+
+
+<li>
+  
+    <span class="section">How-Tos</span>
+    <ul>
+      
+        
+        
+
+
+
+<a  title="External Probe" href="https://cloudprober.org/how-to/external-probe/">
+	
+	External Probe
+</a>
+
+
+
+      
+        
+        
+
+
+
+<a  title="Extending Cloudprober" href="https://cloudprober.org/how-to/extensions/">
+	
+	Extending Cloudprober
+</a>
+
+
+
+      
+    </ul>
+  
+</li>
+
+
+        </ul>
+        
+
+        
+      </div>
+    </div>
+  </div>
+</nav>
+
+	</div>
+
+	<article class="article">
+		<div class="wrapper">
+			<h1>Getting Started </h1>
+
+			
+
+<h2 id="installation">Installation</h2>
+
+<ul>
+<li><p><strong>From Source</strong><br />
+If you have Go 1.9 or higher installed and GOPATH environment variable properly set up, you
+can download and install <code>cloudprober</code> using the following commands:</p>
+
+<pre><code class="language-shell">go get github.com/google/cloudprober
+GOBIN=$GOPATH/bin go install $GOPATH/src/github.com/google/cloudprober/cmd/cloudprober.go
+</code></pre></li>
+
+<li><p><strong>Pre-built Binaries</strong><br />
+You can download the pre-built binaries for Linux, Mac OS and Windows from the
+project&rsquo;s <a href="http://github.com/google/cloudprober/releases">releases page</a>.</p></li>
+
+<li><p><strong>Docker Image</strong><br />
+You can download and run the latest docker image using the following command:</p>
+
+<pre><code class="language-shell">docker run --net host cloudprober/cloudprober
+# Note: --net host provides better network performance and makes port forwarding
+# management easier.
+</code></pre></li>
+</ul>
+
+<h2 id="configuration">Configuration</h2>
+
+<p>Without any config, cloudprober will run only the &ldquo;sysvars&rdquo; module (no probes)
+and write metrics to stdout in cloudprober&rsquo;s line protocol format (to be
+documented). It will also start a <a href="http://prometheus.io">Prometheus</a> exporter
+at: <a href="http://localhost:9313">http://localhost:9313</a> (you can change the default port through the
+environment variable <em>CLOUDPROBER_PORT</em> and the default listening address
+through the environment variable <em>CLOUDPROBER_HOST</em>).</p>
+
+<p>Since sysvars variables are not very interesting themselves, lets add a simple
+config that probes Google&rsquo;s homepage:</p>
+
+<pre><code class="language-shell"># Write config to a file in /tmp
+cat &gt; /tmp/cloudprober.cfg &lt;&lt;EOF
+probe {
+  name: &quot;google_homepage&quot;
+  type: HTTP
+  targets {
+    host_names: &quot;www.google.com&quot;
+  }
+  interval_msec: 5000  # 5s
+  timeout_msec: 1000   # 1s
+}
+EOF
+</code></pre>
+
+<p>This config adds an HTTP probe that accesses the homepage of the target
+&ldquo;www.google.com&rdquo; every 5s with a timeout of 1s. Cloudprober configuration is
+specified in the text protobuf format, with config schema described by the
+proto file: <a href="https://github.com/google/cloudprober/blob/master/config/proto/config.proto">config.proto
+</a>.</p>
+
+<p>Assuming that you saved this file at <code>/tmp/cloudprober.cfg</code> (following the
+command above), you can have cloudprober use this config file using the following command line:</p>
+
+<pre><code class="language-shell">./cloudprober --config_file /tmp/cloudprober.cfg
+</code></pre>
+
+<p>You can have the standard docker image use this config using the following
+command:</p>
+
+<pre><code>docker run --net host -v /tmp/cloudprober.cfg:/etc/cloudprober.cfg \
+    cloudprober/cloudprober
+</code></pre>
+
+<p><em>Note: While running on GCE, cloudprober config can also be provided through a
+custom metadata attribute: cloudprober_config</em>.</p>
+
+<h2 id="verification">Verification</h2>
+
+<p>One quick way to verify that cloudprober got the correct config, is to access
+the URL <a href="http://localhost:9313/config">http://localhost:9313/config</a> (through cURL or in browser). It returns
+the config that cloudprober is using. You can also get a peek its current
+status at the URL (<em>replace localhost by the actual hostname if not running
+locally</em>): <a href="http://localhost:9313/status">http://localhost:9313/status</a>.</p>
+
+<p>You should be able to see the generated metrics at <a href="http://locahost:9313/metrics">http://locahost:9313/metrics</a>
+(prometheus format) and the stdout (cloudprober format):</p>
+
+<pre><code>cloudprober 1500590430132947313 1500590520 labels=ptype=http,probe=google-http,dst=www.google.com total=17 success=17 latency=1808357 timeouts=0 resp-code=map:code,200:17
+cloudprober 1500590430132947314 1500590530 labels=ptype=sysvars,probe=sysvars hostname=&quot;manugarg-workstation&quot; uptime=100
+cloudprober 1500590430132947315 1500590530 labels=ptype=http,probe=google-http,dst=www.google.com total=19 success=19 latency=2116441 timeouts=0 resp-code=map:code,200:19
+</code></pre>
+
+<p>This information is good for debugging monitoring issues, but to really make
+sense of this data, you&rsquo;ll need to feed this data to another monitoring system
+like <em>Prometheus</em> or <em>StackDriver</em>. Lets set up a Prometheus and Grafana stack
+to make pretty graphs for us.</p>
+
+<h2 id="running-prometheus">Running Prometheus</h2>
+
+<p>Download prometheus binary from its <a href="https://prometheus.io/download/">release page</a>. You can use a config like the following
+to scrape cloudprober running on the same host.</p>
+
+<pre><code class="language-shell"># Write config to a file in /tmp
+cat &gt; /tmp/prometheus.yml &lt;&lt;EOF
+scrape_configs:
+  - job_name: 'cloudprober'
+    scrape_interval: 10s
+    static_configs:
+      - targets: ['localhost:9313']
+EOF
+
+Start prometheus:
+./prometheus --config.file=/tmp/prometheus.yml
+</code></pre>
+
+<p>Prometheus provides a web interface at <a href="http://localhost:9090">http://localhost:9090</a>. You can explore
+the probe metrics and build useful graphs through this interface. All probes
+in cloudprober export at least 3 counters:</p>
+
+<ul>
+<li><em>total</em>: Total number of probes.</li>
+<li><em>success</em>: Number of successful probes. Difference between <em>total</em> and
+           <em>success</em> indicates failures.</li>
+<li><em>latency</em>: Total (cumulative) probe latency.</li>
+</ul>
+
+<p>Using these counters, probe failure ratio and average latency can be calculated
+as:</p>
+
+<pre><code>failure_ratio = (rate(total) - rate(success)) / rate(total)
+avg_latency = rate(latency) / rate(success)
+</code></pre>
+
+<p>Assuming that prometheus is running at <code>localhost:9090</code>, graphs depicting
+failure ratio and latency over time can be accessed in prometheus at: <a href="http://localhost:9090/graph?g0.range_input=1h&amp;g0.expr=(rate(total%5B1m%5D)+-+rate(success%5B1m%5D))+%2F+rate(total%5B1m%5D)&amp;g0.tab=0&amp;g1.range_input=1h&amp;g1.expr=rate(latency%5B1m%5D)+%2F+rate(success%5B1m%5D)+%2F+1000&amp;g1.tab=0">this url </a>.
+Even though prometheus provides a graphing interface, Grafana provides much
+richer interface and has excellent support for prometheus.</p>
+
+<h2 id="grafana">Grafana</h2>
+
+<p><a href="https://grafana.com">Grafana</a> is a popular tool for building monitoring
+dashboards. Grafana has native support for prometheus and thanks to the
+excellent support for prometheus in Cloudprober itself, it&rsquo;s a breeze to build
+Grafana dashboards from Cloudprober&rsquo;s probe results.</p>
+
+<p>To get started with Grafana, follow the Grafana-Prometheus
+<a href="https://prometheus.io/docs/visualization/grafana/">integration guide</a>.</p>
+
+
+			<aside class="copyright" role="note">
+				
+				Documentation built with
+				<a href="https://www.gohugo.io" target="_blank">Hugo</a>
+				using the
+				<a href="http://github.com/digitalcraftsman/hugo-material-docs" target="_blank">Material</a> theme.
+			</aside>
+
+			<footer class="footer">
+				
+			</footer>
+		</div>
+	</article>
+
+	<div class="results" role="status" aria-live="polite">
+		<div class="scrollable">
+			<div class="wrapper">
+				<div class="meta"></div>
+				<div class="list"></div>
+			</div>
+		</div>
+	</div>
+</main>
+
+    <script>
+    
+      var base_url = 'https:\/\/cloudprober.org\/';
+      var repo_id  = 'google\/cloudprober';
+    
+    </script>
+
+    <script src="https://cloudprober.org/javascripts/application.js"></script>
+    
+
+    <script>
+      /* Add headers to scrollspy */
+      var headers   = document.getElementsByTagName("h2");
+      var scrollspy = document.getElementById('scrollspy');
+
+      if(scrollspy) {
+        if(headers.length > 0) {
+          for(var i = 0; i < headers.length; i++) {
+            var li = document.createElement("li");
+            li.setAttribute("class", "anchor");
+
+            var a  = document.createElement("a");
+            a.setAttribute("href", "#" + headers[i].id);
+            a.setAttribute("title", headers[i].innerHTML);
+            a.innerHTML = headers[i].innerHTML;
+
+            li.appendChild(a)
+            scrollspy.appendChild(li);
+          }
+        } else {
+          scrollspy.parentElement.removeChild(scrollspy)
+        }
+
+
+        /* Add permanent link next to the headers */
+        var headers = document.querySelectorAll("h1, h2, h3, h4, h5, h6");
+
+        for(var i = 0; i < headers.length; i++) {
+            var a = document.createElement("a");
+            a.setAttribute("class", "headerlink");
+            a.setAttribute("href", "#" + headers[i].id);
+            a.setAttribute("title", "Permanent link")
+            a.innerHTML = "¶";
+            headers[i].appendChild(a);
+        }
+      }
+    </script>
+
+    
+      <script>
+        (function(i,s,o,g,r,a,m){
+          i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){(i[r].q=i[r].q||
+          []).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+          m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;
+          m.parentNode.insertBefore(a,m)
+        })(window, document,
+          'script', '//www.google-analytics.com/analytics.js', 'ga');
+         
+        ga('create', 'UA-79661-8', 'auto');
+        ga('set', 'anonymizeIp', true);
+        ga('send', 'pageview');
+         
+        var buttons = document.querySelectorAll('a');
+        Array.prototype.map.call(buttons, function(item) {
+          if (item.host != document.location.host) {
+            item.addEventListener('click', function() {
+              var action = item.getAttribute('data-action') || 'follow';
+              ga('send', 'event', 'outbound', action, item.href);
+            });
+          }
+        });
+         
+        var query = document.querySelector('.query');
+        query.addEventListener('blur', function() {
+          if (this.value) {
+            var path = document.location.pathname;
+            ga('send', 'pageview', path + '?q=' + this.value);
+          }
+        });
+      </script>
+    
+
+    <script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.8.0/highlight.min.js"></script>
+    <script>hljs.initHighlightingOnLoad();</script>
+  </body>
+</html>
+
