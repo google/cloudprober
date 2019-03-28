@@ -40,6 +40,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/cloudprober/logger"
@@ -104,6 +105,9 @@ type PromSurfacer struct {
 	// corresponding metric string to the provided io.Writer.
 	dataWriter func(w io.Writer, pm *promMetric, dataKey string)
 
+	// A mutex to avoid data access race conditions for EventMetrics.
+	mutex *sync.RWMutex
+
 	// Regexes for metric and label names.
 	metricNameRe *regexp.Regexp
 	labelNameRe  *regexp.Regexp
@@ -121,6 +125,7 @@ func New(config *configpb.SurfacerConf, l *logger.Logger) (*PromSurfacer, error)
 		emChan:       make(chan *metrics.EventMetrics, config.GetMetricsBufferSize()),
 		queryChan:    make(chan http.ResponseWriter, queriesQueueSize),
 		metrics:      make(map[string]*promMetric),
+		mutex:        &sync.RWMutex{},
 		metricNameRe: regexp.MustCompile(ValidMetricNameRegex),
 		labelNameRe:  regexp.MustCompile(ValidLabelNameRegex),
 		l:            l,
@@ -136,26 +141,19 @@ func New(config *configpb.SurfacerConf, l *logger.Logger) (*PromSurfacer, error)
 		}
 	}
 
-	done := make(chan interface{}, 1)
-
-	// Start a goroutine to process the incoming EventMetrics as well as
-	// the incoming web queries. To avoid data access race conditions, we do
-	// one thing at a time.
+	// Start a goroutine to process the incoming EventMetrics.
+	// To avoid data access race conditions, we do one thing at a time.
 	go func() {
 		for {
 			select {
 			case em := <-ps.emChan:
 				ps.record(em)
-			case w := <-ps.queryChan:
-				ps.writeData(w)
-				done <- true
 			}
 		}
 	}()
 
 	http.HandleFunc(ps.c.GetMetricsUrl(), func(w http.ResponseWriter, r *http.Request) {
-		ps.queryChan <- w
-		<-done
+		ps.writeData(w)
 	})
 
 	l.Infof("Initialized prometheus exporter at the URL: %s", ps.c.GetMetricsUrl())
@@ -293,6 +291,9 @@ func (ps *PromSurfacer) checkMetricName(k string) string {
 // For example, "version cloudprober-20170608-RC00" gets converted into:
 //   version{val=cloudprober-20170608-RC00} 1
 func (ps *PromSurfacer) record(em *metrics.EventMetrics) {
+	ps.mutex.Lock()
+	defer ps.mutex.Unlock()
+
 	var labels []string
 	for _, k := range em.LabelsKeys() {
 		if labelName := ps.checkLabelName(k); labelName != "" {
@@ -353,6 +354,9 @@ func (ps *PromSurfacer) record(em *metrics.EventMetrics) {
 
 // writeData writes metrics data on w io.Writer
 func (ps *PromSurfacer) writeData(w io.Writer) {
+	ps.mutex.RLock()
+	defer ps.mutex.RUnlock()
+
 	for _, name := range ps.metricNames {
 		pm := ps.metrics[name]
 		fmt.Fprintf(w, "#TYPE %s %s\n", name, pm.typ)
