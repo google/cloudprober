@@ -85,6 +85,13 @@ type dataPoint struct {
 	timestamp int64
 }
 
+// httpWriter is a wrapper for http.ResponseWriter that includes a channel
+// to signal the completion of the writing of the response.
+type httpWriter struct {
+	w        http.ResponseWriter
+	doneChan chan struct{}
+}
+
 // PromSurfacer implements a prometheus surfacer for Cloudprober. PromSurfacer
 // organizes metrics into a two-level data structure:
 //		1. Metric name -> PromMetric data structure dict.
@@ -97,7 +104,7 @@ type PromSurfacer struct {
 	emChan      chan *metrics.EventMetrics // Buffered channel to store incoming EventMetrics
 	metrics     map[string]*promMetric     // Metric name to promMetric mapping
 	metricNames []string                   // Metric names, to keep names ordered.
-	queryChan   chan http.ResponseWriter   // Query channel
+	queryChan   chan *httpWriter           // Query channel
 	l           *logger.Logger
 
 	// A handler that takes a promMetric and a dataKey and writes the
@@ -119,7 +126,7 @@ func New(config *configpb.SurfacerConf, l *logger.Logger) (*PromSurfacer, error)
 	ps := &PromSurfacer{
 		c:            config,
 		emChan:       make(chan *metrics.EventMetrics, config.GetMetricsBufferSize()),
-		queryChan:    make(chan http.ResponseWriter, queriesQueueSize),
+		queryChan:    make(chan *httpWriter, queriesQueueSize),
 		metrics:      make(map[string]*promMetric),
 		metricNameRe: regexp.MustCompile(ValidMetricNameRegex),
 		labelNameRe:  regexp.MustCompile(ValidLabelNameRegex),
@@ -136,8 +143,6 @@ func New(config *configpb.SurfacerConf, l *logger.Logger) (*PromSurfacer, error)
 		}
 	}
 
-	done := make(chan interface{}, 1)
-
 	// Start a goroutine to process the incoming EventMetrics as well as
 	// the incoming web queries. To avoid data access race conditions, we do
 	// one thing at a time.
@@ -146,16 +151,19 @@ func New(config *configpb.SurfacerConf, l *logger.Logger) (*PromSurfacer, error)
 			select {
 			case em := <-ps.emChan:
 				ps.record(em)
-			case w := <-ps.queryChan:
-				ps.writeData(w)
-				done <- true
+			case hw := <-ps.queryChan:
+				ps.writeData(hw.w)
+				close(hw.doneChan)
 			}
 		}
 	}()
 
 	http.HandleFunc(ps.c.GetMetricsUrl(), func(w http.ResponseWriter, r *http.Request) {
-		ps.queryChan <- w
-		<-done
+		// doneChan is used to track the completion of the response writing. This is
+		// required as response is written in a different goroutine.
+		doneChan := make(chan struct{}, 1)
+		ps.queryChan <- &httpWriter{w, doneChan}
+		<-doneChan
 	})
 
 	l.Infof("Initialized prometheus exporter at the URL: %s", ps.c.GetMetricsUrl())
