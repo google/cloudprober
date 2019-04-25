@@ -52,8 +52,16 @@ const (
 	//	Ref: https://cloud.google.com/logging/docs/api/ref_v2beta1/rest/v2beta1/LogEntry
 	disapprovedRegExp = "[^A-Za-z0-9_/.-]"
 
-	// MaxLogEntrySize Max value of each log entry size
-	MaxLogEntrySize = 4096
+	// MaxLogEntrySize Max size of each log entry (100 KB)
+	// This limit helps avoid creating very large log lines in case someone
+	// accidentally creates a large EventMetric, which in turn is possible due to
+	// unbounded nature of "map" metric where keys are created on demand.
+	//
+	// TODO(manugarg): We can possibly get rid of this check now as the code that
+	// could cause a large map metric has been fixed now. Earlier, cloudprober's
+	// HTTP server used to respond to all URLs and used to record access to those
+	// URLs as a "map" metric. Now, it responds only to pre-configured URLs.
+	MaxLogEntrySize = 102400
 )
 
 // Logger implements a logger that logs messages to Google Cloud Logging. It
