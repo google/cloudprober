@@ -16,7 +16,9 @@ package metrics
 
 import (
 	"errors"
+	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 )
@@ -147,6 +149,7 @@ func (m *Map) AddFloat64(f float64) {
 
 // String returns the string representation of the receiver Map.
 // This is part of the Value interface.
+// map:key,k1:v1,k2:v2
 func (m *Map) String() string {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -162,4 +165,37 @@ func (m *Map) String() string {
 		b.WriteString(m.m[k].String())
 	}
 	return b.String()
+}
+
+// ParseMapFromString parses a map value string into a map object.
+// Note that the values are always parsed as floats, so even a map with integer
+// values will become a float map. For example:
+// "map:code 200:10123 404:21" will be parsed as:
+// "map:code 200:10123.000 404:21.000".
+func ParseMapFromString(mapValue string) (*Map, error) {
+	tokens := strings.Split(mapValue, ",")
+	if len(tokens) < 1 {
+		return nil, errors.New("bad map value")
+	}
+
+	kv := strings.Split(tokens[0], ":")
+	if kv[0] != "map" {
+		return nil, errors.New("map value doesn't start with map:<key>")
+	}
+
+	m := NewMap(kv[1], NewFloat(0))
+
+	for _, tok := range tokens[1:] {
+		kv := strings.Split(tok, ":")
+		if len(kv) != 2 {
+			return nil, errors.New("bad map value token: " + tok)
+		}
+		f, err := strconv.ParseFloat(kv[1], 64)
+		if err != nil {
+			return nil, fmt.Errorf("could not convert map key value %s to a float: %v", kv[1], err)
+		}
+		m.IncKeyBy(kv[0], NewFloat(f))
+	}
+
+	return m, nil
 }

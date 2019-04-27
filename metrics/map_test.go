@@ -74,3 +74,25 @@ func TestMap(t *testing.T) {
 		"500": 1,
 	})
 }
+
+func TestMapString(t *testing.T) {
+	m := NewMap("lat", NewFloat(0))
+	m.IncKeyBy("p99", NewFloat(4000))
+	m.IncKeyBy("p50", NewFloat(20))
+
+	s := m.String()
+	expectedString := "map:lat,p50:20.000,p99:4000.000"
+	if s != expectedString {
+		t.Errorf("m.String()=%s, expected=%s", s, expectedString)
+	}
+
+	m2, err := ParseMapFromString(s)
+	if err != nil {
+		t.Errorf("ParseMapFromString(%s) returned error: %v", s, err)
+	}
+
+	s1 := m2.String()
+	if s1 != s {
+		t.Errorf("ParseMapFromString(%s).String() = %s, expected = %s", s, s1, s)
+	}
+}
