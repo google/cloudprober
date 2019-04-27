@@ -135,3 +135,60 @@ func TestNoAggregation(t *testing.T) {
 	}
 	testPayloadMetrics(t, p, td, td)
 }
+
+func TestParseValue(t *testing.T) {
+	var val string
+
+	// Bad value, should return an error
+	val = "234g"
+	_, err := parseValue(val, false)
+	if err == nil {
+		t.Errorf("parseValue(%s) returned no error", val)
+	}
+
+	// Float value
+	val = "234"
+	v, err := parseValue(val, false)
+	if err != nil {
+		t.Errorf("parseValue(%s) returned error: %v", val, err)
+	}
+	if _, ok := v.(*metrics.Float); !ok {
+		t.Errorf("parseValue(%s) returned a non-float: %v", val, v)
+	}
+
+	// String value, aggregation disabled
+	val = "\"234\""
+	v, err = parseValue(val, false)
+	if err != nil {
+		t.Errorf("parseValue(%s) returned error: %v", val, err)
+	}
+	if _, ok := v.(metrics.String); !ok {
+		t.Errorf("parseValue(%s) returned a non-string: %v", val, v)
+	}
+
+	// String value, aggregation enabled = should fail
+	v, err = parseValue(val, true)
+	if err == nil {
+		t.Errorf("parseValue(%s) returned no error for parsing a string value while aggregation is enabled", val)
+	}
+
+	// Map value
+	val = "map:code 200:10 404:1"
+	v, err = parseValue(val, false)
+	if err != nil {
+		t.Errorf("parseValue(%s) returned error: %v", val, err)
+	}
+	if _, ok := v.(*metrics.Map); !ok {
+		t.Errorf("parseValue(%s) returned a non-map: %v", val, v)
+	}
+
+	// Dist value
+	val = "dist:sum:899|count:221|lb:-Inf,0.5,2,7.5|bc:34,54,121,12"
+	v, err = parseValue(val, false)
+	if err != nil {
+		t.Errorf("parseValue(%s) returned error: %v", val, err)
+	}
+	if _, ok := v.(*metrics.Distribution); !ok {
+		t.Errorf("parseValue(%s) returned a non-dist: %v", val, v)
+	}
+}
