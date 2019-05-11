@@ -52,7 +52,6 @@ import (
 	"github.com/google/cloudprober/metrics"
 	"github.com/google/cloudprober/probes/options"
 	configpb "github.com/google/cloudprober/probes/ping/proto"
-	"github.com/google/cloudprober/probes/probeutils"
 	"github.com/google/cloudprober/validators"
 	"github.com/google/cloudprober/validators/integrity"
 )
@@ -132,15 +131,6 @@ func (p *Probe) initInternal() error {
 	p.target2addr = make(map[string]net.Addr)
 	p.useDatagramSocket = p.c.GetUseDatagramSocket()
 
-	// TODO(manugarg): Remove this block this after release v0.10.2.
-	if p.c.GetSource() != nil {
-		p.l.Warning("Setting source in probe-type config is now deprecated. See corresponding config.proto for more information.")
-
-		if err := p.setSourceFromConfig(); err != nil {
-			return err
-		}
-	}
-
 	if p.opts.SourceIP != nil {
 		p.source = p.opts.SourceIP.String()
 	}
@@ -168,26 +158,6 @@ func (p *Probe) configureIntegrityCheck() error {
 
 	p.opts.Validators = append(p.opts.Validators, &validators.ValidatorWithName{Name: dataIntegrityKey, Validator: v})
 
-	return nil
-}
-
-// setSourceFromConfig sets the source for ping probes. This is where we listen
-// for the replies.
-// TODO(manugarg): Remove this block this after release v0.10.2.
-func (p *Probe) setSourceFromConfig() error {
-	switch p.c.Source.(type) {
-	case *configpb.ProbeConf_SourceIp:
-		p.source = p.c.GetSourceIp()
-	case *configpb.ProbeConf_SourceInterface:
-		s, err := probeutils.ResolveIntfAddr(p.c.GetSourceInterface())
-		if err != nil {
-			return err
-		}
-		p.l.Infof("Using %v as source address.", p.source)
-		p.source = s.String()
-	default:
-		p.source = ""
-	}
 	return nil
 }
 
