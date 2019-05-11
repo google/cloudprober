@@ -31,21 +31,6 @@ message ProbeConf {
   // Port, default is 80 for HTTP and 443 for HTTPS
   optional int32 port = 3;
 
-  // Set the source address to send packets from, either by providing an address
-  // or a network interface. Note: the source can also be configured dynamically
-  // using an environment variable.
-  // NOTE: Setting source address using these fields is now deprecated and will
-  // be removed after release v0.10.2. To set source, please modify the outer
-  // probe configuration. Example:
-  // probe {
-  //   type: HTTP
-  //   source_interface: eth1
-  //   http_probe {}
-  // }
-  oneof source {
-    string source_ip = 10;
-    string source_interface = 11;
-  }
   // Whether to resolve the target before making the request. If set to false,
   // we hand over the target and relative_url directly to the golang's HTTP
   // module, Otherwise, we resolve the target first to an IP address and

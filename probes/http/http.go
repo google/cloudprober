@@ -32,7 +32,6 @@ import (
 	"github.com/google/cloudprober/metrics"
 	configpb "github.com/google/cloudprober/probes/http/proto"
 	"github.com/google/cloudprober/probes/options"
-	"github.com/google/cloudprober/probes/probeutils"
 )
 
 const (
@@ -118,20 +117,6 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		DualStack: true,
 	}
 
-	// Extract source IP from config if present and set in transport.
-	// TODO(manugarg): Remove this block this after release v0.10.2.
-	if p.c.GetSource() != nil {
-		p.l.Warning("Setting source in probe-type config is now deprecated. See corresponding config.proto for more information.")
-
-		sourceIP, err := p.getSourceFromConfig()
-		if err != nil {
-			return err
-		}
-		dialer.LocalAddr = &net.TCPAddr{
-			IP: sourceIP,
-		}
-	}
-
 	if p.opts.SourceIP != nil {
 		dialer.LocalAddr = &net.TCPAddr{
 			IP: p.opts.SourceIP,
@@ -184,32 +169,6 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	}
 
 	return nil
-}
-
-// getSourceFromConfig returns the source IP from the config either directly
-// or by resolving the network interface to an IP, depending on the
-// provided config option.
-// TODO(manugarg): Remove this block this after release v0.10.2.
-func (p *Probe) getSourceFromConfig() (net.IP, error) {
-	switch p.c.Source.(type) {
-	case *configpb.ProbeConf_SourceIp:
-		sourceIP := net.ParseIP(p.c.GetSourceIp())
-		if sourceIP == nil {
-			return nil, fmt.Errorf("invalid source IP: %s", p.c.GetSourceIp())
-		}
-		return sourceIP, nil
-
-	case *configpb.ProbeConf_SourceInterface:
-		intf := p.c.GetSourceInterface()
-		s, err := probeutils.ResolveIntfAddr(intf)
-		if err != nil {
-			return nil, err
-		}
-		p.l.Infof("Using %v as source address for interface %s.", s, intf)
-		return s, nil
-	default:
-		return nil, fmt.Errorf("unknown source type: %v", p.c.GetSource())
-	}
 }
 
 // Return true if the underlying error indicates a http.Client timeout.
