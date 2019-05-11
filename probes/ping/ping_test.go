@@ -15,7 +15,6 @@
 package ping
 
 import (
-	"errors"
 	"fmt"
 	"net"
 	"reflect"
@@ -28,7 +27,6 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/probes/options"
 	configpb "github.com/google/cloudprober/probes/ping/proto"
-	"github.com/google/cloudprober/probes/probeutils"
 	"github.com/google/cloudprober/targets"
 	"golang.org/x/net/icmp"
 	"golang.org/x/net/ipv4"
@@ -217,90 +215,9 @@ func newProbe(c *configpb.ProbeConf, t []string) (*Probe, error) {
 	return p, p.initInternal()
 }
 
-type intf struct {
-	addrs []net.Addr
-}
-
-func (i *intf) Addrs() ([]net.Addr, error) {
-	return i.addrs, nil
-}
-
-func mockInterfaceByName(iname string, addrs []string) {
-	ips := make([]net.Addr, len(addrs))
-	for i, a := range addrs {
-		ips[i] = &net.IPAddr{IP: net.ParseIP(a)}
-	}
-	i := &intf{addrs: ips}
-	probeutils.InterfaceByName = func(name string) (probeutils.Addr, error) {
-		if name != iname {
-			return nil, errors.New("device not found")
-		}
-		return i, nil
-	}
-}
-
-func TestInitSourceIP(t *testing.T) {
-	rows := []struct {
-		name       string
-		sourceIP   string
-		sourceIntf string
-		intf       string
-		intfAddrs  []string
-		want       string
-		wantError  bool
-	}{
-		{
-			name:     "Use ip if set",
-			sourceIP: "1.1.1.1",
-			want:     "1.1.1.1",
-		},
-		{
-			name:       "Interface with no adders fails",
-			sourceIntf: "eth1",
-			intf:       "eth1",
-			wantError:  true,
-		},
-		{
-			name:       "Unknown interface fails",
-			sourceIntf: "eth1",
-			intf:       "eth0",
-			wantError:  true,
-		},
-		{
-			name:       "Uses first addr for interface",
-			sourceIntf: "eth1",
-			intf:       "eth1",
-			intfAddrs:  []string{"1.1.1.1", "2.2.2.2"},
-			want:       "1.1.1.1",
-		},
-	}
-
-	for _, r := range rows {
-		c := &configpb.ProbeConf{}
-		if r.sourceIP != "" {
-			c.Source = &configpb.ProbeConf_SourceIp{r.sourceIP}
-		} else {
-			c.Source = &configpb.ProbeConf_SourceInterface{r.sourceIntf}
-			mockInterfaceByName(r.intf, r.intfAddrs)
-		}
-		p, err := newProbe(c, []string{})
-		if (err != nil) != r.wantError {
-			t.Errorf("Row %q: newProbe() gave error %q, want error is %v", r.name, err, r.wantError)
-			continue
-		}
-		if r.wantError {
-			continue
-		}
-		if p.source != r.want {
-			t.Errorf("Row %q: p.source = %q, want %q", r.name, p.source, r.want)
-		}
-	}
-}
-
 // Test sendPackets IPv4, raw sockets
 func TestSendPackets(t *testing.T) {
 	c := &configpb.ProbeConf{}
-	c.Source = &configpb.ProbeConf_SourceIp{"1.1.1.1"}
 	p, err := newProbe(c, []string{"2.2.2.2", "3.3.3.3"})
 	if err != nil {
 		t.Fatalf("Got error from newProbe: %v", err)
@@ -312,7 +229,6 @@ func TestSendPackets(t *testing.T) {
 func TestSendPacketsIPv6(t *testing.T) {
 	c := &configpb.ProbeConf{}
 	c.IpVersion = proto.Int32(6)
-	c.Source = &configpb.ProbeConf_SourceIp{"::1"}
 	p, err := newProbe(c, []string{"::2", "::3"})
 	if err != nil {
 		t.Fatalf("Got error from newProbe: %v", err)
@@ -324,7 +240,6 @@ func TestSendPacketsIPv6(t *testing.T) {
 func TestSendPacketsIPv6ToIPv4Hosts(t *testing.T) {
 	c := &configpb.ProbeConf{}
 	c.IpVersion = proto.Int32(6)
-	c.Source = &configpb.ProbeConf_SourceIp{"::1"}
 	p, err := newProbe(c, []string{"2.2.2.2"})
 	if err != nil {
 		t.Fatalf("Got error from newProbe: %v", err)
@@ -345,7 +260,6 @@ func TestSendPacketsIPv6ToIPv4Hosts(t *testing.T) {
 func TestSendPacketsDatagramSocket(t *testing.T) {
 	c := &configpb.ProbeConf{}
 	c.UseDatagramSocket = proto.Bool(true)
-	c.Source = &configpb.ProbeConf_SourceIp{"1.1.1.1"}
 	p, err := newProbe(c, []string{"2.2.2.2", "3.3.3.3"})
 	if err != nil {
 		t.Fatalf("Got error from newProbe: %v", err)
@@ -358,7 +272,6 @@ func TestSendPacketsIPv6DatagramSocket(t *testing.T) {
 	c := &configpb.ProbeConf{}
 	c.UseDatagramSocket = proto.Bool(true)
 	c.IpVersion = proto.Int32(6)
-	c.Source = &configpb.ProbeConf_SourceIp{"::1"}
 	p, err := newProbe(c, []string{"::2", "::3"})
 	if err != nil {
 		t.Fatalf("Got error from newProbe: %v", err)
@@ -382,11 +295,9 @@ func testRunProbe(t *testing.T, ipVersion int, useDatagramSocket bool, payloadSi
 	var targets []string
 
 	if ipVersion == 4 {
-		c.Source = &configpb.ProbeConf_SourceIp{"1.1.1.1"}
 		targets = []string{"2.2.2.2", "3.3.3.3", "4.4.4.4"}
 	} else {
 		c.IpVersion = proto.Int32(6)
-		c.Source = &configpb.ProbeConf_SourceIp{"::1"}
 		targets = []string{"::2", "::3", "::4"}
 	}
 
@@ -437,7 +348,6 @@ func TestRunProbeIPv6Datagram(t *testing.T) {
 
 func TestDataIntegrityValidation(t *testing.T) {
 	c := &configpb.ProbeConf{}
-	c.Source = &configpb.ProbeConf_SourceIp{"1.1.1.1"}
 
 	p, err := newProbe(c, []string{"2.2.2.2", "3.3.3.3"})
 	if err != nil {
