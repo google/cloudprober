@@ -164,7 +164,12 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	}
 	p.fsm = message.NewFlowStateMap()
 
-	conn, err := udpsrv.Listen(int(p.c.GetPort()), p.l)
+	udpAddr := &net.UDPAddr{Port: int(p.c.GetPort())}
+	if p.opts.SourceIP != nil {
+		udpAddr.IP = p.opts.SourceIP
+	}
+
+	conn, err := udpsrv.Listen(udpAddr, p.l)
 	if err != nil {
 		p.l.Warningf("Opening a listen UDP socket on port %d failed: %v", p.c.GetPort(), err)
 		return err

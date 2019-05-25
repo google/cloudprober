@@ -44,7 +44,7 @@ type Server struct {
 
 // New returns an UDP server.
 func New(initCtx context.Context, c *configpb.ServerConf, l *logger.Logger) (*Server, error) {
-	conn, err := Listen(int(c.GetPort()), l)
+	conn, err := Listen(&net.UDPAddr{Port: int(c.GetPort())}, l)
 	if err != nil {
 		return nil, err
 	}
@@ -62,8 +62,8 @@ func New(initCtx context.Context, c *configpb.ServerConf, l *logger.Logger) (*Se
 // Listen opens a UDP socket on the given port. It also attempts to set recv
 // buffer to a large value so that we can have many outstanding UDP messages.
 // Listen is exported only because it's used by udp probe tests.
-func Listen(port int, l *logger.Logger) (*net.UDPConn, error) {
-	conn, err := net.ListenUDP("udp", &net.UDPAddr{Port: port})
+func Listen(addr *net.UDPAddr, l *logger.Logger) (*net.UDPConn, error) {
+	conn, err := net.ListenUDP("udp", addr)
 	if err != nil {
 		return nil, err
 	}

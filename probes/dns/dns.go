@@ -44,17 +44,25 @@ import (
 // This makes it possible to mock.
 type Client interface {
 	Exchange(*dns.Msg, string) (*dns.Msg, time.Duration, error)
-	SetReadTimeout(time.Duration)
+	setReadTimeout(time.Duration)
+	setSourceIP(net.IP)
 }
 
 // ClientImpl is a concrete DNS client that can be instantiated.
-type ClientImpl struct {
+type clientImpl struct {
 	dns.Client
 }
 
-// SetReadTimeout allows write-access to the underlying ReadTimeout variable.
-func (c *ClientImpl) SetReadTimeout(d time.Duration) {
+// setReadTimeout allows write-access to the underlying ReadTimeout variable.
+func (c *clientImpl) setReadTimeout(d time.Duration) {
 	c.ReadTimeout = d
+}
+
+// setSourceIP allows write-access to the underlying ReadTimeout variable.
+func (c *clientImpl) setSourceIP(ip net.IP) {
+	c.Dialer = &net.Dialer{
+		LocalAddr: &net.UDPAddr{IP: ip},
+	}
 }
 
 // Probe holds aggregate information about all probe runs, per-target.
@@ -123,9 +131,12 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	}
 	p.msg.SetQuestion(dns.Fqdn(p.c.GetResolvedDomain()), uint16(queryType))
 
-	p.client = new(ClientImpl)
+	p.client = new(clientImpl)
+	if p.opts.SourceIP != nil {
+		p.client.setSourceIP(p.opts.SourceIP)
+	}
 	// Use ReadTimeout because DialTimeout for UDP is not the RTT.
-	p.client.SetReadTimeout(p.opts.Timeout)
+	p.client.setReadTimeout(p.opts.Timeout)
 
 	return nil
 }

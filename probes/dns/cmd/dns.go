@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"time"
 
 	"flag"
@@ -38,6 +39,7 @@ var (
 	intervalF = flag.Duration("interval", 2*time.Second, "Interval between probes")
 	timeoutF  = flag.Duration("timeout", 1*time.Second, "Per-probe timeout")
 	targetsF  = flag.String("targets", "8.8.8.8", "Static host targets.")
+	sourceIP  = flag.String("source_ip", "", "Source IP for the DNS request")
 )
 
 func main() {
@@ -63,6 +65,12 @@ func main() {
 		ProbeConf: c,
 	}
 
+	if *sourceIP != "" {
+		opts.SourceIP = net.ParseIP(*sourceIP)
+		if opts.SourceIP == nil {
+			glog.Exitf("Error parsing source IP: %s", *sourceIP)
+		}
+	}
 	dp := &dns.Probe{}
 	if err := dp.Init("dns_test", opts); err != nil {
 		glog.Exitf("Error in initializing probe %s from the config. Err: %v", "dns_test", err)
