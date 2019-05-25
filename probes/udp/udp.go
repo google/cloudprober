@@ -160,9 +160,15 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	p.numConn = 0
 	p.connList = make([]*net.UDPConn, wantConn)
 	p.srcPortList = make([]string, wantConn)
+
+	udpAddr := &net.UDPAddr{Port: 0}
+	if p.opts.SourceIP != nil {
+		udpAddr.IP = p.opts.SourceIP
+	}
+
 	for p.numConn < wantConn && triesRemaining > 0 {
 		triesRemaining--
-		udpConn, err := udpsrv.Listen(0, p.l)
+		udpConn, err := udpsrv.Listen(udpAddr, p.l)
 		if err != nil {
 			p.l.Warningf("Opening UDP socket failed: %v", err)
 			continue

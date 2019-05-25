@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 2017-2019 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
 package dns
 
 import (
+	"net"
 	"testing"
 	"time"
 
@@ -63,7 +64,8 @@ func (*mockClient) Exchange(in *dns.Msg, _ string) (*dns.Msg, time.Duration, err
 	}
 	return out, time.Millisecond, nil
 }
-func (*mockClient) SetReadTimeout(time.Duration) {}
+func (*mockClient) setReadTimeout(time.Duration) {}
+func (*mockClient) setSourceIP(net.IP)           {}
 
 func runProbe(t *testing.T, testName string, p *Probe, total, success int64) {
 	p.client = new(mockClient)

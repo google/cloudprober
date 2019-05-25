@@ -61,7 +61,6 @@ message ProbeDef {
 
   // Set the source IP to send packets from, either by providing an IP address
   // directly, or a network interface.
-  // NOTE: Only PING and HTTP probes support this field right now.
   oneof source_ip_config {
     string source_ip = 10;
     string source_interface = 11;
