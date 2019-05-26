@@ -84,7 +84,7 @@ func (x *ProbeDef_Type) UnmarshalJSON(data []byte) error {
 	return nil
 }
 func (ProbeDef_Type) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_config_bc7e7fdd60af597a, []int{0, 0}
+	return fileDescriptor_config_cbec6231ac9e8d1c, []int{0, 0}
 }
 
 type ProbeDef struct {
@@ -109,7 +109,6 @@ type ProbeDef struct {
 	Validator []*proto3.Validator `protobuf:"bytes,9,rep,name=validator" json:"validator,omitempty"`
 	// Set the source IP to send packets from, either by providing an IP address
 	// directly, or a network interface.
-	// NOTE: Only PING and HTTP probes support this field right now.
 	//
 	// Types that are valid to be assigned to SourceIpConfig:
 	//	*ProbeDef_SourceIp
@@ -135,7 +134,7 @@ func (m *ProbeDef) Reset()         { *m = ProbeDef{} }
 func (m *ProbeDef) String() string { return proto.CompactTextString(m) }
 func (*ProbeDef) ProtoMessage()    {}
 func (*ProbeDef) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_bc7e7fdd60af597a, []int{0}
+	return fileDescriptor_config_cbec6231ac9e8d1c, []int{0}
 }
 
 var extRange_ProbeDef = []proto.ExtensionRange{
@@ -595,7 +594,7 @@ func (m *DebugOptions) Reset()         { *m = DebugOptions{} }
 func (m *DebugOptions) String() string { return proto.CompactTextString(m) }
 func (*DebugOptions) ProtoMessage()    {}
 func (*DebugOptions) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_bc7e7fdd60af597a, []int{1}
+	return fileDescriptor_config_cbec6231ac9e8d1c, []int{1}
 }
 func (m *DebugOptions) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_DebugOptions.Unmarshal(m, b)
@@ -629,10 +628,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("github.com/google/cloudprober/probes/proto/config.proto", fileDescriptor_config_bc7e7fdd60af597a)
+	proto.RegisterFile("github.com/google/cloudprober/probes/proto/config.proto", fileDescriptor_config_cbec6231ac9e8d1c)
 }
 
-var fileDescriptor_config_bc7e7fdd60af597a = []byte{
+var fileDescriptor_config_cbec6231ac9e8d1c = []byte{
 	// 784 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x94, 0x51, 0x6f, 0xdb, 0x36,
 	0x10, 0xc7, 0x2b, 0xc7, 0x6e, 0x24, 0xda, 0xe9, 0x04, 0xae, 0xdd, 0xd4, 0x00, 0x43, 0xb5, 0x00,
