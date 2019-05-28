@@ -16,7 +16,6 @@ package ping
 
 import (
 	"encoding/binary"
-	"fmt"
 	"net"
 	"strconv"
 	"strings"
@@ -46,26 +45,6 @@ func ipVersion(ip net.IP) int {
 		return 6
 	}
 	return 0
-}
-
-// resolveAddr resolves a host name into an IP address.
-func resolveAddr(t string, ver int) (net.IP, error) {
-	if ip := net.ParseIP(t); ip != nil {
-		if ipVersion(ip) == ver {
-			return ip, nil
-		}
-		return nil, fmt.Errorf("IP (%s) is not an IPv%d address", ip, ver)
-	}
-	ips, err := net.LookupIP(t)
-	if err != nil {
-		return nil, err
-	}
-	for _, ip := range ips {
-		if ver == ipVersion(ip) {
-			return ip, nil
-		}
-	}
-	return nil, fmt.Errorf("no good IPs found for the ip version (%d). IPs found: %q", ver, ips)
 }
 
 func ipToKey(ip net.IP) (key [16]byte) {
