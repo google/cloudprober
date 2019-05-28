@@ -111,11 +111,11 @@ func (il *gceInstancesLister) listResources(filters []*pb.Filter, ipConfig *pb.I
 				ip = cidrIP.String()
 				continue
 			}
-			ciderIP, _, err := net.ParseCIDR(ni.AliasIpRanges[0].IpCidrRange)
+			cidrIP, _, err := net.ParseCIDR(ni.AliasIpRanges[0].IpCidrRange)
 			if err != nil {
 				return nil, fmt.Errorf("gce_instances (instance: %s, network_interface: %d): error geting alias IP: %v", name, niIndex, err)
 			}
-			ip = ciderIP.String()
+			ip = cidrIP.String()
 		}
 
 		resources = append(resources, &pb.Resource{

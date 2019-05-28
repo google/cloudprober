@@ -88,6 +88,13 @@ func (client *Client) Resolve(name string, ipVer int) (net.IP, error) {
 		return nil, fmt.Errorf("no IP address for the resource: %s", name)
 	}
 	ip := client.cache[name]
+
+	// If we don't care about IP version, return whatever we've got.
+	if ipVer == 0 {
+		return ip, nil
+	}
+
+	// Verify that the IP matches the version we need.
 	ip4 := ip.To4()
 	if ipVer == 6 {
 		if ip4 == nil {

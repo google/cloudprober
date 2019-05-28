@@ -64,8 +64,6 @@ message IPConfig {
     ALIAS = 2;
   }
   optional IPType ip_type = 3;
-
-  optional int32 ip_version = 4 [default = 4];
 }
 
 message Resource {
