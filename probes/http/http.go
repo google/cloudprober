@@ -99,10 +99,6 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		return fmt.Errorf("Invalid Relative URL: %s, must begin with '/'", p.url)
 	}
 
-	if p.c.GetIntegrityCheckPattern() != "" {
-		p.l.Warningf("integrity_check_pattern field is now deprecated and doesn't do anything.")
-	}
-
 	if p.c.GetRequestsPerProbe() != 1 {
 		p.l.Warningf("requests_per_probe field is now deprecated and will be removed in future releases.")
 	}
