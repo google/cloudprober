@@ -118,7 +118,7 @@ func (tic *testICMPConn) read(buf []byte) (int, net.Addr, error) {
 	tic.flipLastByteMu.Unlock()
 
 	copy(buf[0:len(pkt)], respPkt)
-	peerIP, _ := resolveAddr(targets[chosen], int(tic.c.GetIpVersion()))
+	peerIP := net.ParseIP(targets[chosen])
 
 	var peer net.Addr
 	peer = &net.IPAddr{IP: peerIP}

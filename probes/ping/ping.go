@@ -132,6 +132,9 @@ func (p *Probe) initInternal() error {
 	p.useDatagramSocket = p.c.GetUseDatagramSocket()
 
 	if p.opts.SourceIP != nil {
+		if ipVersion(p.opts.SourceIP) != p.ipVer {
+			return fmt.Errorf("source IP (%s) is not an IPv%d address", p.opts.SourceIP, p.ipVer)
+		}
 		p.source = p.opts.SourceIP.String()
 	}
 
@@ -171,15 +174,6 @@ func (p *Probe) listen() error {
 		// udp network represents datagram ICMP sockets. The name is a bit
 		// misleading, but that's what Go's icmp package uses.
 		netProto = fmt.Sprintf("udp%d", p.ipVer)
-	}
-
-	// If source is configured, try to resolve it to make sure it has the same
-	// IP version as p.ipVer.
-	if p.source != "" {
-		sourceIP, err := resolveAddr(p.source, p.ipVer)
-		if err != nil || sourceIP == nil {
-			return fmt.Errorf("Bad source address: %s, Err: %v", p.source, err)
-		}
 	}
 
 	var err error
