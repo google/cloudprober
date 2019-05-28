@@ -40,11 +40,6 @@ message ProbeConf {
   // Export response (body) count as a metric
   optional bool export_response_as_metrics = 5 [default = false];
 
-  // This field is now deprecated and doesn't do anything (except resulting in
-  // a warning). It will be removed in the next release. For data integrity
-  // checks, please use integrity validator.
-  optional string integrity_check_pattern = 6;
-
   // HTTP request method
   optional Method method = 7 [default = GET];
 
@@ -68,10 +63,12 @@ message ProbeConf {
   optional bool disable_cert_validation = 14;
 
   // Requests per probe (Deprecated).
-  // This field is now deprecated and will be removed in future releases.
+  // NOTE: This field is now deprecated and will be removed after the v0.10.3
+  // releases.
   optional int32 requests_per_probe = 98 [default = 1];
   // How long to wait between two requests to the same target
-  // This field is now deprecated and will be removed in future releases.
+  // NOTE: This field is now deprecated and will be removed after the v0.10.3
+  // releases.
   optional int32 requests_interval_msec = 99 [default = 25];
 
   // Export stats after these many milliseconds
