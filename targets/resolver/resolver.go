@@ -114,10 +114,24 @@ func (r *Resolver) resolveWithMaxAge(name string, ipVer int, maxAge time.Duratio
 	cr.refreshIfRequired(name, r.resolveOrTimeout, maxAge, refreshed)
 	cr.mu.Lock()
 	defer cr.mu.Unlock()
-	ip := cr.ip4
-	if ipVer == 6 {
+
+	var ip net.IP
+
+	switch ipVer {
+	case 0:
+		if cr.ip4 != nil {
+			ip = cr.ip4
+		} else if cr.ip6 != nil {
+			ip = cr.ip6
+		}
+	case 4:
+		ip = cr.ip4
+	case 6:
 		ip = cr.ip6
+	default:
+		return nil, fmt.Errorf("unknown IP version: %d", ipVer)
 	}
+
 	if ip == nil && cr.err == nil {
 		return nil, fmt.Errorf("found no IP%d IP for %s", ipVer, name)
 	}
