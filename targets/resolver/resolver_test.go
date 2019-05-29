@@ -202,6 +202,11 @@ func TestResolveIPv6(t *testing.T) {
 	ip, err = r.Resolve(testHost, 6)
 	verify("ipv6-address-not-as-expected", t, ip, expectedIPv6, b.calls(), expectedBackendCalls, err)
 
+	// No IP version specified, should return IPv4 as IPv4 gets preference.
+	// This will come from cache this time, so no new backend calls.
+	ip, err = r.Resolve(testHost, 0)
+	verify("ipv0-address-not-as-expected", t, ip, expectedIPv4, b.calls(), expectedBackendCalls, err)
+
 	// New host, with no IPv4 address
 	testHost = "hostB"
 	expectedIPv6 = net.ParseIP("::2")
@@ -216,6 +221,11 @@ func TestResolveIPv6(t *testing.T) {
 	// This will come from cache this time, so no new backend calls.
 	ip, err = r.Resolve(testHost, 6)
 	verify("ipv6-address-not-as-expected", t, ip, expectedIPv6, b.calls(), expectedBackendCalls, err)
+
+	// No IP version specified, should return IPv6 as there is no IPv4 address for this host.
+	// This will come from cache this time, so no new backend calls.
+	ip, err = r.Resolve(testHost, 0)
+	verify("ipv0-address-not-as-expected", t, ip, expectedIPv6, b.calls(), expectedBackendCalls, err)
 }
 
 // TestConcurrentInit tests that multiple Resolves in parallel on the same
