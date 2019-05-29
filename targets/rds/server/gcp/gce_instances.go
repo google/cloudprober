@@ -109,13 +109,13 @@ func (il *gceInstancesLister) listResources(filters []*pb.Filter, ipConfig *pb.I
 			// Compute API allows specifying CIDR range as an IP address, try that first.
 			if cidrIP := net.ParseIP(ni.AliasIpRanges[0].IpCidrRange); cidrIP != nil {
 				ip = cidrIP.String()
-				continue
+			} else {
+				cidrIP, _, err := net.ParseCIDR(ni.AliasIpRanges[0].IpCidrRange)
+				if err != nil {
+					return nil, fmt.Errorf("gce_instances (instance: %s, network_interface: %d): error geting alias IP: %v", name, niIndex, err)
+				}
+				ip = cidrIP.String()
 			}
-			cidrIP, _, err := net.ParseCIDR(ni.AliasIpRanges[0].IpCidrRange)
-			if err != nil {
-				return nil, fmt.Errorf("gce_instances (instance: %s, network_interface: %d): error geting alias IP: %v", name, niIndex, err)
-			}
-			ip = cidrIP.String()
 		}
 
 		resources = append(resources, &pb.Resource{
