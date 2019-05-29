@@ -72,7 +72,7 @@ var testInstancesData = []*testInstance{
 	&testInstance{
 		name: "ins2",
 		netIf: []*testNetIf{
-			&testNetIf{"10.216.0.2", "104.100.143.2", "192.168.2.0/24"},
+			&testNetIf{"10.216.0.2", "104.100.143.2", "192.168.2.0"},
 			&testNetIf{"10.216.1.2", "104.100.143.3", ""},
 		},
 	},
@@ -198,6 +198,9 @@ func testListResources(t *testing.T, f *pb.Filter, ipConfig *pb.IPConfig, gil *g
 			expectedIP = ti.netIf[testIndex].publicIP
 		case "ipAliasRange":
 			expectedNetIP, _, _ := net.ParseCIDR(ti.netIf[testIndex].aliasIPRange)
+			if expectedNetIP == nil {
+				expectedNetIP = net.ParseIP(ti.netIf[testIndex].aliasIPRange)
+			}
 			expectedIP = expectedNetIP.String()
 		}
 		if ip != expectedIP {
