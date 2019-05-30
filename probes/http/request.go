@@ -43,7 +43,7 @@ func (p *Probe) httpRequestForTarget(target string) *http.Request {
 	host := target
 
 	if p.c.GetResolveFirst() {
-		ip, err := p.opts.Targets.Resolve(target, 4) // Support IPv4 for now, should be a config option.
+		ip, err := p.opts.Targets.Resolve(target, p.opts.IPVersion)
 		if err != nil {
 			p.l.Error("target: ", target, ", resolve error: ", err.Error())
 			return nil

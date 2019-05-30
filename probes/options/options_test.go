@@ -22,6 +22,7 @@ import (
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/probes/probeutils"
 	configpb "github.com/google/cloudprober/probes/proto"
+	targetspb "github.com/google/cloudprober/targets/proto"
 )
 
 type intf struct {
@@ -46,6 +47,11 @@ func mockInterfaceByName(iname string, addrs []string) {
 	}
 }
 
+var ipVersionToEnum = map[int]*configpb.ProbeDef_IPVersion{
+	4: configpb.ProbeDef_IPV4.Enum(),
+	6: configpb.ProbeDef_IPV6.Enum(),
+}
+
 func TestGetSourceIPFromConfig(t *testing.T) {
 	rows := []struct {
 		name       string
@@ -53,6 +59,7 @@ func TestGetSourceIPFromConfig(t *testing.T) {
 		sourceIntf string
 		intf       string
 		intfAddrs  []string
+		ipVer      int
 		want       string
 		wantError  bool
 	}{
@@ -60,6 +67,18 @@ func TestGetSourceIPFromConfig(t *testing.T) {
 			name:     "Use IP",
 			sourceIP: "1.1.1.1",
 			want:     "1.1.1.1",
+		},
+		{
+			name:      "Source IP doesn't match IP version",
+			sourceIP:  "1.1.1.1",
+			ipVer:     6,
+			wantError: true,
+		},
+		{
+			name:     "Use IPv6",
+			sourceIP: "::1",
+			ipVer:    6,
+			want:     "::1",
 		},
 		{
 			name:      "Invalid IP",
@@ -85,10 +104,20 @@ func TestGetSourceIPFromConfig(t *testing.T) {
 			intfAddrs:  []string{"1.1.1.1", "2.2.2.2"},
 			want:       "1.1.1.1",
 		},
+		{
+			name:       "Uses first IPv6 addr for interface",
+			sourceIntf: "eth1",
+			intf:       "eth1",
+			intfAddrs:  []string{"1.1.1.1", "::1"},
+			ipVer:      6,
+			want:       "::1",
+		},
 	}
 
 	for _, r := range rows {
-		p := &configpb.ProbeDef{}
+		p := &configpb.ProbeDef{
+			IpVersion: ipVersionToEnum[r.ipVer],
+		}
 
 		if r.sourceIP != "" {
 			p.SourceIpConfig = &configpb.ProbeDef_SourceIp{r.sourceIP}
@@ -100,7 +129,7 @@ func TestGetSourceIPFromConfig(t *testing.T) {
 		source, err := getSourceIPFromConfig(p, &logger.Logger{})
 
 		if (err != nil) != r.wantError {
-			t.Errorf("Row %q: newProbe() gave error %q, want error is %v", r.name, err, r.wantError)
+			t.Errorf("Row %q: getSourceIPFromConfig() gave error %q, want error is %v", r.name, err, r.wantError)
 			continue
 		}
 		if r.wantError {
@@ -108,6 +137,53 @@ func TestGetSourceIPFromConfig(t *testing.T) {
 		}
 		if source.String() != r.want {
 			t.Errorf("Row %q: source= %q, want %q", r.name, source, r.want)
+		}
+	}
+}
+
+var testTargets = &targetspb.TargetsDef{
+	Type: &targetspb.TargetsDef_HostNames{HostNames: "testHost"},
+}
+
+func TestIPVersionFromSourceIP(t *testing.T) {
+	rows := []struct {
+		name     string
+		sourceIP string
+		ipVer    int
+	}{
+		{
+			name:  "No source IP",
+			ipVer: 0,
+		},
+		{
+			name:     "IPv4 from source IP",
+			sourceIP: "1.1.1.1",
+			ipVer:    4,
+		},
+		{
+			name:     "IPv6 from source IP",
+			sourceIP: "::1",
+			ipVer:    6,
+		},
+	}
+
+	for _, r := range rows {
+		p := &configpb.ProbeDef{
+			Targets: testTargets,
+		}
+
+		if r.sourceIP != "" {
+			p.SourceIpConfig = &configpb.ProbeDef_SourceIp{r.sourceIP}
+		}
+
+		opts, err := BuildProbeOptions(p, nil, nil, nil)
+		if err != nil {
+			t.Errorf("got unexpected error: %v", err)
+			continue
+		}
+
+		if opts.IPVersion != r.ipVer {
+			t.Errorf("Unexpected IPVersion (test case: %s) want=%d, got=%d", r.name, r.ipVer, opts.IPVersion)
 		}
 	}
 }
