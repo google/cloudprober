@@ -6,6 +6,8 @@ message SurfacerConf {
   // How many metrics entries (EventMetrics) to buffer. Incoming metrics
   // processing is paused while serving data to prometheus. This buffer is to
   // make writes to prometheus surfacer non-blocking.
+  // NOTE: This field is confusing for users and will be removed from the config
+  // after v0.10.3.
   optional int64 metrics_buffer_size = 1 [default = 10000];
 
   // Whether to include timestamps in metrics. If enabled (default) each metric
@@ -17,4 +19,9 @@ message SurfacerConf {
 
   // URL that prometheus scrapes metrics from.
   optional string metrics_url = 3 [default = "/metrics"];
+
+  // Prefix to add to all metric names. For example setting this field to
+  // "cloudprober_" will result in metrics with names:
+  // cloudprober_total, cloudprober_success, cloudprober_latency, ..
+  optional string metrics_prefix = 4;
 }
