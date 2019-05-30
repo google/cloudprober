@@ -101,6 +101,7 @@ type httpWriter struct {
 // Data key represents a unique combination of metric name and labels.
 type PromSurfacer struct {
 	c           *configpb.SurfacerConf     // Configuration
+	prefix      string                     // Metrics prefix, e.g. "cloudprober_"
 	emChan      chan *metrics.EventMetrics // Buffered channel to store incoming EventMetrics
 	metrics     map[string]*promMetric     // Metric name to promMetric mapping
 	metricNames []string                   // Metric names, to keep names ordered.
@@ -128,6 +129,7 @@ func New(config *configpb.SurfacerConf, l *logger.Logger) (*PromSurfacer, error)
 		emChan:       make(chan *metrics.EventMetrics, config.GetMetricsBufferSize()),
 		queryChan:    make(chan *httpWriter, queriesQueueSize),
 		metrics:      make(map[string]*promMetric),
+		prefix:       config.GetMetricsPrefix(),
 		metricNameRe: regexp.MustCompile(ValidMetricNameRegex),
 		labelNameRe:  regexp.MustCompile(ValidLabelNameRegex),
 		l:            l,
@@ -258,10 +260,12 @@ func (ps *PromSurfacer) checkLabelName(k string) string {
 	return labelName
 }
 
-// checkMetricName finds a prometheus metric name for an incoming metric. If metric
+// promMetricName finds a prometheus metric name for an incoming metric. If metric
 // is found to be invalid even after some basic conversions, a zero string is
 // returned.
-func (ps *PromSurfacer) checkMetricName(k string) string {
+func (ps *PromSurfacer) promMetricName(k string) string {
+	k = ps.prefix + k
+
 	// Before checking with regex, see if this metric name is
 	// already known. This block will be entered only once per
 	// metric name.
@@ -309,7 +313,7 @@ func (ps *PromSurfacer) record(em *metrics.EventMetrics) {
 	}
 
 	for _, metricName := range em.MetricsKeys() {
-		pMetricName := ps.checkMetricName(metricName)
+		pMetricName := ps.promMetricName(metricName)
 		if pMetricName == "" {
 			// No prometheus metric name found for this metric.
 			continue
