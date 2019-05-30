@@ -66,6 +66,25 @@ message ProbeDef {
     string source_interface = 11;
   }
 
+  // IP version to use for networking probes. If specified, this is used at the
+  // time of resolving a target, picking the correct IP for the source IP if
+  // source_interface option is provided, and to craft the packet correctly
+  // for PING probes.
+  //
+  // If ip_version is not configured but source_ip is provided, we get
+  // ip_version from it. If both are  confgiured, an error is returned if there
+  // is a conflict between the two.
+  //
+  // If left unspecified and both addresses are available in resolve call or on
+  // source interface, IPv4 is preferred.
+  // Future work: provide an option to prefer IPv4 and IPv6 explicitly.
+  enum IPVersion {
+    IP_VERSION_UNSPECIFIED = 0;
+    IPV4 = 1;
+    IPV6 = 2;
+  }
+  optional IPVersion ip_version = 12;
+
   oneof probe {
     ping.ProbeConf ping_probe = 20;
     http.ProbeConf http_probe = 21;

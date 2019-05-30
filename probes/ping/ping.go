@@ -124,7 +124,20 @@ func (p *Probe) initInternal() error {
 		return err
 	}
 
-	p.ipVer = int(p.c.GetIpVersion())
+	// Unlike other probes, for ping probe, we need to know the IP version to
+	// craft appropriate ICMP packets. We default to IPv4.
+	p.ipVer = 4
+	// TODO(manugarg): Simplify this code block to simply use p.opts.IPversion
+	// after v0.10.3.
+	if p.c.GetIpVersion() != 0 {
+		p.l.Warningf("Setting ip_version inside ping_probe{} is deprecated now. Please use the outer layer ip_version option.")
+		p.ipVer = int(p.c.GetIpVersion())
+	}
+
+	if p.opts.IPVersion != 0 {
+		p.ipVer = p.opts.IPVersion
+	}
+
 	p.targets = p.opts.Targets.List()
 	p.results = make(map[string]*result)
 	p.ip2target = make(map[[16]byte]string)
@@ -132,9 +145,6 @@ func (p *Probe) initInternal() error {
 	p.useDatagramSocket = p.c.GetUseDatagramSocket()
 
 	if p.opts.SourceIP != nil {
-		if ipVersion(p.opts.SourceIP) != p.ipVer {
-			return fmt.Errorf("source IP (%s) is not an IPv%d address", p.opts.SourceIP, p.ipVer)
-		}
 		p.source = p.opts.SourceIP.String()
 	}
 

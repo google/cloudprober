@@ -42,7 +42,23 @@ type Options struct {
 	LatencyUnit       time.Duration
 	Validators        []*validators.ValidatorWithName
 	SourceIP          net.IP
+	IPVersion         int
 	LogMetrics        func(*metrics.EventMetrics)
+}
+
+func ipv(v *configpb.ProbeDef_IPVersion) int {
+	if v == nil {
+		return 0
+	}
+
+	switch *v {
+	case configpb.ProbeDef_IPV4:
+		return 4
+	case configpb.ProbeDef_IPV6:
+		return 6
+	default:
+		return 0
+	}
 }
 
 // getSourceFromConfig returns the source IP from the config either directly
@@ -55,10 +71,16 @@ func getSourceIPFromConfig(p *configpb.ProbeDef, l *logger.Logger) (net.IP, erro
 		if sourceIP == nil {
 			return nil, fmt.Errorf("invalid source IP: %s", p.GetSourceIp())
 		}
+
+		// If ip_version is configured, make sure source_ip matches it.
+		if ipv(p.IpVersion) != 0 && probeutils.IPVersion(sourceIP) != ipv(p.IpVersion) {
+			return nil, fmt.Errorf("configured source_ip (%s) doesn't match the ip_version (%d)", p.GetSourceIp(), ipv(p.IpVersion))
+		}
+
 		return sourceIP, nil
 
 	case *configpb.ProbeDef_SourceInterface:
-		return probeutils.ResolveIntfAddr(p.GetSourceInterface())
+		return probeutils.ResolveIntfAddr(p.GetSourceInterface(), ipv(p.IpVersion))
 
 	default:
 		return nil, fmt.Errorf("unknown source type: %v", p.GetSourceIpConfig())
@@ -69,8 +91,9 @@ func getSourceIPFromConfig(p *configpb.ProbeDef, l *logger.Logger) (net.IP, erro
 // global params.
 func BuildProbeOptions(p *configpb.ProbeDef, ldLister lameduck.Lister, globalTargetsOpts *targetspb.GlobalTargetsOptions, l *logger.Logger) (*Options, error) {
 	opts := &Options{
-		Interval: time.Duration(p.GetIntervalMsec()) * time.Millisecond,
-		Timeout:  time.Duration(p.GetTimeoutMsec()) * time.Millisecond,
+		Interval:  time.Duration(p.GetIntervalMsec()) * time.Millisecond,
+		Timeout:   time.Duration(p.GetTimeoutMsec()) * time.Millisecond,
+		IPVersion: ipv(p.IpVersion),
 	}
 
 	var err error
@@ -106,6 +129,10 @@ func BuildProbeOptions(p *configpb.ProbeDef, ldLister lameduck.Lister, globalTar
 		opts.SourceIP, err = getSourceIPFromConfig(p, l)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get source address for the probe: %v", err)
+		}
+		// Set IPVersion from SourceIP if not already set.
+		if opts.IPVersion == 0 {
+			opts.IPVersion = probeutils.IPVersion(opts.SourceIP)
 		}
 	}
 

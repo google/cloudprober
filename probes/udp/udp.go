@@ -70,6 +70,7 @@ type Probe struct {
 	srcPortList []string
 	numConn     int32
 	runID       uint64
+	ipVer       int
 
 	targets []string              // List of targets for a probe iteration.
 	res     map[flow]*probeResult // Results by flow.
@@ -164,6 +165,17 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	udpAddr := &net.UDPAddr{Port: 0}
 	if p.opts.SourceIP != nil {
 		udpAddr.IP = p.opts.SourceIP
+	}
+
+	// TODO(manugarg): Simplify this code block to simply use p.opts.IPversion
+	// after v0.10.3.
+	if p.c.GetIpVersion() != 0 {
+		p.l.Warningf("Setting ip_version inside udp_probe{} is deprecated now. Please use the outer layer ip_version option.")
+		p.ipVer = int(p.c.GetIpVersion())
+	}
+
+	if p.opts.IPVersion != 0 {
+		p.ipVer = p.opts.IPVersion
 	}
 
 	for p.numConn < wantConn && triesRemaining > 0 {
@@ -348,8 +360,8 @@ func (p *Probe) recvLoop(ctx context.Context, conn *net.UDPConn) {
 	}
 }
 
-func (p *Probe) runSingleProbe(f flow, conn *net.UDPConn, maxLen, dstPort, ipVer int) error {
-	ip, err := p.opts.Targets.Resolve(f.target, ipVer)
+func (p *Probe) runSingleProbe(f flow, conn *net.UDPConn, maxLen, dstPort int) error {
+	ip, err := p.opts.Targets.Resolve(f.target, p.ipVer)
 	if err != nil {
 		return fmt.Errorf("unable to resolve %s: %v", f.target, err)
 	}
@@ -389,7 +401,6 @@ func (p *Probe) runProbe() {
 	}
 	maxLen := int(p.c.GetMaxLength())
 	dstPort := int(p.c.GetPort())
-	ipVer := int(p.c.GetIpVersion())
 
 	var packetsPerTarget, initialConn int
 	if p.c.GetUseAllTxPortsPerProbe() {
@@ -412,7 +423,7 @@ func (p *Probe) runProbe() {
 			conn := p.connList[connID]
 			go func(conn *net.UDPConn, f flow) {
 				defer wg.Done()
-				if err := p.runSingleProbe(f, conn, maxLen, dstPort, ipVer); err != nil {
+				if err := p.runSingleProbe(f, conn, maxLen, dstPort); err != nil {
 					p.l.Errorf("Probing %+v failed: %v", f, err)
 				}
 			}(conn, flow{p.srcPortList[connID], target})

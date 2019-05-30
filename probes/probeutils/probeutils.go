@@ -136,31 +136,51 @@ type Addr interface {
 // InterfaceByName is a mocking point for net.InterfaceByName, used for tests.
 var InterfaceByName = func(s string) (Addr, error) { return net.InterfaceByName(s) }
 
-// ResolveIntfAddr takes the name of a network interface, and returns the first ip
-// address listed for this interface. This is typically the IPv4 address.
-func ResolveIntfAddr(intfName string) (net.IP, error) {
+// ResolveIntfAddr takes the name of a network interface and IP version, and
+// returns the first IP address of the interface that matches the specified IP
+// version. If no IP version is specified (ipVer is 0), simply the first IP
+// address is returned.
+func ResolveIntfAddr(intfName string, ipVer int) (net.IP, error) {
 	i, err := InterfaceByName(intfName)
 	if err != nil {
-		return nil, fmt.Errorf("resolveIntfAddr(%v) got error getting interface: %v", intfName, err)
+		return nil, fmt.Errorf("resolveIntfAddr(%v, %d) got error getting interface: %v", intfName, ipVer, err)
 	}
 
 	addrs, err := i.Addrs()
 	if err != nil {
-		return nil, fmt.Errorf("resolveIntfAddr(%v) got error getting addresses for interface: %v", intfName, err)
+		return nil, fmt.Errorf("resolveIntfAddr(%v, %d) got error getting addresses for interface: %v", intfName, ipVer, err)
 	} else if len(addrs) == 0 {
-		return nil, fmt.Errorf("resolveIntfAddr(%v) go 0 addrs for interface", intfName)
+		return nil, fmt.Errorf("resolveIntfAddr(%v, %d) go 0 addrs for interface", intfName, ipVer)
 	}
 
-	// i.Addrs() mostly returns network addresses of the form "172.17.90.252/23".
-	// This bit of code will pull the IP address from this address.
 	var ip net.IP
-	switch v := addrs[0].(type) {
-	case *net.IPNet:
-		ip = v.IP
-	case *net.IPAddr:
-		ip = v.IP
-	default:
-		return nil, fmt.Errorf("resolveIntfAddr(%v) found unknown type for first address: %T", intfName, v)
+
+	for _, addr := range addrs {
+		// i.Addrs() mostly returns network addresses of the form "172.17.90.252/23".
+		// This bit of code will pull the IP address from this address.
+		switch v := addr.(type) {
+		case *net.IPNet:
+			ip = v.IP
+		case *net.IPAddr:
+			ip = v.IP
+		default:
+			return nil, fmt.Errorf("resolveIntfAddr(%v, %d) found unknown type for first address: %T", intfName, ipVer, v)
+		}
+
+		if ipVer == 0 || IPVersion(ip) == ipVer {
+			return ip, nil
+		}
 	}
-	return ip, nil
+	return nil, fmt.Errorf("resolveIntfAddr(%v, %d) found no apprpriate IP addresses in %v", intfName, ipVer, addrs)
+}
+
+// IPVersion tells if an IP address is IPv4 or IPv6.
+func IPVersion(ip net.IP) int {
+	if len(ip.To4()) == net.IPv4len {
+		return 4
+	}
+	if len(ip) == net.IPv6len {
+		return 6
+	}
+	return 0
 }

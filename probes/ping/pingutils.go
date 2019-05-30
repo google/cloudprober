@@ -36,17 +36,6 @@ func bytesToTime(b []byte) int64 {
 	return unixNano
 }
 
-// ipVersion tells if an IP address is IPv4 or IPv6.
-func ipVersion(ip net.IP) int {
-	if len(ip.To4()) == net.IPv4len {
-		return 4
-	}
-	if len(ip) == net.IPv6len {
-		return 6
-	}
-	return 0
-}
-
 func ipToKey(ip net.IP) (key [16]byte) {
 	copy(key[:], ip.To16())
 	return

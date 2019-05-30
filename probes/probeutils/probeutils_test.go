@@ -16,6 +16,7 @@ package probeutils
 
 import (
 	"context"
+	"net"
 	"reflect"
 	"testing"
 	"time"
@@ -106,6 +107,24 @@ func TestStatsKeeper(t *testing.T) {
 			if val != eVal {
 				t.Errorf("%s metric is not set correctly. Got: %d, Expected: %d", key, val, eVal)
 			}
+		}
+	}
+}
+
+func TestIPVersion(t *testing.T) {
+	rows := []struct {
+		ip    string
+		ipVer int
+	}{
+		{"1.1.1.1", 4},
+		{"::1", 6},
+	}
+
+	for _, r := range rows {
+		ipVer := IPVersion(net.ParseIP(r.ip))
+
+		if ipVer != r.ipVer {
+			t.Errorf("Unexpected IPVersion want=%d, got=%d", r.ipVer, ipVer)
 		}
 	}
 }

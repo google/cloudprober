@@ -15,8 +15,15 @@ message ProbeConf {
   // Ping payload size in bytes. It cannot be smaller than 8, number of bytes
   // required for the nanoseconds timestamp.
   optional int32 payload_size = 10 [default = 56];
-  // IP protocol version
-  optional int32 ip_version = 11 [default = 4];
+  // IP proto: 4|6.
+  // This field is now deprecated and will be removed after the release v0.10.3.
+  // ip_version can be configured in the outer layer of the config:
+  // probe {
+  //   type: PING
+  //   ip_version: 6
+  //   ping_probe {}
+  // }
+  optional int32 ip_version = 11;
   // Use datagram socket for ICMP.
   // This option enables unprivileged pings (that is, you don't require root
   // privilege to send ICMP packets). Note that most of the Linux distributions
