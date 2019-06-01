@@ -107,7 +107,7 @@ type Probe struct {
 }
 
 // Init initializes the probe with the given params.
-func Init(name string, opts *options.Options) error {
+func (p *Probe) Init(name string, opts *options.Options) error {
   c, ok := opts.ProbeConf.(*ProbeConf)
   if !ok {
     return fmt.Errorf("not a my probe config")
