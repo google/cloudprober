@@ -373,7 +373,7 @@ myprobe.pb.go  myprobe.proto
 }
 
 <span style="color: #408080; font-style: italic">// Init initializes the probe with the given params.</span>
-<span style="color: #008000; font-weight: bold">func</span> Init(name <span style="color: #B00040">string</span>, opts <span style="color: #666666">*</span>options.Options) <span style="color: #B00040">error</span> {
+<span style="color: #008000; font-weight: bold">func</span> (p <span style="color: #666666">*</span>Probe) Init(name <span style="color: #B00040">string</span>, opts <span style="color: #666666">*</span>options.Options) <span style="color: #B00040">error</span> {
   c, ok <span style="color: #666666">:=</span> opts.ProbeConf.(<span style="color: #666666">*</span>ProbeConf)
   <span style="color: #008000; font-weight: bold">if</span> !ok {
     <span style="color: #008000; font-weight: bold">return</span> fmt.Errorf(<span style="color: #BA2121">&quot;not a my probe config&quot;</span>)
