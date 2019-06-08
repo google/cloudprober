@@ -43,8 +43,11 @@ type Client struct {
 }
 
 // refreshState refreshes the client cache.
-func (client *Client) refreshState() {
-	response, err := client.rdc.ListResources(context.Background(), client.c.GetRequest())
+func (client *Client) refreshState(timeout time.Duration) {
+	ctx, cancelFunc := context.WithTimeout(context.Background(), timeout)
+	defer cancelFunc()
+
+	response, err := client.rdc.ListResources(ctx, client.c.GetRequest())
 	if err != nil {
 		client.l.Errorf("rds.client: error getting resources from RDS server: %v", err)
 		return
@@ -123,7 +126,7 @@ func New(c *configpb.ClientConf, l *logger.Logger) (*Client, error) {
 		l:     l,
 	}
 	go func() {
-		client.refreshState()
+		client.refreshState(reEvalInterval)
 		// Introduce a random delay between 0-reEvalInterval before starting the
 		// refreshState loop. If there are multiple cloudprober instances, this will
 		// make sure that each instance calls RDS server at a different point of
@@ -132,7 +135,7 @@ func New(c *configpb.ClientConf, l *logger.Logger) (*Client, error) {
 		randomDelaySec := rand.Intn(int(reEvalInterval.Seconds()))
 		time.Sleep(time.Duration(randomDelaySec) * time.Second)
 		for range time.Tick(reEvalInterval) {
-			client.refreshState()
+			client.refreshState(reEvalInterval)
 		}
 	}()
 
