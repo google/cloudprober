@@ -17,6 +17,7 @@ package client
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/logger"
@@ -80,7 +81,7 @@ func TestListAndResolve(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Got error initializing RDS client: %v", err)
 		}
-		client.refreshState()
+		client.refreshState(time.Second)
 
 		// Test List()
 		list := client.List()
