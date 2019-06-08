@@ -3,9 +3,29 @@ syntax = "proto2";
 package cloudprober.surfacer.stackdriver;
 
 message SurfacerConf {
+  // This field doesn't do anything anymore. Batching is always enabled. This
+  // field will be removed after release v0.10.3.
   optional bool batch = 1 [default = true];
+
+  // This field doesn't do anything anymore. Batch size is always 200. This
+  // field will be removed after release v0.10.3.
   optional uint64 batch_size = 2 [default = 200];
+
+  // How often to export metrics to stackdriver.
   optional uint64 batch_timer_sec = 3 [default = 10];
 
-  optional string monitoring_url = 5 [default = "custom.googleapis.com/cloudprober/"];
+  // If allowed_metrics_regex is specified, only metrics matching the given
+  // regular expression will be exported to stackdriver. Since probe type and
+  // probe name are part of the metric name, you can use this field to restrict
+  // stackdriver metrics to a particular probe.
+  // Example:
+  // allowed_metrics_regex: ".*(http|ping).*(success|validation_failure).*"
+  optional string allowed_metrics_regex = 4;
+
+  // Monitoring URL base. Full metric URL looks like the following:
+  // <monitoring_url>/<ptype>/<probe>/<metric>
+  // Example:
+  // custom.googleapis.com/cloudprober/http/google-homepage/latency
+  optional string monitoring_url = 5
+      [default = "custom.googleapis.com/cloudprober/"];
 }
