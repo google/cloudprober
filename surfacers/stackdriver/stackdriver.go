@@ -22,6 +22,8 @@ package stackdriver
 import (
 	"context"
 	"fmt"
+	"math/rand"
+	"regexp"
 	"strings"
 	"time"
 
@@ -34,6 +36,8 @@ import (
 	configpb "github.com/google/cloudprober/surfacers/stackdriver/proto"
 )
 
+const batchSize = 200
+
 //-----------------------------------------------------------------------------
 // Stack Driver Surfacer Specific Code
 //-----------------------------------------------------------------------------
@@ -45,6 +49,9 @@ type SDSurfacer struct {
 
 	// Configuration
 	c *configpb.SurfacerConf
+
+	// Metrics regexp
+	allowedMetricsRegex *regexp.Regexp
 
 	// Internal cache for saving metric data until a batch is sent
 	cache map[string]*monitoring.TimeSeries
@@ -84,6 +91,14 @@ func New(config *configpb.SurfacerConf, l *logger.Logger) (*SDSurfacer, error) {
 		l:         l,
 	}
 
+	if s.c.GetAllowedMetricsRegex() != "" {
+		r, err := regexp.Compile(s.c.GetAllowedMetricsRegex())
+		if err != nil {
+			return nil, err
+		}
+		s.allowedMetricsRegex = r
+	}
+
 	// TODO(brrcrites): Validate that the config has all the necessary
 	// values
 
@@ -114,56 +129,27 @@ func New(config *configpb.SurfacerConf, l *logger.Logger) (*SDSurfacer, error) {
 		return nil, err
 	}
 
+	if s.c.Batch != nil {
+		s.l.Warningf("Setting 'batch' doesn't do anything anymore. Batching is always enabled. This field will be removed after release v0.10.3.")
+	}
+
 	// Start either the writeAsync or the writeBatch, depending on if we are
 	// batching or not.
-	go func() {
-		if s.c.GetBatch() {
-			s.writeBatch()
-		} else {
-			s.writeAsync()
-		}
-	}()
+	go s.writeBatch()
 
-	s.l.Info("Create a new stackdriver surfacer")
+	s.l.Info("Created a new stackdriver surfacer")
 	return &s, nil
 }
 
 // Write queues a message to be written to stackdriver.
 func (s *SDSurfacer) Write(ctxIn context.Context, em *metrics.EventMetrics) {
 	// Write inserts the data to be written into channel. This channel is
-	// watched by writeAsync or writeBatch and will make the necessary calls
-	// to the Stackdriver API to write the data from the channel.
+	// watched by writeBatch and will make the necessary calls to the Stackdriver
+	// API to write the data from the channel.
 	select {
 	case s.writeChan <- em:
 	default:
 		s.l.Errorf("SDSurfacer's write channel is full, dropping new data.")
-	}
-}
-
-// writeAsync polls the writeChan waiting for a new write packet to be added.
-// When a packet is put on the channel, writeAsync creates a client based on the
-// passed in context, creates a time series create call for the data that is
-// input, and sends that time series create call to stackdriver to write a new
-// custom metric using the given context.
-//
-// writeAsync is set up to run as an infinite goroutine call in the New function
-// to allow it to write asynchronously to Stack Driver
-func (s *SDSurfacer) writeAsync() {
-	for em := range s.writeChan {
-		// Now that we've created the new metric, we can write the data. Making
-		// a time series create call will automatically register a new metric
-		// with the correct information if it does not already exist.
-		//	Ref: https://cloud.google.com/monitoring/custom-metrics/creating-metrics#auto-creation
-		ts := s.recordEventMetrics(em)
-		requestBody := monitoring.CreateTimeSeriesRequest{
-			TimeSeries: ts,
-		}
-		_, err := s.client.Projects.TimeSeries.Create("projects/"+s.projectName, &requestBody).Do()
-		if err != nil {
-			s.failCnt++
-			s.l.Warningf("Unable to fulfill TimeSeries Create call. Err: %v", err)
-			return
-		}
 	}
 }
 
@@ -179,6 +165,11 @@ func (s *SDSurfacer) writeAsync() {
 // writeBatch is set up to run as an infinite goroutine call in the New function
 // to allow it to write asynchronously to Stack Driver.
 func (s *SDSurfacer) writeBatch() {
+	// Introduce a random delay before starting the loop.
+	rand.Seed(time.Now().UnixNano())
+	randomDelay := time.Duration(rand.Int63n(int64(s.c.GetBatchTimerSec()))) * time.Second
+	time.Sleep(randomDelay)
+
 	batchTicker := time.Tick(time.Duration(s.c.GetBatchTimerSec()) * time.Second)
 	for {
 		select {
@@ -200,8 +191,8 @@ func (s *SDSurfacer) writeBatch() {
 
 			// We batch the time series into appropriately-sized sets
 			// and write them
-			for i := 0; i < len(ts); i += int(s.c.GetBatchSize()) {
-				endIndex := min(len(ts), i+int(s.c.GetBatchSize()))
+			for i := 0; i < len(ts); i += batchSize {
+				endIndex := min(len(ts), i+batchSize)
 
 				s.l.Infof("Sending entries %d through %d of %d", i, endIndex, len(ts))
 
@@ -279,12 +270,11 @@ func (s *SDSurfacer) recordTimeSeries(metricKind, metricName, msgType string, la
 		},
 	}
 
-	if s.c.GetBatch() && s.cache != nil {
-		// We create a key that is a composite of both the name and the
-		// labels so we can make sure that the cache holds all distinct
-		// values and not just the ones with different names.
-		s.cache[metricName+","+cacheKey] = ts
-	}
+	// We create a key that is a composite of both the name and the
+	// labels so we can make sure that the cache holds all distinct
+	// values and not just the ones with different names.
+	s.cache[metricName+","+cacheKey] = ts
+
 	return ts
 
 }
@@ -355,6 +345,12 @@ func (s *SDSurfacer) recordEventMetrics(em *metrics.EventMetrics) (ts []*monitor
 			mLabels[k] = v
 		}
 		name := metricPrefix + k
+
+		if s.allowedMetricsRegex != nil {
+			if !s.allowedMetricsRegex.MatchString(name) {
+				continue
+			}
+		}
 
 		if !validMetricLength(name, s.c.GetMonitoringUrl()) {
 			s.l.Warningf("Message name %q is greater than the 100 character limit, skipping write", name)
