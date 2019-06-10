@@ -85,6 +85,18 @@ message ProbeDef {
   }
   optional IPVersion ip_version = 12;
 
+  // How often to export stats. Probes usually run at a higher frequency (e.g.
+  // every second); stats from individual probes are aggregated within
+  // cloudprober until exported. In most cases, users don't need to change the
+  // default.
+  //
+  // By default this field is set in the following way:
+  // For all probes except UDP:
+  //   stats_export_interval=max(interval, 10s)
+  // For UDP:
+  //   stats_export_interval=max(2*max(interval, timeout), 10s)
+  optional int32 stats_export_interval_msec = 13;
+
   oneof probe {
     ping.ProbeConf ping_probe = 20;
     http.ProbeConf http_probe = 21;

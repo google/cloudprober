@@ -34,16 +34,37 @@ import (
 
 // Options encapsulates common probe options.
 type Options struct {
-	Targets           targets.Targets
-	Interval, Timeout time.Duration
-	Logger            *logger.Logger
-	ProbeConf         interface{} // Probe-type specific config
-	LatencyDist       *metrics.Distribution
-	LatencyUnit       time.Duration
-	Validators        []*validators.ValidatorWithName
-	SourceIP          net.IP
-	IPVersion         int
-	LogMetrics        func(*metrics.EventMetrics)
+	Targets             targets.Targets
+	Interval, Timeout   time.Duration
+	Logger              *logger.Logger
+	ProbeConf           interface{} // Probe-type specific config
+	LatencyDist         *metrics.Distribution
+	LatencyUnit         time.Duration
+	Validators          []*validators.ValidatorWithName
+	SourceIP            net.IP
+	IPVersion           int
+	StatsExportInterval time.Duration
+	LogMetrics          func(*metrics.EventMetrics)
+}
+
+const defaultStatsExtportIntv = 10 * time.Second
+
+func defaultStatsExportInterval(p *configpb.ProbeDef, opts *Options) time.Duration {
+	minIntv := opts.Interval
+	if opts.Timeout > opts.Interval {
+		minIntv = opts.Timeout
+	}
+
+	// UDP probe type requires stats export interval to be at least twice of the
+	// max(interval, timeout).
+	if p.GetType() == configpb.ProbeDef_UDP {
+		minIntv = 2 * minIntv
+	}
+
+	if minIntv < defaultStatsExtportIntv {
+		return defaultStatsExtportIntv
+	}
+	return minIntv
 }
 
 func ipv(v *configpb.ProbeDef_IPVersion) int {
@@ -133,6 +154,15 @@ func BuildProbeOptions(p *configpb.ProbeDef, ldLister lameduck.Lister, globalTar
 		// Set IPVersion from SourceIP if not already set.
 		if opts.IPVersion == 0 {
 			opts.IPVersion = probeutils.IPVersion(opts.SourceIP)
+		}
+	}
+
+	if p.StatsExportIntervalMsec == nil {
+		opts.StatsExportInterval = defaultStatsExportInterval(p, opts)
+	} else {
+		opts.StatsExportInterval = time.Duration(p.GetStatsExportIntervalMsec()) * time.Millisecond
+		if opts.StatsExportInterval < opts.Interval {
+			return nil, fmt.Errorf("stats_export_interval (%d ms) smaller than probe interval %v", p.GetStatsExportIntervalMsec(), opts.Interval)
 		}
 	}
 

@@ -72,5 +72,13 @@ message ProbeConf {
   optional int32 requests_interval_msec = 99 [default = 25];
 
   // Export stats after these many milliseconds
+  // NOTE: Setting stats export interval using this field doesn't work anymore.
+  // This field will be removed after the release v0.10.3. To set
+  // stats_export_interval, please modify the outer probe configuration.
+  // Example: probe {
+  //   type: HTTP
+  //   stats_export_interval_msec: 10000
+  //   http_probe {}
+  // }
   optional int32 stats_export_interval_msec = 100 [default = 10000];
 }

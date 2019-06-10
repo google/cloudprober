@@ -158,10 +158,10 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	p.c = c
 	p.echoMode = p.c.GetType() == configpb.ProbeConf_ECHO
 
-	if time.Duration(c.GetStatsExportIntervalMsec())*time.Millisecond < p.opts.Interval {
-		return fmt.Errorf("statsexportinterval %dms smaller than probe interval %v",
-			c.GetStatsExportIntervalMsec(), p.opts.Interval)
+	if p.c.StatsExportIntervalMsec != nil {
+		p.l.Warning("stats_export_interval_msec field is now deprecated and doesn't do anything. To modify stats export interval, use the probe level field by the same name.")
 	}
+
 	p.fsm = message.NewFlowStateMap()
 
 	udpAddr := &net.UDPAddr{Port: int(p.c.GetPort())}
@@ -251,11 +251,10 @@ func (p *Probe) outputResults(expectedCt int64, stats chan<- probeutils.ProbeRes
 func (p *Probe) outputLoop(ctx context.Context, stats chan<- probeutils.ProbeResult) {
 	// Use a ticker to control stats output and error logging.
 	// ticker should be a multiple of interval between pkts (i.e., p.opts.Interval).
-	statsExportInterval := time.Duration(p.c.GetStatsExportIntervalMsec()) * time.Millisecond
-	pktsPerExportInterval := int64(statsExportInterval / p.opts.Interval)
+	pktsPerExportInterval := int64(p.opts.StatsExportInterval / p.opts.Interval)
 	tick := p.opts.Interval
 	if pktsPerExportInterval > 1 {
-		tick = (statsExportInterval / 2).Round(p.opts.Interval)
+		tick = (p.opts.StatsExportInterval / 2).Round(p.opts.Interval)
 	}
 	ticker := time.NewTicker(tick)
 

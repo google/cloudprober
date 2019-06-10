@@ -103,13 +103,15 @@ func runProbe(ctx context.Context, t *testing.T, interval, timeout time.Duration
 	if _, ok := os.LookupEnv("TRAVIS"); ok {
 		ipVersion = 4
 	}
+
 	conf.NumTxPorts = proto.Int32(numTxPorts)
 	conf.IpVersion = proto.Int32(ipVersion)
 	opts := &options.Options{
-		Targets:   targets.StaticTargets("localhost"),
-		Interval:  interval,
-		Timeout:   timeout,
-		ProbeConf: &conf,
+		Targets:             targets.StaticTargets("localhost"),
+		Interval:            interval,
+		Timeout:             timeout,
+		ProbeConf:           &conf,
+		StatsExportInterval: 10 * time.Second,
 	}
 	if err := p.Init("udp", opts); err != nil {
 		t.Fatalf("Error initializing UDP probe: %v", err)
