@@ -220,7 +220,7 @@ func (p *Probe) resolveTargets() {
 		}
 		p.results[t] = &result{
 			latency:           latencyValue,
-			validationFailure: metrics.NewMap("validator", metrics.NewInt(0)),
+			validationFailure: validators.ValidationFailureMap(p.opts.Validators),
 		}
 	}
 }
@@ -372,20 +372,7 @@ func (p *Probe) recvPackets(runID uint16, tracker chan bool) {
 		result := p.results[pkt.target]
 
 		if p.opts.Validators != nil {
-			var failedValidations []string
-
-			for _, v := range p.opts.Validators {
-				success, err := v.Validate(nil, pkt.data)
-				if err != nil {
-					p.l.Error("Error while running the validator ", v.Name, ": ", err.Error())
-					continue
-				}
-
-				if !success {
-					result.validationFailure.IncKey(v.Name)
-					failedValidations = append(failedValidations, v.Name)
-				}
-			}
+			failedValidations := validators.RunValidators(p.opts.Validators, nil, pkt.data, result.validationFailure, p.l)
 
 			// If any validation failed, return now, leaving the success and latency
 			// counters unchanged.
