@@ -18,7 +18,9 @@ import (
 	"errors"
 	"net"
 	"testing"
+	"time"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/probes/probeutils"
 	configpb "github.com/google/cloudprober/probes/proto"
@@ -184,6 +186,95 @@ func TestIPVersionFromSourceIP(t *testing.T) {
 
 		if opts.IPVersion != r.ipVer {
 			t.Errorf("Unexpected IPVersion (test case: %s) want=%d, got=%d", r.name, r.ipVer, opts.IPVersion)
+		}
+	}
+}
+
+func TestStatsExportInterval(t *testing.T) {
+	rows := []struct {
+		name       string
+		pType      *configpb.ProbeDef_Type
+		interval   int32
+		timeout    int32
+		configured int32
+		want       int
+		wantError  bool
+	}{
+		{
+			name:     "Interval bigger than default",
+			interval: 15,
+			timeout:  10,
+			want:     15,
+		},
+		{
+			name:     "Timeout bigger than interval",
+			interval: 10,
+			timeout:  12,
+			want:     12,
+		},
+		{
+			name:     "Interval and timeout less than default",
+			interval: 2,
+			timeout:  1,
+			want:     int(defaultStatsExtportIntv.Seconds()),
+		},
+		{
+			name:     "UDP probe: default twice of timeout- I",
+			interval: 10,
+			timeout:  12,
+			pType:    configpb.ProbeDef_UDP.Enum(),
+			want:     24,
+		},
+		{
+			name:     "UDP probe: default twice of timeout - II",
+			interval: 5,
+			timeout:  6,
+			pType:    configpb.ProbeDef_UDP.Enum(),
+			want:     12,
+		},
+		{
+			name:       "Error: stats export interval smaller than interval",
+			interval:   2,
+			timeout:    1,
+			configured: 1,
+			wantError:  true,
+		},
+		{
+			name:       "Configured value is good",
+			interval:   2,
+			timeout:    1,
+			configured: 10,
+			want:       10,
+		},
+	}
+
+	for _, r := range rows {
+		p := &configpb.ProbeDef{
+			Targets:      testTargets,
+			IntervalMsec: proto.Int32(r.interval * 1000),
+			TimeoutMsec:  proto.Int32(r.timeout * 1000),
+		}
+
+		if r.pType != nil {
+			p.Type = r.pType
+		}
+
+		if r.configured != 0 {
+			p.StatsExportIntervalMsec = proto.Int32(r.configured * 1000)
+		}
+
+		opts, err := BuildProbeOptions(p, nil, nil, nil)
+		if (err != nil) != r.wantError {
+			t.Errorf("Row %q: BuildProbeOptions() gave error %q, want error is %v", r.name, err, r.wantError)
+			continue
+		}
+		if r.wantError {
+			continue
+		}
+
+		want := time.Duration(r.want) * time.Second
+		if opts.StatsExportInterval != want {
+			t.Errorf("Unexpected stats export interval (test case: %s): want=%s, got=%s", r.name, want, opts.StatsExportInterval)
 		}
 	}
 }

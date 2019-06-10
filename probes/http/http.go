@@ -151,7 +151,11 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		Transport: transport,
 	}
 
-	p.statsExportFrequency = int64(p.c.GetStatsExportIntervalMsec()) * 1e6 / p.opts.Interval.Nanoseconds()
+	if p.c.StatsExportIntervalMsec != nil {
+		p.l.Warningf("stats_export_interval_msec field is now deprecated and doesn't do anything. To modify stats export interval, use the probe level field by the same name.")
+	}
+
+	p.statsExportFrequency = p.opts.StatsExportInterval.Nanoseconds() / p.opts.Interval.Nanoseconds()
 	if p.statsExportFrequency == 0 {
 		p.statsExportFrequency = 1
 	}

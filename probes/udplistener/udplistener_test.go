@@ -42,11 +42,11 @@ type serverConnStats struct {
 
 // inputState contols the probes that run.
 type inputState struct {
-	seq           []int  // outgoing message seq# in order.
-	src           string // outgoing message src.
-	echoMode      bool   // controls whether server response to messages.
-	statsInterval int32  // stats export interval (which resets counters).
-	postTxSleep   string // duration to sleep after sending pkts.
+	seq           []int         // outgoing message seq# in order.
+	src           string        // outgoing message src.
+	echoMode      bool          // controls whether server response to messages.
+	statsInterval time.Duration // stats export interval (which resets counters).
+	postTxSleep   string        // duration to sleep after sending pkts.
 }
 
 const (
@@ -54,7 +54,7 @@ const (
 	interval             = time.Second
 	timeout              = time.Second
 	defaultServerType    = configpb.ProbeConf_DISCARD
-	defaultStatsInterval = int32(3600000)
+	defaultStatsInterval = 3600 * time.Second
 )
 
 var (
@@ -162,14 +162,14 @@ func runProbe(ctx context.Context, t *testing.T, inp *inputState) ([]int, chan p
 		statsInterval = inp.statsInterval
 	}
 	opts := &options.Options{
-		Targets:  targets.StaticTargets("localhost"),
-		Interval: interval,
-		Timeout:  timeout,
+		Targets:             targets.StaticTargets("localhost"),
+		Interval:            interval,
+		Timeout:             timeout,
+		StatsExportInterval: statsInterval,
 		ProbeConf: &configpb.ProbeConf{
-			Port:                    proto.Int32(0),
-			Type:                    &srvType,
-			StatsExportIntervalMsec: proto.Int32(statsInterval),
-			PacketsPerProbe:         proto.Int32(2),
+			Port:            proto.Int32(0),
+			Type:            &srvType,
+			PacketsPerProbe: proto.Int32(2),
 		},
 	}
 	if err := p.Init("udplistener", opts); err != nil {
@@ -315,7 +315,7 @@ func TestResultsChan(t *testing.T) {
 
 	inp := &inputState{
 		seq:           []int{1, 2, 4, 5, 7, 6},
-		statsInterval: int32(((4 * interval) / time.Millisecond).Nanoseconds()),
+		statsInterval: 4 * interval,
 		postTxSleep:   "4s", // collect data for longer than pkts are sent.
 	}
 	_, resChan, _, _ := runProbe(ctx, t, inp)

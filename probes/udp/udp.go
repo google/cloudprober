@@ -145,9 +145,15 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	if p.opts.Timeout > p.opts.Interval {
 		p.flushIntv = 2 * p.opts.Timeout
 	}
-	if p.c.GetStatsExportIntervalMsec() < int32(p.flushIntv.Seconds()*1000) {
-		return fmt.Errorf("UDP probe: stats_export_interval (%d ms) is too low. It should be at least twice of the interval (%s) and timeout (%s), whichever is bigger", p.c.GetStatsExportIntervalMsec(), p.opts.Interval, p.opts.Timeout)
+
+	if p.c.StatsExportIntervalMsec != nil {
+		p.l.Warning("stats_export_interval_msec field is now deprecated and doesn't do anything. To modify stats export interval, use the probe level field by the same name.")
 	}
+
+	if p.opts.StatsExportInterval < p.flushIntv {
+		return fmt.Errorf("UDP probe: stats_export_interval_msec (%d ms) is too low. It should be at least twice of the interval (%s) and timeout (%s), whichever is bigger", p.opts.StatsExportInterval, p.opts.Interval, p.opts.Timeout)
+	}
+
 	// #send/recv-channel-buffer = #targets * #sources * #probing-intervals-between-flushes
 	minChanLen := maxTargets * int(p.c.GetNumTxPorts()) * int(math.Ceil(float64(p.flushIntv/p.opts.Interval)))
 	p.l.Infof("Creating sent, rcvd channels of length: %d", 2*minChanLen)
@@ -443,7 +449,7 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 	}
 
 	probeTicker := time.NewTicker(p.opts.Interval)
-	statsExportTicker := time.NewTicker(time.Duration(p.c.GetStatsExportIntervalMsec()) * time.Millisecond)
+	statsExportTicker := time.NewTicker(p.opts.StatsExportInterval)
 	flushTicker := time.NewTicker(p.flushIntv)
 
 	for {

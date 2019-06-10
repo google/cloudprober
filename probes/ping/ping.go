@@ -89,6 +89,7 @@ type Probe struct {
 	target2addr       map[string]net.Addr
 	ip2target         map[[16]byte]string
 	useDatagramSocket bool
+	statsExportFreq   int // Export frequency
 }
 
 // Init initliazes the probe with the given params.
@@ -122,6 +123,15 @@ func (p *Probe) initInternal() error {
 
 	if err := p.configureIntegrityCheck(); err != nil {
 		return err
+	}
+
+	if p.c.StatsExportInterval != nil {
+		p.l.Warning("stats_export_interval field is now deprecated and doesn't do anything. To modify stats export interval, use the probe level field: stats_export_interval_msec.")
+	}
+
+	p.statsExportFreq = int(p.opts.StatsExportInterval.Nanoseconds() / p.opts.Interval.Nanoseconds())
+	if p.statsExportFreq == 0 {
+		p.statsExportFreq = 1
 	}
 
 	// Unlike other probes, for ping probe, we need to know the IP version to
@@ -447,7 +457,7 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 
 		p.runProbe()
 		p.l.Debugf("%s: Probe finished.", p.name)
-		if (p.runCnt % uint64(p.c.GetStatsExportInterval())) != 0 {
+		if (p.runCnt % uint64(p.statsExportFreq)) != 0 {
 			continue
 		}
 		for _, t := range p.targets {
