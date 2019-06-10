@@ -37,6 +37,7 @@ import (
 	configpb "github.com/google/cloudprober/probes/dns/proto"
 	"github.com/google/cloudprober/probes/options"
 	"github.com/google/cloudprober/probes/probeutils"
+	"github.com/google/cloudprober/validators"
 	"github.com/miekg/dns"
 )
 
@@ -166,35 +167,22 @@ func (p *Probe) validateResponse(resp *dns.Msg, target string, result *probeRunR
 		return false
 	}
 
-	if p.opts.Validators == nil {
-		return true
-	}
-	failedValidations := []string{}
-	answers := []string{}
+	if p.opts.Validators != nil {
+		answers := []string{}
+		for _, rr := range resp.Answer {
+			if rr != nil {
+				answers = append(answers, rr.String())
+			}
+		}
+		respBytes := []byte(strings.Join(answers, "\n"))
 
-	for _, rr := range resp.Answer {
-		if rr != nil {
-			answers = append(answers, rr.String())
+		failedValidations := validators.RunValidators(p.opts.Validators, nil, respBytes, result.validationFailure, p.l)
+		if len(failedValidations) > 0 {
+			p.l.Debugf("Target(%s): validators %v failed. Resp: %v", target, failedValidations, answers)
+			return false
 		}
 	}
 
-	respBytes := []byte(strings.Join(answers, "\n"))
-	for _, v := range p.opts.Validators {
-		// TODO: pass along "resp" instead of nil when we add a DNS validator.
-		success, err := v.Validate(nil, respBytes)
-		if err != nil {
-			p.l.Error("Error while running the validator ", v.Name, ": ", err.Error())
-			continue
-		}
-		if !success {
-			result.validationFailure.IncKey(v.Name)
-			failedValidations = append(failedValidations, v.Name)
-		}
-	}
-	if len(failedValidations) > 0 {
-		p.l.Debugf("Target(%s): validators %v failed. Resp: %v", target, failedValidations, answers)
-		return false
-	}
 	return true
 }
 
@@ -213,7 +201,7 @@ func (p *Probe) runProbe(resultsChan chan<- probeutils.ProbeResult) {
 
 			result := probeRunResult{
 				target:            target,
-				validationFailure: metrics.NewMap("validator", &metrics.Int{}),
+				validationFailure: validators.ValidationFailureMap(p.opts.Validators),
 			}
 
 			if p.opts.LatencyDist != nil {

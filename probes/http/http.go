@@ -32,6 +32,7 @@ import (
 	"github.com/google/cloudprober/metrics"
 	configpb "github.com/google/cloudprober/probes/http/proto"
 	"github.com/google/cloudprober/probes/options"
+	"github.com/google/cloudprober/validators"
 )
 
 const (
@@ -208,19 +209,7 @@ func (p *Probe) doHTTPRequest(req *http.Request, result *result) {
 	result.respCodes.IncKey(strconv.FormatInt(int64(resp.StatusCode), 10))
 
 	if p.opts.Validators != nil {
-		var failedValidations []string
-
-		for _, v := range p.opts.Validators {
-			success, err := v.Validate(resp, respBody)
-			if err != nil {
-				p.l.Error("Error while running the validator ", v.Name, ": ", err.Error())
-				continue
-			}
-			if !success {
-				result.validationFailure.IncKey(v.Name)
-				failedValidations = append(failedValidations, v.Name)
-			}
-		}
+		failedValidations := validators.RunValidators(p.opts.Validators, resp, respBody, result.validationFailure, p.l)
 
 		// If any validation failed, return now, leaving the success and latency
 		// counters unchanged.
@@ -269,7 +258,7 @@ func (p *Probe) updateTargets() {
 				latency:           latencyValue,
 				respCodes:         metrics.NewMap("code", metrics.NewInt(0)),
 				respBodies:        metrics.NewMap("resp", metrics.NewInt(0)),
-				validationFailure: metrics.NewMap("validator", metrics.NewInt(0)),
+				validationFailure: validators.ValidationFailureMap(p.opts.Validators),
 			}
 		}
 	}

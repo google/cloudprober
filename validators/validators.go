@@ -1,4 +1,4 @@
-// Copyright 2018 Google Inc.
+// Copyright 2018-2019 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	"github.com/google/cloudprober/logger"
+	"github.com/google/cloudprober/metrics"
 	"github.com/google/cloudprober/validators/http"
 	"github.com/google/cloudprober/validators/integrity"
 	configpb "github.com/google/cloudprober/validators/proto"
@@ -90,4 +91,36 @@ func initValidator(validatorConf *configpb.Validator, l *logger.Logger) (validat
 
 	err = validator.Init(c, l)
 	return
+}
+
+// RunValidators runs the list of validators on the given response and
+// responseBody, updates the given validationFailure map and returns the list
+// of failures.
+func RunValidators(vs []*ValidatorWithName, resp interface{}, respBody []byte, validationFailure *metrics.Map, l *logger.Logger) []string {
+	var failures []string
+
+	for _, v := range vs {
+		success, err := v.Validate(resp, respBody)
+		if err != nil {
+			l.Error("Error while running the validator ", v.Name, ": ", err.Error())
+			continue
+		}
+		if !success {
+			validationFailure.IncKey(v.Name)
+			failures = append(failures, v.Name)
+		}
+	}
+
+	return failures
+}
+
+// ValidationFailureMap returns an initialized validation failures map.
+func ValidationFailureMap(vs []*ValidatorWithName) *metrics.Map {
+	m := metrics.NewMap("validator", metrics.NewInt(0))
+	// Initialize validation failure map with validator keys, so that we always
+	// export the metrics.
+	for _, v := range vs {
+		m.IncKeyBy(v.Name, metrics.NewInt(0))
+	}
+	return m
 }
