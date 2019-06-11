@@ -166,13 +166,21 @@ func (x *QueryType) UnmarshalJSON(data []byte) error {
 	return nil
 }
 func (QueryType) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_config_d89b08fc73ea537a, []int{0}
+	return fileDescriptor_config_23fd2d1a23468186, []int{0}
 }
 
 type ProbeConf struct {
 	// Domain to use when making DNS queries
 	ResolvedDomain *string `protobuf:"bytes,1,opt,name=resolved_domain,json=resolvedDomain,def=www.google.com." json:"resolved_domain,omitempty"`
 	// Export stats after these many milliseconds
+	// NOTE: Setting stats export interval using this field doesn't work anymore.
+	// This field will be removed after the release v0.10.3. To set
+	// stats_export_interval, please modify the outer probe configuration.
+	// Example: probe {
+	//   type: DNS
+	//   stats_export_interval_msec: 10000
+	//   dns_probe {}
+	// }
 	StatsExportIntervalMsec *int32 `protobuf:"varint,2,opt,name=stats_export_interval_msec,json=statsExportIntervalMsec,def=10000" json:"stats_export_interval_msec,omitempty"`
 	// DNS Query Type
 	QueryType *QueryType `protobuf:"varint,3,opt,name=query_type,json=queryType,enum=cloudprober.probes.dns.QueryType,def=15" json:"query_type,omitempty"`
@@ -188,7 +196,7 @@ func (m *ProbeConf) Reset()         { *m = ProbeConf{} }
 func (m *ProbeConf) String() string { return proto.CompactTextString(m) }
 func (*ProbeConf) ProtoMessage()    {}
 func (*ProbeConf) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_d89b08fc73ea537a, []int{0}
+	return fileDescriptor_config_23fd2d1a23468186, []int{0}
 }
 func (m *ProbeConf) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ProbeConf.Unmarshal(m, b)
@@ -247,10 +255,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("github.com/google/cloudprober/probes/dns/proto/config.proto", fileDescriptor_config_d89b08fc73ea537a)
+	proto.RegisterFile("github.com/google/cloudprober/probes/dns/proto/config.proto", fileDescriptor_config_23fd2d1a23468186)
 }
 
-var fileDescriptor_config_d89b08fc73ea537a = []byte{
+var fileDescriptor_config_23fd2d1a23468186 = []byte{
 	// 544 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x6c, 0x90, 0xc1, 0x53, 0xd3, 0x40,
 	0x14, 0xc6, 0x4d, 0x4a, 0x81, 0x2c, 0x08, 0xcf, 0x3d, 0x68, 0x75, 0x74, 0xa6, 0xa0, 0x8e, 0x1d,
