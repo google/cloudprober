@@ -20,6 +20,14 @@ const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
 type ProbeConf struct {
 	// Export stats after these many milliseconds
+	// NOTE: Setting stats export interval using this field doesn't work anymore.
+	// This field will be removed after the release v0.10.3. To set
+	// stats_export_interval, please modify the outer probe configuration.
+	// probe {
+	//   type: UDP
+	//   stats_export_interval_msec: 10000
+	//   udp_probe {}
+	// }
 	StatsExportIntervalMsec *int32 `protobuf:"varint,2,opt,name=stats_export_interval_msec,json=statsExportIntervalMsec,def=10000" json:"stats_export_interval_msec,omitempty"`
 	// Port to send UDP Ping to (UDP Echo).  Should be same as
 	// ProberConfig.udp_echo_server_port.
@@ -61,7 +69,7 @@ func (m *ProbeConf) Reset()         { *m = ProbeConf{} }
 func (m *ProbeConf) String() string { return proto.CompactTextString(m) }
 func (*ProbeConf) ProtoMessage()    {}
 func (*ProbeConf) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_4414ae47f745762d, []int{0}
+	return fileDescriptor_config_f1551a718a2bffdc, []int{0}
 }
 func (m *ProbeConf) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ProbeConf.Unmarshal(m, b)
@@ -142,10 +150,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("github.com/google/cloudprober/probes/udp/proto/config.proto", fileDescriptor_config_4414ae47f745762d)
+	proto.RegisterFile("github.com/google/cloudprober/probes/udp/proto/config.proto", fileDescriptor_config_f1551a718a2bffdc)
 }
 
-var fileDescriptor_config_4414ae47f745762d = []byte{
+var fileDescriptor_config_f1551a718a2bffdc = []byte{
 	// 318 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x4c, 0xd0, 0x4d, 0x6b, 0x22, 0x31,
 	0x18, 0x07, 0x70, 0x74, 0x9d, 0x5d, 0x0d, 0x7b, 0xca, 0xb2, 0x36, 0x15, 0x0a, 0xd2, 0xf6, 0xe0,

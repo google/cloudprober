@@ -51,7 +51,7 @@ func (x *ProbeConf_ProtocolType) UnmarshalJSON(data []byte) error {
 	return nil
 }
 func (ProbeConf_ProtocolType) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_config_a0c9a6e5838d3653, []int{0, 0}
+	return fileDescriptor_config_cb526dec61b7dc02, []int{0, 0}
 }
 
 type ProbeConf_Method int32
@@ -102,7 +102,7 @@ func (x *ProbeConf_Method) UnmarshalJSON(data []byte) error {
 	return nil
 }
 func (ProbeConf_Method) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_config_a0c9a6e5838d3653, []int{0, 1}
+	return fileDescriptor_config_cb526dec61b7dc02, []int{0, 1}
 }
 
 // Next tag: 15
@@ -145,6 +145,14 @@ type ProbeConf struct {
 	// releases.
 	RequestsIntervalMsec *int32 `protobuf:"varint,99,opt,name=requests_interval_msec,json=requestsIntervalMsec,def=25" json:"requests_interval_msec,omitempty"`
 	// Export stats after these many milliseconds
+	// NOTE: Setting stats export interval using this field doesn't work anymore.
+	// This field will be removed after the release v0.10.3. To set
+	// stats_export_interval, please modify the outer probe configuration.
+	// Example: probe {
+	//   type: HTTP
+	//   stats_export_interval_msec: 10000
+	//   http_probe {}
+	// }
 	StatsExportIntervalMsec *int32   `protobuf:"varint,100,opt,name=stats_export_interval_msec,json=statsExportIntervalMsec,def=10000" json:"stats_export_interval_msec,omitempty"`
 	XXX_NoUnkeyedLiteral    struct{} `json:"-"`
 	XXX_unrecognized        []byte   `json:"-"`
@@ -155,7 +163,7 @@ func (m *ProbeConf) Reset()         { *m = ProbeConf{} }
 func (m *ProbeConf) String() string { return proto.CompactTextString(m) }
 func (*ProbeConf) ProtoMessage()    {}
 func (*ProbeConf) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_a0c9a6e5838d3653, []int{0}
+	return fileDescriptor_config_cb526dec61b7dc02, []int{0}
 }
 func (m *ProbeConf) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ProbeConf.Unmarshal(m, b)
@@ -293,7 +301,7 @@ func (m *ProbeConf_Header) Reset()         { *m = ProbeConf_Header{} }
 func (m *ProbeConf_Header) String() string { return proto.CompactTextString(m) }
 func (*ProbeConf_Header) ProtoMessage()    {}
 func (*ProbeConf_Header) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_a0c9a6e5838d3653, []int{0, 0}
+	return fileDescriptor_config_cb526dec61b7dc02, []int{0, 0}
 }
 func (m *ProbeConf_Header) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ProbeConf_Header.Unmarshal(m, b)
@@ -335,10 +343,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("github.com/google/cloudprober/probes/http/proto/config.proto", fileDescriptor_config_a0c9a6e5838d3653)
+	proto.RegisterFile("github.com/google/cloudprober/probes/http/proto/config.proto", fileDescriptor_config_cb526dec61b7dc02)
 }
 
-var fileDescriptor_config_a0c9a6e5838d3653 = []byte{
+var fileDescriptor_config_cb526dec61b7dc02 = []byte{
 	// 571 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x92, 0xcf, 0x6f, 0xda, 0x4a,
 	0x10, 0x80, 0xe3, 0x80, 0xf9, 0x31, 0x21, 0x91, 0xb5, 0xca, 0x7b, 0xac, 0x22, 0x55, 0xa2, 0xc9,

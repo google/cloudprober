@@ -24,7 +24,15 @@ type ProbeConf struct {
 	PacketsPerProbe *int32 `protobuf:"varint,6,opt,name=packets_per_probe,json=packetsPerProbe,def=2" json:"packets_per_probe,omitempty"`
 	// How long to wait between two packets to the same target
 	PacketsIntervalMsec *int32 `protobuf:"varint,7,opt,name=packets_interval_msec,json=packetsIntervalMsec,def=25" json:"packets_interval_msec,omitempty"`
-	// Export stats after these many probes
+	// Export stats after these many probes.
+	// NOTE: Setting stats export interval using this field doesn't work anymore.
+	// This field will be removed after the release v0.10.3. To set
+	// stats_export_interval, please modify the outer probe configuration.
+	// Example: probe {
+	//   type: PING
+	//   stats_export_interval_msec: 10000
+	//   ping_probe {}
+	// }
 	StatsExportInterval *int32 `protobuf:"varint,8,opt,name=stats_export_interval,json=statsExportInterval,def=5" json:"stats_export_interval,omitempty"`
 	// Resolve targets after these many probes
 	ResolveTargetsInterval *int32 `protobuf:"varint,9,opt,name=resolve_targets_interval,json=resolveTargetsInterval,def=5" json:"resolve_targets_interval,omitempty"`
@@ -63,7 +71,7 @@ func (m *ProbeConf) Reset()         { *m = ProbeConf{} }
 func (m *ProbeConf) String() string { return proto.CompactTextString(m) }
 func (*ProbeConf) ProtoMessage()    {}
 func (*ProbeConf) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_d672886564324e28, []int{0}
+	return fileDescriptor_config_4c6cf6fb9221606d, []int{0}
 }
 func (m *ProbeConf) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ProbeConf.Unmarshal(m, b)
@@ -152,10 +160,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("github.com/google/cloudprober/probes/ping/proto/config.proto", fileDescriptor_config_d672886564324e28)
+	proto.RegisterFile("github.com/google/cloudprober/probes/ping/proto/config.proto", fileDescriptor_config_4c6cf6fb9221606d)
 }
 
-var fileDescriptor_config_d672886564324e28 = []byte{
+var fileDescriptor_config_4c6cf6fb9221606d = []byte{
 	// 342 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x4c, 0x8f, 0x41, 0x6b, 0x2a, 0x31,
 	0x10, 0xc7, 0xf1, 0xbd, 0xe7, 0xab, 0x46, 0x4b, 0x31, 0x62, 0xcd, 0xa5, 0x20, 0x85, 0x82, 0x97,

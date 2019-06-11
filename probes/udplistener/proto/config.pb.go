@@ -55,11 +55,19 @@ func (x *ProbeConf_Type) UnmarshalJSON(data []byte) error {
 	return nil
 }
 func (ProbeConf_Type) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_config_e409cab741352481, []int{0, 0}
+	return fileDescriptor_config_7f0ff503bb515283, []int{0, 0}
 }
 
 type ProbeConf struct {
 	// Export stats after these many milliseconds
+	// NOTE: Setting stats export interval using this field doesn't work anymore.
+	// This field will be removed after the release v0.10.3. To set
+	// stats_export_interval, please modify the outer probe configuration.
+	// probe {
+	//   type: UDP_LISTENER
+	//   stats_export_interval_msec: 10000
+	//   udplistener_probe {}
+	// }
 	StatsExportIntervalMsec *int32 `protobuf:"varint,2,opt,name=stats_export_interval_msec,json=statsExportIntervalMsec,def=10000" json:"stats_export_interval_msec,omitempty"`
 	// Port to listen.
 	Port *int32          `protobuf:"varint,3,opt,name=port,def=32212" json:"port,omitempty"`
@@ -75,7 +83,7 @@ func (m *ProbeConf) Reset()         { *m = ProbeConf{} }
 func (m *ProbeConf) String() string { return proto.CompactTextString(m) }
 func (*ProbeConf) ProtoMessage()    {}
 func (*ProbeConf) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_e409cab741352481, []int{0}
+	return fileDescriptor_config_7f0ff503bb515283, []int{0}
 }
 func (m *ProbeConf) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ProbeConf.Unmarshal(m, b)
@@ -133,10 +141,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("github.com/google/cloudprober/probes/udplistener/proto/config.proto", fileDescriptor_config_e409cab741352481)
+	proto.RegisterFile("github.com/google/cloudprober/probes/udplistener/proto/config.proto", fileDescriptor_config_7f0ff503bb515283)
 }
 
-var fileDescriptor_config_e409cab741352481 = []byte{
+var fileDescriptor_config_7f0ff503bb515283 = []byte{
 	// 275 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x7c, 0x8e, 0x4f, 0x4b, 0xfb, 0x30,
 	0x1c, 0x87, 0x7f, 0xed, 0xaf, 0x45, 0x8d, 0xa0, 0x35, 0x17, 0xab, 0x07, 0x19, 0x3b, 0x0d, 0xc1,
