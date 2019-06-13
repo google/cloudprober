@@ -129,7 +129,7 @@ func New(config *configpb.SurfacerConf, l *logger.Logger) (*SDSurfacer, error) {
 		return nil, err
 	}
 
-	if s.c.Batch != nil {
+	if s.c != nil && s.c.Batch != nil {
 		s.l.Warningf("Setting 'batch' doesn't do anything anymore. Batching is always enabled. This field will be removed after release v0.10.3.")
 	}
 
