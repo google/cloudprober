@@ -25,7 +25,6 @@ import (
 	"sync"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
 	"github.com/google/cloudprober/probes/dns"
 	"github.com/google/cloudprober/probes/external"
@@ -35,8 +34,6 @@ import (
 	configpb "github.com/google/cloudprober/probes/proto"
 	"github.com/google/cloudprober/probes/udp"
 	"github.com/google/cloudprober/probes/udplistener"
-	"github.com/google/cloudprober/targets/lameduck"
-	targetspb "github.com/google/cloudprober/targets/proto"
 	"github.com/google/cloudprober/web/formatutils"
 )
 
@@ -115,62 +112,32 @@ func getExtensionProbe(p *configpb.ProbeDef) (Probe, interface{}, error) {
 	return newProbeFunc(), value, nil
 }
 
-// Init initializes the probes defined in the config.
-func Init(probeProtobufs []*configpb.ProbeDef, globalTargetsOpts *targetspb.GlobalTargetsOptions, l *logger.Logger, sysVars map[string]string) (map[string]*ProbeInfo, error) {
-	ldLister, err := lameduck.GetDefaultLister()
+// CreateProbe creates a new probe.
+func CreateProbe(p *configpb.ProbeDef, opts *options.Options) (*ProbeInfo, error) {
+	probe, probeConf, err := initProbe(p, opts)
 	if err != nil {
-		l.Warningf("Error while getting default lameduck lister, lameduck behavior will be disabled. Err: %v", err)
+		return nil, err
 	}
 
-	probes := make(map[string]*ProbeInfo)
-
-	for _, p := range probeProtobufs {
-		// Check if this probe is supposed to run here.
-		runHere, err := runOnThisHost(p.GetRunOn(), sysVars["hostname"])
-		if err != nil {
-			return nil, err
-		}
-		if !runHere {
-			continue
-		}
-
-		if probes[p.GetName()] != nil {
-			return nil, fmt.Errorf("bad config: probe %s is already defined", p.GetName())
-		}
-
-		opts, err := options.BuildProbeOptions(p, ldLister, globalTargetsOpts, l)
-		if err != nil {
-			return nil, err
-		}
-
-		l.Infof("Creating a %s probe: %s", p.GetType(), p.GetName())
-		probe, probeConf, err := initProbe(p, opts)
-		if err != nil {
-			return nil, err
-		}
-
-		probeInfo := &ProbeInfo{
-			Probe:       probe,
-			Options:     opts,
-			Name:        p.GetName(),
-			Type:        p.GetType().String(),
-			Interval:    opts.Interval.String(),
-			Timeout:     opts.Timeout.String(),
-			TargetsDesc: p.Targets.String(),
-			LatencyUnit: opts.LatencyUnit.String(),
-			ProbeConf:   formatutils.ConfToString(probeConf),
-		}
-
-		if opts.LatencyDist != nil {
-			probeInfo.LatencyDistLB = fmt.Sprintf("%v", opts.LatencyDist.Data().LowerBounds)
-		}
-		if opts.SourceIP != nil {
-			probeInfo.SourceIP = opts.SourceIP.String()
-		}
-		probes[p.GetName()] = probeInfo
+	probeInfo := &ProbeInfo{
+		Probe:       probe,
+		Options:     opts,
+		Name:        p.GetName(),
+		Type:        p.GetType().String(),
+		Interval:    opts.Interval.String(),
+		Timeout:     opts.Timeout.String(),
+		TargetsDesc: p.Targets.String(),
+		LatencyUnit: opts.LatencyUnit.String(),
+		ProbeConf:   formatutils.ConfToString(probeConf),
 	}
 
-	return probes, nil
+	if opts.LatencyDist != nil {
+		probeInfo.LatencyDistLB = fmt.Sprintf("%v", opts.LatencyDist.Data().LowerBounds)
+	}
+	if opts.SourceIP != nil {
+		probeInfo.SourceIP = opts.SourceIP.String()
+	}
+	return probeInfo, nil
 }
 
 func initProbe(p *configpb.ProbeDef, opts *options.Options) (probe Probe, probeConf interface{}, err error) {
