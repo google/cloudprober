@@ -23,22 +23,77 @@ package cloudprober
 
 import (
 	"context"
+	"fmt"
+	"net"
+	"net/http"
+	"os"
+	"strconv"
 	"sync"
 
+	"github.com/golang/protobuf/proto"
+	"github.com/google/cloudprober/config"
+	configpb "github.com/google/cloudprober/config/proto"
+	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/prober"
 	"github.com/google/cloudprober/probes"
 	"github.com/google/cloudprober/servers"
 	"github.com/google/cloudprober/surfacers"
+	"github.com/google/cloudprober/sysvars"
 )
 
 const (
 	sysvarsModuleName = "sysvars"
 )
 
+// Constants defining the default server host and port.
+const (
+	DefaultServerHost = ""
+	DefaultServerPort = 9313
+	ServerHostEnvVar  = "CLOUDPROBER_HOST"
+	ServerPortEnvVar  = "CLOUDPROBER_PORT"
+)
+
 // Global prober.Prober instance protected by a mutex.
 var cloudProber struct {
-	*prober.Prober
+	prober          *prober.Prober
+	defaultServerLn net.Listener
+	textConfig      string
+	cancelInitCtx   context.CancelFunc
 	sync.Mutex
+}
+
+func initDefaultServer(c *configpb.ProberConfig) (net.Listener, error) {
+	serverHost := c.GetHost()
+	if serverHost == "" {
+		serverHost = DefaultServerHost
+		// If ServerHostEnvVar is defined, it will override the default
+		// server host.
+		if host := os.Getenv(ServerHostEnvVar); host != "" {
+			serverHost = host
+		}
+	}
+
+	serverPort := int(c.GetPort())
+	if serverPort == 0 {
+		serverPort = DefaultServerPort
+
+		// If ServerPortEnvVar is defined, it will override the default
+		// server port.
+		if portStr := os.Getenv(ServerPortEnvVar); portStr != "" {
+			port, err := strconv.ParseInt(portStr, 10, 32)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse default port from the env var: %s=%s", ServerPortEnvVar, portStr)
+			}
+			serverPort = int(port)
+		}
+	}
+
+	ln, err := net.Listen("tcp", fmt.Sprintf("%s:%d", serverHost, serverPort))
+	if err != nil {
+		return nil, fmt.Errorf("error while creating listener for default HTTP server. Err: %v", err)
+	}
+
+	return ln, nil
 }
 
 // InitFromConfig initializes Cloudprober using the provided config.
@@ -47,15 +102,58 @@ func InitFromConfig(configFile string) error {
 	cloudProber.Lock()
 	defer cloudProber.Unlock()
 
-	if cloudProber.Prober != nil {
+	if cloudProber.prober != nil {
 		return nil
 	}
 
-	pr := &prober.Prober{}
-	if err := pr.Init(configFile); err != nil {
+	// Initialize sysvars module
+	l, err := logger.NewCloudproberLog(sysvarsModuleName)
+	if err != nil {
 		return err
 	}
-	cloudProber.Prober = pr
+	sysvars.Init(l, nil)
+
+	configStr, err := config.ParseTemplate(configFile, sysvars.Vars())
+	if err != nil {
+		return err
+	}
+
+	cfg := &configpb.ProberConfig{}
+	if err := proto.UnmarshalText(configStr, cfg); err != nil {
+		return err
+	}
+
+	globalLogger, err := logger.NewCloudproberLog("global")
+	if err != nil {
+		return fmt.Errorf("error in initializing global logger: %v", err)
+	}
+
+	// Start default HTTP server. It's used for profile handlers and
+	// prometheus exporter.
+	ln, err := initDefaultServer(cfg)
+	if err != nil {
+		return err
+	}
+
+	pr := &prober.Prober{}
+
+	// initCtx is used to clean up in case of partial initialization failures. For
+	// example, user-configured servers open listeners during initialization and
+	// if initialization fails at a later stage, say in probers or surfacers,
+	// pr.Init returns an error and we cancel the initCtx, which makes servers
+	// close their listeners.
+	// TODO(manugarg): Plumb init context from cmd/cloudprober.
+	initCtx, cancelFunc := context.WithCancel(context.TODO())
+	if err := pr.Init(initCtx, cfg, globalLogger); err != nil {
+		cancelFunc()
+		ln.Close()
+		return err
+	}
+
+	cloudProber.prober = pr
+	cloudProber.textConfig = configStr
+	cloudProber.defaultServerLn = ln
+	cloudProber.cancelInitCtx = cancelFunc
 	return nil
 }
 
@@ -63,22 +161,38 @@ func InitFromConfig(configFile string) error {
 func Start(ctx context.Context) {
 	cloudProber.Lock()
 	defer cloudProber.Unlock()
-	if cloudProber.Prober == nil {
+
+	// Default server
+	srv := &http.Server{}
+
+	// Set up a goroutine to cleanup if context ends.
+	go func() {
+		<-ctx.Done()
+		srv.Close() // This will close the listener as well.
+		cloudProber.cancelInitCtx()
+	}()
+
+	go func() {
+		srv.Serve(cloudProber.defaultServerLn)
+	}()
+
+	if cloudProber.prober == nil {
 		panic("Prober is not initialized. Did you call cloudprober.InitFromConfig first?")
 	}
-	cloudProber.Start(ctx)
+
+	cloudProber.prober.Start(ctx)
 }
 
 // GetConfig returns the prober config.
 func GetConfig() string {
 	cloudProber.Lock()
 	defer cloudProber.Unlock()
-	return cloudProber.TextConfig
+	return cloudProber.textConfig
 }
 
 // GetInfo returns information on all the probes, servers and surfacers.
 func GetInfo() (map[string]*probes.ProbeInfo, []*surfacers.SurfacerInfo, []*servers.ServerInfo) {
 	cloudProber.Lock()
 	defer cloudProber.Unlock()
-	return cloudProber.Probes, cloudProber.Surfacers, cloudProber.Servers
+	return cloudProber.prober.Probes, cloudProber.prober.Surfacers, cloudProber.prober.Servers
 }
