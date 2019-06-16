@@ -25,15 +25,9 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
-	"net"
-	"net/http"
-	"os"
-	"strconv"
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/golang/protobuf/proto"
-	"github.com/google/cloudprober/config"
 	configpb "github.com/google/cloudprober/config/proto"
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
@@ -46,93 +40,24 @@ import (
 	"github.com/google/cloudprober/targets/rtc/rtcreporter"
 )
 
-const (
-	sysvarsModuleName = "sysvars"
-)
-
-// Constants defining the default server host and port.
-const (
-	DefaultServerHost = ""
-	DefaultServerPort = 9313
-	ServerHostEnvVar  = "CLOUDPROBER_HOST"
-	ServerPortEnvVar  = "CLOUDPROBER_PORT"
-)
-
 // Prober represents a collection of probes where each probe implements the Probe interface.
 type Prober struct {
-	Probes         map[string]*probes.ProbeInfo
-	Servers        []*servers.ServerInfo
-	c              *configpb.ProberConfig
-	l              *logger.Logger
-	rdsServer      *rdsserver.Server
-	rtcReporter    *rtcreporter.Reporter
-	Surfacers      []*surfacers.SurfacerInfo
-	serverListener net.Listener
+	Probes      map[string]*probes.ProbeInfo
+	Servers     []*servers.ServerInfo
+	c           *configpb.ProberConfig
+	l           *logger.Logger
+	rdsServer   *rdsserver.Server
+	rtcReporter *rtcreporter.Reporter
+	Surfacers   []*surfacers.SurfacerInfo
 
 	// Used by GetConfig for /config handler.
 	TextConfig string
 }
 
-func (pr *Prober) initDefaultServer() error {
-	serverHost := pr.c.GetHost()
-	if serverHost == "" {
-		serverHost = DefaultServerHost
-		// If ServerHostEnvVar is defined, it will override the default
-		// server host.
-		if host := os.Getenv(ServerHostEnvVar); host != "" {
-			serverHost = host
-		}
-	}
-
-	serverPort := int(pr.c.GetPort())
-	if serverPort == 0 {
-		serverPort = DefaultServerPort
-
-		// If ServerPortEnvVar is defined, it will override the default
-		// server port.
-		if portStr := os.Getenv(ServerPortEnvVar); portStr != "" {
-			port, err := strconv.ParseInt(portStr, 10, 32)
-			if err != nil {
-				return fmt.Errorf("failed to parse default port from the env var: %s=%s", ServerPortEnvVar, portStr)
-			}
-			serverPort = int(port)
-		}
-	}
-
-	ln, err := net.Listen("tcp", fmt.Sprintf("%s:%d", serverHost, serverPort))
-	if err != nil {
-		return fmt.Errorf("error while creating listener for default HTTP server. Err: %v", err)
-	}
-	pr.serverListener = ln
-
-	return nil
-}
-
 // Init initialize prober with the given config file.
-func (pr *Prober) Init(configFile string) error {
-	// Initialize sysvars module
-	l, err := logger.NewCloudproberLog(sysvarsModuleName)
-	if err != nil {
-		return err
-	}
-	sysvars.Init(l, nil)
-
-	if pr.TextConfig, err = config.ParseTemplate(configFile, sysvars.Vars()); err != nil {
-		return err
-	}
-
-	cfg := &configpb.ProberConfig{}
-	if err := proto.UnmarshalText(pr.TextConfig, cfg); err != nil {
-		return err
-	}
+func (pr *Prober) Init(ctx context.Context, cfg *configpb.ProberConfig, l *logger.Logger) error {
 	pr.c = cfg
-
-	// Create a global logger. Each component gets its own logger on successful
-	// creation. For everything else, we use a global logger.
-	pr.l, err = logger.NewCloudproberLog("global")
-	if err != nil {
-		return fmt.Errorf("error in initializing global logger: %v", err)
-	}
+	pr.l = l
 
 	// Initialize lameduck lister
 	globalTargetsOpts := pr.c.GetGlobalTargetsOptions()
@@ -148,40 +73,33 @@ func (pr *Prober) Init(configFile string) error {
 		}
 	}
 
+	var err error
+
 	// Initiliaze probes
 	pr.Probes, err = probes.Init(pr.c.GetProbe(), globalTargetsOpts, pr.l, sysvars.Vars())
 	if err != nil {
 		return err
 	}
 
-	// Start default HTTP server. It's used for profile handlers and
-	// prometheus exporter.
-	if err := pr.initDefaultServer(); err != nil {
-		return err
-	}
-
 	// Initialize servers
-	// TODO(manugarg): Plumb init context from cmd/cloudprober.
-	initCtx, cancelFunc := context.WithCancel(context.TODO())
-	pr.Servers, err = servers.Init(initCtx, pr.c.GetServer())
+	pr.Servers, err = servers.Init(ctx, pr.c.GetServer())
 	if err != nil {
-		cancelFunc()
-		goto cleanupInit
+		return err
 	}
 
 	pr.Surfacers, err = surfacers.Init(pr.c.GetSurfacer())
 	if err != nil {
-		goto cleanupInit
+		return err
 	}
 
 	// Initialize RDS server, if configured.
 	if c := pr.c.GetRdsServer(); c != nil {
 		l, err := logger.NewCloudproberLog("rds-server")
 		if err != nil {
-			goto cleanupInit
+			return err
 		}
-		if pr.rdsServer, err = rdsserver.New(initCtx, c, nil, l); err != nil {
-			goto cleanupInit
+		if pr.rdsServer, err = rdsserver.New(ctx, c, nil, l); err != nil {
+			return err
 		}
 	}
 
@@ -189,34 +107,17 @@ func (pr *Prober) Init(configFile string) error {
 	if opts := pr.c.GetRtcReportOptions(); opts != nil {
 		l, err := logger.NewCloudproberLog("rtc-reporter")
 		if err != nil {
-			goto cleanupInit
+			return err
 		}
 		if pr.rtcReporter, err = rtcreporter.New(opts, sysvars.Vars(), l); err != nil {
-			goto cleanupInit
+			return err
 		}
 	}
 	return nil
-
-cleanupInit:
-	if pr.serverListener != nil {
-		pr.serverListener.Close()
-	}
-	return err
 }
 
 // Start starts a previously initialized Cloudprober.
 func (pr *Prober) Start(ctx context.Context) {
-	// Start the default server
-	srv := &http.Server{}
-	go func() {
-		<-ctx.Done()
-		srv.Close()
-	}()
-	go func() {
-		srv.Serve(pr.serverListener)
-		os.Exit(1)
-	}()
-
 	dataChan := make(chan *metrics.EventMetrics, 1000)
 
 	go func() {
