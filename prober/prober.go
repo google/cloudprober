@@ -25,6 +25,8 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"regexp"
+	"sync"
 	"time"
 
 	"github.com/golang/glog"
@@ -32,6 +34,8 @@ import (
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
 	"github.com/google/cloudprober/probes"
+	"github.com/google/cloudprober/probes/options"
+	probes_configpb "github.com/google/cloudprober/probes/proto"
 	"github.com/google/cloudprober/servers"
 	"github.com/google/cloudprober/surfacers"
 	"github.com/google/cloudprober/sysvars"
@@ -46,12 +50,63 @@ type Prober struct {
 	Servers     []*servers.ServerInfo
 	c           *configpb.ProberConfig
 	l           *logger.Logger
+	mu          sync.Mutex
 	rdsServer   *rdsserver.Server
+	ldLister    lameduck.Lister
 	rtcReporter *rtcreporter.Reporter
 	Surfacers   []*surfacers.SurfacerInfo
 
+	// Per-probe cancelFunc map.
+	probeCancelFunc map[string]context.CancelFunc
+
+	// dataChan for passing metrics between probes and main goroutine.
+	dataChan chan *metrics.EventMetrics
+
 	// Used by GetConfig for /config handler.
 	TextConfig string
+}
+
+func runOnThisHost(runOn string, hostname string) (bool, error) {
+	if runOn == "" {
+		return true, nil
+	}
+	r, err := regexp.Compile(runOn)
+	if err != nil {
+		return false, err
+	}
+	return r.MatchString(hostname), nil
+}
+
+func (pr *Prober) addProbe(p *probes_configpb.ProbeDef) error {
+	pr.mu.Lock()
+	defer pr.mu.Unlock()
+
+	// Check if this probe is supposed to run here.
+	runHere, err := runOnThisHost(p.GetRunOn(), sysvars.Vars()["hostname"])
+	if err != nil {
+		return err
+	}
+	if !runHere {
+		return nil
+	}
+
+	if pr.Probes[p.GetName()] != nil {
+		return fmt.Errorf("bad config: probe %s is already defined", p.GetName())
+	}
+
+	opts, err := options.BuildProbeOptions(p, pr.ldLister, pr.c.GetGlobalTargetsOptions(), pr.l)
+	if err != nil {
+		return err
+	}
+
+	pr.l.Infof("Creating a %s probe: %s", p.GetType(), p.GetName())
+	probeInfo, err := probes.CreateProbe(p, opts)
+	if err != nil {
+		return err
+	}
+	pr.Probes[p.GetName()] = probeInfo
+
+	return nil
 }
 
 // Init initialize prober with the given config file.
@@ -71,14 +126,22 @@ func (pr *Prober) Init(ctx context.Context, cfg *configpb.ProberConfig, l *logge
 		if err := lameduck.InitDefaultLister(globalTargetsOpts.GetLameDuckOptions(), nil, ldLogger); err != nil {
 			return err
 		}
+
+		pr.ldLister, err = lameduck.GetDefaultLister()
+		if err != nil {
+			pr.l.Warningf("Error while getting default lameduck lister, lameduck behavior will be disabled. Err: %v", err)
+		}
 	}
 
 	var err error
 
 	// Initiliaze probes
-	pr.Probes, err = probes.Init(pr.c.GetProbe(), globalTargetsOpts, pr.l, sysvars.Vars())
-	if err != nil {
-		return err
+	pr.Probes = make(map[string]*probes.ProbeInfo)
+	pr.probeCancelFunc = make(map[string]context.CancelFunc)
+	for _, p := range pr.c.GetProbe() {
+		if err := pr.addProbe(p); err != nil {
+			return err
+		}
 	}
 
 	// Initialize servers
@@ -118,12 +181,12 @@ func (pr *Prober) Init(ctx context.Context, cfg *configpb.ProberConfig, l *logge
 
 // Start starts a previously initialized Cloudprober.
 func (pr *Prober) Start(ctx context.Context) {
-	dataChan := make(chan *metrics.EventMetrics, 1000)
+	pr.dataChan = make(chan *metrics.EventMetrics, 1000)
 
 	go func() {
 		var em *metrics.EventMetrics
 		for {
-			em = <-dataChan
+			em = <-pr.dataChan
 			var s = em.String()
 			if len(s) > logger.MaxLogEntrySize {
 				glog.Warningf("Metric entry for timestamp %v dropped due to large size: %d", em.Timestamp, len(s))
@@ -141,16 +204,16 @@ func (pr *Prober) Start(ctx context.Context) {
 	}()
 
 	// Start a goroutine to export system variables
-	go sysvars.Start(ctx, dataChan, time.Millisecond*time.Duration(pr.c.GetSysvarsIntervalMsec()), pr.c.GetSysvarsEnvVar())
+	go sysvars.Start(ctx, pr.dataChan, time.Millisecond*time.Duration(pr.c.GetSysvarsIntervalMsec()), pr.c.GetSysvarsEnvVar())
 
 	// Start servers, each in its own goroutine
 	for _, s := range pr.Servers {
-		go s.Start(ctx, dataChan)
+		go s.Start(ctx, pr.dataChan)
 	}
 
 	// Start RDS server if configured.
 	if pr.rdsServer != nil {
-		go pr.rdsServer.Start(ctx, dataChan)
+		go pr.rdsServer.Start(ctx, pr.dataChan)
 	}
 
 	// Start RTC reporter if configured.
@@ -159,12 +222,21 @@ func (pr *Prober) Start(ctx context.Context) {
 	}
 
 	if pr.c.GetDisableJitter() {
-		for _, p := range pr.Probes {
-			go p.Start(ctx, dataChan)
+		for name := range pr.Probes {
+			go pr.startProbe(ctx, name)
 		}
 		return
 	}
-	pr.startProbesWithJitter(ctx, dataChan)
+	pr.startProbesWithJitter(ctx)
+}
+
+func (pr *Prober) startProbe(ctx context.Context, name string) {
+	pr.mu.Lock()
+	defer pr.mu.Unlock()
+
+	probeCtx, cancelFunc := context.WithCancel(ctx)
+	pr.probeCancelFunc[name] = cancelFunc
+	go pr.Probes[name].Start(probeCtx, pr.dataChan)
 }
 
 // startProbesWithJitter try to space out probes over time, as much as possible,
@@ -173,7 +245,7 @@ func (pr *Prober) Start(ctx context.Context) {
 // then spread out probes within that interval by introducing a delay of
 // interval / len(probes) between probes. We also introduce a random jitter
 // between different interval buckets.
-func (pr *Prober) startProbesWithJitter(ctx context.Context, dataChan chan *metrics.EventMetrics) {
+func (pr *Prober) startProbesWithJitter(ctx context.Context) {
 	// Seed random number generator.
 	rand.Seed(time.Now().UnixNano())
 
@@ -194,7 +266,7 @@ func (pr *Prober) startProbesWithJitter(ctx context.Context, dataChan chan *metr
 			// Spread out probes evenly with an interval bucket.
 			for _, p := range probeInfos {
 				pr.l.Info("Starting probe: ", p.Name)
-				go p.Start(ctx, dataChan)
+				go pr.startProbe(ctx, p.Name)
 				time.Sleep(interProbeDelay)
 			}
 		}(interval, probeInfos)
