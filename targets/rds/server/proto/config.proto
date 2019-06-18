@@ -11,16 +11,16 @@
 // }
 syntax = "proto2";
 
-import "github.com/google/cloudprober/targets/rds/server/gcp/proto/config.proto";
-
 package cloudprober.targets.rds;
+
+import "github.com/google/cloudprober/targets/rds/server/gcp/proto/config.proto";
 
 message ServerConf {
   // List of providers that server supports.
   repeated Provider provider = 1;
 
   // Listener address for RDS server.
-  optional string addr = 2 [default = ":9314"];
+  optional string addr = 2;
 }
 
 message Provider {
