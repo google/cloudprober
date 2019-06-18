@@ -31,8 +31,10 @@ import (
 
 	"github.com/golang/glog"
 	configpb "github.com/google/cloudprober/config/proto"
+	"github.com/google/cloudprober/config/runconfig"
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
+	spb "github.com/google/cloudprober/prober/proto"
 	"github.com/google/cloudprober/probes"
 	"github.com/google/cloudprober/probes/options"
 	probes_configpb "github.com/google/cloudprober/probes/proto"
@@ -42,6 +44,8 @@ import (
 	"github.com/google/cloudprober/targets/lameduck"
 	rdsserver "github.com/google/cloudprober/targets/rds/server"
 	"github.com/google/cloudprober/targets/rtc/rtcreporter"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // Prober represents a collection of probes where each probe implements the Probe interface.
@@ -55,6 +59,9 @@ type Prober struct {
 	ldLister    lameduck.Lister
 	rtcReporter *rtcreporter.Reporter
 	Surfacers   []*surfacers.SurfacerInfo
+
+	// Probe channel to handle starting of the new probes.
+	grpcStartProbeCh chan string
 
 	// Per-probe cancelFunc map.
 	probeCancelFunc map[string]context.CancelFunc
@@ -91,18 +98,18 @@ func (pr *Prober) addProbe(p *probes_configpb.ProbeDef) error {
 	}
 
 	if pr.Probes[p.GetName()] != nil {
-		return fmt.Errorf("bad config: probe %s is already defined", p.GetName())
+		return status.Errorf(codes.AlreadyExists, "probe %s is already defined", p.GetName())
 	}
 
 	opts, err := options.BuildProbeOptions(p, pr.ldLister, pr.c.GetGlobalTargetsOptions(), pr.l)
 	if err != nil {
-		return err
+		return status.Errorf(codes.Unknown, err.Error())
 	}
 
 	pr.l.Infof("Creating a %s probe: %s", p.GetType(), p.GetName())
 	probeInfo, err := probes.CreateProbe(p, opts)
 	if err != nil {
-		return err
+		return status.Errorf(codes.Unknown, err.Error())
 	}
 	pr.Probes[p.GetName()] = probeInfo
 
@@ -153,6 +160,13 @@ func (pr *Prober) Init(ctx context.Context, cfg *configpb.ProberConfig, l *logge
 	pr.Surfacers, err = surfacers.Init(pr.c.GetSurfacer())
 	if err != nil {
 		return err
+	}
+
+	// Initialize cloudprober gRPC service if configured.
+	srv := runconfig.DefaultGRPCServer()
+	if srv != nil {
+		pr.grpcStartProbeCh = make(chan string)
+		spb.RegisterCloudproberServer(srv, pr)
 	}
 
 	// Initialize RDS server, if configured.
@@ -228,6 +242,21 @@ func (pr *Prober) Start(ctx context.Context) {
 		return
 	}
 	pr.startProbesWithJitter(ctx)
+
+	if runconfig.DefaultGRPCServer() != nil {
+		// Start a goroutine to handle starting of the probes added through gRPC.
+		// AddProbe adds new probes to the pr.grpcStartProbeCh channel and this
+		// goroutine reads from that channel and starts the probe using the overall
+		// Start context.
+		go func() {
+			for {
+				select {
+				case name := <-pr.grpcStartProbeCh:
+					pr.startProbe(ctx, name)
+				}
+			}
+		}()
+	}
 }
 
 func (pr *Prober) startProbe(ctx context.Context, name string) {
