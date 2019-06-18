@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/google/cloudprober/config/runconfig"
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
 	pb "github.com/google/cloudprober/targets/rds/proto"
@@ -82,13 +83,16 @@ func (s *Server) Addr() net.Addr {
 // Start starts the gRPC server. It returns only when the provided is canceled
 // or server panics.
 func (s *Server) Start(ctx context.Context, dataChan chan<- *metrics.EventMetrics) {
-	s.l.Infof("Starting gRPC server at: %s", s.ln.Addr().String())
-	go func() {
-		<-ctx.Done()
-		s.l.Infof("Context canceled. Shutting down the gRPC server at: %s", s.ln.Addr().String())
-		s.grpcServer.Stop()
-	}()
-	s.grpcServer.Serve(s.ln)
+	// If running own GRPC server, start it now.
+	if s.ln != nil {
+		s.l.Infof("Starting gRPC server at: %s", s.ln.Addr().String())
+		go func() {
+			<-ctx.Done()
+			s.l.Infof("Context canceled. Shutting down the gRPC server at: %s", s.ln.Addr().String())
+			s.grpcServer.Stop()
+		}()
+		s.grpcServer.Serve(s.ln)
+	}
 }
 
 // New creates a new instance of the ResourceDiscovery Server using the
@@ -98,9 +102,8 @@ func (s *Server) Start(ctx context.Context, dataChan chan<- *metrics.EventMetric
 // cloudprober in the main cloudprober routine and attach services to it.
 func New(initCtx context.Context, c *configpb.ServerConf, providers map[string]Provider, l *logger.Logger) (*Server, error) {
 	srv := &Server{
-		providers:  make(map[string]Provider),
-		grpcServer: grpc.NewServer(),
-		l:          l,
+		providers: make(map[string]Provider),
+		l:         l,
 	}
 
 	var err error
@@ -116,17 +119,28 @@ func New(initCtx context.Context, c *configpb.ServerConf, providers map[string]P
 		}
 	}
 
-	if srv.ln, err = net.Listen("tcp", c.GetAddr()); err != nil {
-		return nil, err
+	if c.GetAddr() != "" {
+		srv.grpcServer = grpc.NewServer()
+		if srv.ln, err = net.Listen("tcp", c.GetAddr()); err != nil {
+			return nil, err
+		}
+	} else {
+		srv.grpcServer = runconfig.DefaultGRPCServer()
+	}
+
+	if srv.grpcServer == nil {
+		return nil, fmt.Errorf("no address specified for the gRPC server and no default gRPC server found")
 	}
 
 	spb.RegisterResourceDiscoveryServer(srv.grpcServer, srv)
 
 	// Cleanup listener if initCtx is canceled.
-	go func() {
-		<-initCtx.Done()
-		srv.ln.Close()
-	}()
+	if srv.ln != nil {
+		go func() {
+			<-initCtx.Done()
+			srv.ln.Close()
+		}()
+	}
 
 	return srv, nil
 }
