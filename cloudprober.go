@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 2017-2019 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -33,12 +33,14 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/config"
 	configpb "github.com/google/cloudprober/config/proto"
+	"github.com/google/cloudprober/config/runconfig"
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/prober"
 	"github.com/google/cloudprober/probes"
 	"github.com/google/cloudprober/servers"
 	"github.com/google/cloudprober/surfacers"
 	"github.com/google/cloudprober/sysvars"
+	"google.golang.org/grpc"
 )
 
 const (
@@ -57,12 +59,13 @@ const (
 var cloudProber struct {
 	prober          *prober.Prober
 	defaultServerLn net.Listener
+	defaultGRPCLn   net.Listener
 	textConfig      string
 	cancelInitCtx   context.CancelFunc
 	sync.Mutex
 }
 
-func initDefaultServer(c *configpb.ProberConfig) (net.Listener, error) {
+func getServerHost(c *configpb.ProberConfig) string {
 	serverHost := c.GetHost()
 	if serverHost == "" {
 		serverHost = DefaultServerHost
@@ -72,7 +75,11 @@ func initDefaultServer(c *configpb.ProberConfig) (net.Listener, error) {
 			serverHost = host
 		}
 	}
+	return serverHost
+}
 
+func initDefaultServer(c *configpb.ProberConfig) (net.Listener, error) {
+	serverHost := getServerHost(c)
 	serverPort := int(c.GetPort())
 	if serverPort == 0 {
 		serverPort = DefaultServerPort
@@ -90,7 +97,7 @@ func initDefaultServer(c *configpb.ProberConfig) (net.Listener, error) {
 
 	ln, err := net.Listen("tcp", fmt.Sprintf("%s:%d", serverHost, serverPort))
 	if err != nil {
-		return nil, fmt.Errorf("error while creating listener for default HTTP server. Err: %v", err)
+		return nil, fmt.Errorf("error while creating listener for default HTTP server: %v", err)
 	}
 
 	return ln, nil
@@ -135,6 +142,20 @@ func InitFromConfig(configFile string) error {
 		return err
 	}
 
+	var grpcLn net.Listener
+	if cfg.GetGrpcPort() != 0 {
+		serverHost := getServerHost(cfg)
+
+		grpcLn, err = net.Listen("tcp", fmt.Sprintf("%s:%d", serverHost, cfg.GetGrpcPort()))
+		if err != nil {
+			return fmt.Errorf("error while creating listener for default gRPC server: %v", err)
+		}
+
+		// Create the default gRPC server now, so that other modules can register
+		// their services with it in the prober.Init() phase.
+		runconfig.SetDefaultGRPCServer(grpc.NewServer())
+	}
+
 	pr := &prober.Prober{}
 
 	// initCtx is used to clean up in case of partial initialization failures. For
@@ -153,6 +174,7 @@ func InitFromConfig(configFile string) error {
 	cloudProber.prober = pr
 	cloudProber.textConfig = configStr
 	cloudProber.defaultServerLn = ln
+	cloudProber.defaultGRPCLn = grpcLn
 	cloudProber.cancelInitCtx = cancelFunc
 	return nil
 }
@@ -162,19 +184,24 @@ func Start(ctx context.Context) {
 	cloudProber.Lock()
 	defer cloudProber.Unlock()
 
-	// Default server
+	// Default servers
 	srv := &http.Server{}
+	grpcSrv := runconfig.DefaultGRPCServer()
 
 	// Set up a goroutine to cleanup if context ends.
 	go func() {
 		<-ctx.Done()
 		srv.Close() // This will close the listener as well.
+		if grpcSrv != nil {
+			grpcSrv.Stop()
+		}
 		cloudProber.cancelInitCtx()
 	}()
 
-	go func() {
-		srv.Serve(cloudProber.defaultServerLn)
-	}()
+	go srv.Serve(cloudProber.defaultServerLn)
+	if grpcSrv != nil {
+		go grpcSrv.Serve(cloudProber.defaultGRPCLn)
+	}
 
 	if cloudProber.prober == nil {
 		panic("Prober is not initialized. Did you call cloudprober.InitFromConfig first?")
