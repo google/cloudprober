@@ -14,6 +14,9 @@
 
 // This binary implements a Cloudprober gRPC client. This binary is to only
 // demonstrate how cloudprober can be programmed dynamically.
+//
+// go run ./cmd/client.go --server localhost:9314 --add_probe newprobe.cfg
+// go run ./cmd/client.go --server localhost:9314 --rm_probe newprobe
 package main
 
 import (
@@ -21,12 +24,12 @@ import (
 	"io/ioutil"
 
 	"flag"
+	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 	pb "github.com/google/cloudprober/prober/proto"
 	spb "github.com/google/cloudprober/prober/proto"
 	configpb "github.com/google/cloudprober/probes/proto"
 	"google.golang.org/grpc"
-	"google3/base/go/log"
 )
 
 var (
@@ -40,38 +43,38 @@ func main() {
 
 	conn, err := grpc.Dial(*server, grpc.WithInsecure())
 	if err != nil {
-		log.Fatal(err)
+		glog.Fatal(err)
 	}
 
 	client := spb.NewCloudproberClient(conn)
 
 	if *addProbe != "" && *rmProbe != "" {
-		log.Fatal("Options --add_probe and --rm_probe cannot be specified at the same time")
+		glog.Fatal("Options --add_probe and --rm_probe cannot be specified at the same time")
 	}
 
 	if *rmProbe != "" {
 		_, err := client.RemoveProbe(context.Background(), &pb.RemoveProbeRequest{ProbeName: rmProbe})
 		if err != nil {
-			log.Exit(err)
+			glog.Exit(err)
 		}
 	}
 
 	if *addProbe != "" {
 		b, err := ioutil.ReadFile(*addProbe)
 		if err != nil {
-			log.Exitf("Failed to read the config file: %v", err)
+			glog.Exitf("Failed to read the config file: %v", err)
 		}
 
-		log.Infof("Read probe config: %s", string(b))
+		glog.Infof("Read probe config: %s", string(b))
 
 		cfg := &configpb.ProbeDef{}
 		if err := proto.UnmarshalText(string(b), cfg); err != nil {
-			log.Exit(err)
+			glog.Exit(err)
 		}
 
 		_, err = client.AddProbe(context.Background(), &pb.AddProbeRequest{Probe: cfg})
 		if err != nil {
-			log.Exit(err)
+			glog.Exit(err)
 		}
 	}
 }
