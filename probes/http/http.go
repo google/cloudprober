@@ -151,7 +151,7 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		Transport: transport,
 	}
 
-	if p.c.StatsExportIntervalMsec != nil {
+	if p.c != nil && p.c.StatsExportIntervalMsec != nil {
 		p.l.Warningf("stats_export_interval_msec field is now deprecated and doesn't do anything. To modify stats export interval, use the probe level field by the same name.")
 	}
 
