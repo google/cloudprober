@@ -55,7 +55,7 @@ func (x *ProbeConf_Mode) UnmarshalJSON(data []byte) error {
 	return nil
 }
 func (ProbeConf_Mode) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_config_aafd3a81972b8da3, []int{0, 0}
+	return fileDescriptor_config_b14d8908ad6b6463, []int{0, 0}
 }
 
 // MetricsKind specifies whether to treat output metrics as GAUGE or
@@ -97,7 +97,7 @@ func (x *OutputMetricsOptions_MetricsKind) UnmarshalJSON(data []byte) error {
 	return nil
 }
 func (OutputMetricsOptions_MetricsKind) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_config_aafd3a81972b8da3, []int{1, 0}
+	return fileDescriptor_config_b14d8908ad6b6463, []int{1, 0}
 }
 
 type ProbeConf struct {
@@ -119,7 +119,16 @@ type ProbeConf struct {
 	// var1 value1 (for example: total_errors 589)
 	OutputAsMetrics      *bool                 `protobuf:"varint,4,opt,name=output_as_metrics,json=outputAsMetrics,def=1" json:"output_as_metrics,omitempty"`
 	OutputMetricsOptions *OutputMetricsOptions `protobuf:"bytes,5,opt,name=output_metrics_options,json=outputMetricsOptions" json:"output_metrics_options,omitempty"`
-	// IP version: For target resolution
+	// IP version: 4|6. For target resolution
+	// This field doesn't do anything and will be removed after the release
+	// v0.10.3. ip_version can be configured in the outer layer of the config:
+	// probe {
+	//   type: EXTERNAL
+	//   ip_version: 6
+	//   external_probe {
+	//     ...
+	//   }
+	// }
 	IpVersion            *int32   `protobuf:"varint,100,opt,name=ip_version,json=ipVersion,def=4" json:"ip_version,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -130,7 +139,7 @@ func (m *ProbeConf) Reset()         { *m = ProbeConf{} }
 func (m *ProbeConf) String() string { return proto.CompactTextString(m) }
 func (*ProbeConf) ProtoMessage()    {}
 func (*ProbeConf) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_aafd3a81972b8da3, []int{0}
+	return fileDescriptor_config_b14d8908ad6b6463, []int{0}
 }
 func (m *ProbeConf) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ProbeConf.Unmarshal(m, b)
@@ -211,7 +220,7 @@ func (m *ProbeConf_Option) Reset()         { *m = ProbeConf_Option{} }
 func (m *ProbeConf_Option) String() string { return proto.CompactTextString(m) }
 func (*ProbeConf_Option) ProtoMessage()    {}
 func (*ProbeConf_Option) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_aafd3a81972b8da3, []int{0, 0}
+	return fileDescriptor_config_b14d8908ad6b6463, []int{0, 0}
 }
 func (m *ProbeConf_Option) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ProbeConf_Option.Unmarshal(m, b)
@@ -278,7 +287,7 @@ func (m *OutputMetricsOptions) Reset()         { *m = OutputMetricsOptions{} }
 func (m *OutputMetricsOptions) String() string { return proto.CompactTextString(m) }
 func (*OutputMetricsOptions) ProtoMessage()    {}
 func (*OutputMetricsOptions) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_aafd3a81972b8da3, []int{1}
+	return fileDescriptor_config_b14d8908ad6b6463, []int{1}
 }
 func (m *OutputMetricsOptions) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_OutputMetricsOptions.Unmarshal(m, b)
@@ -338,10 +347,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("github.com/google/cloudprober/probes/external/proto/config.proto", fileDescriptor_config_aafd3a81972b8da3)
+	proto.RegisterFile("github.com/google/cloudprober/probes/external/proto/config.proto", fileDescriptor_config_b14d8908ad6b6463)
 }
 
-var fileDescriptor_config_aafd3a81972b8da3 = []byte{
+var fileDescriptor_config_b14d8908ad6b6463 = []byte{
 	// 540 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x52, 0xdb, 0x6e, 0xd3, 0x40,
 	0x10, 0xad, 0x63, 0xa7, 0xad, 0xc7, 0xd0, 0xba, 0xab, 0xaa, 0x32, 0x85, 0x07, 0x2b, 0x4f, 0x96,
