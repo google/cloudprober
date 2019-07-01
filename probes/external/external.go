@@ -70,7 +70,6 @@ type Probe struct {
 	opts    *options.Options
 	c       *configpb.ProbeConf
 	l       *logger.Logger
-	ipVer   int
 
 	// book-keeping params
 	labelKeys  map[string]bool // Labels for substitution
@@ -311,9 +310,9 @@ func (p *Probe) labels(target string) map[string]string {
 		labels["target"] = target
 	}
 	if p.labelKeys["@address@"] {
-		addr, err := p.opts.Targets.Resolve(target, p.ipVer)
+		addr, err := p.opts.Targets.Resolve(target, p.opts.IPVersion)
 		if err != nil {
-			p.l.Warningf("Targets.Resolve(%v, %v) failed: %v ", target, p.ipVer, err)
+			p.l.Warningf("Targets.Resolve(%v, %v) failed: %v ", target, p.opts.IPVersion, err)
 		} else if !addr.IsUnspecified() {
 			labels["address"] = addr.String()
 		}
