@@ -199,7 +199,7 @@ func Start(ctx context.Context) {
 	}()
 
 	go srv.Serve(cloudProber.defaultServerLn)
-	if grpcSrv != nil {
+	if grpcSrv != nil && cloudProber.defaultGRPCLn != nil {
 		go grpcSrv.Serve(cloudProber.defaultGRPCLn)
 	}
 
