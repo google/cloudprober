@@ -72,7 +72,7 @@ func main() {
 			glog.Exit(err)
 		}
 
-		_, err = client.AddProbe(context.Background(), &pb.AddProbeRequest{Probe: cfg})
+		_, err = client.AddProbe(context.Background(), &pb.AddProbeRequest{ProbeConfig: cfg})
 		if err != nil {
 			glog.Exit(err)
 		}

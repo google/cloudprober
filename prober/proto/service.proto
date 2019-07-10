@@ -11,10 +11,13 @@ service Cloudprober {
 
   // RemoveProbe stops the probe and removes it from the in-memory database.
   rpc RemoveProbe(RemoveProbeRequest) returns (RemoveProbeResponse) {}
+
+  // ListProbes lists active probes.
+  rpc ListProbes(ListProbesRequest) returns (ListProbesResponse) {}
 }
 
 message AddProbeRequest {
-  optional probes.ProbeDef probe = 1;
+  optional probes.ProbeDef probe_config = 1;
 }
 
 message AddProbeResponse {}
@@ -24,3 +27,14 @@ message RemoveProbeRequest {
 }
 
 message RemoveProbeResponse {}
+
+message ListProbesRequest {}
+
+message Probe {
+  optional string name = 1;
+  optional probes.ProbeDef config = 2;
+}
+
+message ListProbesResponse {
+  repeated Probe probe = 1;
+}
