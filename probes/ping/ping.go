@@ -125,7 +125,7 @@ func (p *Probe) initInternal() error {
 		return err
 	}
 
-	if p.c.StatsExportInterval != nil {
+	if p.c != nil && p.c.StatsExportInterval != nil {
 		p.l.Warning("stats_export_interval field is now deprecated and doesn't do anything. To modify stats export interval, use the probe level field: stats_export_interval_msec.")
 	}
 
