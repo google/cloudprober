@@ -72,6 +72,7 @@ type Probe interface {
 // ProbeInfo encapsulates the probe and associated information.
 type ProbeInfo struct {
 	Probe
+	ProbeDef      *configpb.ProbeDef // Full probe definition
 	Options       *options.Options
 	Name          string
 	Type          string
@@ -121,6 +122,7 @@ func CreateProbe(p *configpb.ProbeDef, opts *options.Options) (*ProbeInfo, error
 
 	probeInfo := &ProbeInfo{
 		Probe:       probe,
+		ProbeDef:    p,
 		Options:     opts,
 		Name:        p.GetName(),
 		Type:        p.GetType().String(),

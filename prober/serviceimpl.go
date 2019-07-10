@@ -24,7 +24,7 @@ import (
 
 // AddProbe adds the given probe to cloudprober.
 func (pr *Prober) AddProbe(ctx context.Context, req *pb.AddProbeRequest) (*pb.AddProbeResponse, error) {
-	p := req.GetProbe()
+	p := req.GetProbeConfig()
 
 	if p == nil {
 		return &pb.AddProbeResponse{}, status.Errorf(codes.InvalidArgument, "probe config cannot be nil")
@@ -61,4 +61,20 @@ func (pr *Prober) RemoveProbe(ctx context.Context, req *pb.RemoveProbeRequest) (
 	delete(pr.Probes, name)
 
 	return &pb.RemoveProbeResponse{}, nil
+}
+
+// ListProbes gRPC method returns the list of probes from the in-memory database.
+func (pr *Prober) ListProbes(ctx context.Context, req *pb.ListProbesRequest) (*pb.ListProbesResponse, error) {
+	pr.mu.Lock()
+	defer pr.mu.Unlock()
+
+	resp := &pb.ListProbesResponse{}
+	for name, p := range pr.Probes {
+		resp.Probe = append(resp.Probe, &pb.Probe{
+			Name:   &name,
+			Config: p.ProbeDef,
+		})
+	}
+
+	return resp, nil
 }
