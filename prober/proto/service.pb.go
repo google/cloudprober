@@ -25,7 +25,7 @@ var _ = math.Inf
 const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
 type AddProbeRequest struct {
-	Probe                *proto1.ProbeDef `protobuf:"bytes,1,opt,name=probe" json:"probe,omitempty"`
+	ProbeConfig          *proto1.ProbeDef `protobuf:"bytes,1,opt,name=probe_config,json=probeConfig" json:"probe_config,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
 	XXX_unrecognized     []byte           `json:"-"`
 	XXX_sizecache        int32            `json:"-"`
@@ -35,7 +35,7 @@ func (m *AddProbeRequest) Reset()         { *m = AddProbeRequest{} }
 func (m *AddProbeRequest) String() string { return proto.CompactTextString(m) }
 func (*AddProbeRequest) ProtoMessage()    {}
 func (*AddProbeRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_service_ba7f7c5047aeec33, []int{0}
+	return fileDescriptor_service_67f7cd072003f550, []int{0}
 }
 func (m *AddProbeRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_AddProbeRequest.Unmarshal(m, b)
@@ -55,9 +55,9 @@ func (m *AddProbeRequest) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_AddProbeRequest proto.InternalMessageInfo
 
-func (m *AddProbeRequest) GetProbe() *proto1.ProbeDef {
+func (m *AddProbeRequest) GetProbeConfig() *proto1.ProbeDef {
 	if m != nil {
-		return m.Probe
+		return m.ProbeConfig
 	}
 	return nil
 }
@@ -72,7 +72,7 @@ func (m *AddProbeResponse) Reset()         { *m = AddProbeResponse{} }
 func (m *AddProbeResponse) String() string { return proto.CompactTextString(m) }
 func (*AddProbeResponse) ProtoMessage()    {}
 func (*AddProbeResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_service_ba7f7c5047aeec33, []int{1}
+	return fileDescriptor_service_67f7cd072003f550, []int{1}
 }
 func (m *AddProbeResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_AddProbeResponse.Unmarshal(m, b)
@@ -103,7 +103,7 @@ func (m *RemoveProbeRequest) Reset()         { *m = RemoveProbeRequest{} }
 func (m *RemoveProbeRequest) String() string { return proto.CompactTextString(m) }
 func (*RemoveProbeRequest) ProtoMessage()    {}
 func (*RemoveProbeRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_service_ba7f7c5047aeec33, []int{2}
+	return fileDescriptor_service_67f7cd072003f550, []int{2}
 }
 func (m *RemoveProbeRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RemoveProbeRequest.Unmarshal(m, b)
@@ -140,7 +140,7 @@ func (m *RemoveProbeResponse) Reset()         { *m = RemoveProbeResponse{} }
 func (m *RemoveProbeResponse) String() string { return proto.CompactTextString(m) }
 func (*RemoveProbeResponse) ProtoMessage()    {}
 func (*RemoveProbeResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_service_ba7f7c5047aeec33, []int{3}
+	return fileDescriptor_service_67f7cd072003f550, []int{3}
 }
 func (m *RemoveProbeResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RemoveProbeResponse.Unmarshal(m, b)
@@ -160,11 +160,128 @@ func (m *RemoveProbeResponse) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_RemoveProbeResponse proto.InternalMessageInfo
 
+type ListProbesRequest struct {
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *ListProbesRequest) Reset()         { *m = ListProbesRequest{} }
+func (m *ListProbesRequest) String() string { return proto.CompactTextString(m) }
+func (*ListProbesRequest) ProtoMessage()    {}
+func (*ListProbesRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_service_67f7cd072003f550, []int{4}
+}
+func (m *ListProbesRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ListProbesRequest.Unmarshal(m, b)
+}
+func (m *ListProbesRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ListProbesRequest.Marshal(b, m, deterministic)
+}
+func (dst *ListProbesRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ListProbesRequest.Merge(dst, src)
+}
+func (m *ListProbesRequest) XXX_Size() int {
+	return xxx_messageInfo_ListProbesRequest.Size(m)
+}
+func (m *ListProbesRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_ListProbesRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ListProbesRequest proto.InternalMessageInfo
+
+type Probe struct {
+	Name                 *string          `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	Config               *proto1.ProbeDef `protobuf:"bytes,2,opt,name=config" json:"config,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
+	XXX_unrecognized     []byte           `json:"-"`
+	XXX_sizecache        int32            `json:"-"`
+}
+
+func (m *Probe) Reset()         { *m = Probe{} }
+func (m *Probe) String() string { return proto.CompactTextString(m) }
+func (*Probe) ProtoMessage()    {}
+func (*Probe) Descriptor() ([]byte, []int) {
+	return fileDescriptor_service_67f7cd072003f550, []int{5}
+}
+func (m *Probe) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_Probe.Unmarshal(m, b)
+}
+func (m *Probe) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_Probe.Marshal(b, m, deterministic)
+}
+func (dst *Probe) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Probe.Merge(dst, src)
+}
+func (m *Probe) XXX_Size() int {
+	return xxx_messageInfo_Probe.Size(m)
+}
+func (m *Probe) XXX_DiscardUnknown() {
+	xxx_messageInfo_Probe.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_Probe proto.InternalMessageInfo
+
+func (m *Probe) GetName() string {
+	if m != nil && m.Name != nil {
+		return *m.Name
+	}
+	return ""
+}
+
+func (m *Probe) GetConfig() *proto1.ProbeDef {
+	if m != nil {
+		return m.Config
+	}
+	return nil
+}
+
+type ListProbesResponse struct {
+	Probe                []*Probe `protobuf:"bytes,1,rep,name=probe" json:"probe,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *ListProbesResponse) Reset()         { *m = ListProbesResponse{} }
+func (m *ListProbesResponse) String() string { return proto.CompactTextString(m) }
+func (*ListProbesResponse) ProtoMessage()    {}
+func (*ListProbesResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_service_67f7cd072003f550, []int{6}
+}
+func (m *ListProbesResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ListProbesResponse.Unmarshal(m, b)
+}
+func (m *ListProbesResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ListProbesResponse.Marshal(b, m, deterministic)
+}
+func (dst *ListProbesResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ListProbesResponse.Merge(dst, src)
+}
+func (m *ListProbesResponse) XXX_Size() int {
+	return xxx_messageInfo_ListProbesResponse.Size(m)
+}
+func (m *ListProbesResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_ListProbesResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ListProbesResponse proto.InternalMessageInfo
+
+func (m *ListProbesResponse) GetProbe() []*Probe {
+	if m != nil {
+		return m.Probe
+	}
+	return nil
+}
+
 func init() {
 	proto.RegisterType((*AddProbeRequest)(nil), "cloudprober.AddProbeRequest")
 	proto.RegisterType((*AddProbeResponse)(nil), "cloudprober.AddProbeResponse")
 	proto.RegisterType((*RemoveProbeRequest)(nil), "cloudprober.RemoveProbeRequest")
 	proto.RegisterType((*RemoveProbeResponse)(nil), "cloudprober.RemoveProbeResponse")
+	proto.RegisterType((*ListProbesRequest)(nil), "cloudprober.ListProbesRequest")
+	proto.RegisterType((*Probe)(nil), "cloudprober.Probe")
+	proto.RegisterType((*ListProbesResponse)(nil), "cloudprober.ListProbesResponse")
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -184,6 +301,8 @@ type CloudproberClient interface {
 	AddProbe(ctx context.Context, in *AddProbeRequest, opts ...grpc.CallOption) (*AddProbeResponse, error)
 	// RemoveProbe stops the probe and removes it from the in-memory database.
 	RemoveProbe(ctx context.Context, in *RemoveProbeRequest, opts ...grpc.CallOption) (*RemoveProbeResponse, error)
+	// ListProbes lists active probes.
+	ListProbes(ctx context.Context, in *ListProbesRequest, opts ...grpc.CallOption) (*ListProbesResponse, error)
 }
 
 type cloudproberClient struct {
@@ -212,6 +331,15 @@ func (c *cloudproberClient) RemoveProbe(ctx context.Context, in *RemoveProbeRequ
 	return out, nil
 }
 
+func (c *cloudproberClient) ListProbes(ctx context.Context, in *ListProbesRequest, opts ...grpc.CallOption) (*ListProbesResponse, error) {
+	out := new(ListProbesResponse)
+	err := c.cc.Invoke(ctx, "/cloudprober.Cloudprober/ListProbes", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // CloudproberServer is the server API for Cloudprober service.
 type CloudproberServer interface {
 	// AddProbe adds a probe to cloudprober. Error is returned if probe is already
@@ -219,6 +347,8 @@ type CloudproberServer interface {
 	AddProbe(context.Context, *AddProbeRequest) (*AddProbeResponse, error)
 	// RemoveProbe stops the probe and removes it from the in-memory database.
 	RemoveProbe(context.Context, *RemoveProbeRequest) (*RemoveProbeResponse, error)
+	// ListProbes lists active probes.
+	ListProbes(context.Context, *ListProbesRequest) (*ListProbesResponse, error)
 }
 
 func RegisterCloudproberServer(s *grpc.Server, srv CloudproberServer) {
@@ -261,6 +391,24 @@ func _Cloudprober_RemoveProbe_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Cloudprober_ListProbes_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListProbesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CloudproberServer).ListProbes(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/cloudprober.Cloudprober/ListProbes",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CloudproberServer).ListProbes(ctx, req.(*ListProbesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 var _Cloudprober_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "cloudprober.Cloudprober",
 	HandlerType: (*CloudproberServer)(nil),
@@ -273,30 +421,39 @@ var _Cloudprober_serviceDesc = grpc.ServiceDesc{
 			MethodName: "RemoveProbe",
 			Handler:    _Cloudprober_RemoveProbe_Handler,
 		},
+		{
+			MethodName: "ListProbes",
+			Handler:    _Cloudprober_ListProbes_Handler,
+		},
 	},
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "github.com/google/cloudprober/prober/proto/service.proto",
 }
 
 func init() {
-	proto.RegisterFile("github.com/google/cloudprober/prober/proto/service.proto", fileDescriptor_service_ba7f7c5047aeec33)
+	proto.RegisterFile("github.com/google/cloudprober/prober/proto/service.proto", fileDescriptor_service_67f7cd072003f550)
 }
 
-var fileDescriptor_service_ba7f7c5047aeec33 = []byte{
-	// 236 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0xb2, 0x48, 0xcf, 0x2c, 0xc9,
-	0x28, 0x4d, 0xd2, 0x4b, 0xce, 0xcf, 0xd5, 0x4f, 0xcf, 0xcf, 0x4f, 0xcf, 0x49, 0xd5, 0x4f, 0xce,
-	0xc9, 0x2f, 0x4d, 0x29, 0x28, 0xca, 0x4f, 0x4a, 0x2d, 0xd2, 0x47, 0x50, 0x25, 0xf9, 0xfa, 0xc5,
-	0xa9, 0x45, 0x65, 0x99, 0xc9, 0xa9, 0x7a, 0x60, 0x9e, 0x10, 0x37, 0x92, 0x3a, 0x29, 0x73, 0x22,
-	0x8c, 0x29, 0x86, 0x1a, 0x93, 0x9c, 0x9f, 0x97, 0x96, 0x99, 0x0e, 0x31, 0x45, 0xc9, 0x95, 0x8b,
-	0xdf, 0x31, 0x25, 0x25, 0x00, 0x24, 0x1f, 0x94, 0x5a, 0x58, 0x9a, 0x5a, 0x5c, 0x22, 0x64, 0xc4,
-	0xc5, 0x0a, 0x56, 0x2f, 0xc1, 0xa8, 0xc0, 0xa8, 0xc1, 0x6d, 0x24, 0xa3, 0x87, 0x64, 0x92, 0x1e,
-	0xc4, 0x24, 0x3d, 0xb0, 0x06, 0x97, 0xd4, 0xb4, 0x20, 0x88, 0x52, 0x25, 0x21, 0x2e, 0x01, 0x84,
-	0x31, 0xc5, 0x05, 0xf9, 0x79, 0xc5, 0xa9, 0x4a, 0xc6, 0x5c, 0x42, 0x41, 0xa9, 0xb9, 0xf9, 0x65,
-	0xa9, 0x28, 0xa6, 0xcb, 0x72, 0x71, 0x81, 0xb5, 0xc4, 0xe7, 0x25, 0xe6, 0x42, 0xac, 0xe0, 0x0c,
-	0xe2, 0x04, 0x8b, 0xf8, 0x25, 0xe6, 0xa6, 0x2a, 0x89, 0x72, 0x09, 0xa3, 0x68, 0x82, 0x98, 0x65,
-	0xb4, 0x86, 0x91, 0x8b, 0xdb, 0x19, 0xe1, 0x0c, 0x21, 0x4f, 0x2e, 0x0e, 0x98, 0x7d, 0x42, 0xa8,
-	0x0e, 0x44, 0xf3, 0x8d, 0x94, 0x2c, 0x0e, 0x59, 0xa8, 0x23, 0x19, 0x84, 0x82, 0xb8, 0xb8, 0x91,
-	0x6c, 0x14, 0x92, 0x47, 0x51, 0x8f, 0xe9, 0x01, 0x29, 0x05, 0xdc, 0x0a, 0x60, 0x66, 0x02, 0x02,
-	0x00, 0x00, 0xff, 0xff, 0x38, 0x24, 0xef, 0x67, 0xd6, 0x01, 0x00, 0x00,
+var fileDescriptor_service_67f7cd072003f550 = []byte{
+	// 316 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x91, 0xdf, 0x4b, 0xfb, 0x30,
+	0x14, 0xc5, 0xbf, 0xfd, 0xea, 0xc4, 0xdd, 0x08, 0xea, 0x1d, 0xc2, 0x28, 0xce, 0x8d, 0x3c, 0xed,
+	0xa9, 0x85, 0x29, 0xe8, 0x93, 0x22, 0xf3, 0x45, 0x10, 0x7f, 0xe4, 0x1f, 0x90, 0xad, 0xbd, 0xab,
+	0x85, 0xb5, 0x99, 0x4d, 0xbb, 0xff, 0x5e, 0x10, 0x93, 0xcc, 0x36, 0x8e, 0xc2, 0x9e, 0xda, 0xde,
+	0x7b, 0xce, 0xe7, 0x24, 0xa7, 0x70, 0x93, 0xa4, 0xe5, 0x47, 0x35, 0x0f, 0x22, 0x99, 0x85, 0x89,
+	0x94, 0xc9, 0x92, 0xc2, 0x68, 0x29, 0xab, 0x78, 0x55, 0xc8, 0x39, 0x15, 0x61, 0xfd, 0x28, 0x65,
+	0xa8, 0xa8, 0x58, 0xa7, 0x11, 0x05, 0xfa, 0x0b, 0x59, 0x43, 0xe7, 0x5f, 0xef, 0x80, 0x51, 0x16,
+	0x13, 0xc9, 0x7c, 0x91, 0x26, 0x86, 0xc2, 0x05, 0x1c, 0xdf, 0xc7, 0xf1, 0xeb, 0xcf, 0x5e, 0xd0,
+	0x67, 0x45, 0xaa, 0xc4, 0x3b, 0x38, 0xd2, 0xfa, 0x77, 0x23, 0xec, 0x7b, 0x23, 0x6f, 0xcc, 0x26,
+	0xe7, 0x41, 0x03, 0x18, 0x18, 0x60, 0xa0, 0x7d, 0x0f, 0xb4, 0x10, 0x4c, 0x0f, 0xa6, 0xda, 0xc0,
+	0x11, 0x4e, 0x6a, 0xa6, 0x5a, 0xc9, 0x5c, 0x11, 0xbf, 0x04, 0x14, 0x94, 0xc9, 0x35, 0x39, 0x51,
+	0x03, 0x00, 0x13, 0x95, 0xcf, 0x32, 0xd2, 0x41, 0x5d, 0xd1, 0xd5, 0x93, 0xe7, 0x59, 0x46, 0xfc,
+	0x0c, 0x7a, 0x8e, 0xc9, 0xb2, 0x7a, 0x70, 0xfa, 0x94, 0xaa, 0x52, 0x0f, 0x95, 0x45, 0xf1, 0x37,
+	0xe8, 0xe8, 0x01, 0x22, 0xec, 0x37, 0x68, 0xfa, 0x1d, 0xaf, 0xe0, 0xc0, 0x5e, 0xe6, 0xff, 0x0e,
+	0x97, 0xb1, 0x5a, 0x7e, 0x0b, 0xd8, 0xcc, 0x31, 0xe9, 0x38, 0x86, 0x8e, 0x36, 0xf4, 0xbd, 0xd1,
+	0xde, 0x98, 0x4d, 0xd0, 0x41, 0x99, 0x83, 0x1a, 0xc1, 0xe4, 0xcb, 0x03, 0x36, 0xad, 0x97, 0xf8,
+	0x08, 0x87, 0x9b, 0x5e, 0xd0, 0x3d, 0xc1, 0x9f, 0x5f, 0xe0, 0x0f, 0x5a, 0xb6, 0xb6, 0x80, 0x7f,
+	0x28, 0x80, 0x35, 0x9a, 0xc1, 0xa1, 0xa3, 0xdf, 0x2e, 0xda, 0x1f, 0xb5, 0x0b, 0x7e, 0x99, 0x2f,
+	0x00, 0xf5, 0x75, 0xf1, 0xc2, 0x71, 0x6c, 0xf5, 0xed, 0x0f, 0x5b, 0xf7, 0x1b, 0xe0, 0x77, 0x00,
+	0x00, 0x00, 0xff, 0xff, 0x80, 0x21, 0x7a, 0xe2, 0xdc, 0x02, 0x00, 0x00,
 }
