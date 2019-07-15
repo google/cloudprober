@@ -396,12 +396,14 @@ func (p *Probe) runServerProbe(ctx context.Context, dataChan chan *metrics.Event
 					p.latencyForTarget(reqInfo.target).AddFloat64(time.Since(reqInfo.timestamp).Seconds() / p.opts.LatencyUnit.Seconds())
 				}
 				em := p.defaultMetrics(reqInfo.target)
+				p.opts.LogMetrics(em)
 				dataChan <- em
 
 				// If we got a non-nil probe reply and probe is configured to use
 				// the reply payload as metrics.
 				if rep != nil && p.c.GetOutputAsMetrics() {
 					em = p.payloadToMetrics(reqInfo.target, rep.GetPayload())
+					p.opts.LogMetrics(em)
 					dataChan <- em
 				}
 			}
@@ -429,6 +431,12 @@ func (p *Probe) runServerProbe(ctx context.Context, dataChan chan *metrics.Event
 	wg.Wait()
 }
 
+// runCommand encapsulates command executor in a variable so that we can
+// override it for testing.
+var runCommand = func(ctx context.Context, cmd string, args []string) ([]byte, error) {
+	return exec.CommandContext(ctx, cmd, args...).Output()
+}
+
 func (p *Probe) runOnceProbe(ctx context.Context, dataChan chan *metrics.EventMetrics) {
 	var wg sync.WaitGroup
 	for _, target := range p.opts.Targets.List() {
@@ -447,12 +455,12 @@ func (p *Probe) runOnceProbe(ctx context.Context, dataChan chan *metrics.EventMe
 			p.l.Infof("Running external command: %s %s", p.cmdName, strings.Join(args, " "))
 			p.total[target]++
 			startTime := time.Now()
-			b, err := exec.CommandContext(ctx, p.cmdName, args...).Output()
+			b, err := runCommand(ctx, p.cmdName, args)
 			if err != nil {
 				if exitErr, ok := err.(*exec.ExitError); ok {
-					p.l.Errorf("external probe process died with the status: %s. Stderr: %s", exitErr.Error(), exitErr.Stderr)
+					p.l.Errorf("External probe process died with the status: %s. Stderr: %s", exitErr.Error(), exitErr.Stderr)
 				} else {
-					p.l.Errorf("Error executing the external program. Err: %v", err)
+					p.l.Errorf("Error executing the external program: %v", err)
 				}
 			} else {
 				p.success[target]++
