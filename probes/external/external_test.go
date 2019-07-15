@@ -27,6 +27,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/metrics"
+	"github.com/google/cloudprober/metrics/testutils"
 	configpb "github.com/google/cloudprober/probes/external/proto"
 	serverpb "github.com/google/cloudprober/probes/external/proto"
 	"github.com/google/cloudprober/probes/external/serverutils"
@@ -110,13 +111,16 @@ func setProbeOptions(p *Probe, name, value string) {
 
 // runAndVerifyServerProbe executes a server probe and verifies the replies
 // received.
-func runAndVerifyProbe(t *testing.T, p *Probe, action string, tgts []string, total, success map[string]int64) error {
+func runAndVerifyServerProbe(t *testing.T, p *Probe, action string, tgts []string, total, success map[string]int64) {
 	setProbeOptions(p, "action", action)
+	dataChan := make(chan *metrics.EventMetrics, 10)
+	runAndVerifyProbe(t, p, dataChan, tgts, total, success)
+}
+
+func runAndVerifyProbe(t *testing.T, p *Probe, dataChan chan *metrics.EventMetrics, tgts []string, total, success map[string]int64) chan *metrics.EventMetrics {
 	p.opts.Targets = targets.StaticTargets(strings.Join(tgts, ","))
 
-	dataChan := make(chan *metrics.EventMetrics, 10)
 	p.runProbe(context.Background(), dataChan)
-
 	for _, tgt := range p.opts.Targets.List() {
 		if p.total[tgt] != total[tgt] {
 			t.Errorf("p.total[%s]=%d, Want: %d", tgt, p.total[tgt], total[tgt])
@@ -125,7 +129,33 @@ func runAndVerifyProbe(t *testing.T, p *Probe, action string, tgts []string, tot
 			t.Errorf("p.success[%s]=%d, Want: %d", tgt, p.success[tgt], success[tgt])
 		}
 	}
-	return nil
+
+	return dataChan
+}
+
+func createTestProbe(cmd string) *Probe {
+	probeConf := &configpb.ProbeConf{
+		Options: []*configpb.ProbeConf_Option{
+			{
+				Name:  proto.String("target"),
+				Value: proto.String("@target@"),
+			},
+			{
+				Name:  proto.String("action"),
+				Value: proto.String(""),
+			},
+		},
+		Command: &cmd,
+	}
+
+	p := &Probe{}
+	p.Init("testProbe", &options.Options{
+		ProbeConf:  probeConf,
+		Timeout:    1 * time.Second,
+		LogMetrics: func(em *metrics.EventMetrics) {},
+	})
+
+	return p
 }
 
 func testProbeServerSetup(t *testing.T, readErrorCh chan error) (*Probe, string, chan struct{}) {
@@ -149,22 +179,7 @@ func testProbeServerSetup(t *testing.T, readErrorCh chan error) (*Probe, string,
 	doneChan := make(chan struct{})
 	go startProbeServer(t, testPayload, r1, w2, doneChan)
 
-	p := &Probe{}
-	p.Init("testProbe", &options.Options{
-		ProbeConf: &configpb.ProbeConf{
-			Options: []*configpb.ProbeConf_Option{
-				{
-					Name:  proto.String("target"),
-					Value: proto.String("@target@"),
-				},
-				{
-					Name:  proto.String("action"),
-					Value: proto.String(""),
-				},
-			},
-		},
-		Timeout: 1 * time.Second,
-	})
+	p := createTestProbe("")
 	p.cmdRunning = true // don't try to start the probe server
 	p.cmdStdin = w1
 	p.cmdStdout = r2
@@ -182,7 +197,7 @@ func testProbeServerSetup(t *testing.T, readErrorCh chan error) (*Probe, string,
 	return p, testPayload, doneChan
 }
 
-func TestProbeServer(t *testing.T) {
+func TestProbeServerMode(t *testing.T) {
 	p, _, doneChan := testProbeServerSetup(t, nil)
 	defer close(doneChan)
 
@@ -194,7 +209,7 @@ func TestProbeServer(t *testing.T) {
 		total[tgt]++
 		success[tgt]++
 	}
-	runAndVerifyProbe(t, p, "nopayload", tgts, total, success)
+	runAndVerifyServerProbe(t, p, "nopayload", tgts, total, success)
 
 	// Payload
 	tgts = []string{"target3"}
@@ -202,14 +217,14 @@ func TestProbeServer(t *testing.T) {
 		total[tgt]++
 		success[tgt]++
 	}
-	runAndVerifyProbe(t, p, "payload", tgts, total, success)
+	runAndVerifyServerProbe(t, p, "payload", tgts, total, success)
 
 	// Payload with error
 	tgts = []string{"target2", "target3"}
 	for _, tgt := range tgts {
 		total[tgt]++
 	}
-	runAndVerifyProbe(t, p, "payload_with_error", tgts, total, success)
+	runAndVerifyServerProbe(t, p, "payload_with_error", tgts, total, success)
 
 	// Timeout
 	tgts = []string{"target1", "target2", "target3"}
@@ -218,7 +233,7 @@ func TestProbeServer(t *testing.T) {
 	}
 	// Reduce probe timeout to make this test pass quicker.
 	p.opts.Timeout = time.Second
-	runAndVerifyProbe(t, p, "timeout", tgts, total, success)
+	runAndVerifyServerProbe(t, p, "timeout", tgts, total, success)
 }
 
 func TestProbeServerRemotePipeClose(t *testing.T) {
@@ -234,7 +249,7 @@ func TestProbeServerRemotePipeClose(t *testing.T) {
 	}
 	// Reduce probe timeout to make this test pass quicker.
 	p.opts.Timeout = time.Second
-	runAndVerifyProbe(t, p, "pipe_server_close", tgts, total, success)
+	runAndVerifyServerProbe(t, p, "pipe_server_close", tgts, total, success)
 	readError := <-readErrorCh
 	if readError == nil {
 		t.Error("Didn't get error in reading pipe")
@@ -258,13 +273,102 @@ func TestProbeServerLocalPipeClose(t *testing.T) {
 	// Reduce probe timeout to make this test pass quicker.
 	p.opts.Timeout = time.Second
 	p.cmdStdout.(*os.File).Close()
-	runAndVerifyProbe(t, p, "pipe_local_close", tgts, total, success)
+	runAndVerifyServerProbe(t, p, "pipe_local_close", tgts, total, success)
 	readError := <-readErrorCh
 	if readError == nil {
 		t.Error("Didn't get error in reading pipe")
 	}
 	if _, ok := readError.(*os.PathError); !ok {
 		t.Errorf("Didn't get correct error in reading pipe. Got: %T, wanted: *os.PathError", readError)
+	}
+}
+
+func TestProbeOnceMode(t *testing.T) {
+	testCmd := "/test/cmd --arg1 --arg2"
+
+	p := createTestProbe(testCmd)
+	p.mode = "once"
+	// TODO(manugarg): External probe in ONCE mode has a concurrency bug while
+	// running for multiple targets. Extend testing to multiple targets once
+	// that bug is fixed.
+	// https://github.com/google/cloudprober/issues/258
+	tgts := []string{"target1"}
+
+	oldRunCommand := runCommand
+	defer func() { runCommand = oldRunCommand }()
+
+	// Set runCommand to a function that runs successfully and returns a pyload.
+	runCommand = func(ctx context.Context, cmd string, cmdArgs []string) ([]byte, error) {
+		var resp []string
+		resp = append(resp, fmt.Sprintf("cmd \"%s\"", cmd))
+		resp = append(resp, fmt.Sprintf("num-args %d", len(cmdArgs)))
+		return []byte(strings.Join(resp, "\n")), nil
+	}
+
+	total, success := make(map[string]int64), make(map[string]int64)
+
+	for _, tgt := range tgts {
+		total[tgt]++
+		success[tgt]++
+	}
+
+	dataChan := make(chan *metrics.EventMetrics, 20)
+
+	runAndVerifyProbe(t, p, dataChan, tgts, total, success)
+
+	// Try with failing command now
+	runCommand = func(ctx context.Context, cmd string, cmdArgs []string) ([]byte, error) {
+		return nil, fmt.Errorf("error executing %s", cmd)
+	}
+
+	for _, tgt := range tgts {
+		total[tgt]++
+	}
+	runAndVerifyProbe(t, p, dataChan, tgts, total, success)
+
+	// We get total 4 event metrics:
+	// num_of_runs x num_targets x (1 for default metrics + 1 for payload metrics)
+	ems, err := testutils.MetricsFromChannel(dataChan, 4, time.Second)
+	if err != nil {
+		t.Error(err)
+	}
+	metricsMap := testutils.MetricsMap(ems)
+
+	if metricsMap["num-args"] == nil && metricsMap["cmd"] == nil {
+		t.Errorf("Didn't get all metrics from the external process output.")
+	}
+
+	if metricsMap["total"] == nil && metricsMap["success"] == nil {
+		t.Errorf("Didn't get default metrics from the probe run.")
+	}
+
+	for _, tgt := range tgts {
+		// Verify that default metrics were received for both runs -- success and
+		// failure. We don't check for the values here as that's already done by
+		// runAndVerifyProbe to an extent.
+		for _, m := range []string{"total", "success", "latency"} {
+			if len(metricsMap[m][tgt]) != 2 {
+				t.Errorf("Wrong number of values for default metric (%s) for target (%s). Got=%d, Expected=2", m, tgt, len(metricsMap[m][tgt]))
+			}
+		}
+
+		for _, m := range []string{"num-args", "cmd"} {
+			if len(metricsMap[m][tgt]) != 1 {
+				t.Errorf("Wrong number of values for metric (%s) for target (%s) from the command output. Got=%d, Expected=1", m, tgt, len(metricsMap[m][tgt]))
+			}
+		}
+
+		tgtNumArgs := metricsMap["num-args"][tgt][0].(metrics.NumValue).Int64()
+		expectedNumArgs := int64(len(strings.Split(testCmd, " ")) - 1)
+		if tgtNumArgs != expectedNumArgs {
+			t.Errorf("Wrong metric value for target (%s) from the command output. Got=%d, Expected=%d", tgt, tgtNumArgs, expectedNumArgs)
+		}
+
+		tgtCmd := metricsMap["cmd"][tgt][0].String()
+		expectedCmd := fmt.Sprintf("\"%s\"", strings.Split(testCmd, " ")[0])
+		if tgtCmd != expectedCmd {
+			t.Errorf("Wrong metric value for target (%s) from the command output. got=%s, expected=%s", tgt, tgtCmd, expectedCmd)
+		}
 	}
 }
 
