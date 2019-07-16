@@ -61,6 +61,12 @@ var (
 	TimeBetweenRequests = 10 * time.Microsecond
 )
 
+type result struct {
+	total, success int64
+	latency        metrics.Value
+	payloadMetrics *metrics.EventMetrics
+}
+
 // Probe holds aggregate information about all probe runs, per-target.
 type Probe struct {
 	name    string
@@ -79,14 +85,12 @@ type Probe struct {
 	cmdStdout  io.ReadCloser
 	cmdStderr  io.ReadCloser
 	replyChan  chan *serverpb.ProbeReply
-	success    map[string]int64         // total probe successes
-	total      map[string]int64         // total number of probes
-	latency    map[string]metrics.Value // cumulative probe latency, in microseconds.
+	targets    []string
+	results    map[string]*result // probe results keyed by targets
 
-	// EventMetrics created from external probe process output
+	// default payload metrics that we clone from to build per-target payload
+	// metrics.
 	defaultPayloadMetrics *metrics.EventMetrics
-	payloadMetrics        map[string]*metrics.EventMetrics // Per-target metrics
-	payloadMetricsMu      sync.Mutex
 }
 
 // Init initializes the probe with the given params.
@@ -132,11 +136,8 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		p.l.Errorf("Invalid mode: %s", p.c.GetMode())
 	}
 
-	p.success = make(map[string]int64)
-	p.total = make(map[string]int64)
-	p.latency = make(map[string]metrics.Value)
+	p.results = make(map[string]*result)
 
-	p.payloadMetrics = make(map[string]*metrics.EventMetrics)
 	return p.initPayloadMetrics()
 }
 
@@ -275,27 +276,11 @@ func (p *Probe) readProbeReplies(done chan struct{}) error {
 
 }
 
-func (p *Probe) latencyForTarget(target string) metrics.Value {
-	if val, ok := p.latency[target]; ok {
-		return val
-	}
-
-	var latencyValue metrics.Value
-	if p.opts.LatencyDist != nil {
-		latencyValue = p.opts.LatencyDist.Clone()
-	} else {
-		latencyValue = metrics.NewFloat(0)
-	}
-	p.latency[target] = latencyValue
-
-	return latencyValue
-}
-
-func (p *Probe) defaultMetrics(target string) *metrics.EventMetrics {
+func (p *Probe) defaultMetrics(target string, result *result) *metrics.EventMetrics {
 	return metrics.NewEventMetrics(time.Now()).
-		AddMetric("success", metrics.NewInt(p.success[target])).
-		AddMetric("total", metrics.NewInt(p.total[target])).
-		AddMetric("latency", p.latencyForTarget(target)).
+		AddMetric("success", metrics.NewInt(result.success)).
+		AddMetric("total", metrics.NewInt(result.total)).
+		AddMetric("latency", result.latency).
 		AddLabel("ptype", "external").
 		AddLabel("probe", p.name).
 		AddLabel("dst", target)
@@ -392,17 +377,17 @@ func (p *Probe) runServerProbe(ctx context.Context, dataChan chan *metrics.Event
 				if rep.GetErrorMessage() != "" {
 					p.l.Errorf("Probe for target %v failed with error message: %s", reqInfo.target, rep.GetErrorMessage())
 				} else {
-					p.success[reqInfo.target]++
-					p.latencyForTarget(reqInfo.target).AddFloat64(time.Since(reqInfo.timestamp).Seconds() / p.opts.LatencyUnit.Seconds())
+					p.results[reqInfo.target].success++
+					p.results[reqInfo.target].latency.AddFloat64(time.Since(reqInfo.timestamp).Seconds() / p.opts.LatencyUnit.Seconds())
 				}
-				em := p.defaultMetrics(reqInfo.target)
+				em := p.defaultMetrics(reqInfo.target, p.results[reqInfo.target])
 				p.opts.LogMetrics(em)
 				dataChan <- em
 
 				// If we got a non-nil probe reply and probe is configured to use
 				// the reply payload as metrics.
 				if rep != nil && p.c.GetOutputAsMetrics() {
-					em = p.payloadToMetrics(reqInfo.target, rep.GetPayload())
+					em := p.payloadToMetrics(reqInfo.target, rep.GetPayload(), p.results[reqInfo.target])
 					p.opts.LogMetrics(em)
 					dataChan <- em
 				}
@@ -411,9 +396,9 @@ func (p *Probe) runServerProbe(ctx context.Context, dataChan chan *metrics.Event
 	}()
 
 	// Send probe requests
-	for _, target := range p.opts.Targets.List() {
+	for _, target := range p.targets {
 		p.requestID++
-		p.total[target]++
+		p.results[target].total++
 		requestsMu.Lock()
 		requests[p.requestID] = requestInfo{
 			target:    target,
@@ -439,9 +424,10 @@ var runCommand = func(ctx context.Context, cmd string, args []string) ([]byte, e
 
 func (p *Probe) runOnceProbe(ctx context.Context, dataChan chan *metrics.EventMetrics) {
 	var wg sync.WaitGroup
-	for _, target := range p.opts.Targets.List() {
+
+	for _, target := range p.targets {
 		wg.Add(1)
-		go func(target string) {
+		go func(target string, result *result) {
 			defer wg.Done()
 			args := make([]string, len(p.cmdArgs))
 			for i, arg := range p.cmdArgs {
@@ -453,38 +439,65 @@ func (p *Probe) runOnceProbe(ctx context.Context, dataChan chan *metrics.EventMe
 			}
 
 			p.l.Infof("Running external command: %s %s", p.cmdName, strings.Join(args, " "))
-			p.total[target]++
+			result.total++
 			startTime := time.Now()
 			b, err := runCommand(ctx, p.cmdName, args)
 			if err != nil {
 				if exitErr, ok := err.(*exec.ExitError); ok {
-					p.l.Errorf("External probe process died with the status: %s. Stderr: %s", exitErr.Error(), exitErr.Stderr)
+					p.l.Errorf("external probe process died with the status: %s. Stderr: %s", exitErr.Error(), exitErr.Stderr)
 				} else {
-					p.l.Errorf("Error executing the external program: %v", err)
+					p.l.Errorf("Error executing the external program. Err: %v", err)
 				}
 			} else {
-				p.success[target]++
-				p.latencyForTarget(target).AddFloat64(time.Since(startTime).Seconds() / p.opts.LatencyUnit.Seconds())
+				result.success++
+				result.latency.AddFloat64(time.Since(startTime).Seconds() / p.opts.LatencyUnit.Seconds())
 			}
 
-			em := p.defaultMetrics(target)
+			em := p.defaultMetrics(target, result)
 			p.opts.LogMetrics(em)
 
 			dataChan <- em
 
 			if p.c.GetOutputAsMetrics() {
-				em = p.payloadToMetrics(target, string(b))
+				em = p.payloadToMetrics(target, string(b), result)
 				p.opts.LogMetrics(em)
 				dataChan <- em
 			}
-		}(target)
+		}(target, p.results[target])
 	}
 	wg.Wait()
+}
+
+func (p *Probe) updateTargets() {
+	p.targets = p.opts.Targets.List()
+
+	for _, t := range p.targets {
+		if _, ok := p.results[t]; ok {
+			continue
+		}
+		var latencyValue metrics.Value
+		if p.opts.LatencyDist != nil {
+			latencyValue = p.opts.LatencyDist.Clone()
+		} else {
+			latencyValue = metrics.NewFloat(0)
+		}
+		p.results[t] = &result{
+			latency: latencyValue,
+		}
+		if p.c.GetOutputMetricsOptions().GetAggregateInCloudprober() {
+			// If we are aggregating in Cloudprober, we maintain an EventMetrics
+			// struct per-target.
+			p.results[t].payloadMetrics = p.defaultPayloadMetrics.Clone().AddLabel("dst", t)
+		}
+	}
 }
 
 func (p *Probe) runProbe(ctx context.Context, dataChan chan *metrics.EventMetrics) {
 	ctxTimeout, cancelFunc := context.WithTimeout(ctx, p.opts.Timeout)
 	defer cancelFunc()
+
+	p.updateTargets()
+
 	if p.mode == "server" {
 		p.runServerProbe(ctxTimeout, dataChan)
 		return

@@ -79,23 +79,14 @@ func (p *Probe) initPayloadMetrics() error {
 	return nil
 }
 
-func (p *Probe) payloadToMetrics(target, payload string) *metrics.EventMetrics {
-	var em *metrics.EventMetrics
-	if p.c.GetOutputMetricsOptions().GetAggregateInCloudprober() {
-		// If we are aggregating in Cloudprober, we maintain an EventMetrics
-		// struct per-target.
-		p.payloadMetricsMu.Lock()
-		em = p.payloadMetrics[target]
-		if em == nil {
-			em = p.defaultPayloadMetrics.Clone().AddLabel("dst", target)
-			p.payloadMetrics[target] = em
-		}
-		p.payloadMetricsMu.Unlock()
-	} else {
-		// Not aggregating in cloudprober. Don't look for existing metrics for the
-		// target.
+func (p *Probe) payloadToMetrics(target, payload string, result *result) *metrics.EventMetrics {
+	em := result.payloadMetrics
+	if em == nil {
+		// result will have a nil payloadMetrics only if we are not aggregating in
+		// cloudprober.
 		em = p.defaultPayloadMetrics.Clone().AddLabel("dst", target)
 	}
+
 	em.Timestamp = time.Now()
 
 	// Convert payload variables into metrics. Variables are specified in
