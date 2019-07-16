@@ -119,17 +119,18 @@ func runAndVerifyServerProbe(t *testing.T, p *Probe, action string, tgts []strin
 
 func runAndVerifyProbe(t *testing.T, p *Probe, dataChan chan *metrics.EventMetrics, tgts []string, total, success map[string]int64) chan *metrics.EventMetrics {
 	p.opts.Targets = targets.StaticTargets(strings.Join(tgts, ","))
+	p.updateTargets()
 
 	p.runProbe(context.Background(), dataChan)
-	for _, tgt := range p.opts.Targets.List() {
-		if p.total[tgt] != total[tgt] {
-			t.Errorf("p.total[%s]=%d, Want: %d", tgt, p.total[tgt], total[tgt])
+
+	for _, tgt := range p.targets {
+		if p.results[tgt].total != total[tgt] {
+			t.Errorf("p.total[%s]=%d, Want: %d", tgt, p.results[tgt].total, total[tgt])
 		}
-		if p.success[tgt] != success[tgt] {
-			t.Errorf("p.success[%s]=%d, Want: %d", tgt, p.success[tgt], success[tgt])
+		if p.results[tgt].success != success[tgt] {
+			t.Errorf("p.success[%s]=%d, Want: %d", tgt, p.results[tgt].success, success[tgt])
 		}
 	}
-
 	return dataChan
 }
 
@@ -288,11 +289,7 @@ func TestProbeOnceMode(t *testing.T) {
 
 	p := createTestProbe(testCmd)
 	p.mode = "once"
-	// TODO(manugarg): External probe in ONCE mode has a concurrency bug while
-	// running for multiple targets. Extend testing to multiple targets once
-	// that bug is fixed.
-	// https://github.com/google/cloudprober/issues/258
-	tgts := []string{"target1"}
+	tgts := []string{"target1", "target2"}
 
 	oldRunCommand := runCommand
 	defer func() { runCommand = oldRunCommand }()
@@ -326,9 +323,9 @@ func TestProbeOnceMode(t *testing.T) {
 	}
 	runAndVerifyProbe(t, p, dataChan, tgts, total, success)
 
-	// We get total 4 event metrics:
+	// Total numbder of event metrics:
 	// num_of_runs x num_targets x (1 for default metrics + 1 for payload metrics)
-	ems, err := testutils.MetricsFromChannel(dataChan, 4, time.Second)
+	ems, err := testutils.MetricsFromChannel(dataChan, 8, time.Second)
 	if err != nil {
 		t.Error(err)
 	}
@@ -528,25 +525,50 @@ func TestSendRequest(t *testing.T) {
 	}
 }
 
-func TestLatencyForTarget(t *testing.T) {
+func TestUpdateTargets(t *testing.T) {
 	p := &Probe{}
 	err := p.Init("testprobe", &options.Options{
 		ProbeConf: &configpb.ProbeConf{},
 		Targets:   targets.StaticTargets("2.2.2.2"),
 	})
 	if err != nil {
-		t.Fatalf("Got error from newProbe: %v", err)
+		t.Fatalf("Got error while initializing the probe: %v", err)
 	}
 
-	latVal := p.latencyForTarget("2.2.2.2")
+	p.updateTargets()
+	latVal := p.results["2.2.2.2"].latency
 	if _, ok := latVal.(*metrics.Float); !ok {
 		t.Errorf("latency value type is not metrics.Float: %v", latVal)
+	}
+	if p.results["2.2.2.2"].payloadMetrics != nil {
+		t.Error("payloadMetrics is not \"nil\" in the default result object even when aggregate_in_cloudprober is not set: %v", p.results["2.2.2.2"].payloadMetrics)
 	}
 
 	// Test with latency distribution option set.
 	p.opts.LatencyDist = metrics.NewDistribution([]float64{0.1, 0.2, 0.5})
-	latVal = p.latencyForTarget("3.3.3.3")
+	delete(p.results, "2.2.2.2")
+	p.updateTargets()
+	latVal = p.results["2.2.2.2"].latency
 	if _, ok := latVal.(*metrics.Distribution); !ok {
 		t.Errorf("latency value type is not metrics.Distribution: %v", latVal)
+	}
+
+	// Test with aggregate_in_cloudprober set
+	p = &Probe{}
+	err = p.Init("testprobe", &options.Options{
+		ProbeConf: &configpb.ProbeConf{
+			OutputMetricsOptions: &configpb.OutputMetricsOptions{
+				AggregateInCloudprober: proto.Bool(true),
+			},
+		},
+		Targets: targets.StaticTargets("2.2.2.2"),
+	})
+	if err != nil {
+		t.Fatalf("Got error while initializing the probe: %v", err)
+	}
+
+	p.updateTargets()
+	if p.results["2.2.2.2"].payloadMetrics == nil {
+		t.Error("payloadMetrics is \"nil\" in the default result object even when aggregate_in_cloudprober is set.")
 	}
 }
