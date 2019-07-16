@@ -541,7 +541,7 @@ func TestUpdateTargets(t *testing.T) {
 		t.Errorf("latency value type is not metrics.Float: %v", latVal)
 	}
 	if p.results["2.2.2.2"].payloadMetrics != nil {
-		t.Error("payloadMetrics is not \"nil\" in the default result object even when aggregate_in_cloudprober is not set: %v", p.results["2.2.2.2"].payloadMetrics)
+		t.Errorf("payloadMetrics is not \"nil\" in the default result object even when aggregate_in_cloudprober is not set: %v", p.results["2.2.2.2"].payloadMetrics)
 	}
 
 	// Test with latency distribution option set.
