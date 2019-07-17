@@ -19,7 +19,13 @@ message ServerConf {
   // List of providers that server supports.
   repeated Provider provider = 1;
 
-  // Listener address for RDS server.
+  // Listener address for RDS server. If this address is not provided we try
+  // to use the default gRPC server configured through the
+  // runtime.SetDefaultGRPCServer() call.
+  // TODO(manugarg): Deprecate this option. While running as part of
+  // cloudprober, only the top-level gRPC server should be configured. While
+  // running standalone, cmd/server.go should create a gRPC server and provide
+  // that to server.New() call.
   optional string addr = 2;
 }
 

@@ -31,11 +31,12 @@ import (
 )
 
 var (
-	rdsServer = flag.String("rds_server", "", "gRPC server address")
-	provider  = flag.String("provider", "gcp", "Resource provider")
-	resType   = flag.String("resource_type", "gce_instances", "Resource type")
-	project   = flag.String("project", "", "GCP project")
-	filtersF  = flag.String("filters", "", "Comma separated list of filters, e.g. name=ig-us-central1-a-.*")
+	rdsServer     = flag.String("rds_server", "", "gRPC server address")
+	rdsServerCert = flag.String("rds_server_cert", "", "gRPC server cert to use.")
+	provider      = flag.String("provider", "gcp", "Resource provider")
+	resType       = flag.String("resource_type", "gce_instances", "Resource type")
+	project       = flag.String("project", "", "GCP project")
+	filtersF      = flag.String("filters", "", "Comma separated list of filters, e.g. name=ig-us-central1-a-.*")
 )
 
 func main() {
@@ -45,7 +46,9 @@ func main() {
 		glog.Exit("--project is a required paramater")
 	}
 
-	c := &configpb.ClientConf{}
+	c := &configpb.ClientConf{
+		TlsCertFile: rdsServerCert,
+	}
 
 	if *rdsServer != "" {
 		c.ServerAddr = rdsServer

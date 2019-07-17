@@ -29,7 +29,7 @@ message ProberConfig {
   repeated servers.ServerDef server = 3;
 
   // Common services related options.
-  // Next tag: 103
+  // Next tag: 107
 
   // Resource discovery server
   optional targets.rds.ServerConf rds_server = 95;
@@ -40,9 +40,18 @@ message ProberConfig {
   // CLOUDPROBER_PORT.
   optional int32 port = 96;
 
-  // Port to run the default gRPC server on. If not specified, default gRPC
-  // server is not started.
+  // Port to run the default gRPC server on. If not specified, and if
+  // environment variable CLOUDPROBER_GRPC_PORT is set, CLOUDPROBER_GRPC_PORT is
+  // used for the default gRPC server. If CLOUDPROBER_GRPC_PORT is not set as
+  // well, default gRPC server is not started.
   optional int32 grpc_port = 104;
+
+  // If grpc_tls_cert_file and grpc_tls_key_file are given, default gRPC server
+  // uses the TLS certificate for authentication -- that is, client should
+  // provide the same TLS certificate to authenticate itself while making calls
+  // to the gRPC server.
+  optional string grpc_tls_cert_file = 105;
+  optional string grpc_tls_key_file = 106;
 
   // Host for the default HTTP server. Default listens on all addresses. If not
   // specified in the config, default port can be overridden by the environment
