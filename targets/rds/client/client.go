@@ -30,6 +30,7 @@ import (
 	pb "github.com/google/cloudprober/targets/rds/proto"
 	spb "github.com/google/cloudprober/targets/rds/proto"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 // Client represents an RDS based client instance.
@@ -114,7 +115,15 @@ func (client *Client) Resolve(name string, ipVer int) (net.IP, error) {
 // New creates an RDS (ResourceDiscovery service) client instance and set it up
 // for continuous refresh.
 func New(c *configpb.ClientConf, l *logger.Logger) (*Client, error) {
-	conn, err := grpc.Dial(c.GetServerAddr(), grpc.WithInsecure())
+	dialOpts := grpc.WithInsecure()
+	if c.GetTlsCertFile() != "" {
+		creds, err := credentials.NewClientTLSFromFile(c.GetTlsCertFile(), "")
+		if err != nil {
+			return nil, err
+		}
+		dialOpts = grpc.WithTransportCredentials(creds)
+	}
+	conn, err := grpc.Dial(c.GetServerAddr(), dialOpts)
 	if err != nil {
 		return nil, err
 	}

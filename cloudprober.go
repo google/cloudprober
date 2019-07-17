@@ -41,6 +41,7 @@ import (
 	"github.com/google/cloudprober/surfacers"
 	"github.com/google/cloudprober/sysvars"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 const (
@@ -153,7 +154,17 @@ func InitFromConfig(configFile string) error {
 
 		// Create the default gRPC server now, so that other modules can register
 		// their services with it in the prober.Init() phase.
-		runconfig.SetDefaultGRPCServer(grpc.NewServer())
+		var serverOpts []grpc.ServerOption
+
+		if cfg.GetGrpcTlsCertFile() != "" {
+			creds, err := credentials.NewServerTLSFromFile(cfg.GetGrpcTlsCertFile(), cfg.GetGrpcTlsKeyFile())
+			if err != nil {
+				return fmt.Errorf("error initializing gRPC server TLS credentials: %v", err)
+			}
+			serverOpts = append(serverOpts, grpc.Creds(creds))
+		}
+
+		runconfig.SetDefaultGRPCServer(grpc.NewServer(serverOpts...))
 	}
 
 	pr := &prober.Prober{}

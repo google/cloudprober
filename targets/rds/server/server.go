@@ -98,8 +98,9 @@ func (s *Server) Start(ctx context.Context, dataChan chan<- *metrics.EventMetric
 // New creates a new instance of the ResourceDiscovery Server using the
 // provided config and returns it. It also creates a net.Listener on the
 // configured port so that we can catch port conflict errors early.
-// TODO(manugarg): Eventually we may want to create one gRPC server per
-// cloudprober in the main cloudprober routine and attach services to it.
+// TODO(manugarg): Now that we have a global gRPC server, change New() to take
+// *grpc.Server as an argument and provide it at the time of RDS server
+// initialization.
 func New(initCtx context.Context, c *configpb.ServerConf, providers map[string]Provider, l *logger.Logger) (*Server, error) {
 	srv := &Server{
 		providers: make(map[string]Provider),
@@ -120,6 +121,7 @@ func New(initCtx context.Context, c *configpb.ServerConf, providers map[string]P
 	}
 
 	if c.GetAddr() != "" {
+		l.Warningf("Specifying \"addr\" field in RDS server config is deprecated now and will be removed after release v0.10.3. Use cloudprober config option \"grpc_port\" to configure the gRPC server.")
 		srv.grpcServer = grpc.NewServer()
 		if srv.ln, err = net.Listen("tcp", c.GetAddr()); err != nil {
 			return nil, err

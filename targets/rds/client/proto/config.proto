@@ -7,13 +7,18 @@
 // }
 syntax = "proto2";
 
-import "github.com/google/cloudprober/targets/rds/proto/rds.proto";
-
 package cloudprober.targets.rds;
 
+import "github.com/google/cloudprober/targets/rds/proto/rds.proto";
+
 // ClientConf represents resource discovery service (RDS) based targets.
+// Next tag: 5
 message ClientConf {
   optional string server_addr = 1 [default = "localhost:9314"];
+
+  // If tls_cert_file is provided, client uses the cert from that file to
+  // authenticate itself to the RDS server.
+  optional string tls_cert_file = 4;
 
   required ListResourcesRequest request = 2;
 
