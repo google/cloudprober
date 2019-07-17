@@ -22,7 +22,13 @@ const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 type ServerConf struct {
 	// List of providers that server supports.
 	Provider []*Provider `protobuf:"bytes,1,rep,name=provider" json:"provider,omitempty"`
-	// Listener address for RDS server.
+	// Listener address for RDS server. If this address is not provided we try
+	// to use the default gRPC server configured through the
+	// runtime.SetDefaultGRPCServer() call.
+	// TODO(manugarg): Deprecate this option. While running as part of
+	// cloudprober, only the top-level gRPC server should be configured. While
+	// running standalone, cmd/server.go should create a gRPC server and provide
+	// that to server.New() call.
 	Addr                 *string  `protobuf:"bytes,2,opt,name=addr" json:"addr,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -33,7 +39,7 @@ func (m *ServerConf) Reset()         { *m = ServerConf{} }
 func (m *ServerConf) String() string { return proto.CompactTextString(m) }
 func (*ServerConf) ProtoMessage()    {}
 func (*ServerConf) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_b00b2af252f0bfde, []int{0}
+	return fileDescriptor_config_659de17abda0befa, []int{0}
 }
 func (m *ServerConf) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ServerConf.Unmarshal(m, b)
@@ -83,7 +89,7 @@ func (m *Provider) Reset()         { *m = Provider{} }
 func (m *Provider) String() string { return proto.CompactTextString(m) }
 func (*Provider) ProtoMessage()    {}
 func (*Provider) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_b00b2af252f0bfde, []int{1}
+	return fileDescriptor_config_659de17abda0befa, []int{1}
 }
 func (m *Provider) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Provider.Unmarshal(m, b)
@@ -195,10 +201,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("github.com/google/cloudprober/targets/rds/server/proto/config.proto", fileDescriptor_config_b00b2af252f0bfde)
+	proto.RegisterFile("github.com/google/cloudprober/targets/rds/server/proto/config.proto", fileDescriptor_config_659de17abda0befa)
 }
 
-var fileDescriptor_config_b00b2af252f0bfde = []byte{
+var fileDescriptor_config_659de17abda0befa = []byte{
 	// 224 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x8e, 0x31, 0x4b, 0x03, 0x41,
 	0x10, 0x85, 0xbd, 0x53, 0xe4, 0x6e, 0x02, 0x16, 0xdb, 0x78, 0x58, 0x9d, 0xa9, 0x0e, 0x84, 0x5d,
