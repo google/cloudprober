@@ -158,10 +158,6 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	p.c = c
 	p.echoMode = p.c.GetType() == configpb.ProbeConf_ECHO
 
-	if p.c != nil && p.c.StatsExportIntervalMsec != nil {
-		p.l.Warning("stats_export_interval_msec field is now deprecated and doesn't do anything. To modify stats export interval, use the probe level field by the same name.")
-	}
-
 	p.fsm = message.NewFlowStateMap()
 
 	udpAddr := &net.UDPAddr{Port: int(p.c.GetPort())}
@@ -367,7 +363,7 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 		return p.targets
 	}
 
-	go probeutils.StatsKeeper(ctx, "udp", p.name, time.Duration(p.c.GetStatsExportIntervalMsec())*time.Millisecond, targetsFunc, resultsChan, dataChan, p.opts.LogMetrics, p.l)
+	go probeutils.StatsKeeper(ctx, "udp", p.name, p.opts.StatsExportInterval, targetsFunc, resultsChan, dataChan, p.opts.LogMetrics, p.l)
 
 	// probeLoop runs forever and returns only when the probe has to exit.
 	// So, it is safe to cleanup (in the "Start" function) once probeLoop returns.

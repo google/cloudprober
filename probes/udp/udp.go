@@ -146,10 +146,6 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		p.flushIntv = 2 * p.opts.Timeout
 	}
 
-	if p.c != nil && p.c.StatsExportIntervalMsec != nil {
-		p.l.Warning("stats_export_interval_msec field is now deprecated and doesn't do anything. To modify stats export interval, use the probe level field by the same name.")
-	}
-
 	if p.opts.StatsExportInterval < p.flushIntv {
 		return fmt.Errorf("UDP probe: stats_export_interval_msec (%d ms) is too low. It should be at least twice of the interval (%s) and timeout (%s), whichever is bigger", p.opts.StatsExportInterval, p.opts.Interval, p.opts.Timeout)
 	}

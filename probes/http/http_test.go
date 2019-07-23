@@ -104,7 +104,7 @@ func TestRun(t *testing.T) {
 	}{
 		{&configpb.ProbeConf{}, "total: 1, success: 1"},
 		{&configpb.ProbeConf{Protocol: configpb.ProbeConf_HTTPS.Enum()}, "total: 1, success: 1"},
-		{&configpb.ProbeConf{RequestsPerProbe: proto.Int32(1), StatsExportIntervalMsec: proto.Int32(1000)}, "total: 1, success: 1"},
+		{&configpb.ProbeConf{RequestsPerProbe: proto.Int32(1)}, "total: 1, success: 1"},
 		{&configpb.ProbeConf{Method: &methods[0]}, "total: 1, success: 1"},
 		{&configpb.ProbeConf{Method: &methods[1]}, "total: 1, success: 1"},
 		{&configpb.ProbeConf{Method: &methods[1], Body: &testBody}, "total: 1, success: 1"},

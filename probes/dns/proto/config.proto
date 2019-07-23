@@ -50,17 +50,6 @@ message ProbeConf {
   // Domain to use when making DNS queries
   optional string resolved_domain = 1 [default = "www.google.com."];
 
-  // Export stats after these many milliseconds
-  // NOTE: Setting stats export interval using this field doesn't work anymore.
-  // This field will be removed after the release v0.10.3. To set
-  // stats_export_interval, please modify the outer probe configuration.
-  // Example: probe {
-  //   type: DNS
-  //   stats_export_interval_msec: 10000
-  //   dns_probe {}
-  // }
-  optional int32 stats_export_interval_msec = 2 [default = 10000];
-
   // DNS Query Type
   optional QueryType query_type = 3 [default = MX];
 
