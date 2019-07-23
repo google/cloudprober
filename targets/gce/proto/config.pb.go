@@ -3,9 +3,11 @@
 
 package proto
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
+import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -16,7 +18,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 type Instances_NetworkInterface_IPType int32
 
@@ -35,6 +37,7 @@ var Instances_NetworkInterface_IPType_name = map[int32]string{
 	1: "PUBLIC",
 	2: "ALIAS",
 }
+
 var Instances_NetworkInterface_IPType_value = map[string]int32{
 	"PRIVATE": 0,
 	"PUBLIC":  1,
@@ -46,9 +49,11 @@ func (x Instances_NetworkInterface_IPType) Enum() *Instances_NetworkInterface_IP
 	*p = x
 	return p
 }
+
 func (x Instances_NetworkInterface_IPType) String() string {
 	return proto.EnumName(Instances_NetworkInterface_IPType_name, int32(x))
 }
+
 func (x *Instances_NetworkInterface_IPType) UnmarshalJSON(data []byte) error {
 	value, err := proto.UnmarshalJSONEnum(Instances_NetworkInterface_IPType_value, data, "Instances_NetworkInterface_IPType")
 	if err != nil {
@@ -57,8 +62,9 @@ func (x *Instances_NetworkInterface_IPType) UnmarshalJSON(data []byte) error {
 	*x = Instances_NetworkInterface_IPType(value)
 	return nil
 }
+
 func (Instances_NetworkInterface_IPType) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_config_5c091c05df188230, []int{1, 0, 0}
+	return fileDescriptor_14230fbadea14e0f, []int{1, 0, 0}
 }
 
 // TargetsConf represents GCE targets, e.g. instances, forwarding rules etc.
@@ -80,16 +86,17 @@ func (m *TargetsConf) Reset()         { *m = TargetsConf{} }
 func (m *TargetsConf) String() string { return proto.CompactTextString(m) }
 func (*TargetsConf) ProtoMessage()    {}
 func (*TargetsConf) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_5c091c05df188230, []int{0}
+	return fileDescriptor_14230fbadea14e0f, []int{0}
 }
+
 func (m *TargetsConf) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_TargetsConf.Unmarshal(m, b)
 }
 func (m *TargetsConf) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_TargetsConf.Marshal(b, m, deterministic)
 }
-func (dst *TargetsConf) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_TargetsConf.Merge(dst, src)
+func (m *TargetsConf) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_TargetsConf.Merge(m, src)
 }
 func (m *TargetsConf) XXX_Size() int {
 	return xxx_messageInfo_TargetsConf.Size(m)
@@ -144,78 +151,12 @@ func (m *TargetsConf) GetForwardingRules() *ForwardingRules {
 	return nil
 }
 
-// XXX_OneofFuncs is for the internal use of the proto package.
-func (*TargetsConf) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
-	return _TargetsConf_OneofMarshaler, _TargetsConf_OneofUnmarshaler, _TargetsConf_OneofSizer, []interface{}{
+// XXX_OneofWrappers is for the internal use of the proto package.
+func (*TargetsConf) XXX_OneofWrappers() []interface{} {
+	return []interface{}{
 		(*TargetsConf_Instances)(nil),
 		(*TargetsConf_ForwardingRules)(nil),
 	}
-}
-
-func _TargetsConf_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
-	m := msg.(*TargetsConf)
-	// type
-	switch x := m.Type.(type) {
-	case *TargetsConf_Instances:
-		b.EncodeVarint(2<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.Instances); err != nil {
-			return err
-		}
-	case *TargetsConf_ForwardingRules:
-		b.EncodeVarint(3<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.ForwardingRules); err != nil {
-			return err
-		}
-	case nil:
-	default:
-		return fmt.Errorf("TargetsConf.Type has unexpected type %T", x)
-	}
-	return nil
-}
-
-func _TargetsConf_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
-	m := msg.(*TargetsConf)
-	switch tag {
-	case 2: // type.instances
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(Instances)
-		err := b.DecodeMessage(msg)
-		m.Type = &TargetsConf_Instances{msg}
-		return true, err
-	case 3: // type.forwarding_rules
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(ForwardingRules)
-		err := b.DecodeMessage(msg)
-		m.Type = &TargetsConf_ForwardingRules{msg}
-		return true, err
-	default:
-		return false, nil
-	}
-}
-
-func _TargetsConf_OneofSizer(msg proto.Message) (n int) {
-	m := msg.(*TargetsConf)
-	// type
-	switch x := m.Type.(type) {
-	case *TargetsConf_Instances:
-		s := proto.Size(x.Instances)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *TargetsConf_ForwardingRules:
-		s := proto.Size(x.ForwardingRules)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case nil:
-	default:
-		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
-	}
-	return n
 }
 
 // Represents GCE instances
@@ -234,16 +175,17 @@ func (m *Instances) Reset()         { *m = Instances{} }
 func (m *Instances) String() string { return proto.CompactTextString(m) }
 func (*Instances) ProtoMessage()    {}
 func (*Instances) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_5c091c05df188230, []int{1}
+	return fileDescriptor_14230fbadea14e0f, []int{1}
 }
+
 func (m *Instances) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Instances.Unmarshal(m, b)
 }
 func (m *Instances) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Instances.Marshal(b, m, deterministic)
 }
-func (dst *Instances) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Instances.Merge(dst, src)
+func (m *Instances) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Instances.Merge(m, src)
 }
 func (m *Instances) XXX_Size() int {
 	return xxx_messageInfo_Instances.Size(m)
@@ -283,16 +225,17 @@ func (m *Instances_NetworkInterface) Reset()         { *m = Instances_NetworkInt
 func (m *Instances_NetworkInterface) String() string { return proto.CompactTextString(m) }
 func (*Instances_NetworkInterface) ProtoMessage()    {}
 func (*Instances_NetworkInterface) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_5c091c05df188230, []int{1, 0}
+	return fileDescriptor_14230fbadea14e0f, []int{1, 0}
 }
+
 func (m *Instances_NetworkInterface) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Instances_NetworkInterface.Unmarshal(m, b)
 }
 func (m *Instances_NetworkInterface) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Instances_NetworkInterface.Marshal(b, m, deterministic)
 }
-func (dst *Instances_NetworkInterface) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Instances_NetworkInterface.Merge(dst, src)
+func (m *Instances_NetworkInterface) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Instances_NetworkInterface.Merge(m, src)
 }
 func (m *Instances_NetworkInterface) XXX_Size() int {
 	return xxx_messageInfo_Instances_NetworkInterface.Size(m)
@@ -340,16 +283,17 @@ func (m *ForwardingRules) Reset()         { *m = ForwardingRules{} }
 func (m *ForwardingRules) String() string { return proto.CompactTextString(m) }
 func (*ForwardingRules) ProtoMessage()    {}
 func (*ForwardingRules) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_5c091c05df188230, []int{2}
+	return fileDescriptor_14230fbadea14e0f, []int{2}
 }
+
 func (m *ForwardingRules) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ForwardingRules.Unmarshal(m, b)
 }
 func (m *ForwardingRules) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ForwardingRules.Marshal(b, m, deterministic)
 }
-func (dst *ForwardingRules) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ForwardingRules.Merge(dst, src)
+func (m *ForwardingRules) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ForwardingRules.Merge(m, src)
 }
 func (m *ForwardingRules) XXX_Size() int {
 	return xxx_messageInfo_ForwardingRules.Size(m)
@@ -383,16 +327,17 @@ func (m *GlobalOptions) Reset()         { *m = GlobalOptions{} }
 func (m *GlobalOptions) String() string { return proto.CompactTextString(m) }
 func (*GlobalOptions) ProtoMessage()    {}
 func (*GlobalOptions) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_5c091c05df188230, []int{3}
+	return fileDescriptor_14230fbadea14e0f, []int{3}
 }
+
 func (m *GlobalOptions) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GlobalOptions.Unmarshal(m, b)
 }
 func (m *GlobalOptions) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_GlobalOptions.Marshal(b, m, deterministic)
 }
-func (dst *GlobalOptions) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GlobalOptions.Merge(dst, src)
+func (m *GlobalOptions) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GlobalOptions.Merge(m, src)
 }
 func (m *GlobalOptions) XXX_Size() int {
 	return xxx_messageInfo_GlobalOptions.Size(m)
@@ -421,19 +366,19 @@ func (m *GlobalOptions) GetApiVersion() string {
 }
 
 func init() {
+	proto.RegisterEnum("cloudprober.targets.gce.Instances_NetworkInterface_IPType", Instances_NetworkInterface_IPType_name, Instances_NetworkInterface_IPType_value)
 	proto.RegisterType((*TargetsConf)(nil), "cloudprober.targets.gce.TargetsConf")
 	proto.RegisterType((*Instances)(nil), "cloudprober.targets.gce.Instances")
 	proto.RegisterType((*Instances_NetworkInterface)(nil), "cloudprober.targets.gce.Instances.NetworkInterface")
 	proto.RegisterType((*ForwardingRules)(nil), "cloudprober.targets.gce.ForwardingRules")
 	proto.RegisterType((*GlobalOptions)(nil), "cloudprober.targets.gce.GlobalOptions")
-	proto.RegisterEnum("cloudprober.targets.gce.Instances_NetworkInterface_IPType", Instances_NetworkInterface_IPType_name, Instances_NetworkInterface_IPType_value)
 }
 
 func init() {
-	proto.RegisterFile("github.com/google/cloudprober/targets/gce/proto/config.proto", fileDescriptor_config_5c091c05df188230)
+	proto.RegisterFile("github.com/google/cloudprober/targets/gce/proto/config.proto", fileDescriptor_14230fbadea14e0f)
 }
 
-var fileDescriptor_config_5c091c05df188230 = []byte{
+var fileDescriptor_14230fbadea14e0f = []byte{
 	// 456 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x52, 0x51, 0x8f, 0xd2, 0x40,
 	0x18, 0xa4, 0x20, 0x60, 0x3f, 0xa2, 0xd4, 0x7d, 0xf0, 0x88, 0x4f, 0xa4, 0xbe, 0x60, 0x62, 0x5a,

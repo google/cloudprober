@@ -3,9 +3,11 @@
 
 package proto
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
+import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -16,7 +18,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 // Dist defines a Distribution data type.
 type Dist struct {
@@ -33,16 +35,17 @@ func (m *Dist) Reset()         { *m = Dist{} }
 func (m *Dist) String() string { return proto.CompactTextString(m) }
 func (*Dist) ProtoMessage()    {}
 func (*Dist) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dist_4ea0c9d5cb515dca, []int{0}
+	return fileDescriptor_4fce5835355ca2b5, []int{0}
 }
+
 func (m *Dist) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Dist.Unmarshal(m, b)
 }
 func (m *Dist) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Dist.Marshal(b, m, deterministic)
 }
-func (dst *Dist) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Dist.Merge(dst, src)
+func (m *Dist) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Dist.Merge(m, src)
 }
 func (m *Dist) XXX_Size() int {
 	return xxx_messageInfo_Dist.Size(m)
@@ -90,74 +93,12 @@ func (m *Dist) GetExponentialBuckets() *ExponentialBuckets {
 	return nil
 }
 
-// XXX_OneofFuncs is for the internal use of the proto package.
-func (*Dist) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
-	return _Dist_OneofMarshaler, _Dist_OneofUnmarshaler, _Dist_OneofSizer, []interface{}{
+// XXX_OneofWrappers is for the internal use of the proto package.
+func (*Dist) XXX_OneofWrappers() []interface{} {
+	return []interface{}{
 		(*Dist_ExplicitBuckets)(nil),
 		(*Dist_ExponentialBuckets)(nil),
 	}
-}
-
-func _Dist_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
-	m := msg.(*Dist)
-	// buckets
-	switch x := m.Buckets.(type) {
-	case *Dist_ExplicitBuckets:
-		b.EncodeVarint(1<<3 | proto.WireBytes)
-		b.EncodeStringBytes(x.ExplicitBuckets)
-	case *Dist_ExponentialBuckets:
-		b.EncodeVarint(2<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.ExponentialBuckets); err != nil {
-			return err
-		}
-	case nil:
-	default:
-		return fmt.Errorf("Dist.Buckets has unexpected type %T", x)
-	}
-	return nil
-}
-
-func _Dist_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
-	m := msg.(*Dist)
-	switch tag {
-	case 1: // buckets.explicit_buckets
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		x, err := b.DecodeStringBytes()
-		m.Buckets = &Dist_ExplicitBuckets{x}
-		return true, err
-	case 2: // buckets.exponential_buckets
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(ExponentialBuckets)
-		err := b.DecodeMessage(msg)
-		m.Buckets = &Dist_ExponentialBuckets{msg}
-		return true, err
-	default:
-		return false, nil
-	}
-}
-
-func _Dist_OneofSizer(msg proto.Message) (n int) {
-	m := msg.(*Dist)
-	// buckets
-	switch x := m.Buckets.(type) {
-	case *Dist_ExplicitBuckets:
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(len(x.ExplicitBuckets)))
-		n += len(x.ExplicitBuckets)
-	case *Dist_ExponentialBuckets:
-		s := proto.Size(x.ExponentialBuckets)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case nil:
-	default:
-		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
-	}
-	return n
 }
 
 // ExponentialBucket defines a set of num_buckets+2 buckets:
@@ -182,16 +123,17 @@ func (m *ExponentialBuckets) Reset()         { *m = ExponentialBuckets{} }
 func (m *ExponentialBuckets) String() string { return proto.CompactTextString(m) }
 func (*ExponentialBuckets) ProtoMessage()    {}
 func (*ExponentialBuckets) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dist_4ea0c9d5cb515dca, []int{1}
+	return fileDescriptor_4fce5835355ca2b5, []int{1}
 }
+
 func (m *ExponentialBuckets) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ExponentialBuckets.Unmarshal(m, b)
 }
 func (m *ExponentialBuckets) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ExponentialBuckets.Marshal(b, m, deterministic)
 }
-func (dst *ExponentialBuckets) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ExponentialBuckets.Merge(dst, src)
+func (m *ExponentialBuckets) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ExponentialBuckets.Merge(m, src)
 }
 func (m *ExponentialBuckets) XXX_Size() int {
 	return xxx_messageInfo_ExponentialBuckets.Size(m)
@@ -233,10 +175,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("github.com/google/cloudprober/metrics/proto/dist.proto", fileDescriptor_dist_4ea0c9d5cb515dca)
+	proto.RegisterFile("github.com/google/cloudprober/metrics/proto/dist.proto", fileDescriptor_4fce5835355ca2b5)
 }
 
-var fileDescriptor_dist_4ea0c9d5cb515dca = []byte{
+var fileDescriptor_4fce5835355ca2b5 = []byte{
 	// 245 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x6c, 0x8e, 0xc1, 0x4b, 0xc3, 0x30,
 	0x18, 0xc5, 0x97, 0x3a, 0x90, 0x7d, 0x53, 0x94, 0x0c, 0xc1, 0x63, 0x99, 0x82, 0x05, 0x21, 0xd1,

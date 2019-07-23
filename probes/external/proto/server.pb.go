@@ -3,9 +3,11 @@
 
 package proto
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
+import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -16,7 +18,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 // ProbeRequest is the message that cloudprober sends to the external probe
 // server.
@@ -39,16 +41,17 @@ func (m *ProbeRequest) Reset()         { *m = ProbeRequest{} }
 func (m *ProbeRequest) String() string { return proto.CompactTextString(m) }
 func (*ProbeRequest) ProtoMessage()    {}
 func (*ProbeRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_server_5881812bd539f9a5, []int{0}
+	return fileDescriptor_2a01d47071a646f9, []int{0}
 }
+
 func (m *ProbeRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ProbeRequest.Unmarshal(m, b)
 }
 func (m *ProbeRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ProbeRequest.Marshal(b, m, deterministic)
 }
-func (dst *ProbeRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ProbeRequest.Merge(dst, src)
+func (m *ProbeRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ProbeRequest.Merge(m, src)
 }
 func (m *ProbeRequest) XXX_Size() int {
 	return xxx_messageInfo_ProbeRequest.Size(m)
@@ -92,16 +95,17 @@ func (m *ProbeRequest_Option) Reset()         { *m = ProbeRequest_Option{} }
 func (m *ProbeRequest_Option) String() string { return proto.CompactTextString(m) }
 func (*ProbeRequest_Option) ProtoMessage()    {}
 func (*ProbeRequest_Option) Descriptor() ([]byte, []int) {
-	return fileDescriptor_server_5881812bd539f9a5, []int{0, 0}
+	return fileDescriptor_2a01d47071a646f9, []int{0, 0}
 }
+
 func (m *ProbeRequest_Option) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ProbeRequest_Option.Unmarshal(m, b)
 }
 func (m *ProbeRequest_Option) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ProbeRequest_Option.Marshal(b, m, deterministic)
 }
-func (dst *ProbeRequest_Option) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ProbeRequest_Option.Merge(dst, src)
+func (m *ProbeRequest_Option) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ProbeRequest_Option.Merge(m, src)
 }
 func (m *ProbeRequest_Option) XXX_Size() int {
 	return xxx_messageInfo_ProbeRequest_Option.Size(m)
@@ -149,16 +153,17 @@ func (m *ProbeReply) Reset()         { *m = ProbeReply{} }
 func (m *ProbeReply) String() string { return proto.CompactTextString(m) }
 func (*ProbeReply) ProtoMessage()    {}
 func (*ProbeReply) Descriptor() ([]byte, []int) {
-	return fileDescriptor_server_5881812bd539f9a5, []int{1}
+	return fileDescriptor_2a01d47071a646f9, []int{1}
 }
+
 func (m *ProbeReply) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ProbeReply.Unmarshal(m, b)
 }
 func (m *ProbeReply) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ProbeReply.Marshal(b, m, deterministic)
 }
-func (dst *ProbeReply) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ProbeReply.Merge(dst, src)
+func (m *ProbeReply) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ProbeReply.Merge(m, src)
 }
 func (m *ProbeReply) XXX_Size() int {
 	return xxx_messageInfo_ProbeReply.Size(m)
@@ -197,10 +202,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("github.com/google/cloudprober/probes/external/proto/server.proto", fileDescriptor_server_5881812bd539f9a5)
+	proto.RegisterFile("github.com/google/cloudprober/probes/external/proto/server.proto", fileDescriptor_2a01d47071a646f9)
 }
 
-var fileDescriptor_server_5881812bd539f9a5 = []byte{
+var fileDescriptor_2a01d47071a646f9 = []byte{
 	// 252 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x84, 0x8e, 0x31, 0x6b, 0xc3, 0x30,
 	0x10, 0x85, 0x71, 0xdc, 0x34, 0xf8, 0x92, 0x2e, 0xa2, 0x83, 0x29, 0x14, 0x4c, 0xba, 0x78, 0xb2,

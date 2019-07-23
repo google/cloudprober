@@ -3,9 +3,11 @@
 
 package proto
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
+import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -16,7 +18,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 type RtcReportOptions struct {
 	// RTC configs which cloudprober should report itself to.
@@ -40,16 +42,17 @@ func (m *RtcReportOptions) Reset()         { *m = RtcReportOptions{} }
 func (m *RtcReportOptions) String() string { return proto.CompactTextString(m) }
 func (*RtcReportOptions) ProtoMessage()    {}
 func (*RtcReportOptions) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rtcreporter_896c0fe1faa196e8, []int{0}
+	return fileDescriptor_48d94276d3250c04, []int{0}
 }
+
 func (m *RtcReportOptions) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RtcReportOptions.Unmarshal(m, b)
 }
 func (m *RtcReportOptions) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_RtcReportOptions.Marshal(b, m, deterministic)
 }
-func (dst *RtcReportOptions) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RtcReportOptions.Merge(dst, src)
+func (m *RtcReportOptions) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RtcReportOptions.Merge(m, src)
 }
 func (m *RtcReportOptions) XXX_Size() int {
 	return xxx_messageInfo_RtcReportOptions.Size(m)
@@ -114,16 +117,17 @@ func (m *RtcTargetInfo) Reset()         { *m = RtcTargetInfo{} }
 func (m *RtcTargetInfo) String() string { return proto.CompactTextString(m) }
 func (*RtcTargetInfo) ProtoMessage()    {}
 func (*RtcTargetInfo) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rtcreporter_896c0fe1faa196e8, []int{1}
+	return fileDescriptor_48d94276d3250c04, []int{1}
 }
+
 func (m *RtcTargetInfo) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RtcTargetInfo.Unmarshal(m, b)
 }
 func (m *RtcTargetInfo) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_RtcTargetInfo.Marshal(b, m, deterministic)
 }
-func (dst *RtcTargetInfo) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RtcTargetInfo.Merge(dst, src)
+func (m *RtcTargetInfo) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RtcTargetInfo.Merge(m, src)
 }
 func (m *RtcTargetInfo) XXX_Size() int {
 	return xxx_messageInfo_RtcTargetInfo.Size(m)
@@ -171,16 +175,17 @@ func (m *RtcTargetInfo_Address) Reset()         { *m = RtcTargetInfo_Address{} }
 func (m *RtcTargetInfo_Address) String() string { return proto.CompactTextString(m) }
 func (*RtcTargetInfo_Address) ProtoMessage()    {}
 func (*RtcTargetInfo_Address) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rtcreporter_896c0fe1faa196e8, []int{1, 0}
+	return fileDescriptor_48d94276d3250c04, []int{1, 0}
 }
+
 func (m *RtcTargetInfo_Address) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RtcTargetInfo_Address.Unmarshal(m, b)
 }
 func (m *RtcTargetInfo_Address) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_RtcTargetInfo_Address.Marshal(b, m, deterministic)
 }
-func (dst *RtcTargetInfo_Address) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RtcTargetInfo_Address.Merge(dst, src)
+func (m *RtcTargetInfo_Address) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RtcTargetInfo_Address.Merge(m, src)
 }
 func (m *RtcTargetInfo_Address) XXX_Size() int {
 	return xxx_messageInfo_RtcTargetInfo_Address.Size(m)
@@ -212,10 +217,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("github.com/google/cloudprober/targets/rtc/rtcreporter/proto/rtcreporter.proto", fileDescriptor_rtcreporter_896c0fe1faa196e8)
+	proto.RegisterFile("github.com/google/cloudprober/targets/rtc/rtcreporter/proto/rtcreporter.proto", fileDescriptor_48d94276d3250c04)
 }
 
-var fileDescriptor_rtcreporter_896c0fe1faa196e8 = []byte{
+var fileDescriptor_48d94276d3250c04 = []byte{
 	// 294 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x84, 0x50, 0xcd, 0x4a, 0x03, 0x31,
 	0x10, 0x66, 0xfb, 0x63, 0xd9, 0x68, 0xa1, 0xe4, 0x20, 0x41, 0x04, 0x4b, 0xbd, 0x14, 0x0f, 0xd9,

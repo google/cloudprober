@@ -3,9 +3,11 @@
 
 package proto
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
+import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -16,7 +18,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 // tls_cert_file and tls_key_file field should be set for HTTPS.
 type ServerConf_ProtocolType int32
@@ -30,6 +32,7 @@ var ServerConf_ProtocolType_name = map[int32]string{
 	0: "HTTP",
 	1: "HTTPS",
 }
+
 var ServerConf_ProtocolType_value = map[string]int32{
 	"HTTP":  0,
 	"HTTPS": 1,
@@ -40,9 +43,11 @@ func (x ServerConf_ProtocolType) Enum() *ServerConf_ProtocolType {
 	*p = x
 	return p
 }
+
 func (x ServerConf_ProtocolType) String() string {
 	return proto.EnumName(ServerConf_ProtocolType_name, int32(x))
 }
+
 func (x *ServerConf_ProtocolType) UnmarshalJSON(data []byte) error {
 	value, err := proto.UnmarshalJSONEnum(ServerConf_ProtocolType_value, data, "ServerConf_ProtocolType")
 	if err != nil {
@@ -51,8 +56,9 @@ func (x *ServerConf_ProtocolType) UnmarshalJSON(data []byte) error {
 	*x = ServerConf_ProtocolType(value)
 	return nil
 }
+
 func (ServerConf_ProtocolType) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_config_2ca4621212345ce9, []int{0, 0}
+	return fileDescriptor_8ec3a7d747582598, []int{0, 0}
 }
 
 // Next available tag = 10
@@ -84,16 +90,17 @@ func (m *ServerConf) Reset()         { *m = ServerConf{} }
 func (m *ServerConf) String() string { return proto.CompactTextString(m) }
 func (*ServerConf) ProtoMessage()    {}
 func (*ServerConf) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_2ca4621212345ce9, []int{0}
+	return fileDescriptor_8ec3a7d747582598, []int{0}
 }
+
 func (m *ServerConf) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ServerConf.Unmarshal(m, b)
 }
 func (m *ServerConf) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ServerConf.Marshal(b, m, deterministic)
 }
-func (dst *ServerConf) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ServerConf.Merge(dst, src)
+func (m *ServerConf) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ServerConf.Merge(m, src)
 }
 func (m *ServerConf) XXX_Size() int {
 	return xxx_messageInfo_ServerConf.Size(m)
@@ -188,16 +195,17 @@ func (m *ServerConf_PatternDataHandler) Reset()         { *m = ServerConf_Patter
 func (m *ServerConf_PatternDataHandler) String() string { return proto.CompactTextString(m) }
 func (*ServerConf_PatternDataHandler) ProtoMessage()    {}
 func (*ServerConf_PatternDataHandler) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_2ca4621212345ce9, []int{0, 0}
+	return fileDescriptor_8ec3a7d747582598, []int{0, 0}
 }
+
 func (m *ServerConf_PatternDataHandler) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ServerConf_PatternDataHandler.Unmarshal(m, b)
 }
 func (m *ServerConf_PatternDataHandler) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ServerConf_PatternDataHandler.Marshal(b, m, deterministic)
 }
-func (dst *ServerConf_PatternDataHandler) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ServerConf_PatternDataHandler.Merge(dst, src)
+func (m *ServerConf_PatternDataHandler) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ServerConf_PatternDataHandler.Merge(m, src)
 }
 func (m *ServerConf_PatternDataHandler) XXX_Size() int {
 	return xxx_messageInfo_ServerConf_PatternDataHandler.Size(m)
@@ -225,16 +233,16 @@ func (m *ServerConf_PatternDataHandler) GetPattern() string {
 }
 
 func init() {
+	proto.RegisterEnum("cloudprober.servers.http.ServerConf_ProtocolType", ServerConf_ProtocolType_name, ServerConf_ProtocolType_value)
 	proto.RegisterType((*ServerConf)(nil), "cloudprober.servers.http.ServerConf")
 	proto.RegisterType((*ServerConf_PatternDataHandler)(nil), "cloudprober.servers.http.ServerConf.PatternDataHandler")
-	proto.RegisterEnum("cloudprober.servers.http.ServerConf_ProtocolType", ServerConf_ProtocolType_name, ServerConf_ProtocolType_value)
 }
 
 func init() {
-	proto.RegisterFile("github.com/google/cloudprober/servers/http/proto/config.proto", fileDescriptor_config_2ca4621212345ce9)
+	proto.RegisterFile("github.com/google/cloudprober/servers/http/proto/config.proto", fileDescriptor_8ec3a7d747582598)
 }
 
-var fileDescriptor_config_2ca4621212345ce9 = []byte{
+var fileDescriptor_8ec3a7d747582598 = []byte{
 	// 414 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x91, 0x41, 0x8b, 0xd3, 0x40,
 	0x14, 0xc7, 0xcd, 0x6e, 0xe2, 0xb6, 0xaf, 0xed, 0x6e, 0x19, 0x3c, 0x0c, 0x9e, 0x42, 0x17, 0x21,

@@ -3,9 +3,11 @@
 
 package proto
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
+import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -16,7 +18,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 type Validator struct {
 	// Comma-separated list of success status codes and code ranges.
@@ -35,16 +37,17 @@ func (m *Validator) Reset()         { *m = Validator{} }
 func (m *Validator) String() string { return proto.CompactTextString(m) }
 func (*Validator) ProtoMessage()    {}
 func (*Validator) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_2a8643270315a49d, []int{0}
+	return fileDescriptor_0e97305dfad91cfc, []int{0}
 }
+
 func (m *Validator) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Validator.Unmarshal(m, b)
 }
 func (m *Validator) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Validator.Marshal(b, m, deterministic)
 }
-func (dst *Validator) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Validator.Merge(dst, src)
+func (m *Validator) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Validator.Merge(m, src)
 }
 func (m *Validator) XXX_Size() int {
 	return xxx_messageInfo_Validator.Size(m)
@@ -74,10 +77,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("github.com/google/cloudprober/validators/http/proto/config.proto", fileDescriptor_config_2a8643270315a49d)
+	proto.RegisterFile("github.com/google/cloudprober/validators/http/proto/config.proto", fileDescriptor_0e97305dfad91cfc)
 }
 
-var fileDescriptor_config_2a8643270315a49d = []byte{
+var fileDescriptor_0e97305dfad91cfc = []byte{
 	// 158 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x54, 0x8b, 0xc1, 0xaa, 0xc2, 0x30,
 	0x10, 0x45, 0xe9, 0xdb, 0xb5, 0xcb, 0xf0, 0x16, 0x82, 0x1b, 0x71, 0xe5, 0x2a, 0xe3, 0x27, 0x08,

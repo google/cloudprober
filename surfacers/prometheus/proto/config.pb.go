@@ -3,9 +3,11 @@
 
 package proto
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
+import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -16,7 +18,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 type SurfacerConf struct {
 	// How many metrics entries (EventMetrics) to buffer. Incoming metrics
@@ -46,16 +48,17 @@ func (m *SurfacerConf) Reset()         { *m = SurfacerConf{} }
 func (m *SurfacerConf) String() string { return proto.CompactTextString(m) }
 func (*SurfacerConf) ProtoMessage()    {}
 func (*SurfacerConf) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_90169bb62b1e6623, []int{0}
+	return fileDescriptor_c23443a82a936d49, []int{0}
 }
+
 func (m *SurfacerConf) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SurfacerConf.Unmarshal(m, b)
 }
 func (m *SurfacerConf) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_SurfacerConf.Marshal(b, m, deterministic)
 }
-func (dst *SurfacerConf) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_SurfacerConf.Merge(dst, src)
+func (m *SurfacerConf) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SurfacerConf.Merge(m, src)
 }
 func (m *SurfacerConf) XXX_Size() int {
 	return xxx_messageInfo_SurfacerConf.Size(m)
@@ -103,10 +106,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("github.com/google/cloudprober/surfacers/prometheus/proto/config.proto", fileDescriptor_config_90169bb62b1e6623)
+	proto.RegisterFile("github.com/google/cloudprober/surfacers/prometheus/proto/config.proto", fileDescriptor_c23443a82a936d49)
 }
 
-var fileDescriptor_config_90169bb62b1e6623 = []byte{
+var fileDescriptor_c23443a82a936d49 = []byte{
 	// 235 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x4c, 0x8d, 0x4f, 0x4b, 0xc4, 0x30,
 	0x10, 0xc5, 0x89, 0xbb, 0xc2, 0x1a, 0xff, 0xe0, 0xc6, 0x4b, 0x6f, 0x16, 0x41, 0xa8, 0x97, 0xa6,

@@ -3,15 +3,17 @@
 
 package proto
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import proto1 "github.com/google/cloudprober/probes/proto"
-import proto3 "github.com/google/cloudprober/servers/proto"
-import proto2 "github.com/google/cloudprober/surfacers/proto"
-import proto6 "github.com/google/cloudprober/targets/proto"
-import proto4 "github.com/google/cloudprober/targets/rds/server/proto"
-import proto5 "github.com/google/cloudprober/targets/rtc/rtcreporter/proto"
+import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	proto1 "github.com/google/cloudprober/probes/proto"
+	proto3 "github.com/google/cloudprober/servers/proto"
+	proto2 "github.com/google/cloudprober/surfacers/proto"
+	proto6 "github.com/google/cloudprober/targets/proto"
+	proto4 "github.com/google/cloudprober/targets/rds/server/proto"
+	proto5 "github.com/google/cloudprober/targets/rtc/rtcreporter/proto"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -22,7 +24,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 type ProberConfig struct {
 	// Probes to run.
@@ -92,16 +94,17 @@ func (m *ProberConfig) Reset()         { *m = ProberConfig{} }
 func (m *ProberConfig) String() string { return proto.CompactTextString(m) }
 func (*ProberConfig) ProtoMessage()    {}
 func (*ProberConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_ca6e82066619ee99, []int{0}
+	return fileDescriptor_e33be1efa3c08d0b, []int{0}
 }
+
 func (m *ProberConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ProberConfig.Unmarshal(m, b)
 }
 func (m *ProberConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ProberConfig.Marshal(b, m, deterministic)
 }
-func (dst *ProberConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ProberConfig.Merge(dst, src)
+func (m *ProberConfig) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ProberConfig.Merge(m, src)
 }
 func (m *ProberConfig) XXX_Size() int {
 	return xxx_messageInfo_ProberConfig.Size(m)
@@ -219,10 +222,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("github.com/google/cloudprober/config/proto/config.proto", fileDescriptor_config_ca6e82066619ee99)
+	proto.RegisterFile("github.com/google/cloudprober/config/proto/config.proto", fileDescriptor_e33be1efa3c08d0b)
 }
 
-var fileDescriptor_config_ca6e82066619ee99 = []byte{
+var fileDescriptor_e33be1efa3c08d0b = []byte{
 	// 529 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x92, 0xdd, 0x6f, 0xd3, 0x3c,
 	0x14, 0xc6, 0xd5, 0x77, 0xeb, 0xcb, 0xea, 0xb2, 0x0d, 0xcc, 0x87, 0xa2, 0x81, 0x50, 0x81, 0x9b,

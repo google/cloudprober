@@ -3,9 +3,11 @@
 
 package proto
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
+import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -16,7 +18,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 type Validator struct {
 	// Validate the data integrity of the response using a pattern that is
@@ -40,16 +42,17 @@ func (m *Validator) Reset()         { *m = Validator{} }
 func (m *Validator) String() string { return proto.CompactTextString(m) }
 func (*Validator) ProtoMessage()    {}
 func (*Validator) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_ee43a05c25c7af91, []int{0}
+	return fileDescriptor_40426890295335ca, []int{0}
 }
+
 func (m *Validator) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Validator.Unmarshal(m, b)
 }
 func (m *Validator) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Validator.Marshal(b, m, deterministic)
 }
-func (dst *Validator) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Validator.Merge(dst, src)
+func (m *Validator) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Validator.Merge(m, src)
 }
 func (m *Validator) XXX_Size() int {
 	return xxx_messageInfo_Validator.Size(m)
@@ -97,69 +100,12 @@ func (m *Validator) GetPatternNumBytes() int32 {
 	return 0
 }
 
-// XXX_OneofFuncs is for the internal use of the proto package.
-func (*Validator) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
-	return _Validator_OneofMarshaler, _Validator_OneofUnmarshaler, _Validator_OneofSizer, []interface{}{
+// XXX_OneofWrappers is for the internal use of the proto package.
+func (*Validator) XXX_OneofWrappers() []interface{} {
+	return []interface{}{
 		(*Validator_PatternString)(nil),
 		(*Validator_PatternNumBytes)(nil),
 	}
-}
-
-func _Validator_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
-	m := msg.(*Validator)
-	// pattern
-	switch x := m.Pattern.(type) {
-	case *Validator_PatternString:
-		b.EncodeVarint(1<<3 | proto.WireBytes)
-		b.EncodeStringBytes(x.PatternString)
-	case *Validator_PatternNumBytes:
-		b.EncodeVarint(2<<3 | proto.WireVarint)
-		b.EncodeVarint(uint64(x.PatternNumBytes))
-	case nil:
-	default:
-		return fmt.Errorf("Validator.Pattern has unexpected type %T", x)
-	}
-	return nil
-}
-
-func _Validator_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
-	m := msg.(*Validator)
-	switch tag {
-	case 1: // pattern.pattern_string
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		x, err := b.DecodeStringBytes()
-		m.Pattern = &Validator_PatternString{x}
-		return true, err
-	case 2: // pattern.pattern_num_bytes
-		if wire != proto.WireVarint {
-			return true, proto.ErrInternalBadWireType
-		}
-		x, err := b.DecodeVarint()
-		m.Pattern = &Validator_PatternNumBytes{int32(x)}
-		return true, err
-	default:
-		return false, nil
-	}
-}
-
-func _Validator_OneofSizer(msg proto.Message) (n int) {
-	m := msg.(*Validator)
-	// pattern
-	switch x := m.Pattern.(type) {
-	case *Validator_PatternString:
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(len(x.PatternString)))
-		n += len(x.PatternString)
-	case *Validator_PatternNumBytes:
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(x.PatternNumBytes))
-	case nil:
-	default:
-		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
-	}
-	return n
 }
 
 func init() {
@@ -167,10 +113,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("github.com/google/cloudprober/validators/integrity/proto/config.proto", fileDescriptor_config_ee43a05c25c7af91)
+	proto.RegisterFile("github.com/google/cloudprober/validators/integrity/proto/config.proto", fileDescriptor_40426890295335ca)
 }
 
-var fileDescriptor_config_ee43a05c25c7af91 = []byte{
+var fileDescriptor_40426890295335ca = []byte{
 	// 177 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x4c, 0xcb, 0xcf, 0x0a, 0x82, 0x40,
 	0x10, 0xc7, 0x71, 0x0d, 0x22, 0x5c, 0xa8, 0xc8, 0x93, 0x47, 0xe9, 0x92, 0x87, 0xd8, 0x7d, 0x07,

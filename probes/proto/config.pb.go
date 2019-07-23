@@ -3,18 +3,20 @@
 
 package proto
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import proto2 "github.com/google/cloudprober/metrics/proto"
-import proto6 "github.com/google/cloudprober/probes/dns/proto"
-import proto7 "github.com/google/cloudprober/probes/external/proto"
-import proto5 "github.com/google/cloudprober/probes/http/proto"
-import proto4 "github.com/google/cloudprober/probes/ping/proto"
-import proto8 "github.com/google/cloudprober/probes/udp/proto"
-import proto9 "github.com/google/cloudprober/probes/udplistener/proto"
-import proto1 "github.com/google/cloudprober/targets/proto"
-import proto3 "github.com/google/cloudprober/validators/proto"
+import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	proto2 "github.com/google/cloudprober/metrics/proto"
+	proto6 "github.com/google/cloudprober/probes/dns/proto"
+	proto7 "github.com/google/cloudprober/probes/external/proto"
+	proto5 "github.com/google/cloudprober/probes/http/proto"
+	proto4 "github.com/google/cloudprober/probes/ping/proto"
+	proto8 "github.com/google/cloudprober/probes/udp/proto"
+	proto9 "github.com/google/cloudprober/probes/udplistener/proto"
+	proto1 "github.com/google/cloudprober/targets/proto"
+	proto3 "github.com/google/cloudprober/validators/proto"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -25,7 +27,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 type ProbeDef_Type int32
 
@@ -56,6 +58,7 @@ var ProbeDef_Type_name = map[int32]string{
 	98: "EXTENSION",
 	99: "USER_DEFINED",
 }
+
 var ProbeDef_Type_value = map[string]int32{
 	"PING":         0,
 	"HTTP":         1,
@@ -72,9 +75,11 @@ func (x ProbeDef_Type) Enum() *ProbeDef_Type {
 	*p = x
 	return p
 }
+
 func (x ProbeDef_Type) String() string {
 	return proto.EnumName(ProbeDef_Type_name, int32(x))
 }
+
 func (x *ProbeDef_Type) UnmarshalJSON(data []byte) error {
 	value, err := proto.UnmarshalJSONEnum(ProbeDef_Type_value, data, "ProbeDef_Type")
 	if err != nil {
@@ -83,8 +88,9 @@ func (x *ProbeDef_Type) UnmarshalJSON(data []byte) error {
 	*x = ProbeDef_Type(value)
 	return nil
 }
+
 func (ProbeDef_Type) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_config_be8fa0af4204c62d, []int{0, 0}
+	return fileDescriptor_8261ee47d309caad, []int{0, 0}
 }
 
 // IP version to use for networking probes. If specified, this is used at the
@@ -112,6 +118,7 @@ var ProbeDef_IPVersion_name = map[int32]string{
 	1: "IPV4",
 	2: "IPV6",
 }
+
 var ProbeDef_IPVersion_value = map[string]int32{
 	"IP_VERSION_UNSPECIFIED": 0,
 	"IPV4":                   1,
@@ -123,9 +130,11 @@ func (x ProbeDef_IPVersion) Enum() *ProbeDef_IPVersion {
 	*p = x
 	return p
 }
+
 func (x ProbeDef_IPVersion) String() string {
 	return proto.EnumName(ProbeDef_IPVersion_name, int32(x))
 }
+
 func (x *ProbeDef_IPVersion) UnmarshalJSON(data []byte) error {
 	value, err := proto.UnmarshalJSONEnum(ProbeDef_IPVersion_value, data, "ProbeDef_IPVersion")
 	if err != nil {
@@ -134,8 +143,9 @@ func (x *ProbeDef_IPVersion) UnmarshalJSON(data []byte) error {
 	*x = ProbeDef_IPVersion(value)
 	return nil
 }
+
 func (ProbeDef_IPVersion) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_config_be8fa0af4204c62d, []int{0, 1}
+	return fileDescriptor_8261ee47d309caad, []int{0, 1}
 }
 
 type ProbeDef struct {
@@ -197,7 +207,7 @@ func (m *ProbeDef) Reset()         { *m = ProbeDef{} }
 func (m *ProbeDef) String() string { return proto.CompactTextString(m) }
 func (*ProbeDef) ProtoMessage()    {}
 func (*ProbeDef) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_be8fa0af4204c62d, []int{0}
+	return fileDescriptor_8261ee47d309caad, []int{0}
 }
 
 var extRange_ProbeDef = []proto.ExtensionRange{
@@ -207,14 +217,15 @@ var extRange_ProbeDef = []proto.ExtensionRange{
 func (*ProbeDef) ExtensionRangeArray() []proto.ExtensionRange {
 	return extRange_ProbeDef
 }
+
 func (m *ProbeDef) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ProbeDef.Unmarshal(m, b)
 }
 func (m *ProbeDef) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ProbeDef.Marshal(b, m, deterministic)
 }
-func (dst *ProbeDef) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ProbeDef.Merge(dst, src)
+func (m *ProbeDef) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ProbeDef.Merge(m, src)
 }
 func (m *ProbeDef) XXX_Size() int {
 	return xxx_messageInfo_ProbeDef.Size(m)
@@ -452,9 +463,9 @@ func (m *ProbeDef) GetDebugOptions() *DebugOptions {
 	return nil
 }
 
-// XXX_OneofFuncs is for the internal use of the proto package.
-func (*ProbeDef) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
-	return _ProbeDef_OneofMarshaler, _ProbeDef_OneofUnmarshaler, _ProbeDef_OneofSizer, []interface{}{
+// XXX_OneofWrappers is for the internal use of the proto package.
+func (*ProbeDef) XXX_OneofWrappers() []interface{} {
+	return []interface{}{
 		(*ProbeDef_SourceIp)(nil),
 		(*ProbeDef_SourceInterface)(nil),
 		(*ProbeDef_PingProbe)(nil),
@@ -465,198 +476,6 @@ func (*ProbeDef) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) erro
 		(*ProbeDef_UdpListenerProbe)(nil),
 		(*ProbeDef_UserDefinedProbe)(nil),
 	}
-}
-
-func _ProbeDef_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
-	m := msg.(*ProbeDef)
-	// source_ip_config
-	switch x := m.SourceIpConfig.(type) {
-	case *ProbeDef_SourceIp:
-		b.EncodeVarint(10<<3 | proto.WireBytes)
-		b.EncodeStringBytes(x.SourceIp)
-	case *ProbeDef_SourceInterface:
-		b.EncodeVarint(11<<3 | proto.WireBytes)
-		b.EncodeStringBytes(x.SourceInterface)
-	case nil:
-	default:
-		return fmt.Errorf("ProbeDef.SourceIpConfig has unexpected type %T", x)
-	}
-	// probe
-	switch x := m.Probe.(type) {
-	case *ProbeDef_PingProbe:
-		b.EncodeVarint(20<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.PingProbe); err != nil {
-			return err
-		}
-	case *ProbeDef_HttpProbe:
-		b.EncodeVarint(21<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.HttpProbe); err != nil {
-			return err
-		}
-	case *ProbeDef_DnsProbe:
-		b.EncodeVarint(22<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.DnsProbe); err != nil {
-			return err
-		}
-	case *ProbeDef_ExternalProbe:
-		b.EncodeVarint(23<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.ExternalProbe); err != nil {
-			return err
-		}
-	case *ProbeDef_UdpProbe:
-		b.EncodeVarint(24<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.UdpProbe); err != nil {
-			return err
-		}
-	case *ProbeDef_UdpListenerProbe:
-		b.EncodeVarint(25<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.UdpListenerProbe); err != nil {
-			return err
-		}
-	case *ProbeDef_UserDefinedProbe:
-		b.EncodeVarint(99<<3 | proto.WireBytes)
-		b.EncodeStringBytes(x.UserDefinedProbe)
-	case nil:
-	default:
-		return fmt.Errorf("ProbeDef.Probe has unexpected type %T", x)
-	}
-	return nil
-}
-
-func _ProbeDef_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
-	m := msg.(*ProbeDef)
-	switch tag {
-	case 10: // source_ip_config.source_ip
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		x, err := b.DecodeStringBytes()
-		m.SourceIpConfig = &ProbeDef_SourceIp{x}
-		return true, err
-	case 11: // source_ip_config.source_interface
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		x, err := b.DecodeStringBytes()
-		m.SourceIpConfig = &ProbeDef_SourceInterface{x}
-		return true, err
-	case 20: // probe.ping_probe
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(proto4.ProbeConf)
-		err := b.DecodeMessage(msg)
-		m.Probe = &ProbeDef_PingProbe{msg}
-		return true, err
-	case 21: // probe.http_probe
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(proto5.ProbeConf)
-		err := b.DecodeMessage(msg)
-		m.Probe = &ProbeDef_HttpProbe{msg}
-		return true, err
-	case 22: // probe.dns_probe
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(proto6.ProbeConf)
-		err := b.DecodeMessage(msg)
-		m.Probe = &ProbeDef_DnsProbe{msg}
-		return true, err
-	case 23: // probe.external_probe
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(proto7.ProbeConf)
-		err := b.DecodeMessage(msg)
-		m.Probe = &ProbeDef_ExternalProbe{msg}
-		return true, err
-	case 24: // probe.udp_probe
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(proto8.ProbeConf)
-		err := b.DecodeMessage(msg)
-		m.Probe = &ProbeDef_UdpProbe{msg}
-		return true, err
-	case 25: // probe.udp_listener_probe
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(proto9.ProbeConf)
-		err := b.DecodeMessage(msg)
-		m.Probe = &ProbeDef_UdpListenerProbe{msg}
-		return true, err
-	case 99: // probe.user_defined_probe
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		x, err := b.DecodeStringBytes()
-		m.Probe = &ProbeDef_UserDefinedProbe{x}
-		return true, err
-	default:
-		return false, nil
-	}
-}
-
-func _ProbeDef_OneofSizer(msg proto.Message) (n int) {
-	m := msg.(*ProbeDef)
-	// source_ip_config
-	switch x := m.SourceIpConfig.(type) {
-	case *ProbeDef_SourceIp:
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(len(x.SourceIp)))
-		n += len(x.SourceIp)
-	case *ProbeDef_SourceInterface:
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(len(x.SourceInterface)))
-		n += len(x.SourceInterface)
-	case nil:
-	default:
-		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
-	}
-	// probe
-	switch x := m.Probe.(type) {
-	case *ProbeDef_PingProbe:
-		s := proto.Size(x.PingProbe)
-		n += 2 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *ProbeDef_HttpProbe:
-		s := proto.Size(x.HttpProbe)
-		n += 2 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *ProbeDef_DnsProbe:
-		s := proto.Size(x.DnsProbe)
-		n += 2 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *ProbeDef_ExternalProbe:
-		s := proto.Size(x.ExternalProbe)
-		n += 2 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *ProbeDef_UdpProbe:
-		s := proto.Size(x.UdpProbe)
-		n += 2 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *ProbeDef_UdpListenerProbe:
-		s := proto.Size(x.UdpListenerProbe)
-		n += 2 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *ProbeDef_UserDefinedProbe:
-		n += 2 // tag and wire
-		n += proto.SizeVarint(uint64(len(x.UserDefinedProbe)))
-		n += len(x.UserDefinedProbe)
-	case nil:
-	default:
-		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
-	}
-	return n
 }
 
 type DebugOptions struct {
@@ -671,16 +490,17 @@ func (m *DebugOptions) Reset()         { *m = DebugOptions{} }
 func (m *DebugOptions) String() string { return proto.CompactTextString(m) }
 func (*DebugOptions) ProtoMessage()    {}
 func (*DebugOptions) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_be8fa0af4204c62d, []int{1}
+	return fileDescriptor_8261ee47d309caad, []int{1}
 }
+
 func (m *DebugOptions) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_DebugOptions.Unmarshal(m, b)
 }
 func (m *DebugOptions) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_DebugOptions.Marshal(b, m, deterministic)
 }
-func (dst *DebugOptions) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_DebugOptions.Merge(dst, src)
+func (m *DebugOptions) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DebugOptions.Merge(m, src)
 }
 func (m *DebugOptions) XXX_Size() int {
 	return xxx_messageInfo_DebugOptions.Size(m)
@@ -699,17 +519,17 @@ func (m *DebugOptions) GetLogMetrics() bool {
 }
 
 func init() {
-	proto.RegisterType((*ProbeDef)(nil), "cloudprober.probes.ProbeDef")
-	proto.RegisterType((*DebugOptions)(nil), "cloudprober.probes.DebugOptions")
 	proto.RegisterEnum("cloudprober.probes.ProbeDef_Type", ProbeDef_Type_name, ProbeDef_Type_value)
 	proto.RegisterEnum("cloudprober.probes.ProbeDef_IPVersion", ProbeDef_IPVersion_name, ProbeDef_IPVersion_value)
+	proto.RegisterType((*ProbeDef)(nil), "cloudprober.probes.ProbeDef")
+	proto.RegisterType((*DebugOptions)(nil), "cloudprober.probes.DebugOptions")
 }
 
 func init() {
-	proto.RegisterFile("github.com/google/cloudprober/probes/proto/config.proto", fileDescriptor_config_be8fa0af4204c62d)
+	proto.RegisterFile("github.com/google/cloudprober/probes/proto/config.proto", fileDescriptor_8261ee47d309caad)
 }
 
-var fileDescriptor_config_be8fa0af4204c62d = []byte{
+var fileDescriptor_8261ee47d309caad = []byte{
 	// 876 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x94, 0xdd, 0x6e, 0xdb, 0x36,
 	0x14, 0xc7, 0x2b, 0xc7, 0x6e, 0xac, 0x63, 0x3b, 0x13, 0xb8, 0x7e, 0xa8, 0x06, 0x86, 0x6a, 0x06,

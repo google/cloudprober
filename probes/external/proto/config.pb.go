@@ -3,10 +3,12 @@
 
 package proto
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import proto1 "github.com/google/cloudprober/metrics/proto"
+import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	proto1 "github.com/google/cloudprober/metrics/proto"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -17,7 +19,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 // External probes support two mode: ONCE and SERVER. In ONCE mode, external
 // command is re-executed for each probe run, while in SERVER mode, command
@@ -33,6 +35,7 @@ var ProbeConf_Mode_name = map[int32]string{
 	0: "ONCE",
 	1: "SERVER",
 }
+
 var ProbeConf_Mode_value = map[string]int32{
 	"ONCE":   0,
 	"SERVER": 1,
@@ -43,9 +46,11 @@ func (x ProbeConf_Mode) Enum() *ProbeConf_Mode {
 	*p = x
 	return p
 }
+
 func (x ProbeConf_Mode) String() string {
 	return proto.EnumName(ProbeConf_Mode_name, int32(x))
 }
+
 func (x *ProbeConf_Mode) UnmarshalJSON(data []byte) error {
 	value, err := proto.UnmarshalJSONEnum(ProbeConf_Mode_value, data, "ProbeConf_Mode")
 	if err != nil {
@@ -54,8 +59,9 @@ func (x *ProbeConf_Mode) UnmarshalJSON(data []byte) error {
 	*x = ProbeConf_Mode(value)
 	return nil
 }
+
 func (ProbeConf_Mode) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_config_b14d8908ad6b6463, []int{0, 0}
+	return fileDescriptor_8f0ffe99a845b10e, []int{0, 0}
 }
 
 // MetricsKind specifies whether to treat output metrics as GAUGE or
@@ -74,6 +80,7 @@ var OutputMetricsOptions_MetricsKind_name = map[int32]string{
 	1: "GAUGE",
 	2: "CUMULATIVE",
 }
+
 var OutputMetricsOptions_MetricsKind_value = map[string]int32{
 	"UNDEFINED":  0,
 	"GAUGE":      1,
@@ -85,9 +92,11 @@ func (x OutputMetricsOptions_MetricsKind) Enum() *OutputMetricsOptions_MetricsKi
 	*p = x
 	return p
 }
+
 func (x OutputMetricsOptions_MetricsKind) String() string {
 	return proto.EnumName(OutputMetricsOptions_MetricsKind_name, int32(x))
 }
+
 func (x *OutputMetricsOptions_MetricsKind) UnmarshalJSON(data []byte) error {
 	value, err := proto.UnmarshalJSONEnum(OutputMetricsOptions_MetricsKind_value, data, "OutputMetricsOptions_MetricsKind")
 	if err != nil {
@@ -96,8 +105,9 @@ func (x *OutputMetricsOptions_MetricsKind) UnmarshalJSON(data []byte) error {
 	*x = OutputMetricsOptions_MetricsKind(value)
 	return nil
 }
+
 func (OutputMetricsOptions_MetricsKind) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_config_b14d8908ad6b6463, []int{1, 0}
+	return fileDescriptor_8f0ffe99a845b10e, []int{1, 0}
 }
 
 type ProbeConf struct {
@@ -139,16 +149,17 @@ func (m *ProbeConf) Reset()         { *m = ProbeConf{} }
 func (m *ProbeConf) String() string { return proto.CompactTextString(m) }
 func (*ProbeConf) ProtoMessage()    {}
 func (*ProbeConf) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_b14d8908ad6b6463, []int{0}
+	return fileDescriptor_8f0ffe99a845b10e, []int{0}
 }
+
 func (m *ProbeConf) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ProbeConf.Unmarshal(m, b)
 }
 func (m *ProbeConf) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ProbeConf.Marshal(b, m, deterministic)
 }
-func (dst *ProbeConf) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ProbeConf.Merge(dst, src)
+func (m *ProbeConf) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ProbeConf.Merge(m, src)
 }
 func (m *ProbeConf) XXX_Size() int {
 	return xxx_messageInfo_ProbeConf.Size(m)
@@ -220,16 +231,17 @@ func (m *ProbeConf_Option) Reset()         { *m = ProbeConf_Option{} }
 func (m *ProbeConf_Option) String() string { return proto.CompactTextString(m) }
 func (*ProbeConf_Option) ProtoMessage()    {}
 func (*ProbeConf_Option) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_b14d8908ad6b6463, []int{0, 0}
+	return fileDescriptor_8f0ffe99a845b10e, []int{0, 0}
 }
+
 func (m *ProbeConf_Option) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ProbeConf_Option.Unmarshal(m, b)
 }
 func (m *ProbeConf_Option) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ProbeConf_Option.Marshal(b, m, deterministic)
 }
-func (dst *ProbeConf_Option) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ProbeConf_Option.Merge(dst, src)
+func (m *ProbeConf_Option) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ProbeConf_Option.Merge(m, src)
 }
 func (m *ProbeConf_Option) XXX_Size() int {
 	return xxx_messageInfo_ProbeConf_Option.Size(m)
@@ -287,16 +299,17 @@ func (m *OutputMetricsOptions) Reset()         { *m = OutputMetricsOptions{} }
 func (m *OutputMetricsOptions) String() string { return proto.CompactTextString(m) }
 func (*OutputMetricsOptions) ProtoMessage()    {}
 func (*OutputMetricsOptions) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_b14d8908ad6b6463, []int{1}
+	return fileDescriptor_8f0ffe99a845b10e, []int{1}
 }
+
 func (m *OutputMetricsOptions) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_OutputMetricsOptions.Unmarshal(m, b)
 }
 func (m *OutputMetricsOptions) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_OutputMetricsOptions.Marshal(b, m, deterministic)
 }
-func (dst *OutputMetricsOptions) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_OutputMetricsOptions.Merge(dst, src)
+func (m *OutputMetricsOptions) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_OutputMetricsOptions.Merge(m, src)
 }
 func (m *OutputMetricsOptions) XXX_Size() int {
 	return xxx_messageInfo_OutputMetricsOptions.Size(m)
@@ -338,19 +351,19 @@ func (m *OutputMetricsOptions) GetDistMetric() map[string]*proto1.Dist {
 }
 
 func init() {
+	proto.RegisterEnum("cloudprober.probes.external.ProbeConf_Mode", ProbeConf_Mode_name, ProbeConf_Mode_value)
+	proto.RegisterEnum("cloudprober.probes.external.OutputMetricsOptions_MetricsKind", OutputMetricsOptions_MetricsKind_name, OutputMetricsOptions_MetricsKind_value)
 	proto.RegisterType((*ProbeConf)(nil), "cloudprober.probes.external.ProbeConf")
 	proto.RegisterType((*ProbeConf_Option)(nil), "cloudprober.probes.external.ProbeConf.Option")
 	proto.RegisterType((*OutputMetricsOptions)(nil), "cloudprober.probes.external.OutputMetricsOptions")
 	proto.RegisterMapType((map[string]*proto1.Dist)(nil), "cloudprober.probes.external.OutputMetricsOptions.DistMetricEntry")
-	proto.RegisterEnum("cloudprober.probes.external.ProbeConf_Mode", ProbeConf_Mode_name, ProbeConf_Mode_value)
-	proto.RegisterEnum("cloudprober.probes.external.OutputMetricsOptions_MetricsKind", OutputMetricsOptions_MetricsKind_name, OutputMetricsOptions_MetricsKind_value)
 }
 
 func init() {
-	proto.RegisterFile("github.com/google/cloudprober/probes/external/proto/config.proto", fileDescriptor_config_b14d8908ad6b6463)
+	proto.RegisterFile("github.com/google/cloudprober/probes/external/proto/config.proto", fileDescriptor_8f0ffe99a845b10e)
 }
 
-var fileDescriptor_config_b14d8908ad6b6463 = []byte{
+var fileDescriptor_8f0ffe99a845b10e = []byte{
 	// 540 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x52, 0xdb, 0x6e, 0xd3, 0x40,
 	0x10, 0xad, 0x63, 0xa7, 0xad, 0xc7, 0xd0, 0xba, 0xab, 0xaa, 0x32, 0x85, 0x07, 0x2b, 0x4f, 0x96,

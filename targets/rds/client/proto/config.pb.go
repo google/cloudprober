@@ -3,10 +3,12 @@
 
 package proto
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import proto1 "github.com/google/cloudprober/targets/rds/proto"
+import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	proto1 "github.com/google/cloudprober/targets/rds/proto"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -17,7 +19,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 // ClientConf represents resource discovery service (RDS) based targets.
 // Next tag: 5
@@ -42,16 +44,17 @@ func (m *ClientConf) Reset()         { *m = ClientConf{} }
 func (m *ClientConf) String() string { return proto.CompactTextString(m) }
 func (*ClientConf) ProtoMessage()    {}
 func (*ClientConf) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_7e7cf582f9f456e4, []int{0}
+	return fileDescriptor_828fd88c3bb7c21d, []int{0}
 }
+
 func (m *ClientConf) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ClientConf.Unmarshal(m, b)
 }
 func (m *ClientConf) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ClientConf.Marshal(b, m, deterministic)
 }
-func (dst *ClientConf) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ClientConf.Merge(dst, src)
+func (m *ClientConf) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ClientConf.Merge(m, src)
 }
 func (m *ClientConf) XXX_Size() int {
 	return xxx_messageInfo_ClientConf.Size(m)
@@ -98,10 +101,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("github.com/google/cloudprober/targets/rds/client/proto/config.proto", fileDescriptor_config_7e7cf582f9f456e4)
+	proto.RegisterFile("github.com/google/cloudprober/targets/rds/client/proto/config.proto", fileDescriptor_828fd88c3bb7c21d)
 }
 
-var fileDescriptor_config_7e7cf582f9f456e4 = []byte{
+var fileDescriptor_828fd88c3bb7c21d = []byte{
 	// 257 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0xcf, 0xb1, 0x4a, 0xf4, 0x40,
 	0x10, 0xc0, 0x71, 0x72, 0xdf, 0x27, 0x72, 0x1b, 0xb4, 0x48, 0x63, 0xb0, 0x0a, 0xa9, 0xd2, 0xb8,

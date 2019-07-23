@@ -3,9 +3,11 @@
 
 package proto
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
+import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -16,7 +18,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 type GCEInstances struct {
 	// Zone filter, e.g. zone_filter: "us-east1-*" for all zones in us-east1
@@ -33,16 +35,17 @@ func (m *GCEInstances) Reset()         { *m = GCEInstances{} }
 func (m *GCEInstances) String() string { return proto.CompactTextString(m) }
 func (*GCEInstances) ProtoMessage()    {}
 func (*GCEInstances) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_78533f985346d64e, []int{0}
+	return fileDescriptor_87b43a20d7761773, []int{0}
 }
+
 func (m *GCEInstances) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GCEInstances.Unmarshal(m, b)
 }
 func (m *GCEInstances) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_GCEInstances.Marshal(b, m, deterministic)
 }
-func (dst *GCEInstances) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GCEInstances.Merge(dst, src)
+func (m *GCEInstances) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GCEInstances.Merge(m, src)
 }
 func (m *GCEInstances) XXX_Size() int {
 	return xxx_messageInfo_GCEInstances.Size(m)
@@ -81,16 +84,17 @@ func (m *RegionalForwardingRules) Reset()         { *m = RegionalForwardingRules
 func (m *RegionalForwardingRules) String() string { return proto.CompactTextString(m) }
 func (*RegionalForwardingRules) ProtoMessage()    {}
 func (*RegionalForwardingRules) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_78533f985346d64e, []int{1}
+	return fileDescriptor_87b43a20d7761773, []int{1}
 }
+
 func (m *RegionalForwardingRules) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RegionalForwardingRules.Unmarshal(m, b)
 }
 func (m *RegionalForwardingRules) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_RegionalForwardingRules.Marshal(b, m, deterministic)
 }
-func (dst *RegionalForwardingRules) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RegionalForwardingRules.Merge(dst, src)
+func (m *RegionalForwardingRules) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RegionalForwardingRules.Merge(m, src)
 }
 func (m *RegionalForwardingRules) XXX_Size() int {
 	return xxx_messageInfo_RegionalForwardingRules.Size(m)
@@ -120,16 +124,17 @@ func (m *RTCVariables) Reset()         { *m = RTCVariables{} }
 func (m *RTCVariables) String() string { return proto.CompactTextString(m) }
 func (*RTCVariables) ProtoMessage()    {}
 func (*RTCVariables) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_78533f985346d64e, []int{2}
+	return fileDescriptor_87b43a20d7761773, []int{2}
 }
+
 func (m *RTCVariables) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RTCVariables.Unmarshal(m, b)
 }
 func (m *RTCVariables) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_RTCVariables.Marshal(b, m, deterministic)
 }
-func (dst *RTCVariables) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RTCVariables.Merge(dst, src)
+func (m *RTCVariables) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RTCVariables.Merge(m, src)
 }
 func (m *RTCVariables) XXX_Size() int {
 	return xxx_messageInfo_RTCVariables.Size(m)
@@ -160,16 +165,17 @@ func (m *RTCVariables_RTCConfig) Reset()         { *m = RTCVariables_RTCConfig{}
 func (m *RTCVariables_RTCConfig) String() string { return proto.CompactTextString(m) }
 func (*RTCVariables_RTCConfig) ProtoMessage()    {}
 func (*RTCVariables_RTCConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_78533f985346d64e, []int{2, 0}
+	return fileDescriptor_87b43a20d7761773, []int{2, 0}
 }
+
 func (m *RTCVariables_RTCConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RTCVariables_RTCConfig.Unmarshal(m, b)
 }
 func (m *RTCVariables_RTCConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_RTCVariables_RTCConfig.Marshal(b, m, deterministic)
 }
-func (dst *RTCVariables_RTCConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RTCVariables_RTCConfig.Merge(dst, src)
+func (m *RTCVariables_RTCConfig) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RTCVariables_RTCConfig.Merge(m, src)
 }
 func (m *RTCVariables_RTCConfig) XXX_Size() int {
 	return xxx_messageInfo_RTCVariables_RTCConfig.Size(m)
@@ -220,16 +226,17 @@ func (m *ProviderConfig) Reset()         { *m = ProviderConfig{} }
 func (m *ProviderConfig) String() string { return proto.CompactTextString(m) }
 func (*ProviderConfig) ProtoMessage()    {}
 func (*ProviderConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_78533f985346d64e, []int{3}
+	return fileDescriptor_87b43a20d7761773, []int{3}
 }
+
 func (m *ProviderConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ProviderConfig.Unmarshal(m, b)
 }
 func (m *ProviderConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ProviderConfig.Marshal(b, m, deterministic)
 }
-func (dst *ProviderConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ProviderConfig.Merge(dst, src)
+func (m *ProviderConfig) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ProviderConfig.Merge(m, src)
 }
 func (m *ProviderConfig) XXX_Size() int {
 	return xxx_messageInfo_ProviderConfig.Size(m)
@@ -286,10 +293,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("github.com/google/cloudprober/targets/rds/server/gcp/proto/config.proto", fileDescriptor_config_78533f985346d64e)
+	proto.RegisterFile("github.com/google/cloudprober/targets/rds/server/gcp/proto/config.proto", fileDescriptor_87b43a20d7761773)
 }
 
-var fileDescriptor_config_78533f985346d64e = []byte{
+var fileDescriptor_87b43a20d7761773 = []byte{
 	// 418 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x92, 0x3f, 0x6f, 0xdb, 0x30,
 	0x10, 0xc5, 0x21, 0x39, 0x45, 0xa1, 0x93, 0xdc, 0x41, 0x4b, 0xd4, 0x76, 0xa8, 0x61, 0x2f, 0xee,

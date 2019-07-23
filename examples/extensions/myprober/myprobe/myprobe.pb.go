@@ -3,10 +3,12 @@
 
 package myprobe
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import proto1 "github.com/google/cloudprober/probes/proto"
+import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	proto1 "github.com/google/cloudprober/probes/proto"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -17,7 +19,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 // Redis operation
 type ProbeConf_Op int32
@@ -33,6 +35,7 @@ var ProbeConf_Op_name = map[int32]string{
 	1: "SET",
 	2: "DELETE",
 }
+
 var ProbeConf_Op_value = map[string]int32{
 	"GET":    0,
 	"SET":    1,
@@ -44,9 +47,11 @@ func (x ProbeConf_Op) Enum() *ProbeConf_Op {
 	*p = x
 	return p
 }
+
 func (x ProbeConf_Op) String() string {
 	return proto.EnumName(ProbeConf_Op_name, int32(x))
 }
+
 func (x *ProbeConf_Op) UnmarshalJSON(data []byte) error {
 	value, err := proto.UnmarshalJSONEnum(ProbeConf_Op_value, data, "ProbeConf_Op")
 	if err != nil {
@@ -55,8 +60,9 @@ func (x *ProbeConf_Op) UnmarshalJSON(data []byte) error {
 	*x = ProbeConf_Op(value)
 	return nil
 }
+
 func (ProbeConf_Op) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_myprobe_d7e15d891b47d6e2, []int{0, 0}
+	return fileDescriptor_2b356579a2ec0dd9, []int{0, 0}
 }
 
 type ProbeConf struct {
@@ -73,16 +79,17 @@ func (m *ProbeConf) Reset()         { *m = ProbeConf{} }
 func (m *ProbeConf) String() string { return proto.CompactTextString(m) }
 func (*ProbeConf) ProtoMessage()    {}
 func (*ProbeConf) Descriptor() ([]byte, []int) {
-	return fileDescriptor_myprobe_d7e15d891b47d6e2, []int{0}
+	return fileDescriptor_2b356579a2ec0dd9, []int{0}
 }
+
 func (m *ProbeConf) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ProbeConf.Unmarshal(m, b)
 }
 func (m *ProbeConf) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ProbeConf.Marshal(b, m, deterministic)
 }
-func (dst *ProbeConf) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ProbeConf.Merge(dst, src)
+func (m *ProbeConf) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ProbeConf.Merge(m, src)
 }
 func (m *ProbeConf) XXX_Size() int {
 	return xxx_messageInfo_ProbeConf.Size(m)
@@ -119,21 +126,21 @@ var E_RedisProbe = &proto.ExtensionDesc{
 	ExtensionType: (*ProbeConf)(nil),
 	Field:         200,
 	Name:          "myprober.redis_probe",
-	Tag:           "bytes,200,opt,name=redis_probe,json=redisProbe",
+	Tag:           "bytes,200,opt,name=redis_probe",
 	Filename:      "github.com/google/cloudprober/examples/extensions/myprober/myprobe/myprobe.proto",
 }
 
 func init() {
-	proto.RegisterType((*ProbeConf)(nil), "myprober.ProbeConf")
 	proto.RegisterEnum("myprober.ProbeConf_Op", ProbeConf_Op_name, ProbeConf_Op_value)
+	proto.RegisterType((*ProbeConf)(nil), "myprober.ProbeConf")
 	proto.RegisterExtension(E_RedisProbe)
 }
 
 func init() {
-	proto.RegisterFile("github.com/google/cloudprober/examples/extensions/myprober/myprobe/myprobe.proto", fileDescriptor_myprobe_d7e15d891b47d6e2)
+	proto.RegisterFile("github.com/google/cloudprober/examples/extensions/myprober/myprobe/myprobe.proto", fileDescriptor_2b356579a2ec0dd9)
 }
 
-var fileDescriptor_myprobe_d7e15d891b47d6e2 = []byte{
+var fileDescriptor_2b356579a2ec0dd9 = []byte{
 	// 258 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x7c, 0x8e, 0x4d, 0x4b, 0xc3, 0x40,
 	0x10, 0x86, 0xcd, 0x06, 0x3f, 0x32, 0x05, 0x09, 0xab, 0x48, 0x10, 0x0f, 0x21, 0x07, 0xc9, 0x69,

@@ -3,12 +3,14 @@
 
 package proto
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import proto3 "github.com/google/cloudprober/servers/grpc/proto"
-import proto1 "github.com/google/cloudprober/servers/http/proto"
-import proto2 "github.com/google/cloudprober/servers/udp/proto"
+import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	proto3 "github.com/google/cloudprober/servers/grpc/proto"
+	proto1 "github.com/google/cloudprober/servers/http/proto"
+	proto2 "github.com/google/cloudprober/servers/udp/proto"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -19,7 +21,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 type ServerDef_Type int32
 
@@ -34,6 +36,7 @@ var ServerDef_Type_name = map[int32]string{
 	1: "UDP",
 	2: "GRPC",
 }
+
 var ServerDef_Type_value = map[string]int32{
 	"HTTP": 0,
 	"UDP":  1,
@@ -45,9 +48,11 @@ func (x ServerDef_Type) Enum() *ServerDef_Type {
 	*p = x
 	return p
 }
+
 func (x ServerDef_Type) String() string {
 	return proto.EnumName(ServerDef_Type_name, int32(x))
 }
+
 func (x *ServerDef_Type) UnmarshalJSON(data []byte) error {
 	value, err := proto.UnmarshalJSONEnum(ServerDef_Type_value, data, "ServerDef_Type")
 	if err != nil {
@@ -56,8 +61,9 @@ func (x *ServerDef_Type) UnmarshalJSON(data []byte) error {
 	*x = ServerDef_Type(value)
 	return nil
 }
+
 func (ServerDef_Type) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_config_36c23f68c08b4300, []int{0, 0}
+	return fileDescriptor_d9d58d8fdcce2c0e, []int{0, 0}
 }
 
 type ServerDef struct {
@@ -76,16 +82,17 @@ func (m *ServerDef) Reset()         { *m = ServerDef{} }
 func (m *ServerDef) String() string { return proto.CompactTextString(m) }
 func (*ServerDef) ProtoMessage()    {}
 func (*ServerDef) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_36c23f68c08b4300, []int{0}
+	return fileDescriptor_d9d58d8fdcce2c0e, []int{0}
 }
+
 func (m *ServerDef) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ServerDef.Unmarshal(m, b)
 }
 func (m *ServerDef) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ServerDef.Marshal(b, m, deterministic)
 }
-func (dst *ServerDef) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ServerDef.Merge(dst, src)
+func (m *ServerDef) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ServerDef.Merge(m, src)
 }
 func (m *ServerDef) XXX_Size() int {
 	return xxx_messageInfo_ServerDef.Size(m)
@@ -153,109 +160,25 @@ func (m *ServerDef) GetGrpcServer() *proto3.ServerConf {
 	return nil
 }
 
-// XXX_OneofFuncs is for the internal use of the proto package.
-func (*ServerDef) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
-	return _ServerDef_OneofMarshaler, _ServerDef_OneofUnmarshaler, _ServerDef_OneofSizer, []interface{}{
+// XXX_OneofWrappers is for the internal use of the proto package.
+func (*ServerDef) XXX_OneofWrappers() []interface{} {
+	return []interface{}{
 		(*ServerDef_HttpServer)(nil),
 		(*ServerDef_UdpServer)(nil),
 		(*ServerDef_GrpcServer)(nil),
 	}
 }
 
-func _ServerDef_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
-	m := msg.(*ServerDef)
-	// server
-	switch x := m.Server.(type) {
-	case *ServerDef_HttpServer:
-		b.EncodeVarint(2<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.HttpServer); err != nil {
-			return err
-		}
-	case *ServerDef_UdpServer:
-		b.EncodeVarint(3<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.UdpServer); err != nil {
-			return err
-		}
-	case *ServerDef_GrpcServer:
-		b.EncodeVarint(4<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.GrpcServer); err != nil {
-			return err
-		}
-	case nil:
-	default:
-		return fmt.Errorf("ServerDef.Server has unexpected type %T", x)
-	}
-	return nil
-}
-
-func _ServerDef_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
-	m := msg.(*ServerDef)
-	switch tag {
-	case 2: // server.http_server
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(proto1.ServerConf)
-		err := b.DecodeMessage(msg)
-		m.Server = &ServerDef_HttpServer{msg}
-		return true, err
-	case 3: // server.udp_server
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(proto2.ServerConf)
-		err := b.DecodeMessage(msg)
-		m.Server = &ServerDef_UdpServer{msg}
-		return true, err
-	case 4: // server.grpc_server
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(proto3.ServerConf)
-		err := b.DecodeMessage(msg)
-		m.Server = &ServerDef_GrpcServer{msg}
-		return true, err
-	default:
-		return false, nil
-	}
-}
-
-func _ServerDef_OneofSizer(msg proto.Message) (n int) {
-	m := msg.(*ServerDef)
-	// server
-	switch x := m.Server.(type) {
-	case *ServerDef_HttpServer:
-		s := proto.Size(x.HttpServer)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *ServerDef_UdpServer:
-		s := proto.Size(x.UdpServer)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *ServerDef_GrpcServer:
-		s := proto.Size(x.GrpcServer)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case nil:
-	default:
-		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
-	}
-	return n
-}
-
 func init() {
-	proto.RegisterType((*ServerDef)(nil), "cloudprober.servers.ServerDef")
 	proto.RegisterEnum("cloudprober.servers.ServerDef_Type", ServerDef_Type_name, ServerDef_Type_value)
+	proto.RegisterType((*ServerDef)(nil), "cloudprober.servers.ServerDef")
 }
 
 func init() {
-	proto.RegisterFile("github.com/google/cloudprober/servers/proto/config.proto", fileDescriptor_config_36c23f68c08b4300)
+	proto.RegisterFile("github.com/google/cloudprober/servers/proto/config.proto", fileDescriptor_d9d58d8fdcce2c0e)
 }
 
-var fileDescriptor_config_36c23f68c08b4300 = []byte{
+var fileDescriptor_d9d58d8fdcce2c0e = []byte{
 	// 267 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x90, 0x41, 0x6b, 0xc2, 0x30,
 	0x18, 0x86, 0x6d, 0x2d, 0x9b, 0x7e, 0x85, 0x51, 0xb2, 0x8b, 0xec, 0x24, 0xba, 0x83, 0xa7, 0x04,

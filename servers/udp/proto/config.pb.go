@@ -3,9 +3,11 @@
 
 package proto
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
+import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -16,7 +18,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 type ServerConf_Type int32
 
@@ -33,6 +35,7 @@ var ServerConf_Type_name = map[int32]string{
 	0: "ECHO",
 	1: "DISCARD",
 }
+
 var ServerConf_Type_value = map[string]int32{
 	"ECHO":    0,
 	"DISCARD": 1,
@@ -43,9 +46,11 @@ func (x ServerConf_Type) Enum() *ServerConf_Type {
 	*p = x
 	return p
 }
+
 func (x ServerConf_Type) String() string {
 	return proto.EnumName(ServerConf_Type_name, int32(x))
 }
+
 func (x *ServerConf_Type) UnmarshalJSON(data []byte) error {
 	value, err := proto.UnmarshalJSONEnum(ServerConf_Type_value, data, "ServerConf_Type")
 	if err != nil {
@@ -54,8 +59,9 @@ func (x *ServerConf_Type) UnmarshalJSON(data []byte) error {
 	*x = ServerConf_Type(value)
 	return nil
 }
+
 func (ServerConf_Type) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_config_942aeaff6e4c874a, []int{0, 0}
+	return fileDescriptor_9c8184138bd9149b, []int{0, 0}
 }
 
 type ServerConf struct {
@@ -70,16 +76,17 @@ func (m *ServerConf) Reset()         { *m = ServerConf{} }
 func (m *ServerConf) String() string { return proto.CompactTextString(m) }
 func (*ServerConf) ProtoMessage()    {}
 func (*ServerConf) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_942aeaff6e4c874a, []int{0}
+	return fileDescriptor_9c8184138bd9149b, []int{0}
 }
+
 func (m *ServerConf) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ServerConf.Unmarshal(m, b)
 }
 func (m *ServerConf) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ServerConf.Marshal(b, m, deterministic)
 }
-func (dst *ServerConf) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ServerConf.Merge(dst, src)
+func (m *ServerConf) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ServerConf.Merge(m, src)
 }
 func (m *ServerConf) XXX_Size() int {
 	return xxx_messageInfo_ServerConf.Size(m)
@@ -105,15 +112,15 @@ func (m *ServerConf) GetType() ServerConf_Type {
 }
 
 func init() {
-	proto.RegisterType((*ServerConf)(nil), "cloudprober.servers.udp.ServerConf")
 	proto.RegisterEnum("cloudprober.servers.udp.ServerConf_Type", ServerConf_Type_name, ServerConf_Type_value)
+	proto.RegisterType((*ServerConf)(nil), "cloudprober.servers.udp.ServerConf")
 }
 
 func init() {
-	proto.RegisterFile("github.com/google/cloudprober/servers/udp/proto/config.proto", fileDescriptor_config_942aeaff6e4c874a)
+	proto.RegisterFile("github.com/google/cloudprober/servers/udp/proto/config.proto", fileDescriptor_9c8184138bd9149b)
 }
 
-var fileDescriptor_config_942aeaff6e4c874a = []byte{
+var fileDescriptor_9c8184138bd9149b = []byte{
 	// 181 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0xb2, 0x49, 0xcf, 0x2c, 0xc9,
 	0x28, 0x4d, 0xd2, 0x4b, 0xce, 0xcf, 0xd5, 0x4f, 0xcf, 0xcf, 0x4f, 0xcf, 0x49, 0xd5, 0x4f, 0xce,

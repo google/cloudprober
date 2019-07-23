@@ -3,9 +3,11 @@
 
 package proto
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
+import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -16,7 +18,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 type DataNode_Type int32
 
@@ -31,6 +33,7 @@ var DataNode_Type_name = map[int32]string{
 	1: "CLIENT",
 	2: "SERVER",
 }
+
 var DataNode_Type_value = map[string]int32{
 	"UNKNOWN": 0,
 	"CLIENT":  1,
@@ -42,9 +45,11 @@ func (x DataNode_Type) Enum() *DataNode_Type {
 	*p = x
 	return p
 }
+
 func (x DataNode_Type) String() string {
 	return proto.EnumName(DataNode_Type_name, int32(x))
 }
+
 func (x *DataNode_Type) UnmarshalJSON(data []byte) error {
 	value, err := proto.UnmarshalJSONEnum(DataNode_Type_value, data, "DataNode_Type")
 	if err != nil {
@@ -53,8 +58,9 @@ func (x *DataNode_Type) UnmarshalJSON(data []byte) error {
 	*x = DataNode_Type(value)
 	return nil
 }
+
 func (DataNode_Type) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_message_d8a5391d8035e69c, []int{1, 0}
+	return fileDescriptor_fa2fcc833ce07832, []int{1, 0}
 }
 
 // Constants defines constants with default values.
@@ -69,16 +75,17 @@ func (m *Constants) Reset()         { *m = Constants{} }
 func (m *Constants) String() string { return proto.CompactTextString(m) }
 func (*Constants) ProtoMessage()    {}
 func (*Constants) Descriptor() ([]byte, []int) {
-	return fileDescriptor_message_d8a5391d8035e69c, []int{0}
+	return fileDescriptor_fa2fcc833ce07832, []int{0}
 }
+
 func (m *Constants) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Constants.Unmarshal(m, b)
 }
 func (m *Constants) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Constants.Marshal(b, m, deterministic)
 }
-func (dst *Constants) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Constants.Merge(dst, src)
+func (m *Constants) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Constants.Merge(m, src)
 }
 func (m *Constants) XXX_Size() int {
 	return xxx_messageInfo_Constants.Size(m)
@@ -114,16 +121,17 @@ func (m *DataNode) Reset()         { *m = DataNode{} }
 func (m *DataNode) String() string { return proto.CompactTextString(m) }
 func (*DataNode) ProtoMessage()    {}
 func (*DataNode) Descriptor() ([]byte, []int) {
-	return fileDescriptor_message_d8a5391d8035e69c, []int{1}
+	return fileDescriptor_fa2fcc833ce07832, []int{1}
 }
+
 func (m *DataNode) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_DataNode.Unmarshal(m, b)
 }
 func (m *DataNode) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_DataNode.Marshal(b, m, deterministic)
 }
-func (dst *DataNode) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_DataNode.Merge(dst, src)
+func (m *DataNode) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DataNode.Merge(m, src)
 }
 func (m *DataNode) XXX_Size() int {
 	return xxx_messageInfo_DataNode.Size(m)
@@ -184,16 +192,17 @@ func (m *Msg) Reset()         { *m = Msg{} }
 func (m *Msg) String() string { return proto.CompactTextString(m) }
 func (*Msg) ProtoMessage()    {}
 func (*Msg) Descriptor() ([]byte, []int) {
-	return fileDescriptor_message_d8a5391d8035e69c, []int{2}
+	return fileDescriptor_fa2fcc833ce07832, []int{2}
 }
+
 func (m *Msg) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Msg.Unmarshal(m, b)
 }
 func (m *Msg) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Msg.Marshal(b, m, deterministic)
 }
-func (dst *Msg) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Msg.Merge(dst, src)
+func (m *Msg) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Msg.Merge(m, src)
 }
 func (m *Msg) XXX_Size() int {
 	return xxx_messageInfo_Msg.Size(m)
@@ -247,17 +256,17 @@ func (m *Msg) GetPad() []byte {
 }
 
 func init() {
+	proto.RegisterEnum("message.DataNode_Type", DataNode_Type_name, DataNode_Type_value)
 	proto.RegisterType((*Constants)(nil), "message.Constants")
 	proto.RegisterType((*DataNode)(nil), "message.DataNode")
 	proto.RegisterType((*Msg)(nil), "message.Msg")
-	proto.RegisterEnum("message.DataNode_Type", DataNode_Type_name, DataNode_Type_value)
 }
 
 func init() {
-	proto.RegisterFile("github.com/google/cloudprober/message/proto/message.proto", fileDescriptor_message_d8a5391d8035e69c)
+	proto.RegisterFile("github.com/google/cloudprober/message/proto/message.proto", fileDescriptor_fa2fcc833ce07832)
 }
 
-var fileDescriptor_message_d8a5391d8035e69c = []byte{
+var fileDescriptor_fa2fcc833ce07832 = []byte{
 	// 335 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x6c, 0x4f, 0x41, 0x6b, 0xea, 0x40,
 	0x18, 0x7c, 0x6b, 0xa2, 0x3e, 0x3f, 0x7d, 0xbe, 0xbc, 0xe5, 0x51, 0x72, 0x0c, 0x29, 0x52, 0xa1,
