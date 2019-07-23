@@ -153,7 +153,6 @@ func sendAndCheckPackets(p *Probe, t *testing.T) {
 	tic := newTestICMPConn(p.c, p.targets)
 	p.conn = tic
 	trackerChan := make(chan bool, int(p.c.GetPacketsPerProbe())*len(p.targets))
-	p.resolveTargets()
 	runID := p.newRunID()
 	p.sendPackets(runID, trackerChan)
 
@@ -247,7 +246,6 @@ func TestSendPacketsIPv6ToIPv4Hosts(t *testing.T) {
 	tic := newTestICMPConn(c, p.targets)
 	p.conn = tic
 	trackerChan := make(chan bool, int(c.GetPacketsPerProbe())*len(p.targets))
-	p.resolveTargets()
 	p.sendPackets(p.newRunID(), trackerChan)
 	for _, target := range p.targets {
 		if len(tic.sentPackets[target]) != 0 {

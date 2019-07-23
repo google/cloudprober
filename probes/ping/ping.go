@@ -144,7 +144,6 @@ func (p *Probe) initInternal() error {
 		p.ipVer = p.opts.IPVersion
 	}
 
-	p.targets = p.opts.Targets.List()
 	p.results = make(map[string]*result)
 	p.ip2target = make(map[[16]byte]string)
 	p.target2addr = make(map[string]net.Addr)
@@ -153,6 +152,9 @@ func (p *Probe) initInternal() error {
 	if p.opts.SourceIP != nil {
 		p.source = p.opts.SourceIP.String()
 	}
+
+	// Update targets run peiodically as well.
+	p.updateTargets()
 
 	return nil
 }
@@ -197,8 +199,13 @@ func (p *Probe) listen() error {
 	return err
 }
 
-func (p *Probe) resolveTargets() {
+func (p *Probe) updateTargets() {
+	p.targets = p.opts.Targets.List()
+
 	for _, t := range p.targets {
+		// Update results map:
+		p.updateResultForTarget(t)
+
 		ip, err := p.opts.Targets.Resolve(t, p.ipVer)
 		if err != nil {
 			p.l.Warning("Bad target: ", t, ". Err: ", err.Error())
@@ -213,21 +220,24 @@ func (p *Probe) resolveTargets() {
 		}
 		p.target2addr[t] = a
 		p.ip2target[ipToKey(ip)] = t
+	}
+}
 
-		// Update results map:
-		if _, ok := p.results[t]; ok {
-			continue
-		}
-		var latencyValue metrics.Value
-		if p.opts.LatencyDist != nil {
-			latencyValue = p.opts.LatencyDist.Clone()
-		} else {
-			latencyValue = metrics.NewFloat(0)
-		}
-		p.results[t] = &result{
-			latency:           latencyValue,
-			validationFailure: validators.ValidationFailureMap(p.opts.Validators),
-		}
+func (p *Probe) updateResultForTarget(t string) {
+	if _, ok := p.results[t]; ok {
+		return
+	}
+
+	var latencyValue metrics.Value
+	if p.opts.LatencyDist != nil {
+		latencyValue = p.opts.LatencyDist.Clone()
+	} else {
+		latencyValue = metrics.NewFloat(0)
+	}
+
+	p.results[t] = &result{
+		latency:           latencyValue,
+		validationFailure: validators.ValidationFailureMap(p.opts.Validators),
 	}
 }
 
@@ -420,8 +430,7 @@ func (p *Probe) newRunID() uint16 {
 func (p *Probe) runProbe() {
 	// Resolve targets if target resolve interval has elapsed.
 	if (p.runCnt % uint64(p.c.GetResolveTargetsInterval())) == 0 {
-		p.targets = p.opts.Targets.List()
-		p.resolveTargets()
+		p.updateTargets()
 	}
 	p.runCnt++
 	runID := p.newRunID()
