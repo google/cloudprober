@@ -15,12 +15,14 @@
 package sysvars
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"strings"
 
 	"cloud.google.com/go/compute/metadata"
 	"github.com/golang/glog"
+	compute "google.golang.org/api/compute/v1"
 )
 
 // maxNICs is the number of NICs allowed on a VM. Used by addGceNicInfo.
@@ -78,7 +80,32 @@ func gceVars(vars map[string]string) error {
 	zoneParts := strings.Split(vars["zone"], "-")
 	vars["region"] = strings.Join(zoneParts[0:len(zoneParts)-1], "-")
 	addGceNicInfo(vars)
+
+	ls, err := labelsFromGCE(vars["project"], vars["zone"], vars["instance"])
+	if err != nil {
+		return err
+	}
+
+	for k, v := range ls {
+		// Adds GCE labels to the dictionary with a 'labels_' prefix so they can be
+		// referenced in the cfg file.
+		vars["labels_"+k] = v
+
+	}
 	return nil
+}
+
+func labelsFromGCE(project, zone, instance string) (map[string]string, error) {
+	ctx := context.Background()
+	computeService, err := compute.NewService(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("error creating compute service to get instance labels: %v", err)
+	}
+	i, err := computeService.Instances.Get(project, zone, instance).Context(ctx).Do()
+	if err != nil {
+		return nil, fmt.Errorf("error while fetching the instance resource using GCE API: %v", err)
+	}
+	return i.Labels, nil
 }
 
 // addGceNicInfo adds nic information to vars.
