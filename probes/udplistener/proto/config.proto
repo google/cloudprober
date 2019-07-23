@@ -3,17 +3,6 @@ syntax = "proto2";
 package cloudprober.probes.udplistener;
 
 message ProbeConf {
-  // Export stats after these many milliseconds
-  // NOTE: Setting stats export interval using this field doesn't work anymore.
-  // This field will be removed after the release v0.10.3. To set
-  // stats_export_interval, please modify the outer probe configuration.
-  // probe {
-  //   type: UDP_LISTENER
-  //   stats_export_interval_msec: 10000
-  //   udplistener_probe {}
-  // }
-  optional int32 stats_export_interval_msec = 2 [default = 10000];
-
   // Port to listen.
   optional int32 port = 3 [default = 32212];
 

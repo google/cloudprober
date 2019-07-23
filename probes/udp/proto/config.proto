@@ -3,19 +3,9 @@ syntax = "proto2";
 package cloudprober.probes.udp;
 
 message ProbeConf {
-  // Export stats after these many milliseconds
-  // NOTE: Setting stats export interval using this field doesn't work anymore.
-  // This field will be removed after the release v0.10.3. To set
-  // stats_export_interval, please modify the outer probe configuration.
-  // probe {
-  //   type: UDP
-  //   stats_export_interval_msec: 10000
-  //   udp_probe {}
-  // }
-  optional int32 stats_export_interval_msec = 2 [default = 10000];
-  // Port to send UDP Ping to (UDP Echo).  Should be same as
+  // Port to send UDP Ping to (UDP Echo).  If running with the UDP server that
+  // comes with cloudprober, it should be same as
   // ProberConfig.udp_echo_server_port.
-  // TODO(_): Can we just read this from ProberConfig?
   optional int32 port = 3 [default = 31122];
 
   // Number of sending side ports to use.

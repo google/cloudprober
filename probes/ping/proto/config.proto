@@ -8,18 +8,6 @@ message ProbeConf {
   optional int32 packets_per_probe = 6 [default = 2];
   // How long to wait between two packets to the same target
   optional int32 packets_interval_msec = 7 [default = 25];
-
-  // Export stats after these many probes.
-  // NOTE: Setting stats export interval using this field doesn't work anymore.
-  // This field will be removed after the release v0.10.3. To set
-  // stats_export_interval, please modify the outer probe configuration.
-  // Example: probe {
-  //   type: PING
-  //   stats_export_interval_msec: 10000
-  //   ping_probe {}
-  // }
-  optional int32 stats_export_interval = 8 [default = 5];  // =10s
-
   // Resolve targets after these many probes
   optional int32 resolve_targets_interval = 9 [default = 5];  // =10s
   // Ping payload size in bytes. It cannot be smaller than 8, number of bytes

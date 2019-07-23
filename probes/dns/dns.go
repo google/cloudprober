@@ -243,10 +243,6 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 		return p.targets
 	}
 
-	if p.c != nil && p.c.StatsExportIntervalMsec != nil {
-		p.l.Warningf("stats_export_interval_msec field is now deprecated and doesn't do anything. To modify stats export interval, use the probe level field by the same name.")
-	}
-
 	go probeutils.StatsKeeper(ctx, "dns", p.name, p.opts.StatsExportInterval, targetsFunc, resultsChan, dataChan, p.opts.LogMetrics, p.l)
 
 	for range time.Tick(p.opts.Interval) {

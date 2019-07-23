@@ -92,12 +92,10 @@ func runProbe(t *testing.T, testName string, p *Probe, total, success int64) {
 func TestRun(t *testing.T) {
 	p := &Probe{}
 	opts := &options.Options{
-		Targets:  targets.StaticTargets("8.8.8.8"),
-		Interval: 2 * time.Second,
-		Timeout:  time.Second,
-		ProbeConf: &configpb.ProbeConf{
-			StatsExportIntervalMsec: proto.Int32(1000),
-		},
+		Targets:   targets.StaticTargets("8.8.8.8"),
+		Interval:  2 * time.Second,
+		Timeout:   time.Second,
+		ProbeConf: &configpb.ProbeConf{},
 	}
 	if err := p.Init("dns_test", opts); err != nil {
 		t.Fatalf("Error creating probe: %v", err)
@@ -113,8 +111,7 @@ func TestProbeType(t *testing.T) {
 		Interval: 2 * time.Second,
 		Timeout:  time.Second,
 		ProbeConf: &configpb.ProbeConf{
-			StatsExportIntervalMsec: proto.Int32(1000),
-			QueryType:               &badType,
+			QueryType: &badType,
 		},
 	}
 	if err := p.Init("dns_probe_type_test", opts); err != nil {
@@ -130,8 +127,7 @@ func TestBadName(t *testing.T) {
 		Interval: 2 * time.Second,
 		Timeout:  time.Second,
 		ProbeConf: &configpb.ProbeConf{
-			StatsExportIntervalMsec: proto.Int32(1000),
-			ResolvedDomain:          proto.String(questionBadDomain),
+			ResolvedDomain: proto.String(questionBadDomain),
 		},
 	}
 	if err := p.Init("dns_bad_domain_test", opts); err != nil {
@@ -147,8 +143,7 @@ func TestAnswerCheck(t *testing.T) {
 		Interval: 2 * time.Second,
 		Timeout:  time.Second,
 		ProbeConf: &configpb.ProbeConf{
-			StatsExportIntervalMsec: proto.Int32(1000),
-			MinAnswers:              proto.Uint32(1),
+			MinAnswers: proto.Uint32(1),
 		},
 	}
 	if err := p.Init("dns_probe_answer_check_test", opts); err != nil {
@@ -158,8 +153,7 @@ func TestAnswerCheck(t *testing.T) {
 	runProbe(t, "matchminanswers", p, 1, 1)
 
 	opts.ProbeConf = &configpb.ProbeConf{
-		StatsExportIntervalMsec: proto.Int32(1000),
-		MinAnswers:              proto.Uint32(2),
+		MinAnswers: proto.Uint32(2),
 	}
 	if err := p.Init("dns_probe_answer_check_test", opts); err != nil {
 		t.Fatalf("Error creating probe: %v", err)
@@ -184,12 +178,10 @@ func TestValidator(t *testing.T) {
 			t.Fatalf("Error initializing validator for pattern %v: %v", tst.pattern, err)
 		}
 		opts := &options.Options{
-			Targets:  targets.StaticTargets("8.8.8.8"),
-			Interval: 2 * time.Second,
-			Timeout:  time.Second,
-			ProbeConf: &configpb.ProbeConf{
-				StatsExportIntervalMsec: proto.Int32(1000),
-			},
+			Targets:    targets.StaticTargets("8.8.8.8"),
+			Interval:   2 * time.Second,
+			Timeout:    time.Second,
+			ProbeConf:  &configpb.ProbeConf{},
 			Validators: validator,
 		}
 		if err := p.Init("dns_probe_answer_"+tst.name, opts); err != nil {
