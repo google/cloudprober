@@ -3,13 +3,15 @@
 
 package proto
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import proto3 "github.com/google/cloudprober/surfacers/file/proto"
-import proto4 "github.com/google/cloudprober/surfacers/postgres/proto"
-import proto1 "github.com/google/cloudprober/surfacers/prometheus/proto"
-import proto2 "github.com/google/cloudprober/surfacers/stackdriver/proto"
+import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	proto3 "github.com/google/cloudprober/surfacers/file/proto"
+	proto4 "github.com/google/cloudprober/surfacers/postgres/proto"
+	proto1 "github.com/google/cloudprober/surfacers/prometheus/proto"
+	proto2 "github.com/google/cloudprober/surfacers/stackdriver/proto"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -20,7 +22,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 // Enumeration for each type of surfacer we can parse and create
 type Type int32
@@ -42,6 +44,7 @@ var Type_name = map[int32]string{
 	4:  "POSTGRES",
 	99: "USER_DEFINED",
 }
+
 var Type_value = map[string]int32{
 	"NONE":         0,
 	"PROMETHEUS":   1,
@@ -56,9 +59,11 @@ func (x Type) Enum() *Type {
 	*p = x
 	return p
 }
+
 func (x Type) String() string {
 	return proto.EnumName(Type_name, int32(x))
 }
+
 func (x *Type) UnmarshalJSON(data []byte) error {
 	value, err := proto.UnmarshalJSONEnum(Type_value, data, "Type")
 	if err != nil {
@@ -67,8 +72,9 @@ func (x *Type) UnmarshalJSON(data []byte) error {
 	*x = Type(value)
 	return nil
 }
+
 func (Type) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_config_dc94760276a55873, []int{0}
+	return fileDescriptor_7422849b62c25d1a, []int{0}
 }
 
 type SurfacerDef struct {
@@ -96,16 +102,17 @@ func (m *SurfacerDef) Reset()         { *m = SurfacerDef{} }
 func (m *SurfacerDef) String() string { return proto.CompactTextString(m) }
 func (*SurfacerDef) ProtoMessage()    {}
 func (*SurfacerDef) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_dc94760276a55873, []int{0}
+	return fileDescriptor_7422849b62c25d1a, []int{0}
 }
+
 func (m *SurfacerDef) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SurfacerDef.Unmarshal(m, b)
 }
 func (m *SurfacerDef) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_SurfacerDef.Marshal(b, m, deterministic)
 }
-func (dst *SurfacerDef) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_SurfacerDef.Merge(dst, src)
+func (m *SurfacerDef) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SurfacerDef.Merge(m, src)
 }
 func (m *SurfacerDef) XXX_Size() int {
 	return xxx_messageInfo_SurfacerDef.Size(m)
@@ -193,9 +200,9 @@ func (m *SurfacerDef) GetPostgresSurfacer() *proto4.SurfacerConf {
 	return nil
 }
 
-// XXX_OneofFuncs is for the internal use of the proto package.
-func (*SurfacerDef) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
-	return _SurfacerDef_OneofMarshaler, _SurfacerDef_OneofUnmarshaler, _SurfacerDef_OneofSizer, []interface{}{
+// XXX_OneofWrappers is for the internal use of the proto package.
+func (*SurfacerDef) XXX_OneofWrappers() []interface{} {
+	return []interface{}{
 		(*SurfacerDef_PrometheusSurfacer)(nil),
 		(*SurfacerDef_StackdriverSurfacer)(nil),
 		(*SurfacerDef_FileSurfacer)(nil),
@@ -203,118 +210,16 @@ func (*SurfacerDef) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) e
 	}
 }
 
-func _SurfacerDef_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
-	m := msg.(*SurfacerDef)
-	// surfacer
-	switch x := m.Surfacer.(type) {
-	case *SurfacerDef_PrometheusSurfacer:
-		b.EncodeVarint(10<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.PrometheusSurfacer); err != nil {
-			return err
-		}
-	case *SurfacerDef_StackdriverSurfacer:
-		b.EncodeVarint(11<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.StackdriverSurfacer); err != nil {
-			return err
-		}
-	case *SurfacerDef_FileSurfacer:
-		b.EncodeVarint(12<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.FileSurfacer); err != nil {
-			return err
-		}
-	case *SurfacerDef_PostgresSurfacer:
-		b.EncodeVarint(13<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.PostgresSurfacer); err != nil {
-			return err
-		}
-	case nil:
-	default:
-		return fmt.Errorf("SurfacerDef.Surfacer has unexpected type %T", x)
-	}
-	return nil
-}
-
-func _SurfacerDef_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
-	m := msg.(*SurfacerDef)
-	switch tag {
-	case 10: // surfacer.prometheus_surfacer
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(proto1.SurfacerConf)
-		err := b.DecodeMessage(msg)
-		m.Surfacer = &SurfacerDef_PrometheusSurfacer{msg}
-		return true, err
-	case 11: // surfacer.stackdriver_surfacer
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(proto2.SurfacerConf)
-		err := b.DecodeMessage(msg)
-		m.Surfacer = &SurfacerDef_StackdriverSurfacer{msg}
-		return true, err
-	case 12: // surfacer.file_surfacer
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(proto3.SurfacerConf)
-		err := b.DecodeMessage(msg)
-		m.Surfacer = &SurfacerDef_FileSurfacer{msg}
-		return true, err
-	case 13: // surfacer.postgres_surfacer
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(proto4.SurfacerConf)
-		err := b.DecodeMessage(msg)
-		m.Surfacer = &SurfacerDef_PostgresSurfacer{msg}
-		return true, err
-	default:
-		return false, nil
-	}
-}
-
-func _SurfacerDef_OneofSizer(msg proto.Message) (n int) {
-	m := msg.(*SurfacerDef)
-	// surfacer
-	switch x := m.Surfacer.(type) {
-	case *SurfacerDef_PrometheusSurfacer:
-		s := proto.Size(x.PrometheusSurfacer)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *SurfacerDef_StackdriverSurfacer:
-		s := proto.Size(x.StackdriverSurfacer)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *SurfacerDef_FileSurfacer:
-		s := proto.Size(x.FileSurfacer)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *SurfacerDef_PostgresSurfacer:
-		s := proto.Size(x.PostgresSurfacer)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case nil:
-	default:
-		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
-	}
-	return n
-}
-
 func init() {
-	proto.RegisterType((*SurfacerDef)(nil), "cloudprober.surfacer.SurfacerDef")
 	proto.RegisterEnum("cloudprober.surfacer.Type", Type_name, Type_value)
+	proto.RegisterType((*SurfacerDef)(nil), "cloudprober.surfacer.SurfacerDef")
 }
 
 func init() {
-	proto.RegisterFile("github.com/google/cloudprober/surfacers/proto/config.proto", fileDescriptor_config_dc94760276a55873)
+	proto.RegisterFile("github.com/google/cloudprober/surfacers/proto/config.proto", fileDescriptor_7422849b62c25d1a)
 }
 
-var fileDescriptor_config_dc94760276a55873 = []byte{
+var fileDescriptor_7422849b62c25d1a = []byte{
 	// 381 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x91, 0xc1, 0xcf, 0xd2, 0x30,
 	0x18, 0xc6, 0xbf, 0x7d, 0xdf, 0x0e, 0xf8, 0x6e, 0x60, 0x2d, 0x1c, 0x08, 0x27, 0xe2, 0x45, 0xa2,

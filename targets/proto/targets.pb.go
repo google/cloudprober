@@ -3,13 +3,15 @@
 
 package proto
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import proto1 "github.com/google/cloudprober/targets/gce/proto"
-import proto4 "github.com/google/cloudprober/targets/lameduck/proto"
-import proto2 "github.com/google/cloudprober/targets/rds/client/proto"
-import proto3 "github.com/google/cloudprober/targets/rtc/proto"
+import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	proto1 "github.com/google/cloudprober/targets/gce/proto"
+	proto4 "github.com/google/cloudprober/targets/lameduck/proto"
+	proto2 "github.com/google/cloudprober/targets/rds/client/proto"
+	proto3 "github.com/google/cloudprober/targets/rtc/proto"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -20,7 +22,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 type TargetsDef struct {
 	// Types that are valid to be assigned to Type:
@@ -52,7 +54,7 @@ func (m *TargetsDef) Reset()         { *m = TargetsDef{} }
 func (m *TargetsDef) String() string { return proto.CompactTextString(m) }
 func (*TargetsDef) ProtoMessage()    {}
 func (*TargetsDef) Descriptor() ([]byte, []int) {
-	return fileDescriptor_targets_d8fa4415f08434d8, []int{0}
+	return fileDescriptor_6a021db69203ab7b, []int{0}
 }
 
 var extRange_TargetsDef = []proto.ExtensionRange{
@@ -62,14 +64,15 @@ var extRange_TargetsDef = []proto.ExtensionRange{
 func (*TargetsDef) ExtensionRangeArray() []proto.ExtensionRange {
 	return extRange_TargetsDef
 }
+
 func (m *TargetsDef) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_TargetsDef.Unmarshal(m, b)
 }
 func (m *TargetsDef) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_TargetsDef.Marshal(b, m, deterministic)
 }
-func (dst *TargetsDef) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_TargetsDef.Merge(dst, src)
+func (m *TargetsDef) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_TargetsDef.Merge(m, src)
 }
 func (m *TargetsDef) XXX_Size() int {
 	return xxx_messageInfo_TargetsDef.Size(m)
@@ -180,131 +183,15 @@ func (m *TargetsDef) GetReEvalSec() int32 {
 	return Default_TargetsDef_ReEvalSec
 }
 
-// XXX_OneofFuncs is for the internal use of the proto package.
-func (*TargetsDef) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
-	return _TargetsDef_OneofMarshaler, _TargetsDef_OneofUnmarshaler, _TargetsDef_OneofSizer, []interface{}{
+// XXX_OneofWrappers is for the internal use of the proto package.
+func (*TargetsDef) XXX_OneofWrappers() []interface{} {
+	return []interface{}{
 		(*TargetsDef_HostNames)(nil),
 		(*TargetsDef_GceTargets)(nil),
 		(*TargetsDef_RdsTargets)(nil),
 		(*TargetsDef_RtcTargets)(nil),
 		(*TargetsDef_DummyTargets)(nil),
 	}
-}
-
-func _TargetsDef_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
-	m := msg.(*TargetsDef)
-	// type
-	switch x := m.Type.(type) {
-	case *TargetsDef_HostNames:
-		b.EncodeVarint(1<<3 | proto.WireBytes)
-		b.EncodeStringBytes(x.HostNames)
-	case *TargetsDef_GceTargets:
-		b.EncodeVarint(2<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.GceTargets); err != nil {
-			return err
-		}
-	case *TargetsDef_RdsTargets:
-		b.EncodeVarint(3<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.RdsTargets); err != nil {
-			return err
-		}
-	case *TargetsDef_RtcTargets:
-		b.EncodeVarint(4<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.RtcTargets); err != nil {
-			return err
-		}
-	case *TargetsDef_DummyTargets:
-		b.EncodeVarint(20<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.DummyTargets); err != nil {
-			return err
-		}
-	case nil:
-	default:
-		return fmt.Errorf("TargetsDef.Type has unexpected type %T", x)
-	}
-	return nil
-}
-
-func _TargetsDef_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
-	m := msg.(*TargetsDef)
-	switch tag {
-	case 1: // type.host_names
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		x, err := b.DecodeStringBytes()
-		m.Type = &TargetsDef_HostNames{x}
-		return true, err
-	case 2: // type.gce_targets
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(proto1.TargetsConf)
-		err := b.DecodeMessage(msg)
-		m.Type = &TargetsDef_GceTargets{msg}
-		return true, err
-	case 3: // type.rds_targets
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(proto2.ClientConf)
-		err := b.DecodeMessage(msg)
-		m.Type = &TargetsDef_RdsTargets{msg}
-		return true, err
-	case 4: // type.rtc_targets
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(proto3.TargetsConf)
-		err := b.DecodeMessage(msg)
-		m.Type = &TargetsDef_RtcTargets{msg}
-		return true, err
-	case 20: // type.dummy_targets
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(DummyTargets)
-		err := b.DecodeMessage(msg)
-		m.Type = &TargetsDef_DummyTargets{msg}
-		return true, err
-	default:
-		return false, nil
-	}
-}
-
-func _TargetsDef_OneofSizer(msg proto.Message) (n int) {
-	m := msg.(*TargetsDef)
-	// type
-	switch x := m.Type.(type) {
-	case *TargetsDef_HostNames:
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(len(x.HostNames)))
-		n += len(x.HostNames)
-	case *TargetsDef_GceTargets:
-		s := proto.Size(x.GceTargets)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *TargetsDef_RdsTargets:
-		s := proto.Size(x.RdsTargets)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *TargetsDef_RtcTargets:
-		s := proto.Size(x.RtcTargets)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *TargetsDef_DummyTargets:
-		s := proto.Size(x.DummyTargets)
-		n += 2 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case nil:
-	default:
-		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
-	}
-	return n
 }
 
 // DummyTargets represent empty targets, which are useful for external
@@ -319,16 +206,17 @@ func (m *DummyTargets) Reset()         { *m = DummyTargets{} }
 func (m *DummyTargets) String() string { return proto.CompactTextString(m) }
 func (*DummyTargets) ProtoMessage()    {}
 func (*DummyTargets) Descriptor() ([]byte, []int) {
-	return fileDescriptor_targets_d8fa4415f08434d8, []int{1}
+	return fileDescriptor_6a021db69203ab7b, []int{1}
 }
+
 func (m *DummyTargets) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_DummyTargets.Unmarshal(m, b)
 }
 func (m *DummyTargets) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_DummyTargets.Marshal(b, m, deterministic)
 }
-func (dst *DummyTargets) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_DummyTargets.Merge(dst, src)
+func (m *DummyTargets) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DummyTargets.Merge(m, src)
 }
 func (m *DummyTargets) XXX_Size() int {
 	return xxx_messageInfo_DummyTargets.Size(m)
@@ -360,16 +248,17 @@ func (m *GlobalTargetsOptions) Reset()         { *m = GlobalTargetsOptions{} }
 func (m *GlobalTargetsOptions) String() string { return proto.CompactTextString(m) }
 func (*GlobalTargetsOptions) ProtoMessage()    {}
 func (*GlobalTargetsOptions) Descriptor() ([]byte, []int) {
-	return fileDescriptor_targets_d8fa4415f08434d8, []int{2}
+	return fileDescriptor_6a021db69203ab7b, []int{2}
 }
+
 func (m *GlobalTargetsOptions) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GlobalTargetsOptions.Unmarshal(m, b)
 }
 func (m *GlobalTargetsOptions) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_GlobalTargetsOptions.Marshal(b, m, deterministic)
 }
-func (dst *GlobalTargetsOptions) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GlobalTargetsOptions.Merge(dst, src)
+func (m *GlobalTargetsOptions) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GlobalTargetsOptions.Merge(m, src)
 }
 func (m *GlobalTargetsOptions) XXX_Size() int {
 	return xxx_messageInfo_GlobalTargetsOptions.Size(m)
@@ -401,10 +290,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("github.com/google/cloudprober/targets/proto/targets.proto", fileDescriptor_targets_d8fa4415f08434d8)
+	proto.RegisterFile("github.com/google/cloudprober/targets/proto/targets.proto", fileDescriptor_6a021db69203ab7b)
 }
 
-var fileDescriptor_targets_d8fa4415f08434d8 = []byte{
+var fileDescriptor_6a021db69203ab7b = []byte{
 	// 458 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xa4, 0x92, 0xcf, 0x6e, 0xd3, 0x40,
 	0x10, 0xc6, 0xe3, 0x36, 0x45, 0xcd, 0xb8, 0x40, 0x6b, 0x02, 0xb5, 0x72, 0x21, 0x0d, 0x7f, 0x14,

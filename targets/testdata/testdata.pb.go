@@ -3,10 +3,12 @@
 
 package testdata
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import proto1 "github.com/google/cloudprober/targets/proto"
+import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	proto1 "github.com/google/cloudprober/targets/proto"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -17,7 +19,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 type FancyTargets struct {
 	Name                 *string  `protobuf:"bytes,1,req,name=name" json:"name,omitempty"`
@@ -30,16 +32,17 @@ func (m *FancyTargets) Reset()         { *m = FancyTargets{} }
 func (m *FancyTargets) String() string { return proto.CompactTextString(m) }
 func (*FancyTargets) ProtoMessage()    {}
 func (*FancyTargets) Descriptor() ([]byte, []int) {
-	return fileDescriptor_testdata_8a68c779ec97969a, []int{0}
+	return fileDescriptor_0e98d900ab6368b0, []int{0}
 }
+
 func (m *FancyTargets) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_FancyTargets.Unmarshal(m, b)
 }
 func (m *FancyTargets) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_FancyTargets.Marshal(b, m, deterministic)
 }
-func (dst *FancyTargets) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_FancyTargets.Merge(dst, src)
+func (m *FancyTargets) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_FancyTargets.Merge(m, src)
 }
 func (m *FancyTargets) XXX_Size() int {
 	return xxx_messageInfo_FancyTargets.Size(m)
@@ -62,7 +65,7 @@ var E_FancyTargets = &proto.ExtensionDesc{
 	ExtensionType: (*FancyTargets)(nil),
 	Field:         200,
 	Name:          "cloudprober.targets.testdata.fancy_targets",
-	Tag:           "bytes,200,opt,name=fancy_targets,json=fancyTargets",
+	Tag:           "bytes,200,opt,name=fancy_targets",
 	Filename:      "github.com/google/cloudprober/targets/testdata/testdata.proto",
 }
 
@@ -72,10 +75,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("github.com/google/cloudprober/targets/testdata/testdata.proto", fileDescriptor_testdata_8a68c779ec97969a)
+	proto.RegisterFile("github.com/google/cloudprober/targets/testdata/testdata.proto", fileDescriptor_0e98d900ab6368b0)
 }
 
-var fileDescriptor_testdata_8a68c779ec97969a = []byte{
+var fileDescriptor_0e98d900ab6368b0 = []byte{
 	// 170 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0xb2, 0x4d, 0xcf, 0x2c, 0xc9,
 	0x28, 0x4d, 0xd2, 0x4b, 0xce, 0xcf, 0xd5, 0x4f, 0xcf, 0xcf, 0x4f, 0xcf, 0x49, 0xd5, 0x4f, 0xce,

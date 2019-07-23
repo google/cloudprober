@@ -3,10 +3,12 @@
 
 package proto
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import proto1 "github.com/google/cloudprober/targets/rds/server/gcp/proto"
+import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	proto1 "github.com/google/cloudprober/targets/rds/server/gcp/proto"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -17,7 +19,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 type ServerConf struct {
 	// List of providers that server supports.
@@ -39,16 +41,17 @@ func (m *ServerConf) Reset()         { *m = ServerConf{} }
 func (m *ServerConf) String() string { return proto.CompactTextString(m) }
 func (*ServerConf) ProtoMessage()    {}
 func (*ServerConf) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_659de17abda0befa, []int{0}
+	return fileDescriptor_4a3234188f7c6305, []int{0}
 }
+
 func (m *ServerConf) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ServerConf.Unmarshal(m, b)
 }
 func (m *ServerConf) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ServerConf.Marshal(b, m, deterministic)
 }
-func (dst *ServerConf) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ServerConf.Merge(dst, src)
+func (m *ServerConf) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ServerConf.Merge(m, src)
 }
 func (m *ServerConf) XXX_Size() int {
 	return xxx_messageInfo_ServerConf.Size(m)
@@ -89,16 +92,17 @@ func (m *Provider) Reset()         { *m = Provider{} }
 func (m *Provider) String() string { return proto.CompactTextString(m) }
 func (*Provider) ProtoMessage()    {}
 func (*Provider) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_659de17abda0befa, []int{1}
+	return fileDescriptor_4a3234188f7c6305, []int{1}
 }
+
 func (m *Provider) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Provider.Unmarshal(m, b)
 }
 func (m *Provider) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Provider.Marshal(b, m, deterministic)
 }
-func (dst *Provider) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Provider.Merge(dst, src)
+func (m *Provider) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Provider.Merge(m, src)
 }
 func (m *Provider) XXX_Size() int {
 	return xxx_messageInfo_Provider.Size(m)
@@ -140,59 +144,11 @@ func (m *Provider) GetGcpConfig() *proto1.ProviderConfig {
 	return nil
 }
 
-// XXX_OneofFuncs is for the internal use of the proto package.
-func (*Provider) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
-	return _Provider_OneofMarshaler, _Provider_OneofUnmarshaler, _Provider_OneofSizer, []interface{}{
+// XXX_OneofWrappers is for the internal use of the proto package.
+func (*Provider) XXX_OneofWrappers() []interface{} {
+	return []interface{}{
 		(*Provider_GcpConfig)(nil),
 	}
-}
-
-func _Provider_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
-	m := msg.(*Provider)
-	// config
-	switch x := m.Config.(type) {
-	case *Provider_GcpConfig:
-		b.EncodeVarint(2<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.GcpConfig); err != nil {
-			return err
-		}
-	case nil:
-	default:
-		return fmt.Errorf("Provider.Config has unexpected type %T", x)
-	}
-	return nil
-}
-
-func _Provider_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
-	m := msg.(*Provider)
-	switch tag {
-	case 2: // config.gcp_config
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(proto1.ProviderConfig)
-		err := b.DecodeMessage(msg)
-		m.Config = &Provider_GcpConfig{msg}
-		return true, err
-	default:
-		return false, nil
-	}
-}
-
-func _Provider_OneofSizer(msg proto.Message) (n int) {
-	m := msg.(*Provider)
-	// config
-	switch x := m.Config.(type) {
-	case *Provider_GcpConfig:
-		s := proto.Size(x.GcpConfig)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case nil:
-	default:
-		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
-	}
-	return n
 }
 
 func init() {
@@ -201,10 +157,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("github.com/google/cloudprober/targets/rds/server/proto/config.proto", fileDescriptor_config_659de17abda0befa)
+	proto.RegisterFile("github.com/google/cloudprober/targets/rds/server/proto/config.proto", fileDescriptor_4a3234188f7c6305)
 }
 
-var fileDescriptor_config_659de17abda0befa = []byte{
+var fileDescriptor_4a3234188f7c6305 = []byte{
 	// 224 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x8e, 0x31, 0x4b, 0x03, 0x41,
 	0x10, 0x85, 0xbd, 0x53, 0xe4, 0x6e, 0x02, 0x16, 0xdb, 0x78, 0x58, 0x9d, 0xa9, 0x0e, 0x84, 0x5d,

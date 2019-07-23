@@ -3,11 +3,13 @@
 
 package proto
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import proto1 "github.com/google/cloudprober/validators/http/proto"
-import proto2 "github.com/google/cloudprober/validators/integrity/proto"
+import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	proto1 "github.com/google/cloudprober/validators/http/proto"
+	proto2 "github.com/google/cloudprober/validators/integrity/proto"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -18,7 +20,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 type Validator struct {
 	Name *string `protobuf:"bytes,1,req,name=name" json:"name,omitempty"`
@@ -36,16 +38,17 @@ func (m *Validator) Reset()         { *m = Validator{} }
 func (m *Validator) String() string { return proto.CompactTextString(m) }
 func (*Validator) ProtoMessage()    {}
 func (*Validator) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_d0dbe3c61f904a6d, []int{0}
+	return fileDescriptor_561cf35eb59e0a7f, []int{0}
 }
+
 func (m *Validator) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Validator.Unmarshal(m, b)
 }
 func (m *Validator) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Validator.Marshal(b, m, deterministic)
 }
-func (dst *Validator) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Validator.Merge(dst, src)
+func (m *Validator) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Validator.Merge(m, src)
 }
 func (m *Validator) XXX_Size() int {
 	return xxx_messageInfo_Validator.Size(m)
@@ -113,93 +116,13 @@ func (m *Validator) GetRegex() string {
 	return ""
 }
 
-// XXX_OneofFuncs is for the internal use of the proto package.
-func (*Validator) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
-	return _Validator_OneofMarshaler, _Validator_OneofUnmarshaler, _Validator_OneofSizer, []interface{}{
+// XXX_OneofWrappers is for the internal use of the proto package.
+func (*Validator) XXX_OneofWrappers() []interface{} {
+	return []interface{}{
 		(*Validator_HttpValidator)(nil),
 		(*Validator_IntegrityValidator)(nil),
 		(*Validator_Regex)(nil),
 	}
-}
-
-func _Validator_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
-	m := msg.(*Validator)
-	// type
-	switch x := m.Type.(type) {
-	case *Validator_HttpValidator:
-		b.EncodeVarint(2<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.HttpValidator); err != nil {
-			return err
-		}
-	case *Validator_IntegrityValidator:
-		b.EncodeVarint(3<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.IntegrityValidator); err != nil {
-			return err
-		}
-	case *Validator_Regex:
-		b.EncodeVarint(4<<3 | proto.WireBytes)
-		b.EncodeStringBytes(x.Regex)
-	case nil:
-	default:
-		return fmt.Errorf("Validator.Type has unexpected type %T", x)
-	}
-	return nil
-}
-
-func _Validator_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
-	m := msg.(*Validator)
-	switch tag {
-	case 2: // type.http_validator
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(proto1.Validator)
-		err := b.DecodeMessage(msg)
-		m.Type = &Validator_HttpValidator{msg}
-		return true, err
-	case 3: // type.integrity_validator
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(proto2.Validator)
-		err := b.DecodeMessage(msg)
-		m.Type = &Validator_IntegrityValidator{msg}
-		return true, err
-	case 4: // type.regex
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		x, err := b.DecodeStringBytes()
-		m.Type = &Validator_Regex{x}
-		return true, err
-	default:
-		return false, nil
-	}
-}
-
-func _Validator_OneofSizer(msg proto.Message) (n int) {
-	m := msg.(*Validator)
-	// type
-	switch x := m.Type.(type) {
-	case *Validator_HttpValidator:
-		s := proto.Size(x.HttpValidator)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *Validator_IntegrityValidator:
-		s := proto.Size(x.IntegrityValidator)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *Validator_Regex:
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(len(x.Regex)))
-		n += len(x.Regex)
-	case nil:
-	default:
-		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
-	}
-	return n
 }
 
 func init() {
@@ -207,10 +130,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("github.com/google/cloudprober/validators/proto/config.proto", fileDescriptor_config_d0dbe3c61f904a6d)
+	proto.RegisterFile("github.com/google/cloudprober/validators/proto/config.proto", fileDescriptor_561cf35eb59e0a7f)
 }
 
-var fileDescriptor_config_d0dbe3c61f904a6d = []byte{
+var fileDescriptor_561cf35eb59e0a7f = []byte{
 	// 226 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0xb2, 0x4e, 0xcf, 0x2c, 0xc9,
 	0x28, 0x4d, 0xd2, 0x4b, 0xce, 0xcf, 0xd5, 0x4f, 0xcf, 0xcf, 0x4f, 0xcf, 0x49, 0xd5, 0x4f, 0xce,
