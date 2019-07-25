@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 2017-2019 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -99,14 +99,14 @@ const numTxPorts = 2
 func runProbe(ctx context.Context, t *testing.T, interval, timeout time.Duration, probesToSend int, scs *serverConnStats, conf configpb.ProbeConf) *Probe {
 	sysvars.Init(&logger.Logger{}, nil)
 	p := &Probe{}
-	ipVersion := int32(6)
+	ipVersion := 6
 	if _, ok := os.LookupEnv("TRAVIS"); ok {
 		ipVersion = 4
 	}
 
 	conf.NumTxPorts = proto.Int32(numTxPorts)
-	conf.IpVersion = proto.Int32(ipVersion)
 	opts := &options.Options{
+		IPVersion:           ipVersion,
 		Targets:             targets.StaticTargets("localhost"),
 		Interval:            interval,
 		Timeout:             timeout,
@@ -182,10 +182,13 @@ func TestSuccessMultipleCasesResultPerPort(t *testing.T) {
 		ctx, cancelCtx := context.WithCancel(context.Background())
 		port, scs := startUDPServer(ctx, t, false, c.delay*time.Millisecond)
 		t.Logf("Case(%s): started server on port %d with delay %v", c.name, port, c.delay)
+
 		conf := configpb.ProbeConf{
 			UseAllTxPortsPerProbe: proto.Bool(c.useAllPorts),
 			Port:                  proto.Int32(int32(port)),
-			ExportMetricsByPort:   proto.Bool(true)}
+			ExportMetricsByPort:   proto.Bool(true),
+		}
+
 		p := runProbe(ctx, t, c.interval*time.Millisecond, c.timeout*time.Millisecond, c.probeCount, scs, conf)
 		cancelCtx()
 
@@ -322,17 +325,23 @@ func TestLossAndDelayed(t *testing.T) {
 	for _, c := range cases {
 		ctx, cancelCtx := context.WithCancel(context.Background())
 		port, scs := startUDPServer(ctx, t, c.drop, c.delay*time.Millisecond)
+
 		t.Logf("Case(%s): started server on port %d with loss %v delay %v", c.name, port, c.drop, c.delay)
+
 		conf := configpb.ProbeConf{
 			UseAllTxPortsPerProbe: proto.Bool(true),
 			Port:                  proto.Int32(int32(port)),
-			ExportMetricsByPort:   proto.Bool(true)}
+			ExportMetricsByPort:   proto.Bool(true),
+		}
+
 		p := runProbe(ctx, t, c.interval*time.Millisecond, c.timeout*time.Millisecond, int(pktCount), scs, conf)
+
 		cancelCtx()
 
 		if len(p.connList) != numTxPorts {
 			t.Errorf("Case(%s): len(p.connList)=%d, want %d", c.name, len(p.connList), numTxPorts)
 		}
+
 		for _, port := range p.srcPortList {
 			res := p.res[flow{port, "localhost"}]
 			if res.total != pktCount {

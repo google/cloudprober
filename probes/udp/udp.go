@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 2017-2019 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -168,17 +168,7 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	if p.opts.SourceIP != nil {
 		udpAddr.IP = p.opts.SourceIP
 	}
-
-	// TODO(manugarg): Simplify this code block to simply use p.opts.IPversion
-	// after v0.10.3.
-	if p.c.GetIpVersion() != 0 {
-		p.l.Warningf("Setting ip_version inside udp_probe{} is deprecated now. Please use the outer layer ip_version option.")
-		p.ipVer = int(p.c.GetIpVersion())
-	}
-
-	if p.opts.IPVersion != 0 {
-		p.ipVer = p.opts.IPVersion
-	}
+	p.ipVer = p.opts.IPVersion
 
 	for p.numConn < wantConn && triesRemaining > 0 {
 		triesRemaining--
