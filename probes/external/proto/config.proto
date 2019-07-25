@@ -40,18 +40,6 @@ message ProbeConf {
   // var1 value1 (for example: total_errors 589)
   optional bool output_as_metrics = 4 [default = true];
   optional OutputMetricsOptions output_metrics_options = 5;
-
-  // IP version: 4|6. For target resolution
-  // This field doesn't do anything and will be removed after the release
-  // v0.10.3. ip_version can be configured in the outer layer of the config:
-  // probe {
-  //   type: EXTERNAL
-  //   ip_version: 6
-  //   external_probe {
-  //     ...
-  //   }
-  // }
-  optional int32 ip_version = 100 [default = 4];
 }
 
 message OutputMetricsOptions {

@@ -67,18 +67,20 @@ func replyPkt(pkt []byte, ipVersion int) []byte {
 type testICMPConn struct {
 	sentPackets map[string](chan []byte)
 	c           *configpb.ProbeConf
+	ipVersion   int
 
 	flipLastByte   bool
 	flipLastByteMu sync.Mutex
 }
 
-func newTestICMPConn(c *configpb.ProbeConf, targets []string) *testICMPConn {
+func newTestICMPConn(opts *options.Options, targets []string) *testICMPConn {
 	tic := &testICMPConn{
-		c:           c,
+		c:           opts.ProbeConf.(*configpb.ProbeConf),
+		ipVersion:   opts.IPVersion,
 		sentPackets: make(map[string](chan []byte)),
 	}
 	for _, target := range targets {
-		tic.sentPackets[target] = make(chan []byte, c.GetPacketsPerProbe())
+		tic.sentPackets[target] = make(chan []byte, tic.c.GetPacketsPerProbe())
 	}
 	return tic
 }
@@ -109,7 +111,7 @@ func (tic *testICMPConn) read(buf []byte) (int, net.Addr, error) {
 
 	// Since we are echoing the packets, copy the received packet into the
 	// provided buffer.
-	respPkt := replyPkt(pkt, int(tic.c.GetIpVersion()))
+	respPkt := replyPkt(pkt, tic.ipVersion)
 	tic.flipLastByteMu.Lock()
 	if tic.flipLastByte {
 		lastByte := ^respPkt[len(respPkt)-1]
@@ -150,7 +152,7 @@ func (tic *testICMPConn) close() {
 
 // Sends packets and verifies
 func sendAndCheckPackets(p *Probe, t *testing.T) {
-	tic := newTestICMPConn(p.c, p.targets)
+	tic := newTestICMPConn(p.opts, p.targets)
 	p.conn = tic
 	trackerChan := make(chan bool, int(p.c.GetPacketsPerProbe())*len(p.targets))
 	runID := p.newRunID()
@@ -159,7 +161,7 @@ func sendAndCheckPackets(p *Probe, t *testing.T) {
 	protocol := protocolICMP
 	var expectedMsgType icmp.Type
 	expectedMsgType = ipv4.ICMPTypeEcho
-	if p.c.GetIpVersion() == 6 {
+	if p.opts.IPVersion == 6 {
 		protocol = protocolIPv6ICMP
 		expectedMsgType = ipv6.ICMPTypeEchoRequest
 	}
@@ -201,7 +203,7 @@ func sendAndCheckPackets(p *Probe, t *testing.T) {
 	}
 }
 
-func newProbe(c *configpb.ProbeConf, t []string) (*Probe, error) {
+func newProbe(c *configpb.ProbeConf, ipVersion int, t []string) (*Probe, error) {
 	p := &Probe{
 		name: "ping_test",
 		opts: &options.Options{
@@ -209,6 +211,7 @@ func newProbe(c *configpb.ProbeConf, t []string) (*Probe, error) {
 			Targets:   targets.StaticTargets(strings.Join(t, ",")),
 			Interval:  2 * time.Second,
 			Timeout:   time.Second,
+			IPVersion: ipVersion,
 		},
 	}
 	return p, p.initInternal()
@@ -216,8 +219,7 @@ func newProbe(c *configpb.ProbeConf, t []string) (*Probe, error) {
 
 // Test sendPackets IPv4, raw sockets
 func TestSendPackets(t *testing.T) {
-	c := &configpb.ProbeConf{}
-	p, err := newProbe(c, []string{"2.2.2.2", "3.3.3.3"})
+	p, err := newProbe(&configpb.ProbeConf{}, 0, []string{"2.2.2.2", "3.3.3.3"})
 	if err != nil {
 		t.Fatalf("Got error from newProbe: %v", err)
 	}
@@ -226,9 +228,7 @@ func TestSendPackets(t *testing.T) {
 
 // Test sendPackets IPv6, raw sockets
 func TestSendPacketsIPv6(t *testing.T) {
-	c := &configpb.ProbeConf{}
-	c.IpVersion = proto.Int32(6)
-	p, err := newProbe(c, []string{"::2", "::3"})
+	p, err := newProbe(&configpb.ProbeConf{}, 6, []string{"::2", "::3"})
 	if err != nil {
 		t.Fatalf("Got error from newProbe: %v", err)
 	}
@@ -238,12 +238,11 @@ func TestSendPacketsIPv6(t *testing.T) {
 // Test sendPackets IPv6, raw sockets, no packets should come on IPv4 target
 func TestSendPacketsIPv6ToIPv4Hosts(t *testing.T) {
 	c := &configpb.ProbeConf{}
-	c.IpVersion = proto.Int32(6)
-	p, err := newProbe(c, []string{"2.2.2.2"})
+	p, err := newProbe(&configpb.ProbeConf{}, 6, []string{"2.2.2.2"})
 	if err != nil {
 		t.Fatalf("Got error from newProbe: %v", err)
 	}
-	tic := newTestICMPConn(c, p.targets)
+	tic := newTestICMPConn(p.opts, p.targets)
 	p.conn = tic
 	trackerChan := make(chan bool, int(c.GetPacketsPerProbe())*len(p.targets))
 	p.sendPackets(p.newRunID(), trackerChan)
@@ -258,7 +257,7 @@ func TestSendPacketsIPv6ToIPv4Hosts(t *testing.T) {
 func TestSendPacketsDatagramSocket(t *testing.T) {
 	c := &configpb.ProbeConf{}
 	c.UseDatagramSocket = proto.Bool(true)
-	p, err := newProbe(c, []string{"2.2.2.2", "3.3.3.3"})
+	p, err := newProbe(c, 0, []string{"2.2.2.2", "3.3.3.3"})
 	if err != nil {
 		t.Fatalf("Got error from newProbe: %v", err)
 	}
@@ -267,10 +266,7 @@ func TestSendPacketsDatagramSocket(t *testing.T) {
 
 // Test sendPackets IPv6, datagram sockets
 func TestSendPacketsIPv6DatagramSocket(t *testing.T) {
-	c := &configpb.ProbeConf{}
-	c.UseDatagramSocket = proto.Bool(true)
-	c.IpVersion = proto.Int32(6)
-	p, err := newProbe(c, []string{"::2", "::3"})
+	p, err := newProbe(&configpb.ProbeConf{UseDatagramSocket: proto.Bool(true)}, 6, []string{"::2", "::3"})
 	if err != nil {
 		t.Fatalf("Got error from newProbe: %v", err)
 	}
@@ -295,16 +291,15 @@ func testRunProbe(t *testing.T, ipVersion int, useDatagramSocket bool, payloadSi
 	if ipVersion == 4 {
 		targets = []string{"2.2.2.2", "3.3.3.3", "4.4.4.4"}
 	} else {
-		c.IpVersion = proto.Int32(6)
 		targets = []string{"::2", "::3", "::4"}
 	}
 
-	p, err := newProbe(c, targets)
+	p, err := newProbe(c, ipVersion, targets)
 	if err != nil {
 		t.Fatalf("Got error from newProbe: %v", err)
 	}
 
-	p.conn = newTestICMPConn(c, p.targets)
+	p.conn = newTestICMPConn(p.opts, p.targets)
 	p.runProbe()
 	for _, target := range p.targets {
 		glog.Infof("target: %s, sent: %d, received: %d, total_rtt: %s", target, p.results[target].sent, p.results[target].rcvd, p.results[target].latency)
@@ -345,13 +340,11 @@ func TestRunProbeIPv6Datagram(t *testing.T) {
 }
 
 func TestDataIntegrityValidation(t *testing.T) {
-	c := &configpb.ProbeConf{}
-
-	p, err := newProbe(c, []string{"2.2.2.2", "3.3.3.3"})
+	p, err := newProbe(&configpb.ProbeConf{}, 0, []string{"2.2.2.2", "3.3.3.3"})
 	if err != nil {
 		t.Fatalf("Got error from newProbe: %v", err)
 	}
-	tic := newTestICMPConn(c, p.targets)
+	tic := newTestICMPConn(p.opts, p.targets)
 	p.conn = tic
 
 	p.runProbe()
