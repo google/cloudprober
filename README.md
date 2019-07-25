@@ -1,6 +1,7 @@
 [![Build
 Status](https://travis-ci.org/google/cloudprober.svg?branch=master)](https://travis-ci.org/google/cloudprober)
 [![Build status](https://ci.appveyor.com/api/projects/status/ypg1okxxfedwkksk?svg=true)](https://ci.appveyor.com/project/manugarg/cloudprober-wwcpu)
+![Docker Pulls](https://img.shields.io/docker/pulls/cloudprober/cloudprober.svg)
 
 # Cloudprober
 
