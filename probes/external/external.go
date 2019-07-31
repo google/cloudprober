@@ -44,6 +44,7 @@ import (
 	serverpb "github.com/google/cloudprober/probes/external/proto"
 	"github.com/google/cloudprober/probes/external/serverutils"
 	"github.com/google/cloudprober/probes/options"
+	"github.com/google/cloudprober/validators"
 )
 
 var (
@@ -62,9 +63,10 @@ var (
 )
 
 type result struct {
-	total, success int64
-	latency        metrics.Value
-	payloadMetrics *metrics.EventMetrics
+	total, success    int64
+	latency           metrics.Value
+	validationFailure *metrics.Map
+	payloadMetrics    *metrics.EventMetrics
 }
 
 // Probe holds aggregate information about all probe runs, per-target.
@@ -87,6 +89,7 @@ type Probe struct {
 	replyChan  chan *serverpb.ProbeReply
 	targets    []string
 	results    map[string]*result // probe results keyed by targets
+	dataChan   chan *metrics.EventMetrics
 
 	// default payload metrics that we clone from to build per-target payload
 	// metrics.
@@ -331,7 +334,45 @@ type requestInfo struct {
 	timestamp time.Time
 }
 
-func (p *Probe) runServerProbe(ctx context.Context, dataChan chan *metrics.EventMetrics) {
+// probeStatus captures the single probe status. It's only used by runProbe
+// functions to pass a probe's status to processProbeResult method.
+type probeStatus struct {
+	target  string
+	success bool
+	latency time.Duration
+	payload string
+}
+
+func (p *Probe) processProbeResult(ps *probeStatus, result *result) {
+	if ps.success && p.opts.Validators != nil {
+		failedValidations := validators.RunValidators(p.opts.Validators, nil, []byte(ps.payload), result.validationFailure, p.l)
+
+		// If any validation failed, log and set success to false.
+		if len(failedValidations) > 0 {
+			p.l.Debug("Target:", ps.target, " failed validations: ", strings.Join(failedValidations, ","), ".")
+			ps.success = false
+		}
+	}
+
+	if ps.success {
+		result.success++
+		result.latency.AddFloat64(ps.latency.Seconds() / p.opts.LatencyUnit.Seconds())
+	}
+
+	em := p.defaultMetrics(ps.target, result)
+	p.opts.LogMetrics(em)
+	p.dataChan <- em
+
+	// If probe is configured to use the external process output (or reply payload
+	// in case of server probe) as metrics.
+	if p.c.GetOutputAsMetrics() {
+		em := p.payloadToMetrics(ps.target, ps.payload, result)
+		p.opts.LogMetrics(em)
+		p.dataChan <- em
+	}
+}
+
+func (p *Probe) runServerProbe(ctx context.Context) {
 	requests := make(map[int32]requestInfo)
 	var requestsMu sync.RWMutex
 	doneChan := make(chan struct{})
@@ -374,23 +415,17 @@ func (p *Probe) runServerProbe(ctx context.Context, dataChan chan *metrics.Event
 					p.l.Warningf("Got a reply that doesn't match any outstading request: Request id from reply: %v. Ignoring.", rep.GetRequestId())
 					continue
 				}
+				success := true
 				if rep.GetErrorMessage() != "" {
 					p.l.Errorf("Probe for target %v failed with error message: %s", reqInfo.target, rep.GetErrorMessage())
-				} else {
-					p.results[reqInfo.target].success++
-					p.results[reqInfo.target].latency.AddFloat64(time.Since(reqInfo.timestamp).Seconds() / p.opts.LatencyUnit.Seconds())
+					success = false
 				}
-				em := p.defaultMetrics(reqInfo.target, p.results[reqInfo.target])
-				p.opts.LogMetrics(em)
-				dataChan <- em
-
-				// If we got a non-nil probe reply and probe is configured to use
-				// the reply payload as metrics.
-				if rep != nil && p.c.GetOutputAsMetrics() {
-					em := p.payloadToMetrics(reqInfo.target, rep.GetPayload(), p.results[reqInfo.target])
-					p.opts.LogMetrics(em)
-					dataChan <- em
-				}
+				p.processProbeResult(&probeStatus{
+					target:  reqInfo.target,
+					success: success,
+					latency: time.Since(reqInfo.timestamp),
+					payload: rep.GetPayload(),
+				}, p.results[reqInfo.target])
 			}
 		}
 	}()
@@ -422,7 +457,7 @@ var runCommand = func(ctx context.Context, cmd string, args []string) ([]byte, e
 	return exec.CommandContext(ctx, cmd, args...).Output()
 }
 
-func (p *Probe) runOnceProbe(ctx context.Context, dataChan chan *metrics.EventMetrics) {
+func (p *Probe) runOnceProbe(ctx context.Context) {
 	var wg sync.WaitGroup
 
 	for _, target := range p.targets {
@@ -442,27 +477,23 @@ func (p *Probe) runOnceProbe(ctx context.Context, dataChan chan *metrics.EventMe
 			result.total++
 			startTime := time.Now()
 			b, err := runCommand(ctx, p.cmdName, args)
+
+			success := true
 			if err != nil {
+				success = false
 				if exitErr, ok := err.(*exec.ExitError); ok {
 					p.l.Errorf("external probe process died with the status: %s. Stderr: %s", exitErr.Error(), exitErr.Stderr)
 				} else {
 					p.l.Errorf("Error executing the external program. Err: %v", err)
 				}
-			} else {
-				result.success++
-				result.latency.AddFloat64(time.Since(startTime).Seconds() / p.opts.LatencyUnit.Seconds())
 			}
 
-			em := p.defaultMetrics(target, result)
-			p.opts.LogMetrics(em)
-
-			dataChan <- em
-
-			if p.c.GetOutputAsMetrics() {
-				em = p.payloadToMetrics(target, string(b), result)
-				p.opts.LogMetrics(em)
-				dataChan <- em
-			}
+			p.processProbeResult(&probeStatus{
+				target:  target,
+				success: success,
+				latency: time.Since(startTime),
+				payload: string(b),
+			}, result)
 		}(target, p.results[target])
 	}
 	wg.Wait()
@@ -492,21 +523,22 @@ func (p *Probe) updateTargets() {
 	}
 }
 
-func (p *Probe) runProbe(ctx context.Context, dataChan chan *metrics.EventMetrics) {
+func (p *Probe) runProbe(ctx context.Context) {
 	ctxTimeout, cancelFunc := context.WithTimeout(ctx, p.opts.Timeout)
 	defer cancelFunc()
 
 	p.updateTargets()
 
 	if p.mode == "server" {
-		p.runServerProbe(ctxTimeout, dataChan)
-		return
+		p.runServerProbe(ctxTimeout)
+	} else {
+		p.runOnceProbe(ctxTimeout)
 	}
-	p.runOnceProbe(ctxTimeout, dataChan)
 }
 
 // Start starts and runs the probe indefinitely.
 func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) {
+	p.dataChan = dataChan
 	for range time.Tick(p.opts.Interval) {
 		// Don't run another probe if context is canceled already.
 		select {
@@ -515,6 +547,6 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 		default:
 		}
 
-		p.runProbe(ctx, dataChan)
+		p.runProbe(ctx)
 	}
 }

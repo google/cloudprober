@@ -113,15 +113,14 @@ func setProbeOptions(p *Probe, name, value string) {
 // received.
 func runAndVerifyServerProbe(t *testing.T, p *Probe, action string, tgts []string, total, success map[string]int64) {
 	setProbeOptions(p, "action", action)
-	dataChan := make(chan *metrics.EventMetrics, 10)
-	runAndVerifyProbe(t, p, dataChan, tgts, total, success)
+	runAndVerifyProbe(t, p, tgts, total, success)
 }
 
-func runAndVerifyProbe(t *testing.T, p *Probe, dataChan chan *metrics.EventMetrics, tgts []string, total, success map[string]int64) chan *metrics.EventMetrics {
+func runAndVerifyProbe(t *testing.T, p *Probe, tgts []string, total, success map[string]int64) {
 	p.opts.Targets = targets.StaticTargets(strings.Join(tgts, ","))
 	p.updateTargets()
 
-	p.runProbe(context.Background(), dataChan)
+	p.runProbe(context.Background())
 
 	for _, tgt := range p.targets {
 		if p.results[tgt].total != total[tgt] {
@@ -131,7 +130,6 @@ func runAndVerifyProbe(t *testing.T, p *Probe, dataChan chan *metrics.EventMetri
 			t.Errorf("p.success[%s]=%d, Want: %d", tgt, p.results[tgt].success, success[tgt])
 		}
 	}
-	return dataChan
 }
 
 func createTestProbe(cmd string) *Probe {
@@ -149,7 +147,10 @@ func createTestProbe(cmd string) *Probe {
 		Command: &cmd,
 	}
 
-	p := &Probe{}
+	p := &Probe{
+		dataChan: make(chan *metrics.EventMetrics, 20),
+	}
+
 	p.Init("testProbe", &options.Options{
 		ProbeConf:  probeConf,
 		Timeout:    1 * time.Second,
@@ -309,9 +310,7 @@ func TestProbeOnceMode(t *testing.T) {
 		success[tgt]++
 	}
 
-	dataChan := make(chan *metrics.EventMetrics, 20)
-
-	runAndVerifyProbe(t, p, dataChan, tgts, total, success)
+	runAndVerifyProbe(t, p, tgts, total, success)
 
 	// Try with failing command now
 	runCommand = func(ctx context.Context, cmd string, cmdArgs []string) ([]byte, error) {
@@ -321,11 +320,11 @@ func TestProbeOnceMode(t *testing.T) {
 	for _, tgt := range tgts {
 		total[tgt]++
 	}
-	runAndVerifyProbe(t, p, dataChan, tgts, total, success)
+	runAndVerifyProbe(t, p, tgts, total, success)
 
 	// Total numbder of event metrics:
 	// num_of_runs x num_targets x (1 for default metrics + 1 for payload metrics)
-	ems, err := testutils.MetricsFromChannel(dataChan, 8, time.Second)
+	ems, err := testutils.MetricsFromChannel(p.dataChan, 8, time.Second)
 	if err != nil {
 		t.Error(err)
 	}
