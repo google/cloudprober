@@ -22,11 +22,8 @@ package server
 import (
 	"context"
 	"fmt"
-	"net"
 
-	"github.com/google/cloudprober/config/runconfig"
 	"github.com/google/cloudprober/logger"
-	"github.com/google/cloudprober/metrics"
 	pb "github.com/google/cloudprober/targets/rds/proto"
 	spb "github.com/google/cloudprober/targets/rds/proto"
 	"github.com/google/cloudprober/targets/rds/server/gcp"
@@ -36,10 +33,8 @@ import (
 
 // Server implements a ResourceDiscovery gRPC server.
 type Server struct {
-	providers  map[string]Provider
-	ln         net.Listener
-	grpcServer *grpc.Server
-	l          *logger.Logger
+	providers map[string]Provider
+	l         *logger.Logger
 }
 
 // Provider is a resource provider, e.g. GCP provider.
@@ -72,36 +67,9 @@ func (s *Server) initProviders(c *configpb.ServerConf) error {
 	return nil
 }
 
-// Addr returns the server's address, if listener has been initialized.
-func (s *Server) Addr() net.Addr {
-	if s.ln == nil {
-		return nil
-	}
-	return s.ln.Addr()
-}
-
-// Start starts the gRPC server. It returns only when the provided is canceled
-// or server panics.
-func (s *Server) Start(ctx context.Context, dataChan chan<- *metrics.EventMetrics) {
-	// If running own GRPC server, start it now.
-	if s.ln != nil {
-		s.l.Infof("Starting gRPC server at: %s", s.ln.Addr().String())
-		go func() {
-			<-ctx.Done()
-			s.l.Infof("Context canceled. Shutting down the gRPC server at: %s", s.ln.Addr().String())
-			s.grpcServer.Stop()
-		}()
-		s.grpcServer.Serve(s.ln)
-	}
-}
-
-// New creates a new instance of the ResourceDiscovery Server using the
-// provided config and returns it. It also creates a net.Listener on the
-// configured port so that we can catch port conflict errors early.
-// TODO(manugarg): Now that we have a global gRPC server, change New() to take
-// *grpc.Server as an argument and provide it at the time of RDS server
-// initialization.
-func New(initCtx context.Context, c *configpb.ServerConf, providers map[string]Provider, l *logger.Logger) (*Server, error) {
+// New creates a new instance of the ResourceDiscovery Server and attaches it
+// to the provided gRPC server.
+func New(initCtx context.Context, c *configpb.ServerConf, providers map[string]Provider, grpcServer *grpc.Server, l *logger.Logger) (*Server, error) {
 	srv := &Server{
 		providers: make(map[string]Provider),
 		l:         l,
@@ -120,29 +88,7 @@ func New(initCtx context.Context, c *configpb.ServerConf, providers map[string]P
 		}
 	}
 
-	if c.GetAddr() != "" {
-		l.Warningf("Specifying \"addr\" field in RDS server config is deprecated now and will be removed after release v0.10.3. Use cloudprober config option \"grpc_port\" to configure the gRPC server.")
-		srv.grpcServer = grpc.NewServer()
-		if srv.ln, err = net.Listen("tcp", c.GetAddr()); err != nil {
-			return nil, err
-		}
-	} else {
-		srv.grpcServer = runconfig.DefaultGRPCServer()
-	}
-
-	if srv.grpcServer == nil {
-		return nil, fmt.Errorf("no address specified for the gRPC server and no default gRPC server found")
-	}
-
-	spb.RegisterResourceDiscoveryServer(srv.grpcServer, srv)
-
-	// Cleanup listener if initCtx is canceled.
-	if srv.ln != nil {
-		go func() {
-			<-initCtx.Done()
-			srv.ln.Close()
-		}()
-	}
+	spb.RegisterResourceDiscoveryServer(grpcServer, srv)
 
 	return srv, nil
 }

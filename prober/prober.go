@@ -55,7 +55,6 @@ type Prober struct {
 	c           *configpb.ProberConfig
 	l           *logger.Logger
 	mu          sync.Mutex
-	rdsServer   *rdsserver.Server
 	ldLister    lameduck.Lister
 	rtcReporter *rtcreporter.Reporter
 	Surfacers   []*surfacers.SurfacerInfo
@@ -169,13 +168,15 @@ func (pr *Prober) Init(ctx context.Context, cfg *configpb.ProberConfig, l *logge
 		spb.RegisterCloudproberServer(srv, pr)
 	}
 
-	// Initialize RDS server, if configured.
+	// Initialize RDS server, if configured and attach to the default gRPC server.
+	// Note that we can still attach services to the default gRPC server as it's
+	// started later in Start().
 	if c := pr.c.GetRdsServer(); c != nil {
 		l, err := logger.NewCloudproberLog("rds-server")
 		if err != nil {
 			return err
 		}
-		if pr.rdsServer, err = rdsserver.New(ctx, c, nil, l); err != nil {
+		if _, err = rdsserver.New(ctx, c, nil, srv, l); err != nil {
 			return err
 		}
 	}
@@ -223,11 +224,6 @@ func (pr *Prober) Start(ctx context.Context) {
 	// Start servers, each in its own goroutine
 	for _, s := range pr.Servers {
 		go s.Start(ctx, pr.dataChan)
-	}
-
-	// Start RDS server if configured.
-	if pr.rdsServer != nil {
-		go pr.rdsServer.Start(ctx, pr.dataChan)
 	}
 
 	// Start RTC reporter if configured.

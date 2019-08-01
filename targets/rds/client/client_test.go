@@ -16,6 +16,7 @@ package client
 
 import (
 	"context"
+	"net"
 	"testing"
 	"time"
 
@@ -25,6 +26,7 @@ import (
 	pb "github.com/google/cloudprober/targets/rds/proto"
 	"github.com/google/cloudprober/targets/rds/server"
 	serverpb "github.com/google/cloudprober/targets/rds/server/proto"
+	"google.golang.org/grpc"
 )
 
 type testProvider struct {
@@ -50,29 +52,35 @@ func (tp *testProvider) ListResources(*pb.ListResourcesRequest) (*pb.ListResourc
 	}, nil
 }
 
-func testServer(t *testing.T, testResourcesMap map[string][]*pb.Resource) *server.Server {
+func setupTestServer(ctx context.Context, t *testing.T, testResourcesMap map[string][]*pb.Resource) net.Addr {
 	testProviders := make(map[string]server.Provider)
 	for tp, testResources := range testResourcesMap {
 		testProviders[tp] = &testProvider{
 			resources: testResources,
 		}
 	}
-	srv, err := server.New(context.Background(), &serverpb.ServerConf{Addr: proto.String(":0")}, testProviders, &logger.Logger{})
+
+	grpcServer := grpc.NewServer()
+	_, err := server.New(context.Background(), &serverpb.ServerConf{}, testProviders, grpcServer, &logger.Logger{})
 	if err != nil {
-		t.Fatalf("Got error starting RDS server: %v", err)
+		t.Fatalf("Got error creating RDS server: %v", err)
 	}
-	return srv
+	ln, err := net.Listen("tcp", ":0")
+	if err != nil {
+		t.Fatalf("Got error creating listener for RDS server: %v", err)
+	}
+	go grpcServer.Serve(ln)
+	return ln.Addr()
 }
 
 func TestListAndResolve(t *testing.T) {
-	srv := testServer(t, testResourcesMap)
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	defer cancelFunc()
-	go srv.Start(ctx, nil)
+	addr := setupTestServer(ctx, t, testResourcesMap)
 
 	for tp, testResources := range testResourcesMap {
 		c := &configpb.ClientConf{
-			ServerAddr: proto.String(srv.Addr().String()),
+			ServerAddr: proto.String(addr.String()),
 			Request: &pb.ListResourcesRequest{
 				Provider: proto.String(tp),
 			},

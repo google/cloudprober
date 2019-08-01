@@ -4,6 +4,7 @@ package main
 import (
 	"context"
 	"io/ioutil"
+	"net"
 
 	"flag"
 	"github.com/golang/glog"
@@ -11,11 +12,15 @@ import (
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/targets/rds/server"
 	configpb "github.com/google/cloudprober/targets/rds/server/proto"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 var (
-	config = flag.String("config_file", "", "Config file (ServerConf)")
-	addr   = flag.String("addr", ":0", "Port for the gRPC server")
+	config      = flag.String("config_file", "", "Config file (ServerConf)")
+	addr        = flag.String("addr", ":0", "Port for the gRPC server")
+	tlsCertFile = flag.String("tls_cert_file", ":0", "Port for the gRPC server")
+	tlsKeyFile  = flag.String("tls_key_file", ":0", "Port for the gRPC server")
 )
 
 func main() {
@@ -34,13 +39,26 @@ func main() {
 		}
 	}
 
-	if *addr != "" {
-		c.Addr = addr
+	grpcLn, err := net.Listen("tcp", *addr)
+	if err != nil {
+		glog.Exitf("error while creating listener for default gRPC server: %v", err)
 	}
 
-	srv, err := server.New(context.Background(), c, nil, &logger.Logger{})
+	// Create a gRPC server for RDS service.
+	var serverOpts []grpc.ServerOption
+
+	if *tlsCertFile != "" {
+		creds, err := credentials.NewServerTLSFromFile(*tlsCertFile, *tlsKeyFile)
+		if err != nil {
+			glog.Exitf("error initializing gRPC server TLS credentials: %v", err)
+		}
+		serverOpts = append(serverOpts, grpc.Creds(creds))
+	}
+
+	grpcServer := grpc.NewServer(serverOpts...)
+	_, err = server.New(context.Background(), c, nil, grpcServer, &logger.Logger{})
 	if err != nil {
 		glog.Exit(err)
 	}
-	srv.Start(context.Background(), nil)
+	grpcServer.Serve(grpcLn)
 }
