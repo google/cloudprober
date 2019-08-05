@@ -41,6 +41,7 @@ import (
 	"github.com/google/cloudprober/servers"
 	"github.com/google/cloudprober/surfacers"
 	"github.com/google/cloudprober/sysvars"
+	"github.com/google/cloudprober/targets"
 	"github.com/google/cloudprober/targets/lameduck"
 	rdsserver "github.com/google/cloudprober/targets/rds/server"
 	"github.com/google/cloudprober/targets/rtc/rtcreporter"
@@ -140,6 +141,15 @@ func (pr *Prober) Init(ctx context.Context, cfg *configpb.ProberConfig, l *logge
 	}
 
 	var err error
+
+	// Initialize shared targets
+	for _, st := range pr.c.GetSharedTargets() {
+		tgts, err := targets.New(st.GetTargets(), pr.ldLister, globalTargetsOpts, pr.l, pr.l)
+		if err != nil {
+			return err
+		}
+		targets.SetSharedTargets(st.GetName(), tgts)
+	}
 
 	// Initiliaze probes
 	pr.Probes = make(map[string]*probes.ProbeInfo)

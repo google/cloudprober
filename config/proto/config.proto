@@ -28,6 +28,35 @@ message ProberConfig {
   // other probes.
   repeated servers.ServerDef server = 3;
 
+  // Shared targets allow you to re-use the same targets copy across multiple
+  // probes. Example usage:
+  //
+  // shared_targets {
+  //   name: "internal-vms"
+  //   targets {
+  //     rds_targets {
+  //       ..
+  //     }
+  //   }
+  // }
+  //
+  // probe {
+  //   name: "vm-ping"
+  //   type: PING
+  //   targets {
+  //     shared_targets: "internal-vms"
+  //   }
+  // }
+  //
+  // probe {
+  //   name: "vm-http"
+  //   type: HTTP
+  //   targets {
+  //     shared_targets: "internal-vms"
+  //   }
+  // }
+  repeated SharedTargets shared_targets = 4;
+
   // Common services related options.
   // Next tag: 107
 
@@ -83,4 +112,9 @@ message ProberConfig {
   // Global targets options. Per-probe options are specified within the probe
   // stanza.
   optional targets.GlobalTargetsOptions global_targets_options = 100;
+}
+
+message SharedTargets {
+  required string name = 1;
+  required targets.TargetsDef targets = 2;
 }

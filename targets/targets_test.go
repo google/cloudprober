@@ -194,3 +194,30 @@ func TestGetExtensionTargets(t *testing.T) {
 		t.Errorf("Extended targets: tgts.List()=%v, expected=%v", tgtsList, testTargets)
 	}
 }
+
+func TestSharedTargets(t *testing.T) {
+	testHosts := []string{"host1", "host2"}
+
+	// Create shared targets and re-use them.
+	targets.SetSharedTargets("shared_test_targets", targets.StaticTargets(strings.Join(testHosts, ",")))
+
+	var tgts [2]targets.Targets
+
+	for i := range tgts {
+		targetsDef := &targetspb.TargetsDef{
+			Type: &targetspb.TargetsDef_SharedTargets{SharedTargets: "shared_test_targets"},
+		}
+
+		var err error
+		tgts[i], err = targets.New(targetsDef, nil, nil, nil, nil)
+
+		if err != nil {
+			t.Errorf("got error while creating targets from shared targets: %v", err)
+		}
+
+		got := tgts[i].List()
+		if !reflect.DeepEqual(got, testHosts) {
+			t.Errorf("Unexpected targets: tgts.List()=%v, expected=%v", got, testHosts)
+		}
+	}
+}

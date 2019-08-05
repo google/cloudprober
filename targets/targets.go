@@ -56,6 +56,11 @@ var (
 	extensionMapMu sync.Mutex
 )
 
+var (
+	sharedTargets   = make(map[string]Targets)
+	sharedTargetsMu sync.RWMutex
+)
+
 // Targets are able to list and resolve targets with their List and Resolve
 // methods.  A single instance of Targets represents a specific listing method
 // --- if multiple sets of resources need to be listed/resolved, a separate
@@ -248,6 +253,16 @@ func New(targetsDef *targetspb.TargetsDef, ldLister lameduck.Lister, targetOpts 
 		}
 		t.lister = sl
 		t.resolver = globalResolver
+
+	case *targetspb.TargetsDef_SharedTargets:
+		sharedTargetsMu.RLock()
+		defer sharedTargetsMu.RUnlock()
+		st := sharedTargets[targetsDef.GetSharedTargets()]
+		if st == nil {
+			return nil, fmt.Errorf("targets.New(): Shared targets %s are not defined", targetsDef.GetSharedTargets())
+		}
+		t.lister, t.resolver = st, st
+
 	case *targetspb.TargetsDef_GceTargets:
 		s, err := gce.New(targetsDef.GetGceTargets(), targetOpts.GetGlobalGceTargetsOptions(), globalResolver, globalLogger)
 		if err != nil {
@@ -255,6 +270,7 @@ func New(targetsDef *targetspb.TargetsDef, ldLister lameduck.Lister, targetOpts 
 			return nil, fmt.Errorf("targets.New(): Error building GCE targets: %v", err)
 		}
 		t.lister, t.resolver = s, s
+
 	case *targetspb.TargetsDef_RdsTargets:
 		li, err := rdsclient.New(targetsDef.GetRdsTargets(), l)
 		if err != nil {
@@ -262,6 +278,7 @@ func New(targetsDef *targetspb.TargetsDef, ldLister lameduck.Lister, targetOpts 
 		}
 		t.lister = li
 		t.resolver = li
+
 	case *targetspb.TargetsDef_RtcTargets:
 		// TODO(izzycecil): we should really consolidate all these metadata calls
 		// to one place.
@@ -275,10 +292,12 @@ func New(targetsDef *targetspb.TargetsDef, ldLister lameduck.Lister, targetOpts 
 		}
 		t.lister = li
 		t.resolver = li
+
 	case *targetspb.TargetsDef_DummyTargets:
 		dummy := &dummy{}
 		t.lister = dummy
 		t.resolver = dummy
+
 	default:
 		extT, err := getExtensionTargets(targetsDef, t.l)
 		if err != nil {
@@ -328,6 +347,14 @@ func RegisterTargetsType(extensionFieldNo int, newTargetsFunc func(interface{}, 
 	extensionMapMu.Lock()
 	defer extensionMapMu.Unlock()
 	extensionMap[extensionFieldNo] = newTargetsFunc
+}
+
+// SetSharedTargets adds given targets to an internal map. These targets can
+// then be referred by multiple probes through "shared_targets" option.
+func SetSharedTargets(name string, tgts Targets) {
+	sharedTargetsMu.Lock()
+	defer sharedTargetsMu.Unlock()
+	sharedTargets[name] = tgts
 }
 
 // init initializes the package by creating a new global resolver.
