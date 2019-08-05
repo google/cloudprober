@@ -1,17 +1,34 @@
 // Provides all configuration necessary to list targets for a cloudprober probe.
 syntax = "proto2";
 
-import "github.com/google/cloudprober/targets/lameduck/proto/config.proto";
+package cloudprober.targets;
+
 import "github.com/google/cloudprober/targets/gce/proto/config.proto";
+import "github.com/google/cloudprober/targets/lameduck/proto/config.proto";
 import "github.com/google/cloudprober/targets/rds/client/proto/config.proto";
 import "github.com/google/cloudprober/targets/rtc/proto/config.proto";
-
-package cloudprober.targets;
 
 message TargetsDef {
   oneof type {
     // static host names, e.g. www.google.com, 8.8.8.8, en.wikipedia.org
     string host_names = 1;
+
+    // shared targets are accessed through their names, e.g.
+    // shared_targets {
+    //   name:"backend-vms"
+    //   targets {
+    //     rds_targets {
+    //       ..
+    //     }
+    //   }
+    // }
+    //
+    // probe {
+    //   targets {
+    //     shared_targets: "backend-vms"
+    //   }
+    // }
+    string shared_targets = 5;
     gce.TargetsConf gce_targets = 2;
     rds.ClientConf rds_targets = 3;
     rtc.TargetsConf rtc_targets = 4;
@@ -39,8 +56,7 @@ message TargetsDef {
 
 // DummyTargets represent empty targets, which are useful for external
 // probes that do not have any "proper" targets.  Such as ilbprober.
-message DummyTargets {
-}
+message DummyTargets {}
 
 // Global targets options. These options are independent of the per-probe
 // targets which are defined by the "Targets" type above.
