@@ -73,7 +73,7 @@ func main() {
 		})
 	}
 
-	tgts, err := client.New(c, &logger.Logger{})
+	tgts, err := client.New(c, nil, &logger.Logger{})
 	if err != nil {
 		glog.Exit(err)
 	}

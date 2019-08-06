@@ -207,7 +207,7 @@ func rdsClient(opts *configpb.Options, project string, l *logger.Logger) (*rdscl
 		ReEvalSec: proto.Int32(opts.GetReEvalSec()),
 	}
 
-	return rdsclient.New(rdsClientConf, l)
+	return rdsclient.New(rdsClientConf, nil, l)
 }
 
 // InitDefaultLister initializes the package using the given arguments. If a

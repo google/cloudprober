@@ -35,12 +35,12 @@ import (
 
 // Client represents an RDS based client instance.
 type Client struct {
-	mu    sync.Mutex
-	c     *configpb.ClientConf
-	cache map[string]net.IP
-	names []string
-	rdc   spb.ResourceDiscoveryClient
-	l     *logger.Logger
+	mu            sync.Mutex
+	c             *configpb.ClientConf
+	cache         map[string]net.IP
+	names         []string
+	listResources func(context.Context, *pb.ListResourcesRequest) (*pb.ListResourcesResponse, error)
+	l             *logger.Logger
 }
 
 // refreshState refreshes the client cache.
@@ -48,7 +48,7 @@ func (client *Client) refreshState(timeout time.Duration) {
 	ctx, cancelFunc := context.WithTimeout(context.Background(), timeout)
 	defer cancelFunc()
 
-	response, err := client.rdc.ListResources(ctx, client.c.GetRequest())
+	response, err := client.listResources(ctx, client.c.GetRequest())
 	if err != nil {
 		client.l.Errorf("rds.client: error getting resources from RDS server: %v", err)
 		return
@@ -112,30 +112,48 @@ func (client *Client) Resolve(name string, ipVer int) (net.IP, error) {
 	return nil, fmt.Errorf("no IPv4 address (IP: %s) for %s", ip.String(), name)
 }
 
-// New creates an RDS (ResourceDiscovery service) client instance and set it up
-// for continuous refresh.
-func New(c *configpb.ClientConf, l *logger.Logger) (*Client, error) {
+func (client *Client) grpcListResources() error {
 	dialOpts := grpc.WithInsecure()
-	if c.GetTlsCertFile() != "" {
-		creds, err := credentials.NewClientTLSFromFile(c.GetTlsCertFile(), "")
+	if client.c.GetTlsCertFile() != "" {
+		creds, err := credentials.NewClientTLSFromFile(client.c.GetTlsCertFile(), "")
 		if err != nil {
-			return nil, err
+			return err
 		}
 		dialOpts = grpc.WithTransportCredentials(creds)
 	}
-	conn, err := grpc.Dial(c.GetServerAddr(), dialOpts)
+
+	conn, err := grpc.Dial(client.c.GetServerAddr(), dialOpts)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	reEvalInterval := time.Duration(c.GetReEvalSec()) * time.Second
+
+	client.listResources = func(ctx context.Context, in *pb.ListResourcesRequest) (*pb.ListResourcesResponse, error) {
+		return spb.NewResourceDiscoveryClient(conn).ListResources(ctx, in)
+	}
+	return nil
+}
+
+// New creates an RDS (ResourceDiscovery service) client instance and set it up
+// for continuous refresh.
+func New(c *configpb.ClientConf, listResources func(context.Context, *pb.ListResourcesRequest) (*pb.ListResourcesResponse, error), l *logger.Logger) (*Client, error) {
 	client := &Client{
-		c:     c,
-		cache: make(map[string]net.IP),
-		rdc:   spb.NewResourceDiscoveryClient(conn),
-		l:     l,
+		c:             c,
+		cache:         make(map[string]net.IP),
+		listResources: listResources,
+		l:             l,
 	}
+
+	// If listResources is not provided, use gRPC client's.
+	if client.listResources == nil {
+		err := client.grpcListResources()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	reEvalInterval := time.Duration(client.c.GetReEvalSec()) * time.Second
+	client.refreshState(reEvalInterval)
 	go func() {
-		client.refreshState(reEvalInterval)
 		// Introduce a random delay between 0-reEvalInterval before starting the
 		// refreshState loop. If there are multiple cloudprober instances, this will
 		// make sure that each instance calls RDS server at a different point of

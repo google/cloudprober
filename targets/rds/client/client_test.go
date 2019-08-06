@@ -1,4 +1,4 @@
-// Copyright 2018 Google Inc.
+// Copyright 2018-2019 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@ package client
 
 import (
 	"context"
-	"net"
 	"testing"
 	"time"
 
@@ -26,7 +25,6 @@ import (
 	pb "github.com/google/cloudprober/targets/rds/proto"
 	"github.com/google/cloudprober/targets/rds/server"
 	serverpb "github.com/google/cloudprober/targets/rds/server/proto"
-	"google.golang.org/grpc"
 )
 
 type testProvider struct {
@@ -52,7 +50,9 @@ func (tp *testProvider) ListResources(*pb.ListResourcesRequest) (*pb.ListResourc
 	}, nil
 }
 
-func setupTestServer(ctx context.Context, t *testing.T, testResourcesMap map[string][]*pb.Resource) net.Addr {
+func setupTestServer(ctx context.Context, t *testing.T, testResourcesMap map[string][]*pb.Resource) *server.Server {
+	t.Helper()
+
 	testProviders := make(map[string]server.Provider)
 	for tp, testResources := range testResourcesMap {
 		testProviders[tp] = &testProvider{
@@ -60,32 +60,26 @@ func setupTestServer(ctx context.Context, t *testing.T, testResourcesMap map[str
 		}
 	}
 
-	grpcServer := grpc.NewServer()
-	_, err := server.New(context.Background(), &serverpb.ServerConf{}, testProviders, grpcServer, &logger.Logger{})
+	srv, err := server.New(context.Background(), &serverpb.ServerConf{}, testProviders, &logger.Logger{})
 	if err != nil {
 		t.Fatalf("Got error creating RDS server: %v", err)
 	}
-	ln, err := net.Listen("tcp", ":0")
-	if err != nil {
-		t.Fatalf("Got error creating listener for RDS server: %v", err)
-	}
-	go grpcServer.Serve(ln)
-	return ln.Addr()
+
+	return srv
 }
 
 func TestListAndResolve(t *testing.T) {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	defer cancelFunc()
-	addr := setupTestServer(ctx, t, testResourcesMap)
+	srv := setupTestServer(ctx, t, testResourcesMap)
 
 	for tp, testResources := range testResourcesMap {
 		c := &configpb.ClientConf{
-			ServerAddr: proto.String(addr.String()),
 			Request: &pb.ListResourcesRequest{
 				Provider: proto.String(tp),
 			},
 		}
-		client, err := New(c, &logger.Logger{})
+		client, err := New(c, srv.ListResources, &logger.Logger{})
 		if err != nil {
 			t.Fatalf("Got error initializing RDS client: %v", err)
 		}
