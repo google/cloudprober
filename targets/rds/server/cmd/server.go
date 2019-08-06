@@ -56,9 +56,11 @@ func main() {
 	}
 
 	grpcServer := grpc.NewServer(serverOpts...)
-	_, err = server.New(context.Background(), c, nil, grpcServer, &logger.Logger{})
+	srv, err := server.New(context.Background(), c, nil, &logger.Logger{})
 	if err != nil {
 		glog.Exit(err)
 	}
+	srv.RegisterWithGRPC(grpcServer)
+
 	grpcServer.Serve(grpcLn)
 }

@@ -69,7 +69,7 @@ func (s *Server) initProviders(c *configpb.ServerConf) error {
 
 // New creates a new instance of the ResourceDiscovery Server and attaches it
 // to the provided gRPC server.
-func New(initCtx context.Context, c *configpb.ServerConf, providers map[string]Provider, grpcServer *grpc.Server, l *logger.Logger) (*Server, error) {
+func New(initCtx context.Context, c *configpb.ServerConf, providers map[string]Provider, l *logger.Logger) (*Server, error) {
 	srv := &Server{
 		providers: make(map[string]Provider),
 		l:         l,
@@ -88,7 +88,10 @@ func New(initCtx context.Context, c *configpb.ServerConf, providers map[string]P
 		}
 	}
 
-	spb.RegisterResourceDiscoveryServer(grpcServer, srv)
-
 	return srv, nil
+}
+
+// RegisterWithGRPC registers the RDS servers with the given gRPC server.
+func (s *Server) RegisterWithGRPC(grpcServer *grpc.Server) {
+	spb.RegisterResourceDiscoveryServer(grpcServer, s)
 }

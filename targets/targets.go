@@ -272,7 +272,7 @@ func New(targetsDef *targetspb.TargetsDef, ldLister lameduck.Lister, targetOpts 
 		t.lister, t.resolver = s, s
 
 	case *targetspb.TargetsDef_RdsTargets:
-		li, err := rdsclient.New(targetsDef.GetRdsTargets(), l)
+		li, err := rdsclient.New(targetsDef.GetRdsTargets(), nil, l)
 		if err != nil {
 			return nil, fmt.Errorf("targets.New(): Error building RDS targets: %v", err)
 		}

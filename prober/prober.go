@@ -186,9 +186,11 @@ func (pr *Prober) Init(ctx context.Context, cfg *configpb.ProberConfig, l *logge
 		if err != nil {
 			return err
 		}
-		if _, err = rdsserver.New(ctx, c, nil, srv, l); err != nil {
+		rdsServer, err := rdsserver.New(ctx, c, nil, l)
+		if err != nil {
 			return err
 		}
+		rdsServer.RegisterWithGRPC(srv)
 	}
 
 	// Initialize RTC reporter, if configured.
