@@ -10,10 +10,12 @@ import "github.com/google/cloudprober/targets/rtc/proto/config.proto";
 
 message TargetsDef {
   oneof type {
-    // static host names, e.g. www.google.com, 8.8.8.8, en.wikipedia.org
+    // Static host names, for example:
+    // host_name: "www.google.com,8.8.8.8,en.wikipedia.org"
     string host_names = 1;
 
-    // shared targets are accessed through their names, e.g.
+    // Shared targets are accessed through their names.
+    // Example:
     // shared_targets {
     //   name:"backend-vms"
     //   targets {
@@ -29,11 +31,38 @@ message TargetsDef {
     //   }
     // }
     string shared_targets = 5;
+
+    // GCE targets: instances and forwarding_rules, for example:
+    // gce_targets {
+    //   instances {}
+    // }
     gce.TargetsConf gce_targets = 2;
+
+    // ResourceDiscovery service based targets.
+    // Example:
+    // rds_targets {
+    //   server_addr: "rds.internal:9314"
+    //   request {
+    //     provider: "gcp"
+    //     resource_path: "gce_instances/{{.project}}"
+    //     filter {
+    //       key: "name"
+    //       value: ".*backend.*"
+    //     }
+    //   }
+    // }
     rds.ClientConf rds_targets = 3;
+
+    // Targets stored in Runtime Config variables (Deprecated).
+    // RTC targets are now deprecated (as of v0.10.4). Please don't use them for
+    // new use cases.
     rtc.TargetsConf rtc_targets = 4;
+
+    // Empty targets to meet the probe definition requirement where there are
+    // actually no targets, for example in case of some external probes.
     DummyTargets dummy_targets = 20;
   }
+
   // Regex to apply on the targets.
   optional string regex = 21;
 
@@ -41,13 +70,6 @@ message TargetsDef {
   // configurator) service. This functionality works only if lame_duck_options
   // are specified.
   optional bool exclude_lameducks = 22 [default = true];
-
-  // How often targets should be evaluated. Any number less than or equal to 0
-  // will result in no target caching (targets will be reevaluated on demand).
-  // Note that individual target types may have their own caches implemented
-  // (specifically GCE instances/forwarding rules). This does not impact those
-  // caches.
-  optional int32 re_eval_sec = 23 [default = 0];
 
   // Extensions allow users to to add new targets types (for example, a targets
   // type that utilizes a custom protocol) in a systematic manner.
