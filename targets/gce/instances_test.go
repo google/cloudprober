@@ -16,6 +16,8 @@ package gce
 
 import (
 	"net"
+	"reflect"
+	"regexp"
 	"testing"
 
 	"github.com/golang/protobuf/proto"
@@ -33,6 +35,7 @@ type testInstance struct {
 	name    string
 	netIf   []*testNetIf
 	project string
+	labels  map[string]string
 }
 
 func (ti *testInstance) computeInstance() *compute.Instance {
@@ -60,6 +63,7 @@ func (ti *testInstance) computeInstance() *compute.Instance {
 
 	return &compute.Instance{
 		NetworkInterfaces: cNetIfs,
+		Labels:            ti.labels,
 	}
 }
 
@@ -244,5 +248,97 @@ func testListAndResolve(t *testing.T, i *instances, testInstances []*testInstanc
 		if ip.String() != expectedIP {
 			t.Errorf("Got wrong <%s> IP for %s. Expected: %s, Got: %s", ipTypeStr, ti.name, expectedIP, ip)
 		}
+	}
+}
+
+func TestIPListFilteringByLabels(t *testing.T) {
+	testInstances := []*testInstance{
+		&testInstance{
+			name: "ins1",
+			labels: map[string]string{
+				"key1": "a",
+				"key2": "b",
+				"key3": "c",
+			},
+		},
+		&testInstance{
+			name: "ins2",
+			labels: map[string]string{
+				"key1": "a",
+				"key2": "other-value",
+				"key3": "c",
+			},
+		},
+		&testInstance{
+			name: "ins3",
+			labels: map[string]string{
+				"key1": "a",
+				"key2": "b",
+			},
+		},
+	}
+
+	ip := &instancesProvider{
+		cache: make(map[string]*compute.Instance),
+	}
+
+	for _, ti := range testInstances {
+		ip.cache[ti.name] = ti.computeInstance()
+	}
+
+	labels := map[string]*regexp.Regexp{
+		"key1": regexp.MustCompile("a"),
+		"key2": regexp.MustCompile("b"),
+		"key3": regexp.MustCompile("c"),
+	}
+
+	want := []string{"ins1"}
+	got := ip.list(labels)
+	if !reflect.DeepEqual(want, got) {
+		t.Errorf("ip.list() got: %v, want: %v,", got, want)
+	}
+}
+
+func TestParseLabels(t *testing.T) {
+	tests := []struct {
+		desc       string
+		label      string
+		shouldFail bool
+		want       map[string]*regexp.Regexp
+	}{
+		{
+			"Valid label should succeed",
+			"k:v",
+			false,
+			map[string]*regexp.Regexp{
+				"k": regexp.MustCompile("v"),
+			},
+		},
+		{
+			"Multiple separators should fail",
+			"k:v:t",
+			true,
+			nil,
+		},
+		{
+			"No separator should fail",
+			"kv",
+			true,
+			nil,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.desc, func(t *testing.T) {
+			got, err := parseLabels([]string{test.label})
+			if test.shouldFail && err == nil {
+				t.Errorf("parseLabels() error got:nil, want:error")
+			} else if !test.shouldFail && err != nil {
+				t.Errorf("parseLabels()  error got:%s, want:nil", err)
+			}
+			if !reflect.DeepEqual(test.want, got) {
+				t.Errorf("parseLabels()  got:%s, want:%s", got, test.want)
+			}
+		})
 	}
 }
