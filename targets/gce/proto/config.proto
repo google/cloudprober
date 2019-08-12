@@ -42,6 +42,9 @@ message Instances {
     optional IPType ip_type = 2 [default = PRIVATE];
   }
   optional NetworkInterface network_interface = 2;
+
+  // Labels to filter instances by ("key:value-regex" format).
+  repeated string label = 3;
 }
 
 // Represents GCE forwarding rules. Does not support multiple projects

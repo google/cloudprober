@@ -19,6 +19,8 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
+	"regexp"
+	"strings"
 	"sync"
 	"time"
 
@@ -47,6 +49,7 @@ type instances struct {
 	projects []string
 	pb       *configpb.Instances
 	r        *dnsRes.Resolver
+	labels   map[string]*regexp.Regexp
 }
 
 // newInstances returns a new instances object. It will initialize
@@ -63,11 +66,35 @@ func newInstances(projects []string, opts *configpb.GlobalOptions, ipb *configpb
 	if err := initGlobalInstancesProvider(projects, opts.GetApiVersion(), reEvalInterval, l); err != nil {
 		return nil, err
 	}
+
+	labels, err := parseLabels(ipb.GetLabel())
+	if err != nil {
+		return nil, err
+	}
+
 	return &instances{
 		projects: projects,
 		pb:       ipb,
 		r:        globalResolver,
+		labels:   labels,
 	}, nil
+}
+
+func parseLabels(sl []string) (map[string]*regexp.Regexp, error) {
+	labels := make(map[string]*regexp.Regexp)
+	for _, s := range sl {
+		label := strings.Split(s, ":")
+		if len(label) != 2 {
+			return nil, fmt.Errorf("invalid label definition: %s", s)
+		}
+		k := label[0]
+		v, err := regexp.Compile(label[1])
+		if err != nil {
+			return nil, fmt.Errorf("invalid labels regex '%s': %v", v, err)
+		}
+		labels[k] = v
+	}
+	return labels, nil
 }
 
 // List produces a list of all instances. This list is similar to running
@@ -76,7 +103,7 @@ func newInstances(projects []string, opts *configpb.GlobalOptions, ipb *configpb
 func (i *instances) List() []string {
 	var instancesList []string
 	for _, project := range i.projects {
-		instancesList = append(instancesList, globalInstancesProvider[project].list()...)
+		instancesList = append(instancesList, globalInstancesProvider[project].list(i.labels)...)
 	}
 	return instancesList
 }
@@ -206,10 +233,33 @@ func (ip *instancesProvider) get(name string) *compute.Instance {
 	return ip.cache[name]
 }
 
-func (ip *instancesProvider) list() []string {
+func (ip *instancesProvider) list(labels map[string]*regexp.Regexp) []string {
 	ip.mu.RLock()
 	defer ip.mu.RUnlock()
-	return append([]string{}, ip.names...)
+
+	// Return quickly if labels are not configured.
+	if len(labels) == 0 {
+		return append([]string{}, ip.names...)
+	}
+
+	var result []string
+	for name, ins := range ip.cache {
+		if matchLabels(ins.Labels, labels) {
+			result = append(result, name)
+		}
+	}
+	return result
+}
+
+// matchLabels matches instance labels with the configured labels map.
+func matchLabels(labels map[string]string, filter map[string]*regexp.Regexp) bool {
+	for k, re := range filter {
+		v, ok := labels[k]
+		if !ok || !re.MatchString(v) {
+			return false
+		}
+	}
+	return true
 }
 
 // listInstances runs equivalent API calls as "gcloud compute instances list",
