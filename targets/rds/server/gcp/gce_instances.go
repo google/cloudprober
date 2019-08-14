@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
+	"strings"
 	"sync"
 	"time"
 
@@ -35,6 +36,11 @@ import (
 // This is how long we wait between API calls per zone.
 const defaultAPICallInterval = 250 * time.Microsecond
 
+type instanceData struct {
+	nis    []*compute.NetworkInterface
+	labels map[string]string
+}
+
 // gceInstancesLister is a GCE instances lister. It implements a cache,
 // that's populated at a regular interval by making the GCE API calls.
 // Listing actually only returns the current contents of that cache.
@@ -47,8 +53,86 @@ type gceInstancesLister struct {
 
 	mu         sync.RWMutex // Mutex for names and cache
 	names      []string
-	cache      map[string][]*compute.NetworkInterface
+	cache      map[string]*instanceData
 	computeSvc *compute.Service
+}
+
+func instanceIP(nis []*compute.NetworkInterface, ipConfig *pb.IPConfig) (string, error) {
+	var niIndex int
+	ipType := pb.IPConfig_DEFAULT
+	if ipConfig != nil {
+		niIndex = int(ipConfig.GetNicIndex())
+		ipType = ipConfig.GetIpType()
+	}
+
+	if len(nis) <= niIndex {
+		return "", fmt.Errorf("no network interface at index %d", niIndex)
+	}
+
+	ni := nis[niIndex]
+
+	switch ipType {
+	case pb.IPConfig_DEFAULT:
+		return ni.NetworkIP, nil
+
+	case pb.IPConfig_PUBLIC:
+		if len(ni.AccessConfigs) == 0 {
+			return "", fmt.Errorf("no public IP for NIC(%d)", niIndex)
+		}
+		return ni.AccessConfigs[0].NatIP, nil
+
+	case pb.IPConfig_ALIAS:
+		if len(ni.AliasIpRanges) == 0 {
+			return "", fmt.Errorf("no alias IP for NIC(%d)", niIndex)
+		}
+		// Compute API allows specifying CIDR range as an IP address, try that first.
+		if cidrIP := net.ParseIP(ni.AliasIpRanges[0].IpCidrRange); cidrIP != nil {
+			return cidrIP.String(), nil
+		}
+
+		cidrIP, _, err := net.ParseCIDR(ni.AliasIpRanges[0].IpCidrRange)
+		if err != nil {
+			return "", fmt.Errorf("error geting alias IP for NIC(%d): %v", niIndex, err)
+		}
+		return cidrIP.String(), nil
+	}
+
+	return "", nil
+}
+
+func parseFilters(filters []*pb.Filter) (nameFilter *filter.RegexFilter, labelsFilter *filter.LabelsFilter, err error) {
+	// TODO(manugarg): Move filtering code to gcp.go once we add more resource
+	// types as this logic should be same for most GCP resources.
+	labels := make(map[string]string)
+	for _, f := range filters {
+		if f.GetKey() == "name" {
+			nameFilter, err = filter.NewRegexFilter(f.GetValue())
+			if err != nil {
+				err = fmt.Errorf("gce_instances: error creating regex filter from: %s, err: %v", f.GetValue(), err)
+				return
+			}
+			continue
+		}
+
+		// labels.<key> format matches with gcloud's filter options.
+		if strings.HasPrefix(f.GetKey(), "labels.") {
+			labels[strings.TrimPrefix(f.GetKey(), "labels.")] = f.GetValue()
+			continue
+		}
+
+		err = fmt.Errorf("unsupported filter key: %s", f.GetKey())
+		return
+	}
+
+	if len(labels) != 0 {
+		labelsFilter, err = filter.NewLabelsFilter(labels)
+		if err != nil {
+			err = fmt.Errorf("gce_instances: error creating labels filter from: %v, err: %v", labels, err)
+			return
+		}
+	}
+
+	return
 }
 
 // listResources returns the list of resource records, where each record
@@ -56,27 +140,10 @@ type gceInstancesLister struct {
 // to return is selected based on the provided ipConfig.
 func (il *gceInstancesLister) listResources(filters []*pb.Filter, ipConfig *pb.IPConfig) ([]*pb.Resource, error) {
 	var resources []*pb.Resource
-	var nameFilter *filter.RegexFilter
 
-	for _, f := range filters {
-		switch f.GetKey() {
-		case "name":
-			var err error
-			nameFilter, err = filter.NewRegexFilter(f.GetValue())
-			if err != nil {
-				return nil, fmt.Errorf("gce_instances: error creating regex filter from: %s, err: %v", f.GetValue(), err)
-			}
-
-		default:
-			return nil, fmt.Errorf("gce_instances: Invalid filter key: %s", f.GetKey())
-		}
-	}
-
-	niIndex := 0
-	ipType := pb.IPConfig_DEFAULT
-	if ipConfig != nil {
-		niIndex = int(ipConfig.GetNicIndex())
-		ipType = ipConfig.GetIpType()
+	nameFilter, labelsFilter, err := parseFilters(filters)
+	if err != nil {
+		return nil, err
 	}
 
 	il.mu.RLock()
@@ -86,36 +153,14 @@ func (il *gceInstancesLister) listResources(filters []*pb.Filter, ipConfig *pb.I
 		if nameFilter != nil && !nameFilter.Match(name, il.l) {
 			continue
 		}
-
-		nis := il.cache[name]
-		if len(nis) <= niIndex {
-			return nil, fmt.Errorf("gce_instances: instance %s doesn't have network interface at index %d", name, niIndex)
+		if labelsFilter != nil && !labelsFilter.Match(il.cache[name].labels, il.l) {
+			continue
 		}
-		ni := nis[niIndex]
 
-		var ip string
-		switch ipType {
-		case pb.IPConfig_DEFAULT:
-			ip = ni.NetworkIP
-		case pb.IPConfig_PUBLIC:
-			if len(ni.AccessConfigs) == 0 {
-				return nil, fmt.Errorf("gce_instances (instance: %s, network_interface: %d): no public IP", name, niIndex)
-			}
-			ip = ni.AccessConfigs[0].NatIP
-		case pb.IPConfig_ALIAS:
-			if len(ni.AliasIpRanges) == 0 {
-				return nil, fmt.Errorf("gce_instances: instance %s has no alias IP range", name)
-			}
-			// Compute API allows specifying CIDR range as an IP address, try that first.
-			if cidrIP := net.ParseIP(ni.AliasIpRanges[0].IpCidrRange); cidrIP != nil {
-				ip = cidrIP.String()
-			} else {
-				cidrIP, _, err := net.ParseCIDR(ni.AliasIpRanges[0].IpCidrRange)
-				if err != nil {
-					return nil, fmt.Errorf("gce_instances (instance: %s, network_interface: %d): error geting alias IP: %v", name, niIndex, err)
-				}
-				ip = cidrIP.String()
-			}
+		nis := il.cache[name].nis
+		ip, err := instanceIP(nis, ipConfig)
+		if err != nil {
+			return nil, fmt.Errorf("gce_instances (instance %s): error while getting IP - %v", name, err)
 		}
 
 		resources = append(resources, &pb.Resource{
@@ -157,7 +202,7 @@ func (il *gceInstancesLister) expand(reEvalInterval time.Duration) {
 	// Temporary cache and names list.
 	var (
 		names []string
-		cache = make(map[string][]*compute.NetworkInterface)
+		cache = make(map[string]*instanceData)
 	)
 	sleepBetweenZones := reEvalInterval / (2 * time.Duration(len(zonesList.Items)+1))
 	for _, zone := range zonesList.Items {
@@ -170,7 +215,7 @@ func (il *gceInstancesLister) expand(reEvalInterval time.Duration) {
 			if item.Name == il.thisInstance {
 				continue
 			}
-			cache[item.Name] = item.NetworkInterfaces
+			cache[item.Name] = &instanceData{item.NetworkInterfaces, item.Labels}
 			names = append(names, item.Name)
 		}
 		time.Sleep(sleepBetweenZones)
@@ -208,7 +253,7 @@ func newGCEInstancesLister(project, apiVersion string, c *configpb.GCEInstances,
 		c:            c,
 		apiVersion:   apiVersion,
 		thisInstance: thisInstance,
-		cache:        make(map[string][]*compute.NetworkInterface),
+		cache:        make(map[string]*instanceData),
 		computeSvc:   cs,
 		l:            l,
 	}
@@ -223,7 +268,7 @@ func newGCEInstancesLister(project, apiVersion string, c *configpb.GCEInstances,
 		rand.Seed(time.Now().UnixNano())
 		randomDelaySec := rand.Intn(int(reEvalInterval.Seconds()))
 		time.Sleep(time.Duration(randomDelaySec) * time.Second)
-		for _ = range time.Tick(reEvalInterval) {
+		for range time.Tick(reEvalInterval) {
 			il.expand(reEvalInterval)
 		}
 	}()

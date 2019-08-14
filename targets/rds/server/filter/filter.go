@@ -46,6 +46,39 @@ func (rf *RegexFilter) Match(name string, l *logger.Logger) bool {
 	return rf.re.MatchString(name)
 }
 
+// LabelsFilter implements a regex based filter.
+type LabelsFilter struct {
+	labels map[string]*regexp.Regexp
+}
+
+// NewLabelsFilter adds a new label to filter on.
+func NewLabelsFilter(labelsFilter map[string]string) (*LabelsFilter, error) {
+	labels := make(map[string]*regexp.Regexp)
+
+	for key, regexStr := range labelsFilter {
+		re, err := regexp.Compile(regexStr)
+		if err != nil {
+			return nil, err
+		}
+		labels[key] = re
+	}
+
+	return &LabelsFilter{labels: labels}, nil
+}
+
+// Match returns true if provided string matches the regex of the filter.
+// Otherwise, false is returned.
+func (lf *LabelsFilter) Match(inputLabels map[string]string, l *logger.Logger) bool {
+	for k, re := range lf.labels {
+		// If input labels don't have the requisite key or key's value doesn't match
+		// the given regex, return false.
+		if v, ok := inputLabels[k]; !ok || !re.MatchString(v) {
+			return false
+		}
+	}
+	return true
+}
+
 // FreshnessFilter implements a filter that succeeds only if the given time
 // is within a pre-defined duration.
 type FreshnessFilter struct {

@@ -5,8 +5,7 @@ package cloudprober.targets.rds;
 service ResourceDiscovery {
   // ListResources returns the list of resources matching the URI provided in
   // the request.
-  rpc ListResources(ListResourcesRequest) returns (ListResourcesResponse) {
-  }
+  rpc ListResources(ListResourcesRequest) returns (ListResourcesResponse) {}
 }
 
 message ListResourcesRequest {
@@ -17,7 +16,7 @@ message ListResourcesRequest {
   //   resource_path: "gce_instances/project-1"
   //   filter {
   //     key: "name"
-  //     regex: "ig-us-central1-.*"
+  //     value: "ig-us-central1-.*"
   //   }
   //   ip_config {
   //     ip_type: PUBLIC
