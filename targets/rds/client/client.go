@@ -43,6 +43,10 @@ type Client struct {
 	l             *logger.Logger
 }
 
+// ListResourcesFunc is a function that takes ListResourcesRequest and returns
+// ListResourcesResponse.
+type ListResourcesFunc func(context.Context, *pb.ListResourcesRequest) (*pb.ListResourcesResponse, error)
+
 // refreshState refreshes the client cache.
 func (client *Client) refreshState(timeout time.Duration) {
 	ctx, cancelFunc := context.WithTimeout(context.Background(), timeout)
@@ -135,7 +139,7 @@ func (client *Client) grpcListResources() error {
 
 // New creates an RDS (ResourceDiscovery service) client instance and set it up
 // for continuous refresh.
-func New(c *configpb.ClientConf, listResources func(context.Context, *pb.ListResourcesRequest) (*pb.ListResourcesResponse, error), l *logger.Logger) (*Client, error) {
+func New(c *configpb.ClientConf, listResources ListResourcesFunc, l *logger.Logger) (*Client, error) {
 	client := &Client{
 		c:             c,
 		cache:         make(map[string]net.IP),
