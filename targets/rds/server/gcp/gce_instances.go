@@ -47,7 +47,6 @@ type instanceData struct {
 type gceInstancesLister struct {
 	project      string
 	c            *configpb.GCEInstances
-	apiVersion   string
 	thisInstance string
 	l            *logger.Logger
 
@@ -176,7 +175,7 @@ func (il *gceInstancesLister) listResources(filters []*pb.Filter, ipConfig *pb.I
 
 // defaultComputeService returns a compute.Service object, initialized using
 // default credentials.
-func defaultComputeService() (*compute.Service, error) {
+func defaultComputeService(apiVersion string) (*compute.Service, error) {
 	client, err := google.DefaultClient(context.Background(), compute.ComputeScope)
 	if err != nil {
 		return nil, err
@@ -185,6 +184,8 @@ func defaultComputeService() (*compute.Service, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	cs.BasePath = "https://www.googleapis.com/compute/" + apiVersion + "/projects/"
 	return cs, nil
 }
 
@@ -225,7 +226,7 @@ func (il *gceInstancesLister) expand(reEvalInterval time.Duration) {
 	// expanded successfully. This is to avoid replacing current list with a
 	// partial expansion of targets. This is in contrast with instance-toNetInf
 	// cache, which is updated as we go through the instance list.
-	il.l.Debugf("Expanded target list: %q", names)
+	il.l.Infof("gce_instances.expand: got %d instances", len(names))
 	il.mu.Lock()
 	il.cache = cache
 	il.names = names
@@ -243,7 +244,7 @@ func newGCEInstancesLister(project, apiVersion string, c *configpb.GCEInstances,
 		l.Infof("newGCEInstancesLister: this instance: %s", thisInstance)
 	}
 
-	cs, err := defaultComputeService()
+	cs, err := defaultComputeService(apiVersion)
 	if err != nil {
 		return nil, fmt.Errorf("gce_instances.expand: error creating compute service: %v", err)
 	}
@@ -251,7 +252,6 @@ func newGCEInstancesLister(project, apiVersion string, c *configpb.GCEInstances,
 	il := &gceInstancesLister{
 		project:      project,
 		c:            c,
-		apiVersion:   apiVersion,
 		thisInstance: thisInstance,
 		cache:        make(map[string]*instanceData),
 		computeSvc:   cs,
