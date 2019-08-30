@@ -5,8 +5,29 @@ package cloudprober.targets;
 
 import "github.com/google/cloudprober/targets/gce/proto/config.proto";
 import "github.com/google/cloudprober/targets/lameduck/proto/config.proto";
-import "github.com/google/cloudprober/targets/rds/client/proto/config.proto";
+import "github.com/google/cloudprober/targets/rds/proto/rds.proto";
 import "github.com/google/cloudprober/targets/rtc/proto/config.proto";
+
+message RDSTargets {
+  // RDS server address. If not specified, RDS server address from the global
+  // options is used.
+  optional string rds_server_address = 1;
+
+  // Resource path specifies the resources to return. Resources paths have the
+  // following format:
+  // <resource_provider>://<resource_type>/<additional_params>
+  //
+  // Examples:
+  // For GCE instances in projectA: "gcp://gce_instances/<projectA>"
+  // Kubernetes Pods : "k8s://pods"
+  optional string resource_path = 2;
+
+  // Filters to filter resources by.
+  repeated rds.Filter filter = 3;
+
+  // IP config to specify the IP address to pick for a resource.
+  optional rds.IPConfig ip_config = 4;
+}
 
 message TargetsDef {
   oneof type {
@@ -41,17 +62,13 @@ message TargetsDef {
     // ResourceDiscovery service based targets.
     // Example:
     // rds_targets {
-    //   server_addr: "rds.internal:9314"
-    //   request {
-    //     provider: "gcp"
-    //     resource_path: "gce_instances/{{.project}}"
-    //     filter {
-    //       key: "name"
-    //       value: ".*backend.*"
-    //     }
+    //   resource_path: "gcp://gce_instances/{{.project}}"
+    //   filter {
+    //     key: "name"
+    //     value: ".*backend.*"
     //   }
     // }
-    rds.ClientConf rds_targets = 3;
+    RDSTargets rds_targets = 3;
 
     // Targets stored in Runtime Config variables (Deprecated).
     // RTC targets are now deprecated (as of v0.10.4). Please don't use them for
@@ -87,6 +104,9 @@ message DummyTargets {}
 // how often to re-evaluate the targets and whether to check for lame ducks or
 // not.
 message GlobalTargetsOptions {
+  // RDS server address
+  optional string rds_server_address = 3;
+
   // GCE targets options.
   optional gce.GlobalOptions global_gce_targets_options = 1;
 

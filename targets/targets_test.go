@@ -16,6 +16,7 @@ package targets_test
 
 import (
 	"errors"
+	"fmt"
 	"net"
 	"reflect"
 	"strings"
@@ -219,5 +220,80 @@ func TestSharedTargets(t *testing.T) {
 		if !reflect.DeepEqual(got, testHosts) {
 			t.Errorf("Unexpected targets: tgts.List()=%v, expected=%v", got, testHosts)
 		}
+	}
+}
+
+func TestRDSClientConf(t *testing.T) {
+	provider := "test-provider"
+	rPath := "test-rsources"
+
+	var rows = []struct {
+		desc       string
+		localAddr  string
+		globalAddr string
+		provider   string
+		wantErr    bool
+		wantAddr   string
+	}{
+		{
+			desc:     "address is not initialized",
+			provider: provider,
+			wantAddr: "",
+		},
+		{
+			desc:       "Pick global address",
+			provider:   provider,
+			globalAddr: "test-global-addr",
+			wantAddr:   "test-global-addr",
+		},
+		{
+			desc:       "Pick local address over global",
+			provider:   provider,
+			localAddr:  "test-local-addr",
+			globalAddr: "test-global-addr",
+			wantAddr:   "test-local-addr",
+		},
+		{
+			desc:      "Error because no provider",
+			provider:  "",
+			localAddr: "test-local-addr",
+			wantAddr:  "test-local-addr",
+			wantErr:   true,
+		},
+	}
+
+	for _, r := range rows {
+		t.Run(r.desc, func(t *testing.T) {
+			pb := &targetspb.RDSTargets{
+				ResourcePath: proto.String(fmt.Sprintf("%s://%s", r.provider, rPath)),
+			}
+			if r.localAddr != "" {
+				pb.RdsServerAddress = proto.String(r.localAddr)
+			}
+
+			globalOpts := &targetspb.GlobalTargetsOptions{}
+			if r.globalAddr != "" {
+				globalOpts.RdsServerAddress = proto.String(r.globalAddr)
+			}
+
+			cc, err := targets.RDSClientConf(pb, globalOpts)
+			if (err != nil) != r.wantErr {
+				t.Errorf("wantErr: %v, got err: %v", r.wantErr, err)
+			}
+
+			if err != nil {
+				return
+			}
+
+			if cc.GetServerAddr() != r.wantAddr {
+				t.Errorf("Got RDS server address: %s, wanted: %s", cc.GetServerAddr(), r.wantAddr)
+			}
+			if cc.GetRequest().GetProvider() != provider {
+				t.Errorf("Got provider: %s, wanted: %s", cc.GetRequest().GetProvider(), provider)
+			}
+			if cc.GetRequest().GetResourcePath() != rPath {
+				t.Errorf("Got resource path: %s, wanted: %s", cc.GetRequest().GetResourcePath(), rPath)
+			}
+		})
 	}
 }

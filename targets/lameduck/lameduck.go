@@ -187,9 +187,9 @@ func NewLameducker(opts *configpb.Options, hc *http.Client, l *logger.Logger) (L
 	return newService(opts, project, hc, l)
 }
 
-func rdsClient(opts *configpb.Options, project string, l *logger.Logger) (*rdsclient.Client, error) {
+func rdsClient(opts *configpb.Options, rdsServer, project string, l *logger.Logger) (*rdsclient.Client, error) {
 	rdsClientConf := &rdsclient_configpb.ClientConf{
-		ServerAddr: proto.String(opts.GetRdsServerAddr()),
+		ServerAddr: proto.String(rdsServer),
 		Request: &rdspb.ListResourcesRequest{
 			Provider:     proto.String("gcp"),
 			ResourcePath: proto.String(fmt.Sprintf("rtc_variables/%s", project)),
@@ -215,7 +215,7 @@ func rdsClient(opts *configpb.Options, project string, l *logger.Logger) (*rdscl
 // new lameduck service is created using the config options, and global.lister
 // is set to that service. Initiating the package from a given lister is useful
 // for testing pacakges that depend on this package.
-func InitDefaultLister(opts *configpb.Options, lister Lister, l *logger.Logger) error {
+func InitDefaultLister(opts *configpb.Options, rdsServer string, lister Lister, l *logger.Logger) error {
 	global.mu.Lock()
 	defer global.mu.Unlock()
 
@@ -236,10 +236,16 @@ func InitDefaultLister(opts *configpb.Options, lister Lister, l *logger.Logger) 
 	}
 
 	if opts.GetUseRds() {
-		c, err := rdsClient(opts, project, l)
+		// If there is lameduck specific RDS server, use that.
+		if opts.GetRdsServerAddress() != "" {
+			rdsServer = opts.GetRdsServerAddress()
+		}
+
+		c, err := rdsClient(opts, rdsServer, project, l)
 		if err != nil {
 			return err
 		}
+
 		global.lister = c
 		return nil
 	}

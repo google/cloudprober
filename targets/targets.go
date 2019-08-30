@@ -37,6 +37,8 @@ import (
 	"github.com/google/cloudprober/targets/lameduck"
 	targetspb "github.com/google/cloudprober/targets/proto"
 	rdsclient "github.com/google/cloudprober/targets/rds/client"
+	clientconfigpb "github.com/google/cloudprober/targets/rds/client/proto"
+	rdspb "github.com/google/cloudprober/targets/rds/proto"
 	dnsRes "github.com/google/cloudprober/targets/resolver"
 	"github.com/google/cloudprober/targets/rtc"
 )
@@ -227,6 +229,30 @@ func StaticTargets(hosts string) Targets {
 	return t
 }
 
+// RDSClientConf converts RDS targets into RDS client configuration.
+func RDSClientConf(pb *targetspb.RDSTargets, globalOpts *targetspb.GlobalTargetsOptions) (*clientconfigpb.ClientConf, error) {
+	addr := pb.GetRdsServerAddress()
+	if addr == "" && globalOpts != nil {
+		addr = globalOpts.GetRdsServerAddress()
+	}
+
+	toks := strings.SplitN(pb.GetResourcePath(), "://", 2)
+	if len(toks) != 2 || toks[0] == "" {
+		return nil, fmt.Errorf("provider not specified in the resource_path: %s", pb.GetResourcePath())
+	}
+	provider := toks[0]
+
+	return &clientconfigpb.ClientConf{
+		ServerAddr: &addr,
+		Request: &rdspb.ListResourcesRequest{
+			Provider:     &provider,
+			ResourcePath: &toks[1],
+			Filter:       pb.GetFilter(),
+			IpConfig:     pb.GetIpConfig(),
+		},
+	}, nil
+}
+
 // New returns an instance of Targets as defined by a Targets protobuf (and a
 // GlobalTargetsOptions protobuf). The Targets instance returned will filter a
 // core target lister (i.e. static host-list, GCE instances, GCE forwarding
@@ -238,7 +264,7 @@ func StaticTargets(hosts string) Targets {
 //
 // See cloudprober/targets/targets.proto for more information on the possible
 // configurations of Targets.
-func New(targetsDef *targetspb.TargetsDef, ldLister lameduck.Lister, targetOpts *targetspb.GlobalTargetsOptions, globalLogger, l *logger.Logger) (Targets, error) {
+func New(targetsDef *targetspb.TargetsDef, ldLister lameduck.Lister, globalOpts *targetspb.GlobalTargetsOptions, globalLogger, l *logger.Logger) (Targets, error) {
 	t, err := baseTargets(targetsDef, ldLister, l)
 	if err != nil {
 		globalLogger.Error("Unable to produce the base target lister")
@@ -251,8 +277,7 @@ func New(targetsDef *targetspb.TargetsDef, ldLister lameduck.Lister, targetOpts 
 		for _, name := range strings.Split(targetsDef.GetHostNames(), ",") {
 			sl.list = append(sl.list, strings.TrimSpace(name))
 		}
-		t.lister = sl
-		t.resolver = globalResolver
+		t.lister, t.resolver = sl, globalResolver
 
 	case *targetspb.TargetsDef_SharedTargets:
 		sharedTargetsMu.RLock()
@@ -264,20 +289,24 @@ func New(targetsDef *targetspb.TargetsDef, ldLister lameduck.Lister, targetOpts 
 		t.lister, t.resolver = st, st
 
 	case *targetspb.TargetsDef_GceTargets:
-		s, err := gce.New(targetsDef.GetGceTargets(), targetOpts.GetGlobalGceTargetsOptions(), globalResolver, globalLogger)
+		s, err := gce.New(targetsDef.GetGceTargets(), globalOpts.GetGlobalGceTargetsOptions(), globalResolver, globalLogger)
 		if err != nil {
-			l.Error("Unable to build GCE targets")
-			return nil, fmt.Errorf("targets.New(): Error building GCE targets: %v", err)
+			return nil, fmt.Errorf("targets.New(): error creating GCE targets: %v", err)
 		}
 		t.lister, t.resolver = s, s
 
 	case *targetspb.TargetsDef_RdsTargets:
-		li, err := rdsclient.New(targetsDef.GetRdsTargets(), nil, l)
+		clientConf, err := RDSClientConf(targetsDef.GetRdsTargets(), globalOpts)
 		if err != nil {
-			return nil, fmt.Errorf("targets.New(): Error building RDS targets: %v", err)
+			return nil, fmt.Errorf("target.New(): error creating RDS client: %v", err)
 		}
-		t.lister = li
-		t.resolver = li
+
+		client, err := rdsclient.New(clientConf, nil, l)
+		if err != nil {
+			return nil, fmt.Errorf("target.New(): error creating RDS client: %v", err)
+		}
+
+		t.lister, t.resolver = client, client
 
 	case *targetspb.TargetsDef_RtcTargets:
 		// TODO(izzycecil): we should really consolidate all these metadata calls
@@ -286,25 +315,22 @@ func New(targetsDef *targetspb.TargetsDef, ldLister lameduck.Lister, targetOpts 
 		if err != nil {
 			return nil, fmt.Errorf("targets.New(): Error getting project ID: %v", err)
 		}
-		li, err := rtc.New(targetsDef.GetRtcTargets(), proj, l)
+		rt, err := rtc.New(targetsDef.GetRtcTargets(), proj, l)
 		if err != nil {
 			return nil, fmt.Errorf("targets.New(): Error building RTC resolver: %v", err)
 		}
-		t.lister = li
-		t.resolver = li
+		t.lister, t.resolver = rt, rt
 
 	case *targetspb.TargetsDef_DummyTargets:
 		dummy := &dummy{}
-		t.lister = dummy
-		t.resolver = dummy
+		t.lister, t.resolver = dummy, dummy
 
 	default:
 		extT, err := getExtensionTargets(targetsDef, t.l)
 		if err != nil {
 			return nil, fmt.Errorf("targets.New(): %v", err)
 		}
-		t.lister = extT
-		t.resolver = extT
+		t.lister, t.resolver = extT, extT
 	}
 
 	return t, nil
