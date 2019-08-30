@@ -32,7 +32,7 @@ func TestDefaultLister(t *testing.T) {
 	list1 := []string{"list1"}
 
 	// Initialize default lister with the given lister
-	InitDefaultLister(nil, &mockLDLister{list1}, nil)
+	InitDefaultLister(nil, "", &mockLDLister{list1}, nil)
 	lister, err := GetDefaultLister()
 	if err != nil {
 		t.Fatal(err)
@@ -45,7 +45,7 @@ func TestDefaultLister(t *testing.T) {
 	list2 := []string{"list2"}
 	// Initialize default lister with the given lister. This time it should have
 	// no impact as default lister is already initialized.
-	InitDefaultLister(nil, &mockLDLister{list2}, nil)
+	InitDefaultLister(nil, "", &mockLDLister{list2}, nil)
 	lister, err = GetDefaultLister()
 	if err != nil {
 		t.Fatal(err)

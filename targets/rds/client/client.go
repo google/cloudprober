@@ -126,6 +126,7 @@ func (client *Client) grpcListResources() error {
 		dialOpts = grpc.WithTransportCredentials(creds)
 	}
 
+	client.l.Infof("rds.client: using RDS server at: %s", client.c.GetServerAddr())
 	conn, err := grpc.Dial(client.c.GetServerAddr(), dialOpts)
 	if err != nil {
 		return err

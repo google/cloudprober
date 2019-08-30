@@ -26,6 +26,7 @@ message Options {
   // Use an RDS client to get lame-duck-targets.
   optional bool use_rds = 5;
 
-  // Use an RDS server address
-  optional string rds_server_addr = 6 [default = "localhost:9314"];
+  // RDS server address. If not specified, RDS server address from the global
+  // options is used, which in turn defaults to localhost:9314.
+  optional string rds_server_address = 6;
 }
