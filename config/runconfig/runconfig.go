@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"sync"
 
+	rdsserver "github.com/google/cloudprober/targets/rds/server"
 	"google.golang.org/grpc"
 )
 
@@ -29,8 +30,9 @@ import (
 // e.g., servers injected by external cloudprober users.
 type runConfig struct {
 	sync.RWMutex
-	grpcSrv *grpc.Server
-	version string
+	grpcSrv   *grpc.Server
+	version   string
+	rdsServer *rdsserver.Server
 }
 
 var rc runConfig
@@ -68,4 +70,20 @@ func Version() string {
 	rc.RLock()
 	defer rc.RUnlock()
 	return rc.version
+}
+
+// SetLocalRDSServer stores local RDS server in the runconfig. It can later
+// be retrieved throuhg LocalRDSServer().
+func SetLocalRDSServer(srv *rdsserver.Server) {
+	rc.Lock()
+	defer rc.Unlock()
+	rc.rdsServer = srv
+}
+
+// LocalRDSServer returns the local RDS server, set through the
+// SetLocalRDSServer() call.
+func LocalRDSServer() *rdsserver.Server {
+	rc.RLock()
+	defer rc.RUnlock()
+	return rc.rdsServer
 }

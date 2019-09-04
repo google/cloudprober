@@ -29,6 +29,7 @@ import (
 
 	"cloud.google.com/go/compute/metadata"
 	"github.com/golang/protobuf/proto"
+	"github.com/google/cloudprober/config/runconfig"
 	"github.com/google/cloudprober/logger"
 	configpb "github.com/google/cloudprober/targets/lameduck/proto"
 	rdsclient "github.com/google/cloudprober/targets/rds/client"
@@ -187,9 +188,25 @@ func NewLameducker(opts *configpb.Options, hc *http.Client, l *logger.Logger) (L
 	return newService(opts, project, hc, l)
 }
 
-func rdsClient(opts *configpb.Options, rdsServer, project string, l *logger.Logger) (*rdsclient.Client, error) {
+func rdsClient(opts *configpb.Options, globalRDSAddr, project string, l *logger.Logger) (*rdsclient.Client, error) {
+	var listResourcesFunc rdsclient.ListResourcesFunc
+
+	serverAddr := globalRDSAddr
+	// If there is lameduck specific RDS server, use that.
+	if opts.GetRdsServerAddress() != "" {
+		serverAddr = opts.GetRdsServerAddress()
+	}
+
+	if serverAddr == "" {
+		localRDSServer := runconfig.LocalRDSServer()
+		if localRDSServer == nil {
+			return nil, fmt.Errorf("rds_server_address not given and found no local RDS server")
+		}
+		listResourcesFunc = localRDSServer.ListResources
+	}
+
 	rdsClientConf := &rdsclient_configpb.ClientConf{
-		ServerAddr: proto.String(rdsServer),
+		ServerAddr: &serverAddr,
 		Request: &rdspb.ListResourcesRequest{
 			Provider:     proto.String("gcp"),
 			ResourcePath: proto.String(fmt.Sprintf("rtc_variables/%s", project)),
@@ -207,7 +224,7 @@ func rdsClient(opts *configpb.Options, rdsServer, project string, l *logger.Logg
 		ReEvalSec: proto.Int32(opts.GetReEvalSec()),
 	}
 
-	return rdsclient.New(rdsClientConf, nil, l)
+	return rdsclient.New(rdsClientConf, listResourcesFunc, l)
 }
 
 // InitDefaultLister initializes the package using the given arguments. If a
@@ -215,7 +232,7 @@ func rdsClient(opts *configpb.Options, rdsServer, project string, l *logger.Logg
 // new lameduck service is created using the config options, and global.lister
 // is set to that service. Initiating the package from a given lister is useful
 // for testing pacakges that depend on this package.
-func InitDefaultLister(opts *configpb.Options, rdsServer string, lister Lister, l *logger.Logger) error {
+func InitDefaultLister(opts *configpb.Options, globalRDSAddr string, lister Lister, l *logger.Logger) error {
 	global.mu.Lock()
 	defer global.mu.Unlock()
 
@@ -236,12 +253,7 @@ func InitDefaultLister(opts *configpb.Options, rdsServer string, lister Lister, 
 	}
 
 	if opts.GetUseRds() {
-		// If there is lameduck specific RDS server, use that.
-		if opts.GetRdsServerAddress() != "" {
-			rdsServer = opts.GetRdsServerAddress()
-		}
-
-		c, err := rdsClient(opts, rdsServer, project, l)
+		c, err := rdsClient(opts, globalRDSAddr, project, l)
 		if err != nil {
 			return err
 		}

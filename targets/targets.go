@@ -32,6 +32,7 @@ import (
 
 	"cloud.google.com/go/compute/metadata"
 	"github.com/golang/protobuf/proto"
+	"github.com/google/cloudprober/config/runconfig"
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/targets/gce"
 	"github.com/google/cloudprober/targets/lameduck"
@@ -230,19 +231,34 @@ func StaticTargets(hosts string) Targets {
 }
 
 // RDSClientConf converts RDS targets into RDS client configuration.
-func RDSClientConf(pb *targetspb.RDSTargets, globalOpts *targetspb.GlobalTargetsOptions) (*clientconfigpb.ClientConf, error) {
-	addr := pb.GetRdsServerAddress()
-	if addr == "" && globalOpts != nil {
-		addr = globalOpts.GetRdsServerAddress()
+func RDSClientConf(pb *targetspb.RDSTargets, globalOpts *targetspb.GlobalTargetsOptions) (rdsclient.ListResourcesFunc, *clientconfigpb.ClientConf, error) {
+	var listResourcesFunc rdsclient.ListResourcesFunc
+
+	// Intialize server address with global options.
+	addr := globalOpts.GetRdsServerAddress()
+
+	// If targets specific rds_server_address is given, use that.
+	if pb.GetRdsServerAddress() != "" {
+		addr = pb.GetRdsServerAddress()
+	}
+
+	// If rds_server_address is not given in both, local options and in global
+	// options, look for the locally running RDS server.
+	if addr == "" {
+		localRDSServer := runconfig.LocalRDSServer()
+		if localRDSServer == nil {
+			return nil, nil, fmt.Errorf("rds_server_address not given and found no local RDS server")
+		}
+		listResourcesFunc = localRDSServer.ListResources
 	}
 
 	toks := strings.SplitN(pb.GetResourcePath(), "://", 2)
 	if len(toks) != 2 || toks[0] == "" {
-		return nil, fmt.Errorf("provider not specified in the resource_path: %s", pb.GetResourcePath())
+		return nil, nil, fmt.Errorf("provider not specified in the resource_path: %s", pb.GetResourcePath())
 	}
 	provider := toks[0]
 
-	return &clientconfigpb.ClientConf{
+	return listResourcesFunc, &clientconfigpb.ClientConf{
 		ServerAddr: &addr,
 		Request: &rdspb.ListResourcesRequest{
 			Provider:     &provider,
@@ -296,12 +312,12 @@ func New(targetsDef *targetspb.TargetsDef, ldLister lameduck.Lister, globalOpts 
 		t.lister, t.resolver = s, s
 
 	case *targetspb.TargetsDef_RdsTargets:
-		clientConf, err := RDSClientConf(targetsDef.GetRdsTargets(), globalOpts)
+		listResourcesFunc, clientConf, err := RDSClientConf(targetsDef.GetRdsTargets(), globalOpts)
 		if err != nil {
 			return nil, fmt.Errorf("target.New(): error creating RDS client: %v", err)
 		}
 
-		client, err := rdsclient.New(clientConf, nil, l)
+		client, err := rdsclient.New(clientConf, listResourcesFunc, l)
 		if err != nil {
 			return nil, fmt.Errorf("target.New(): error creating RDS client: %v", err)
 		}

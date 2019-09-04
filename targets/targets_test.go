@@ -236,9 +236,9 @@ func TestRDSClientConf(t *testing.T) {
 		wantAddr   string
 	}{
 		{
-			desc:     "address is not initialized",
+			desc:     "Error as RDS server address is not initialized",
 			provider: provider,
-			wantAddr: "",
+			wantErr:  true,
 		},
 		{
 			desc:       "Pick global address",
@@ -276,7 +276,7 @@ func TestRDSClientConf(t *testing.T) {
 				globalOpts.RdsServerAddress = proto.String(r.globalAddr)
 			}
 
-			cc, err := targets.RDSClientConf(pb, globalOpts)
+			_, cc, err := targets.RDSClientConf(pb, globalOpts)
 			if (err != nil) != r.wantErr {
 				t.Errorf("wantErr: %v, got err: %v", r.wantErr, err)
 			}

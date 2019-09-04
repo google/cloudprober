@@ -121,6 +121,32 @@ func (pr *Prober) Init(ctx context.Context, cfg *configpb.ProberConfig, l *logge
 	pr.c = cfg
 	pr.l = l
 
+	// Initialize cloudprober gRPC service if configured.
+	srv := runconfig.DefaultGRPCServer()
+	if srv != nil {
+		pr.grpcStartProbeCh = make(chan string)
+		spb.RegisterCloudproberServer(srv, pr)
+	}
+
+	// Initialize RDS server, if configured and attach to the default gRPC server.
+	// Note that we can still attach services to the default gRPC server as it's
+	// started later in Start().
+	if c := pr.c.GetRdsServer(); c != nil {
+		l, err := logger.NewCloudproberLog("rds-server")
+		if err != nil {
+			return err
+		}
+		rdsServer, err := rdsserver.New(ctx, c, nil, l)
+		if err != nil {
+			return err
+		}
+
+		runconfig.SetLocalRDSServer(rdsServer)
+		if srv != nil {
+			rdsServer.RegisterWithGRPC(srv)
+		}
+	}
+
 	// Initialize lameduck lister
 	globalTargetsOpts := pr.c.GetGlobalTargetsOptions()
 
@@ -169,28 +195,6 @@ func (pr *Prober) Init(ctx context.Context, cfg *configpb.ProberConfig, l *logge
 	pr.Surfacers, err = surfacers.Init(pr.c.GetSurfacer())
 	if err != nil {
 		return err
-	}
-
-	// Initialize cloudprober gRPC service if configured.
-	srv := runconfig.DefaultGRPCServer()
-	if srv != nil {
-		pr.grpcStartProbeCh = make(chan string)
-		spb.RegisterCloudproberServer(srv, pr)
-	}
-
-	// Initialize RDS server, if configured and attach to the default gRPC server.
-	// Note that we can still attach services to the default gRPC server as it's
-	// started later in Start().
-	if c := pr.c.GetRdsServer(); c != nil {
-		l, err := logger.NewCloudproberLog("rds-server")
-		if err != nil {
-			return err
-		}
-		rdsServer, err := rdsserver.New(ctx, c, nil, l)
-		if err != nil {
-			return err
-		}
-		rdsServer.RegisterWithGRPC(srv)
 	}
 
 	// Initialize RTC reporter, if configured.
