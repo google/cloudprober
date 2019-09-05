@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
-	"strings"
 	"sync"
 	"time"
 
@@ -99,51 +98,18 @@ func instanceIP(nis []*compute.NetworkInterface, ipConfig *pb.IPConfig) (string,
 	return "", nil
 }
 
-func parseFilters(filters []*pb.Filter) (nameFilter *filter.RegexFilter, labelsFilter *filter.LabelsFilter, err error) {
-	// TODO(manugarg): Move filtering code to gcp.go once we add more resource
-	// types as this logic should be same for most GCP resources.
-	labels := make(map[string]string)
-	for _, f := range filters {
-		if f.GetKey() == "name" {
-			nameFilter, err = filter.NewRegexFilter(f.GetValue())
-			if err != nil {
-				err = fmt.Errorf("gce_instances: error creating regex filter from: %s, err: %v", f.GetValue(), err)
-				return
-			}
-			continue
-		}
-
-		// labels.<key> format matches with gcloud's filter options.
-		if strings.HasPrefix(f.GetKey(), "labels.") {
-			labels[strings.TrimPrefix(f.GetKey(), "labels.")] = f.GetValue()
-			continue
-		}
-
-		err = fmt.Errorf("unsupported filter key: %s", f.GetKey())
-		return
-	}
-
-	if len(labels) != 0 {
-		labelsFilter, err = filter.NewLabelsFilter(labels)
-		if err != nil {
-			err = fmt.Errorf("gce_instances: error creating labels filter from: %v, err: %v", labels, err)
-			return
-		}
-	}
-
-	return
-}
-
 // listResources returns the list of resource records, where each record
 // consists of an instance name and the IP address associated with it. IP address
 // to return is selected based on the provided ipConfig.
 func (il *gceInstancesLister) listResources(filters []*pb.Filter, ipConfig *pb.IPConfig) ([]*pb.Resource, error) {
 	var resources []*pb.Resource
 
-	nameFilter, labelsFilter, err := parseFilters(filters)
+	allFilters, err := filter.ParseFilters(filters, []string{"name"}, "")
 	if err != nil {
 		return nil, err
 	}
+
+	nameFilter, labelsFilter := allFilters.RegexFilters["name"], allFilters.LabelsFilter
 
 	il.mu.RLock()
 	defer il.mu.RUnlock()
