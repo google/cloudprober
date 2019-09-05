@@ -46,12 +46,12 @@ func (rf *RegexFilter) Match(name string, l *logger.Logger) bool {
 	return rf.re.MatchString(name)
 }
 
-// LabelsFilter implements a regex based filter.
+// LabelsFilter implements a filter on resource's labels.
 type LabelsFilter struct {
 	labels map[string]*regexp.Regexp
 }
 
-// NewLabelsFilter adds a new label to filter on.
+// NewLabelsFilter builds LabelsFilter from a key:regexp map.
 func NewLabelsFilter(labelsFilter map[string]string) (*LabelsFilter, error) {
 	labels := make(map[string]*regexp.Regexp)
 

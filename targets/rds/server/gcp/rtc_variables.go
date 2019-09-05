@@ -57,29 +57,13 @@ type rtcVariablesLister struct {
 // consists of a RTC variable name.
 func (rvl *rtcVariablesLister) listResources(filters []*pb.Filter) ([]*pb.Resource, error) {
 	var resources []*pb.Resource
-	var configNameFilter *filter.RegexFilter
-	var freshnessFilter *filter.FreshnessFilter
 
-	for _, f := range filters {
-		var err error
-
-		switch f.GetKey() {
-		case "config_name":
-			configNameFilter, err = filter.NewRegexFilter(f.GetValue())
-			if err != nil {
-				return nil, fmt.Errorf("rtc_variables: error creating regex filter from: %s, err: %v", f.GetValue(), err)
-			}
-
-		case "updated_within":
-			freshnessFilter, err = filter.NewFreshnessFilter(f.GetValue())
-			if err != nil {
-				return nil, fmt.Errorf("rtc_variables: error creating freshness filter from: %s, err: %v", f.GetValue(), err)
-			}
-
-		default:
-			return nil, fmt.Errorf("rtc_variables: Invalid filter key: %s", f.GetKey())
-		}
+	allFilters, err := filter.ParseFilters(filters, []string{"config_name"}, "updated_within")
+	if err != nil {
+		return nil, err
 	}
+
+	configNameFilter, freshnessFilter := allFilters.RegexFilters["config_name"], allFilters.FreshnessFilter
 
 	rvl.mu.RLock()
 	defer rvl.mu.RUnlock()
