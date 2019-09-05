@@ -40,6 +40,10 @@ import (
 	configpb "github.com/google/cloudprober/targets/rds/server/gcp/proto"
 )
 
+// DefaultProviderID is the povider id to use for this provider if a provider
+// id is not configured explicitly.
+const DefaultProviderID = "gcp"
+
 // Provider implements a GCP provider for a ResourceDiscovery server.
 type Provider struct {
 	gceInstances map[string]*gceInstancesLister

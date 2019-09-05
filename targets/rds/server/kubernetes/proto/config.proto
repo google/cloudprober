@@ -1,0 +1,34 @@
+// Configuration proto for GCE targets.
+// Example config:
+// {
+//   project: 'test-project-id'
+//
+//   # GCE instances
+//   gce_instances {}
+//
+//   # RTC variables from the config lame-duck-targets, re-evaluated every 10s.
+//   rtc_variables {
+//     rtc_config {
+//       name: "lame-duck-targets"
+//     }
+//   }
+// }
+syntax = "proto2";
+
+package cloudprober.targets.rds.kubernetes;
+
+message Pods {
+  // Namespace to list resources for. If not specified, we default to all
+  // namespaces.
+  optional string namespace = 1;
+
+  // How often resources should be evaluated/expanded.
+  optional int32 re_eval_sec = 99 [default = 60];  // default 1 min
+}
+
+// Kubernetes provider config.
+message ProviderConfig {
+  // Pods discovery options. This field should be declared for the pods
+  // discovery to be enabled.
+  optional Pods pods = 1;
+}
