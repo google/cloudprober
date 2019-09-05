@@ -1,0 +1,303 @@
+{
+  "kind": "PodList",
+  "apiVersion": "v1",
+  "metadata": {
+    "selfLink": "/api/v1/namespaces/default/pods",
+    "resourceVersion": "60220468"
+  },
+  "items": [
+    {
+      "metadata": {
+        "name": "cloudprober-54778d95f5-7hqtd",
+        "generateName": "cloudprober-54778d95f5-",
+        "namespace": "default",
+        "selfLink": "/api/v1/namespaces/default/pods/cloudprober-54778d95f5-7hqtd",
+        "uid": "27b40427-be52-11e9-b3cb-42010a8a0172",
+        "resourceVersion": "60211894",
+        "creationTimestamp": "2019-08-14T05:12:47Z",
+        "labels": {
+          "app": "cloudprober",
+          "pod-template-hash": "1033485191"
+        },
+        "annotations": {
+          "kubernetes.io/limit-ranger": "LimitRanger plugin set: cpu request for container cloudprober"
+        },
+        "ownerReferences": [
+          {
+            "apiVersion": "apps/v1",
+            "kind": "ReplicaSet",
+            "name": "cloudprober-54778d95f5",
+            "uid": "4d8dea4f-d753-11e8-ade0-42010a8a00bc",
+            "controller": true,
+            "blockOwnerDeletion": true
+          }
+        ]
+      },
+      "spec": {
+        "volumes": [
+          {
+            "name": "cloudprober-config",
+            "configMap": {
+              "name": "cloudprober-config",
+              "defaultMode": 420
+            }
+          },
+          {
+            "name": "default-token-fpbjc",
+            "secret": {
+              "secretName": "default-token-fpbjc",
+              "defaultMode": 420
+            }
+          }
+        ],
+        "containers": [
+          {
+            "name": "cloudprober",
+            "image": "cloudprober/cloudprober",
+            "args": [
+              "--config_file",
+              "/cfg/cloudprober.cfg",
+              "--logtostderr"
+            ],
+            "ports": [
+              {
+                "name": "http",
+                "containerPort": 9313,
+                "protocol": "TCP"
+              }
+            ],
+            "env": [
+              {
+                "name": "CLOUDPROBER_PORT",
+                "value": "9313"
+              }
+            ],
+            "resources": {
+              "requests": {
+                "cpu": "100m"
+              }
+            },
+            "volumeMounts": [
+              {
+                "name": "cloudprober-config",
+                "mountPath": "/cfg"
+              },
+              {
+                "name": "default-token-fpbjc",
+                "readOnly": true,
+                "mountPath": "/var/run/secrets/kubernetes.io/serviceaccount"
+              }
+            ],
+            "terminationMessagePath": "/dev/termination-log",
+            "terminationMessagePolicy": "File",
+            "imagePullPolicy": "Always"
+          }
+        ],
+        "restartPolicy": "Always",
+        "terminationGracePeriodSeconds": 30,
+        "dnsPolicy": "ClusterFirst",
+        "serviceAccountName": "default",
+        "serviceAccount": "default",
+        "nodeName": "gke-cluster-1-default-pool-abd8ad35-ccr7",
+        "securityContext": {
+
+        },
+        "schedulerName": "default-scheduler",
+        "tolerations": [
+          {
+            "key": "node.kubernetes.io/not-ready",
+            "operator": "Exists",
+            "effect": "NoExecute",
+            "tolerationSeconds": 300
+          },
+          {
+            "key": "node.kubernetes.io/unreachable",
+            "operator": "Exists",
+            "effect": "NoExecute",
+            "tolerationSeconds": 300
+          }
+        ],
+        "priority": 0,
+        "enableServiceLinks": true
+      },
+      "status": {
+        "phase": "Running",
+        "conditions": [
+          {
+            "type": "Initialized",
+            "status": "True",
+            "lastProbeTime": null,
+            "lastTransitionTime": "2019-08-14T05:12:47Z"
+          },
+          {
+            "type": "Ready",
+            "status": "True",
+            "lastProbeTime": null,
+            "lastTransitionTime": "2019-08-14T05:13:08Z"
+          },
+          {
+            "type": "ContainersReady",
+            "status": "True",
+            "lastProbeTime": null,
+            "lastTransitionTime": null
+          },
+          {
+            "type": "PodScheduled",
+            "status": "True",
+            "lastProbeTime": null,
+            "lastTransitionTime": "2019-08-14T05:12:47Z"
+          }
+        ],
+        "hostIP": "10.138.0.5",
+        "podIP": "10.28.0.3",
+        "startTime": "2019-08-14T05:12:47Z",
+        "containerStatuses": [
+          {
+            "name": "cloudprober",
+            "state": {
+              "running": {
+                "startedAt": "2019-08-14T05:13:06Z"
+              }
+            },
+            "lastState": {
+
+            },
+            "ready": true,
+            "restartCount": 0,
+            "image": "cloudprober/cloudprober:latest",
+            "imageID": "docker-pullable://cloudprober/cloudprober@sha256:e6efb4057a41e8bb187508b68256df402d0c67b60ad6dfdfbce26a128d501efc",
+            "containerID": "docker://1dc2faec2892d334821fac4a1c460272114353154c239d2dd225d408fe100d62"
+          }
+        ],
+        "qosClass": "Burstable"
+      }
+    },
+    {
+      "metadata": {
+        "name": "test",
+        "namespace": "default",
+        "selfLink": "/api/v1/namespaces/default/pods/test",
+        "uid": "c5a04c49-be54-11e9-b3cb-42010a8a0172",
+        "resourceVersion": "60215341",
+        "creationTimestamp": "2019-08-14T05:31:31Z",
+        "annotations": {
+          "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"v1\",\"kind\":\"Pod\",\"metadata\":{\"annotations\":{},\"name\":\"test\",\"namespace\":\"default\"},\"spec\":{\"containers\":[{\"args\":[\"sleep\",\"1000000\"],\"image\":\"alpine\",\"name\":\"test\"}],\"serviceAccountName\":\"cloudprober-sa\"}}\n",
+          "kubernetes.io/limit-ranger": "LimitRanger plugin set: cpu request for container test"
+        }
+      },
+      "spec": {
+        "volumes": [
+          {
+            "name": "cloudprober-sa-token-sszz8",
+            "secret": {
+              "secretName": "cloudprober-sa-token-sszz8",
+              "defaultMode": 420
+            }
+          }
+        ],
+        "containers": [
+          {
+            "name": "test",
+            "image": "alpine",
+            "args": [
+              "sleep",
+              "1000000"
+            ],
+            "resources": {
+              "requests": {
+                "cpu": "100m"
+              }
+            },
+            "volumeMounts": [
+              {
+                "name": "cloudprober-sa-token-sszz8",
+                "readOnly": true,
+                "mountPath": "/var/run/secrets/kubernetes.io/serviceaccount"
+              }
+            ],
+            "terminationMessagePath": "/dev/termination-log",
+            "terminationMessagePolicy": "File",
+            "imagePullPolicy": "Always"
+          }
+        ],
+        "restartPolicy": "Always",
+        "terminationGracePeriodSeconds": 30,
+        "dnsPolicy": "ClusterFirst",
+        "serviceAccountName": "cloudprober-sa",
+        "serviceAccount": "cloudprober-sa",
+        "nodeName": "gke-cluster-1-default-pool-abd8ad35-t2f1",
+        "securityContext": {
+
+        },
+        "schedulerName": "default-scheduler",
+        "tolerations": [
+          {
+            "key": "node.kubernetes.io/not-ready",
+            "operator": "Exists",
+            "effect": "NoExecute",
+            "tolerationSeconds": 300
+          },
+          {
+            "key": "node.kubernetes.io/unreachable",
+            "operator": "Exists",
+            "effect": "NoExecute",
+            "tolerationSeconds": 300
+          }
+        ],
+        "priority": 0,
+        "enableServiceLinks": true
+      },
+      "status": {
+        "phase": "Running",
+        "conditions": [
+          {
+            "type": "Initialized",
+            "status": "True",
+            "lastProbeTime": null,
+            "lastTransitionTime": "2019-08-14T05:31:31Z"
+          },
+          {
+            "type": "Ready",
+            "status": "True",
+            "lastProbeTime": null,
+            "lastTransitionTime": "2019-08-14T05:31:33Z"
+          },
+          {
+            "type": "ContainersReady",
+            "status": "True",
+            "lastProbeTime": null,
+            "lastTransitionTime": null
+          },
+          {
+            "type": "PodScheduled",
+            "status": "True",
+            "lastProbeTime": null,
+            "lastTransitionTime": "2019-08-14T05:31:31Z"
+          }
+        ],
+        "hostIP": "10.138.0.7",
+        "podIP": "10.28.1.3",
+        "startTime": "2019-08-14T05:31:31Z",
+        "containerStatuses": [
+          {
+            "name": "test",
+            "state": {
+              "running": {
+                "startedAt": "2019-08-14T05:31:32Z"
+              }
+            },
+            "lastState": {
+
+            },
+            "ready": true,
+            "restartCount": 0,
+            "image": "alpine:latest",
+            "imageID": "docker-pullable://alpine@sha256:57334c50959f26ce1ee025d08f136c2292c128f84e7b229d1b0da5dac89e9866",
+            "containerID": "docker://f7b58c2eabaf691cd076cb9c123ca055b46144d67c77ad6dc7832ccf96bb0016"
+          }
+        ],
+        "qosClass": "Burstable"
+      }
+    }
+  ]
+}

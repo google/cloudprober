@@ -27,6 +27,7 @@ import (
 	pb "github.com/google/cloudprober/targets/rds/proto"
 	spb "github.com/google/cloudprober/targets/rds/proto"
 	"github.com/google/cloudprober/targets/rds/server/gcp"
+	"github.com/google/cloudprober/targets/rds/server/kubernetes"
 	configpb "github.com/google/cloudprober/targets/rds/server/proto"
 	"google.golang.org/grpc"
 )
@@ -56,13 +57,26 @@ func (s *Server) initProviders(c *configpb.ServerConf) error {
 	var p Provider
 	var err error
 	for _, pc := range c.GetProvider() {
+		id := pc.GetId()
 		switch pc.Config.(type) {
 		case *configpb.Provider_GcpConfig:
+			if id == "" {
+				id = gcp.DefaultProviderID
+			}
+			s.l.Infof("rds.server: adding GCP provider with id: %s", id)
 			if p, err = gcp.New(pc.GetGcpConfig(), s.l); err != nil {
 				return err
 			}
+		case *configpb.Provider_KubernetesConfig:
+			if id == "" {
+				id = kubernetes.DefaultProviderID
+			}
+			s.l.Infof("rds.server: adding Kubernetes provider with id: %s", id)
+			if p, err = kubernetes.New(pc.GetKubernetesConfig(), s.l); err != nil {
+				return err
+			}
 		}
-		s.providers[pc.GetId()] = p
+		s.providers[id] = p
 	}
 	return nil
 }
