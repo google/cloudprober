@@ -54,64 +54,96 @@ func (mldl *mockLDLister) List() []string {
 	return mldl.list
 }
 
+func TestEndpointsFromNames(t *testing.T) {
+	names := []string{"targetA", "targetB", "targetC"}
+	endpoints := targets.EndpointsFromNames(names)
+
+	for i := range names {
+		ep := endpoints[i]
+
+		if ep.Name != names[i] {
+			t.Errorf("Endpoint.Name=%s, want=%s", ep.Name, names[i])
+		}
+		if ep.Port != 0 {
+			t.Errorf("Endpoint.Port=%d, want=0", ep.Port)
+		}
+		if len(ep.Labels) != 0 {
+			t.Errorf("Endpoint.Labels=%v, want={}", ep.Labels)
+		}
+	}
+}
+
 // TestList does not test the targets.New function, and is specifically testing
 // the implementation of targets.targets directly
 func TestList(t *testing.T) {
 	var rows = []struct {
+		desc   string
 		hosts  []string
 		re     string
 		ldList []string
 		expect []string
 	}{
 		{
-			[]string{"www.google.com", "127.0.0.1", "hostA", "hostB", "hostC"},
-			"",
-			[]string{"hostB"}, // hostB is lameduck.
-			[]string{"www.google.com", "127.0.0.1", "hostA", "hostC"},
+			desc:   "hostB is lameduck",
+			hosts:  []string{"www.google.com", "127.0.0.1", "hostA", "hostB", "hostC"},
+			ldList: []string{"hostB"}, // hostB is lameduck.
+			expect: []string{"www.google.com", "127.0.0.1", "hostA", "hostC"},
 		},
 		{
-			[]string{"www.google.com", "127.0.0.1", "hostA", "hostB", "hostC"},
-			".*",
-			nil,
-			[]string{"www.google.com", "127.0.0.1", "hostA", "hostB", "hostC"},
+			desc:   "all hosts no lameduck",
+			hosts:  []string{"www.google.com", "127.0.0.1", "hostA", "hostB", "hostC"},
+			re:     ".*",
+			expect: []string{"www.google.com", "127.0.0.1", "hostA", "hostB", "hostC"},
 		},
 		{
-			[]string{"www.google.com", "127.0.0.1", "hostA", "hostB", "hostC"},
-			"host.*",
-			[]string{"hostC"}, // hostC is lameduck.
-			[]string{"hostA", "hostB"},
+			desc:   "only hosts starting with host and hostC is lameduck",
+			hosts:  []string{"www.google.com", "127.0.0.1", "hostA", "hostB", "hostC"},
+			re:     "host.*",
+			ldList: []string{"hostC"}, // hostC is lameduck.
+			expect: []string{"hostA", "hostB"},
 		},
 		{
-			[]string{"www.google.com", "127.0.0.1", "hostA", "hostB", "hostC"},
-			"empty.*",
-			nil,
-			[]string{},
+			desc:  "empty as no hosts match the regex",
+			hosts: []string{"www.google.com", "127.0.0.1", "hostA", "hostB", "hostC"},
+			re:    "empty.*",
 		},
 	}
 
-	for id, r := range rows {
+	for _, r := range rows {
 		targetsDef := &targetspb.TargetsDef{
 			Regex: proto.String(r.re),
 			Type: &targetspb.TargetsDef_HostNames{
 				HostNames: strings.Join(r.hosts, ","),
 			},
 		}
-		bt, err := targets.New(targetsDef, &mockLDLister{r.ldList}, nil, nil, nil)
-		if err != nil {
-			t.Fatalf("Unexpected error building targets: %v", err)
-		}
-		got := bt.List()
 
-		// Got \subset Expected
-		missing := getMissing(got, r.expect)
-		if len(missing) != 0 {
-			t.Error("In test row ", id, ": Got unexpected hosts: ", missing)
-		}
-		// Expected \subset Got
-		missing = getMissing(r.expect, got)
-		if len(missing) != 0 {
-			t.Error("In test row ", id, ": Expected hosts: ", missing)
-		}
+		t.Run(r.desc, func(t *testing.T) {
+			bt, err := targets.New(targetsDef, &mockLDLister{r.ldList}, nil, nil, nil)
+			if err != nil {
+				t.Errorf("Unexpected error building targets: %v", err)
+				return
+			}
+
+			got := bt.List()
+			if !reflect.DeepEqual(got, r.expect) {
+				// Ignore the case when both slices are zero length, DeepEqual doesn't
+				// handle initialized but zero and non-initialized comparison very well.
+				if !(len(got) == 0 && len(r.expect) == 0) {
+					t.Errorf("tgts.List(): got=%v, want=%v", got, r.expect)
+				}
+			}
+
+			gotEndpoints := bt.ListEndpoints()
+			wantEndpoints := targets.EndpointsFromNames(r.expect)
+			if !reflect.DeepEqual(gotEndpoints, wantEndpoints) {
+				// Ignore the case when both slices are zero length, DeepEqual doesn't
+				// handle initialized but zero and non-initialized comparison very well.
+				if !(len(got) == 0 && len(r.expect) == 0) {
+					t.Errorf("tgts.ListEndpoints(): got=%v, want=%v", gotEndpoints, wantEndpoints)
+				}
+			}
+
+		})
 	}
 }
 
@@ -159,6 +191,10 @@ type testTargetsType struct {
 
 func (tgts *testTargetsType) List() []string {
 	return tgts.names
+}
+
+func (tgts *testTargetsType) ListEndpoints() []targets.Endpoint {
+	return targets.EndpointsFromNames(tgts.names)
 }
 
 func (tgts *testTargetsType) Resolve(name string, ipVer int) (net.IP, error) {

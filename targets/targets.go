@@ -64,18 +64,47 @@ var (
 	sharedTargetsMu sync.RWMutex
 )
 
+// Endpoint represents a targets and associated parameters.
+type Endpoint struct {
+	Name   string
+	Labels map[string]string
+	Port   int
+}
+
+// EndpointsFromNames is convenience function to build a list of endpoints
+// from only names. It leaves the Port field in Endpoint unset and initializes
+// Labels field to an empty map.
+func EndpointsFromNames(names []string) []Endpoint {
+	result := make([]Endpoint, len(names))
+	for i, name := range names {
+		result[i].Name = name
+		result[i].Labels = make(map[string]string)
+	}
+	return result
+}
+
 // Targets are able to list and resolve targets with their List and Resolve
 // methods.  A single instance of Targets represents a specific listing method
 // --- if multiple sets of resources need to be listed/resolved, a separate
 // instance of Targets will be needed.
 type Targets interface {
-	lister
+	listerWithEndpoints
 	resolver
 }
 
 type lister interface {
 	// List produces list of targets.
 	List() []string
+}
+
+// listerWithEndpoints encapsulates lister and a new method ListEndpoints().
+// Note: This is a temporary interface to provide easy transition from List()
+// returning []string to to List() returning []Endpoint.
+type listerWithEndpoints interface {
+	lister
+
+	// ListEndpoints returns list of endpoints (name, port tupples).
+	ListEndpoints() []Endpoint
 }
 
 type resolver interface {
@@ -92,15 +121,9 @@ type staticLister struct {
 	list []string
 }
 
-// List returns a copy of its static host list. As currently implemented this
-// returns the same slice it was initialized with. It is the responsibility of
-// the caller not to modify its value.
+// List returns a copy of its static host list.
 func (sh *staticLister) List() []string {
-	// Todo(tcecil): Shouldn't this be returning a COPY of sh.list, for correctness
-	//               sake?
-	// c := make([]string, len(sh.list))
-	// copy(c, sh.list)
-	return sh.list
+	return append([]string{}, sh.list...)
 }
 
 // A dummy target object, for external probes that don't have any
@@ -142,6 +165,32 @@ func (t *targets) Resolve(name string, ipVer int) (net.IP, error) {
 	return t.resolver.Resolve(name, ipVer)
 }
 
+func (t *targets) lameduckMap() map[string]bool {
+	lameDuckMap := make(map[string]bool)
+	if t.ldLister != nil {
+		lameDucksList := t.ldLister.List()
+		for _, i := range lameDucksList {
+			lameDuckMap[i] = true
+		}
+	}
+	return lameDuckMap
+}
+
+func (t *targets) includeInResult(name string, ldMap map[string]bool) bool {
+	include := true
+
+	// Filter by regexp
+	if t.re != nil && !t.re.MatchString(name) {
+		include = false
+	}
+
+	if len(ldMap) != 0 && ldMap[name] {
+		include = false
+	}
+
+	return include
+}
+
 // List returns the list of targets. It gets the list of targets from the
 // targets provider (instances, or forwarding rules), filters them by the
 // configured regex, excludes lame ducks and returns the resultant list.
@@ -157,32 +206,55 @@ func (t *targets) List() []string {
 
 	list := t.lister.List()
 
-	// Filter by regexp
-	if t.re != nil {
-		var filter []string
+	ldMap := t.lameduckMap()
+	if t.re != nil || len(ldMap) != 0 {
+		var result []string
 		for _, i := range list {
-			if t.re.MatchString(i) {
-				filter = append(filter, i)
+			if t.includeInResult(i, ldMap) {
+				result = append(result, i)
 			}
 		}
-		list = filter
+		list = result
 	}
 
-	// Filter by lameduck
-	if t.ldLister != nil {
-		lameDucksList := t.ldLister.List()
+	return list
+}
 
-		lameDuckMap := make(map[string]bool)
-		for _, i := range lameDucksList {
-			lameDuckMap[i] = true
-		}
-		var filter []string
+// ListEndpoints returns the list of target endpoints, where each endpoint
+// consists of a name and associated metadata like port and target labels. This
+// function is similar to List() above, except for the fact that it returns a
+// list of Endpoint objects instead of a list of only names.
+//
+// Note that some targets, for example static hosts, may not have any
+// associated metadata at all, those endpoint fields are left empty in that
+// case.
+func (t *targets) ListEndpoints() []Endpoint {
+	if t.lister == nil {
+		t.l.Error("List(): Lister t.lister is nil")
+		return []Endpoint{}
+	}
+
+	var list []Endpoint
+
+	// Check if our lister supports ListEndpoint() call itself. If it doesn't,
+	// create a list of Endpoint just from the names returned by the List() method
+	// leaving the Port field empty.
+	if epLister, ok := t.lister.(listerWithEndpoints); ok {
+		list = epLister.ListEndpoints()
+	} else {
+		names := t.lister.List()
+		list = EndpointsFromNames(names)
+	}
+
+	ldMap := t.lameduckMap()
+	if t.re != nil || len(ldMap) != 0 {
+		var result []Endpoint
 		for _, i := range list {
-			if !lameDuckMap[i] {
-				filter = append(filter, i)
+			if t.includeInResult(i.Name, ldMap) {
+				result = append(result, i)
 			}
 		}
-		list = filter
+		list = result
 	}
 
 	return list
@@ -289,11 +361,8 @@ func New(targetsDef *targetspb.TargetsDef, ldLister lameduck.Lister, globalOpts 
 
 	switch targetsDef.Type.(type) {
 	case *targetspb.TargetsDef_HostNames:
-		sl := &staticLister{}
-		for _, name := range strings.Split(targetsDef.GetHostNames(), ",") {
-			sl.list = append(sl.list, strings.TrimSpace(name))
-		}
-		t.lister, t.resolver = sl, globalResolver
+		st := StaticTargets(targetsDef.GetHostNames())
+		t.lister, t.resolver = st, st
 
 	case *targetspb.TargetsDef_SharedTargets:
 		sharedTargetsMu.RLock()
