@@ -61,7 +61,8 @@ type ProbeResult interface {
 // updated on a regular basis.
 func StatsKeeper(ctx context.Context, ptype, name string, exportInterval time.Duration, targetsFunc func() []string, resultsChan <-chan ProbeResult, dataChan chan<- *metrics.EventMetrics, logMetrics func(*metrics.EventMetrics), l *logger.Logger) {
 	targetMetrics := make(map[string]*metrics.EventMetrics)
-	doExport := time.Tick(exportInterval)
+	exportTicker := time.NewTicker(exportInterval)
+	defer exportTicker.Stop()
 
 	for {
 		select {
@@ -76,7 +77,7 @@ func StatsKeeper(ctx context.Context, ptype, name string, exportInterval time.Du
 			if err != nil {
 				l.Errorf("Error adding metrics from the probe result for the target: %s. Err: %v", t, err)
 			}
-		case ts := <-doExport:
+		case ts := <-exportTicker.C:
 			for _, t := range targetsFunc() {
 				em := targetMetrics[t]
 				if em != nil {

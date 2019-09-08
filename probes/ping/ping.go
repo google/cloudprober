@@ -445,7 +445,11 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 		p.l.Critical("Probe has not been properly initialized yet.")
 	}
 	defer p.conn.close()
-	for ts := range time.Tick(p.opts.Interval) {
+
+	ticker := time.NewTicker(p.opts.Interval)
+	defer ticker.Stop()
+
+	for ts := range ticker.C {
 		// Don't run another probe if context is canceled already.
 		select {
 		case <-ctx.Done():
