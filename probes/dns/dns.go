@@ -245,7 +245,10 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 
 	go probeutils.StatsKeeper(ctx, "dns", p.name, p.opts.StatsExportInterval, targetsFunc, resultsChan, dataChan, p.opts.LogMetrics, p.l)
 
-	for range time.Tick(p.opts.Interval) {
+	ticker := time.NewTicker(p.opts.Interval)
+	defer ticker.Stop()
+
+	for range ticker.C {
 		// Don't run another probe if context is canceled already.
 		select {
 		case <-ctx.Done():
