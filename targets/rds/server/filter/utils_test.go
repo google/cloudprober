@@ -2,6 +2,7 @@ package filter
 
 import (
 	"reflect"
+	"sort"
 	"testing"
 
 	"github.com/golang/protobuf/proto"
@@ -61,6 +62,9 @@ func TestParseFilters(t *testing.T) {
 			for k := range allFilters.RegexFilters {
 				reFilterKeys = append(reFilterKeys, k)
 			}
+
+			sort.Strings(reFilterKeys)
+			sort.Strings(test.wantReFilters)
 			if !reflect.DeepEqual(reFilterKeys, test.wantReFilters) {
 				t.Errorf("regex filters, got=%v, want=%v", reFilterKeys, test.wantReFilters)
 			}
