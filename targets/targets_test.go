@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 2017-2019 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/targets"
+	"github.com/google/cloudprober/targets/endpoint"
 	targetspb "github.com/google/cloudprober/targets/proto"
 	testdatapb "github.com/google/cloudprober/targets/testdata"
 )
@@ -52,25 +53,6 @@ type mockLDLister struct {
 
 func (mldl *mockLDLister) List() []string {
 	return mldl.list
-}
-
-func TestEndpointsFromNames(t *testing.T) {
-	names := []string{"targetA", "targetB", "targetC"}
-	endpoints := targets.EndpointsFromNames(names)
-
-	for i := range names {
-		ep := endpoints[i]
-
-		if ep.Name != names[i] {
-			t.Errorf("Endpoint.Name=%s, want=%s", ep.Name, names[i])
-		}
-		if ep.Port != 0 {
-			t.Errorf("Endpoint.Port=%d, want=0", ep.Port)
-		}
-		if len(ep.Labels) != 0 {
-			t.Errorf("Endpoint.Labels=%v, want={}", ep.Labels)
-		}
-	}
 }
 
 // TestList does not test the targets.New function, and is specifically testing
@@ -134,7 +116,7 @@ func TestList(t *testing.T) {
 			}
 
 			gotEndpoints := bt.ListEndpoints()
-			wantEndpoints := targets.EndpointsFromNames(r.expect)
+			wantEndpoints := endpoint.EndpointsFromNames(r.expect)
 			if !reflect.DeepEqual(gotEndpoints, wantEndpoints) {
 				// Ignore the case when both slices are zero length, DeepEqual doesn't
 				// handle initialized but zero and non-initialized comparison very well.
@@ -193,8 +175,8 @@ func (tgts *testTargetsType) List() []string {
 	return tgts.names
 }
 
-func (tgts *testTargetsType) ListEndpoints() []targets.Endpoint {
-	return targets.EndpointsFromNames(tgts.names)
+func (tgts *testTargetsType) ListEndpoints() []endpoint.Endpoint {
+	return endpoint.EndpointsFromNames(tgts.names)
 }
 
 func (tgts *testTargetsType) Resolve(name string, ipVer int) (net.IP, error) {

@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 2017-2019 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -34,6 +34,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/config/runconfig"
 	"github.com/google/cloudprober/logger"
+	"github.com/google/cloudprober/targets/endpoint"
 	"github.com/google/cloudprober/targets/gce"
 	"github.com/google/cloudprober/targets/lameduck"
 	targetspb "github.com/google/cloudprober/targets/proto"
@@ -64,25 +65,6 @@ var (
 	sharedTargetsMu sync.RWMutex
 )
 
-// Endpoint represents a targets and associated parameters.
-type Endpoint struct {
-	Name   string
-	Labels map[string]string
-	Port   int
-}
-
-// EndpointsFromNames is convenience function to build a list of endpoints
-// from only names. It leaves the Port field in Endpoint unset and initializes
-// Labels field to an empty map.
-func EndpointsFromNames(names []string) []Endpoint {
-	result := make([]Endpoint, len(names))
-	for i, name := range names {
-		result[i].Name = name
-		result[i].Labels = make(map[string]string)
-	}
-	return result
-}
-
 // Targets are able to list and resolve targets with their List and Resolve
 // methods.  A single instance of Targets represents a specific listing method
 // --- if multiple sets of resources need to be listed/resolved, a separate
@@ -104,7 +86,7 @@ type listerWithEndpoints interface {
 	lister
 
 	// ListEndpoints returns list of endpoints (name, port tupples).
-	ListEndpoints() []Endpoint
+	ListEndpoints() []endpoint.Endpoint
 }
 
 type resolver interface {
@@ -228,13 +210,13 @@ func (t *targets) List() []string {
 // Note that some targets, for example static hosts, may not have any
 // associated metadata at all, those endpoint fields are left empty in that
 // case.
-func (t *targets) ListEndpoints() []Endpoint {
+func (t *targets) ListEndpoints() []endpoint.Endpoint {
 	if t.lister == nil {
 		t.l.Error("List(): Lister t.lister is nil")
-		return []Endpoint{}
+		return []endpoint.Endpoint{}
 	}
 
-	var list []Endpoint
+	var list []endpoint.Endpoint
 
 	// Check if our lister supports ListEndpoint() call itself. If it doesn't,
 	// create a list of Endpoint just from the names returned by the List() method
@@ -243,12 +225,12 @@ func (t *targets) ListEndpoints() []Endpoint {
 		list = epLister.ListEndpoints()
 	} else {
 		names := t.lister.List()
-		list = EndpointsFromNames(names)
+		list = endpoint.EndpointsFromNames(names)
 	}
 
 	ldMap := t.lameduckMap()
 	if t.re != nil || len(ldMap) != 0 {
-		var result []Endpoint
+		var result []endpoint.Endpoint
 		for _, i := range list {
 			if t.includeInResult(i.Name, ldMap) {
 				result = append(result, i)

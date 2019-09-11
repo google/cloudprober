@@ -23,6 +23,7 @@ type resource struct {
 	name      string
 	namespace string
 	ip        string
+	port      int
 	labels    map[string]string
 }
 

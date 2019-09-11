@@ -1,4 +1,4 @@
-// Copyright 2018 Google Inc.
+// Copyright 2018-2019 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/google/cloudprober/logger"
+	"github.com/google/cloudprober/targets/endpoint"
 	configpb "github.com/google/cloudprober/targets/rds/client/proto"
 	pb "github.com/google/cloudprober/targets/rds/proto"
 	spb "github.com/google/cloudprober/targets/rds/proto"
@@ -33,11 +34,17 @@ import (
 	"google.golang.org/grpc/credentials"
 )
 
+type cacheRecord struct {
+	ip     net.IP
+	port   int
+	labels map[string]string
+}
+
 // Client represents an RDS based client instance.
 type Client struct {
 	mu            sync.Mutex
 	c             *configpb.ClientConf
-	cache         map[string]net.IP
+	cache         map[string]*cacheRecord
 	names         []string
 	listResources func(context.Context, *pb.ListResourcesRequest) (*pb.ListResourcesResponse, error)
 	l             *logger.Logger
@@ -75,7 +82,7 @@ func (client *Client) updateState(response *pb.ListResourcesResponse) {
 				continue
 			}
 		}
-		client.cache[res.GetName()] = ip
+		client.cache[res.GetName()] = &cacheRecord{ip, int(res.GetPort()), res.Labels}
 		client.names[i] = res.GetName()
 	}
 }
@@ -87,15 +94,27 @@ func (client *Client) List() []string {
 	return append([]string{}, client.names...)
 }
 
+// ListEndpoints returns the list of resources.
+func (client *Client) ListEndpoints() []endpoint.Endpoint {
+	client.mu.Lock()
+	defer client.mu.Unlock()
+	result := make([]endpoint.Endpoint, len(client.names))
+	for i, name := range client.names {
+		result[i] = endpoint.Endpoint{Name: name, Port: client.cache[name].port, Labels: client.cache[name].labels}
+	}
+	return result
+}
+
 // Resolve returns the IP address for the given resource. If no IP address is
 // associated with the resource, an error is returned.
 func (client *Client) Resolve(name string, ipVer int) (net.IP, error) {
 	client.mu.Lock()
 	defer client.mu.Unlock()
-	if client.cache[name] == nil {
+	cr, ok := client.cache[name]
+	if !ok || cr.ip == nil {
 		return nil, fmt.Errorf("no IP address for the resource: %s", name)
 	}
-	ip := client.cache[name]
+	ip := cr.ip
 
 	// If we don't care about IP version, return whatever we've got.
 	if ipVer == 0 {
@@ -143,7 +162,7 @@ func (client *Client) grpcListResources() error {
 func New(c *configpb.ClientConf, listResources ListResourcesFunc, l *logger.Logger) (*Client, error) {
 	client := &Client{
 		c:             c,
-		cache:         make(map[string]net.IP),
+		cache:         make(map[string]*cacheRecord),
 		listResources: listResources,
 		l:             l,
 	}
