@@ -16,6 +16,7 @@ package client
 
 import (
 	"context"
+	"reflect"
 	"testing"
 	"time"
 
@@ -34,12 +35,16 @@ type testProvider struct {
 var testResourcesMap = map[string][]*pb.Resource{
 	"test_provider1": {
 		{
-			Name: proto.String("testR21"),
-			Ip:   proto.String("10.0.2.1"),
+			Name:   proto.String("testR21"),
+			Ip:     proto.String("10.0.2.1"),
+			Port:   proto.Int32(80),
+			Labels: map[string]string{"zone": "us-central1-b"},
 		},
 		{
-			Name: proto.String("testR22"),
-			Ip:   proto.String("10.0.2.2"),
+			Name:   proto.String("testR22"),
+			Ip:     proto.String("10.0.2.2"),
+			Port:   proto.Int32(8080),
+			Labels: map[string]string{"zone": "us-central1-a"},
 		},
 	},
 }
@@ -90,6 +95,22 @@ func TestListAndResolve(t *testing.T) {
 		for i, res := range testResources {
 			if res.GetName() != list[i] {
 				t.Errorf("Didn't get expected resource. Got: %s, Want: %s", list[i], res.GetName())
+			}
+		}
+
+		// Test ListEndpoint()
+		epList := client.ListEndpoints()
+		for i, res := range testResources {
+			if epList[i].Name != res.GetName() {
+				t.Errorf("Resource name: got=%s, want=%s", epList[i].Name, res.GetName())
+			}
+
+			if epList[i].Port != int(res.GetPort()) {
+				t.Errorf("Resource port: got=%d, want=%d", epList[i].Port, res.GetPort())
+			}
+
+			if !reflect.DeepEqual(epList[i].Labels, res.GetLabels()) {
+				t.Errorf("Resource labels: got=%v, want=%v", epList[i].Labels, res.GetLabels())
 			}
 		}
 

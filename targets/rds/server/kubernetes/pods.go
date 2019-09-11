@@ -93,8 +93,10 @@ func (pl *podsLister) listResources(filters []*pb.Filter) ([]*pb.Resource, error
 		}
 
 		resources = append(resources, &pb.Resource{
-			Name: proto.String(name),
-			Ip:   proto.String(res.ip),
+			Name:   proto.String(name),
+			Ip:     proto.String(res.ip),
+			Port:   proto.Int32(int32(res.port)),
+			Labels: res.labels,
 		})
 	}
 

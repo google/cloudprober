@@ -72,6 +72,12 @@ message Resource {
   // Resource's IP address, selected based on the request's ip_config.
   optional string ip = 2;
 
+  // Resource's port, if any.
+  optional int32 port = 5;
+
+  // Resource's labels, if any.
+  map<string, string> labels = 6;
+
   // Id associated with the resource, if any.
   optional string id = 3;
 

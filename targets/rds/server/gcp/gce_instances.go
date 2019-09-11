@@ -129,13 +129,16 @@ func (il *gceInstancesLister) listResources(filters []*pb.Filter, ipConfig *pb.I
 		}
 
 		resources = append(resources, &pb.Resource{
-			Name: proto.String(name),
-			Ip:   proto.String(ip),
+			Name:   proto.String(name),
+			Ip:     proto.String(ip),
+			Labels: il.cache[name].labels,
 			// TODO(manugarg): Add support for returning instance id as well. I want to
 			// implement feature parity with the current targets first and then add
 			// more features.
 		})
 	}
+
+	il.l.Infof("gce_instances.listResources: returning %d instance", len(resources))
 	return resources, nil
 }
 
