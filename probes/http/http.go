@@ -32,6 +32,7 @@ import (
 	"github.com/google/cloudprober/metrics"
 	configpb "github.com/google/cloudprober/probes/http/proto"
 	"github.com/google/cloudprober/probes/options"
+	"github.com/google/cloudprober/targets/endpoint"
 	"github.com/google/cloudprober/validators"
 )
 
@@ -49,7 +50,7 @@ type Probe struct {
 	client *http.Client
 
 	// book-keeping params
-	targets      []string
+	targets      []endpoint.Endpoint
 	httpRequests map[string]*http.Request
 	results      map[string]*result
 	protocol     string
@@ -229,7 +230,7 @@ func (p *Probe) doHTTPRequest(req *http.Request, result *result) {
 }
 
 func (p *Probe) updateTargets() {
-	p.targets = p.opts.Targets.List()
+	p.targets = p.opts.Targets.ListEndpoints()
 
 	if p.httpRequests == nil {
 		p.httpRequests = make(map[string]*http.Request, len(p.targets))
@@ -241,20 +242,24 @@ func (p *Probe) updateTargets() {
 
 	for _, target := range p.targets {
 		// Update HTTP request
-		req := p.httpRequestForTarget(target)
+		req := p.httpRequestForTarget(target.Name)
 		if req != nil {
-			p.httpRequests[target] = req
+			p.httpRequests[target.Name] = req
+		}
+
+		for _, al := range p.opts.AdditionalLabels {
+			al.UpdateForTarget(target.Name, target.Labels)
 		}
 
 		// Add missing result objects
-		if p.results[target] == nil {
+		if p.results[target.Name] == nil {
 			var latencyValue metrics.Value
 			if p.opts.LatencyDist != nil {
 				latencyValue = p.opts.LatencyDist.Clone()
 			} else {
 				latencyValue = metrics.NewFloat(0)
 			}
-			p.results[target] = &result{
+			p.results[target.Name] = &result{
 				latency:           latencyValue,
 				respCodes:         metrics.NewMap("code", metrics.NewInt(0)),
 				respBodies:        metrics.NewMap("resp", metrics.NewInt(0)),
@@ -270,7 +275,7 @@ func (p *Probe) runProbe(ctx context.Context) {
 
 	wg := sync.WaitGroup{}
 	for _, target := range p.targets {
-		req := p.httpRequests[target]
+		req := p.httpRequests[target.Name]
 		if req == nil {
 			continue
 		}
@@ -291,7 +296,7 @@ func (p *Probe) runProbe(ctx context.Context) {
 				// Sleep for requests_interval_msec before continuing.
 				time.Sleep(time.Duration(p.c.GetRequestsIntervalMsec()) * time.Millisecond)
 			}
-		}(target, req)
+		}(target.Name, req)
 	}
 
 	// Wait until all probes are done.
@@ -321,7 +326,7 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 
 		if (p.runCnt % p.statsExportFrequency) == 0 {
 			for _, target := range p.targets {
-				result := p.results[target]
+				result := p.results[target.Name]
 				em := metrics.NewEventMetrics(ts).
 					AddMetric("total", metrics.NewInt(result.total)).
 					AddMetric("success", metrics.NewInt(result.success)).
@@ -331,7 +336,11 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 					AddMetric("resp-body", result.respBodies).
 					AddLabel("ptype", "http").
 					AddLabel("probe", p.name).
-					AddLabel("dst", target)
+					AddLabel("dst", target.Name)
+
+				for _, al := range p.opts.AdditionalLabels {
+					em.AddLabel(al.KeyValueForTarget(target.Name))
+				}
 
 				if p.opts.Validators != nil {
 					em.AddMetric("validation_failure", result.validationFailure)

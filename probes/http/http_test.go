@@ -78,7 +78,7 @@ func testProbe(opts *options.Options) ([]*result, error) {
 
 	var results []*result
 	for _, target := range p.targets {
-		results = append(results, p.results[target])
+		results = append(results, p.results[target.Name])
 	}
 	return results, nil
 }
