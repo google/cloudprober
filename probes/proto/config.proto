@@ -97,6 +97,20 @@ message ProbeDef {
   //   stats_export_interval=max(2*max(interval, timeout), 10s)
   optional int32 stats_export_interval_msec = 13;
 
+  // Additional labels to add to the probe results. Label's value can either be
+  // static or can be derived from target's labels.
+  //
+  // Example:
+  //   additional_label {
+  //     key: "src_zone"
+  //     value: "{{.zone}}"
+  //   }
+  //   additional_label {
+  //     key: "src_zone"
+  //     value: "target.labels.zone"
+  //   }
+  repeated AdditionalLabel additional_label = 14;
+
   oneof probe {
     ping.ProbeConf ping_probe = 20;
     http.ProbeConf http_probe = 21;
@@ -114,6 +128,15 @@ message ProbeDef {
   // Extensions allow users to to add new probe types (for example, a probe type
   // that utilizes a custom protocol) in a systematic manner.
   extensions 200 to max;
+}
+
+message AdditionalLabel {
+  required string key = 1;
+
+  // Value can either be a static value or can be derived from target's labels.
+  // To get value from target's labels, use target.labels.<target's label key>
+  // as value.
+  required string value = 2;
 }
 
 message DebugOptions {
