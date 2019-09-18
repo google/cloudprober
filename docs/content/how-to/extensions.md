@@ -23,7 +23,7 @@ this probe-type provides a way to test redis server functionality and it takes
 the following options - operation (GET vs SET vs DELETE), key, value. This
 probe's configuration looks like this:
 
-{{< highlight bash >}}
+{{< highlight protobuf >}}
 probe {
   name: "redis_set"
   type: EXTENSION
@@ -73,12 +73,11 @@ message ProbeConf {
 extend cloudprober.probes.ProbeDef {
   optional ProbeConf redis_probe = 200;
 }
-
 {{< / highlight >}}
 
 Let's generate Go code for this protobuf:
 
-{{< highlight shell >}}
+{{< highlight bash >}}
 # From the myprober directory
 protoc --go_out=.,import_path=myprobe:. --proto_path=$GOPATH/src:. myprobe/*.proto
 
@@ -230,7 +229,7 @@ go build ./myprober.go
 {{< / highlight >}}
 
 you should see an output like the following:
-```
+{{< highlight text >}}
 cloudprober 1540848577649139842 1540848587 labels=ptype=redis,probe=redis_set,dst=localhost:6379 total=31 success=31 latency=70579.823
 cloudprober 1540848577649139843 1540848887 labels=ptype=sysvars,probe=sysvars hostname="manugarg-macbookpro5.roam.corp.google.com" start_timestamp="1540848577"
 cloudprober 1540848577649139844 1540848887 labels=ptype=sysvars,probe=sysvars uptime_msec=310007.784 gc_time_msec=0.000 mallocs=14504 frees=826
@@ -239,7 +238,7 @@ cloudprober 1540848577649139846 1540848587 labels=ptype=redis,probe=redis_set,ds
 cloudprober 1540848577649139847 1540848897 labels=ptype=sysvars,probe=sysvars hostname="manugarg-macbookpro5.roam.corp.google.com" start_timestamp="1540848577"
 cloudprober 1540848577649139848 1540848897 labels=ptype=sysvars,probe=sysvars uptime_msec=320006.541 gc_time_msec=0.000 mallocs=14731 frees=844
 cloudprober 1540848577649139849 1540848897 labels=ptype=sysvars,probe=sysvars goroutines=12 mem_stats_sys_bytes=7211256
-```
+{{< / highlight >}}
 
 You can import this data in prometheus following the process outlined at:
 [Running Prometheus]({{< ref "getting-started.md#running-prometheus" >}}).

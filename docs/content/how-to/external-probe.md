@@ -17,16 +17,16 @@ in a redis server. Here is the `main` function of such a probe:
 
 {{< highlight go >}}
 func main() {
-	var client redis.Client
-	var key = "hello"
-	startTime := time.Now()
-	client.Set(key, []byte("world"))
-	fmt.Printf("set_latency_ms %f\n", float64(time.Since(startTime).Nanoseconds())/1e6)
+    var client redis.Client
+    var key = "hello"
+    startTime := time.Now()
+    client.Set(key, []byte("world"))
+    fmt.Printf("set_latency_ms %f\n", float64(time.Since(startTime).Nanoseconds())/1e6)
 
-	startTime = time.Now()
-	val, _ := client.Get("hello")
-	log.Printf("%s=%s", key, string(val))
-	fmt.Printf("get_latency_ms %f\n", float64(time.Since(startTime).Nanoseconds())/1e6)
+    startTime = time.Now()
+    val, _ := client.Get("hello")
+    log.Printf("%s=%s", key, string(val))
+    fmt.Printf("get_latency_ms %f\n", float64(time.Since(startTime).Nanoseconds())/1e6)
 }
 {{< / highlight >}}
 
@@ -58,7 +58,7 @@ get_latency_ms 2.173560
 Here is the external probe configuration that makes use of this program:
 
 (Full listing: https://github.com/google/cloudprober/blob/master/examples/external/cloudprober.cfg)
-{{< highlight bash >}}
+{{< highlight protobuf >}}
 # Run an external probe that executes a command from the current working
 # directory.
 probe {
@@ -74,7 +74,7 @@ probe {
 
 Running it through cloudprober, you'll see the following output:
 
-```
+{{< highlight bash >}}
 # Launch cloudprober
 cloudprober --config_file=cloudprober.cfg
 
@@ -83,7 +83,7 @@ cloudprober 1519..1 1519583408 labels=ptype=external,probe=redis_probe,dst= set_
 cloudprober 1519..2 1519583410 labels=ptype=external,probe=redis_probe,dst= success=2 total=2 latency=30585.915
 cloudprober 1519..3 1519583410 labels=ptype=external,probe=redis_probe,dst= set_latency_ms=0.636 get_latency_ms=0.994
 cloudprober 1519..4 1519583412 labels=ptype=external,probe=redis_probe,dst= success=3 total=3 latency=42621.871
-```
+{{< / highlight >}}
 
 You can import this data in prometheus following the process outlined at:
 [Running Prometheus]({{< ref "/getting-started.md#running-prometheus" >}}). Before doing that, let's make it more interesting.
@@ -93,26 +93,26 @@ How nice will it be if we could find distribution of the set and get latency. If
 
 (Full listing: https://github.com/google/cloudprober/blob/master/examples/external/cloudprober_aggregate.cfg)
 
-{{< highlight bash >}}
+{{< highlight protobuf >}}
 # Run an external probe and aggregate metrics in cloudprober.
-    ...
-    output_metrics_options {
-      aggregate_in_cloudprober: true
+...
+output_metrics_options {
+  aggregate_in_cloudprober: true
 
-      # Create distributions for get_latency_ms and set_latency_ms.
-      dist_metric {
-        key: "get_latency_ms"
-        value: {
-          explicit_buckets: "0.1,0.2,0.4,0.6,0.8,1.0,2.0"
-        }
-      }
-      dist_metric {
-        key: "set_latency_ms"
-        value: {
-          explicit_buckets: "0.1,0.2,0.4,0.6,0.8,1.0,2.0"
-        }
-      }
+  # Create distributions for get_latency_ms and set_latency_ms.
+  dist_metric {
+    key: "get_latency_ms"
+    value: {
+      explicit_buckets: "0.1,0.2,0.4,0.6,0.8,1.0,2.0"
     }
+  }
+  dist_metric {
+    key: "set_latency_ms"
+    value: {
+      explicit_buckets: "0.1,0.2,0.4,0.6,0.8,1.0,2.0"
+    }
+  }
+}
 {{< / highlight >}}
 
 This configuration adds options to aggregate the metrics in the cloudprober and configures "get\_latency\_ms" and "set\_latency\_ms" as distribution metrics with explicit buckets. Cloudprober will now build cumulative distributions using
