@@ -17,16 +17,16 @@ in a redis server. Here is the `main` function of such a probe:
 
 {{< highlight go >}}
 func main() {
-	var client redis.Client
-	var key = "hello"
-	startTime := time.Now()
-	client.Set(key, []byte("world"))
-	fmt.Printf("set_latency_ms %f\n", float64(time.Since(startTime).Nanoseconds())/1e6)
+    var client redis.Client
+    var key = "hello"
+    startTime := time.Now()
+    client.Set(key, []byte("world"))
+    fmt.Printf("set_latency_ms %f\n", float64(time.Since(startTime).Nanoseconds())/1e6)
 
-	startTime = time.Now()
-	val, _ := client.Get("hello")
-	log.Printf("%s=%s", key, string(val))
-	fmt.Printf("get_latency_ms %f\n", float64(time.Since(startTime).Nanoseconds())/1e6)
+    startTime = time.Now()
+    val, _ := client.Get("hello")
+    log.Printf("%s=%s", key, string(val))
+    fmt.Printf("get_latency_ms %f\n", float64(time.Since(startTime).Nanoseconds())/1e6)
 }
 {{< / highlight >}}
 
@@ -95,24 +95,24 @@ How nice will it be if we could find distribution of the set and get latency. If
 
 {{< highlight bash >}}
 # Run an external probe and aggregate metrics in cloudprober.
-    ...
-    output_metrics_options {
-      aggregate_in_cloudprober: true
+...
+output_metrics_options {
+  aggregate_in_cloudprober: true
 
-      # Create distributions for get_latency_ms and set_latency_ms.
-      dist_metric {
-        key: "get_latency_ms"
-        value: {
-          explicit_buckets: "0.1,0.2,0.4,0.6,0.8,1.0,2.0"
-        }
-      }
-      dist_metric {
-        key: "set_latency_ms"
-        value: {
-          explicit_buckets: "0.1,0.2,0.4,0.6,0.8,1.0,2.0"
-        }
-      }
+  # Create distributions for get_latency_ms and set_latency_ms.
+  dist_metric {
+    key: "get_latency_ms"
+    value: {
+      explicit_buckets: "0.1,0.2,0.4,0.6,0.8,1.0,2.0"
     }
+  }
+  dist_metric {
+    key: "set_latency_ms"
+    value: {
+      explicit_buckets: "0.1,0.2,0.4,0.6,0.8,1.0,2.0"
+    }
+  }
+}
 {{< / highlight >}}
 
 This configuration adds options to aggregate the metrics in the cloudprober and configures "get\_latency\_ms" and "set\_latency\_ms" as distribution metrics with explicit buckets. Cloudprober will now build cumulative distributions using
