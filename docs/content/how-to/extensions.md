@@ -240,7 +240,7 @@ cloudprober 1540848577649139849 1540848897 labels=ptype=sysvars,probe=sysvars go
 {{< / highlight >}}
 
 You can import this data in prometheus following the process outlined at:
-[Running Prometheus]({{< ref "getting-started.md#running-prometheus" >}}).
+[Running Prometheus]({{< ref "/getting-started.md#running-prometheus" >}}).
 
 ## Conclusion
 
