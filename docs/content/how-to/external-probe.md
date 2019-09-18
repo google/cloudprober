@@ -58,7 +58,7 @@ get_latency_ms 2.173560
 Here is the external probe configuration that makes use of this program:
 
 (Full listing: https://github.com/google/cloudprober/blob/master/examples/external/cloudprober.cfg)
-{{< highlight bash >}}
+{{< highlight protobuf >}}
 # Run an external probe that executes a command from the current working
 # directory.
 probe {
@@ -74,7 +74,7 @@ probe {
 
 Running it through cloudprober, you'll see the following output:
 
-```
+{{< highlight bash >}}
 # Launch cloudprober
 cloudprober --config_file=cloudprober.cfg
 
@@ -83,7 +83,7 @@ cloudprober 1519..1 1519583408 labels=ptype=external,probe=redis_probe,dst= set_
 cloudprober 1519..2 1519583410 labels=ptype=external,probe=redis_probe,dst= success=2 total=2 latency=30585.915
 cloudprober 1519..3 1519583410 labels=ptype=external,probe=redis_probe,dst= set_latency_ms=0.636 get_latency_ms=0.994
 cloudprober 1519..4 1519583412 labels=ptype=external,probe=redis_probe,dst= success=3 total=3 latency=42621.871
-```
+{{< / highlight >}}
 
 You can import this data in prometheus following the process outlined at:
 [Running Prometheus]({{< ref "/getting-started.md#running-prometheus" >}}). Before doing that, let's make it more interesting.
@@ -93,7 +93,7 @@ How nice will it be if we could find distribution of the set and get latency. If
 
 (Full listing: https://github.com/google/cloudprober/blob/master/examples/external/cloudprober_aggregate.cfg)
 
-{{< highlight bash >}}
+{{< highlight protobuf >}}
 # Run an external probe and aggregate metrics in cloudprober.
 ...
 output_metrics_options {

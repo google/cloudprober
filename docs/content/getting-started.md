@@ -129,10 +129,11 @@ in cloudprober export at least 3 counters:
 
 Using these counters, probe failure ratio and average latency can be calculated
 as:
-```
+
+{{< highlight text >}}
 failure_ratio = (rate(total) - rate(success)) / rate(total)
 avg_latency = rate(latency) / rate(success)
-```
+{{< / highlight >}}
 
 Assuming that prometheus is running at `localhost:9090`, graphs depicting
 failure ratio and latency over time can be accessed in prometheus at: [this url ](http://localhost:9090/graph?g0.range_input=1h&g0.expr=(rate(total%5B1m%5D)+-+rate(success%5B1m%5D))+%2F+rate(total%5B1m%5D)&g0.tab=0&g1.range_input=1h&g1.expr=rate(latency%5B1m%5D)+%2F+rate(success%5B1m%5D)+%2F+1000&g1.tab=0).
