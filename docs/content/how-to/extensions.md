@@ -91,9 +91,6 @@ Now let's implement our probe type. Our probe type should implement the
 [probes.Probe](https://godoc.org/github.com/google/cloudprober/probes#Probe) interface.
 
 {{< highlight go >}}
-// Full listing:
-// github.com/google/cloudprober/examples/extensions/myprober/myprobe/myprobe.go
-
 package myprobe
 
 // Probe holds aggregate information about all probe runs, per-target.
@@ -163,7 +160,8 @@ func (p *Probe) runProbe(ctx context.Context) {
 }
 {{< / highlight >}}
 
-(Full listing: <https://github.com/google/cloudprober/blob/master/examples/extensions/myprober/myprobe/myprobe.go>)
+Full example in
+[examples/extensions/myprober/myprobe/myprobe.go](https://github.com/google/cloudprober/blob/master/examples/extensions/myprober/myprobe/myprobe.go).
 
 This probe type sets or gets (depending on the configuration) a key-valye in
 redis and records success and time taken (latency) if operation is successful.
@@ -171,9 +169,6 @@ redis and records success and time taken (latency) if operation is successful.
 ## Implement a cloudprober binary that includes support for our probe
 
 {{< highlight go >}}
-// Full listing:
-// github.com/google/cloudprober/examples/extensions/myprober/myprober.go
-
 package main
 
 ...
@@ -199,7 +194,9 @@ func main() {
   select {}
 }
 {{< / highlight >}}
-(Full listing: <https://github.com/google/cloudprober/blob/master/examples/extensions/myprober/myprober.go>)
+
+Full example in
+[examples/extensions/myprober/myprober.go](https://github.com/google/cloudprober/blob/master/examples/extensions/myprober/myprober.go).
 
 Let's write a test config that uses the newly defined probe type:
 
@@ -219,7 +216,9 @@ probe {
   }
 }
 {{< / highlight >}}
-(Full listing: <https://github.com/google/cloudprober/blob/master/examples/extensions/myprober/myprober.cfg>)
+
+Full example in
+[examples/extensions/myprober/myprober.cfg](https://github.com/google/cloudprober/blob/master/examples/extensions/myprober/myprober.cfg).
 
 Let's compile our prober and run it with the above config:
 

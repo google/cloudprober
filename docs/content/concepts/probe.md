@@ -111,4 +111,4 @@ External probe can be configured in two modes:
    automatically starts the external program if it's not running at the time of
    the probe execution. Cloudprober and external probe process communicate with
    each other over stdin/stdout using protobuf messages defined in
-   [server.proto](https://github.com/google/cloudprober/blob/master/probes/external/serverutils/server.proto).
+   [probes/external/proto/server.proto](https://github.com/google/cloudprober/blob/master/probes/external/proto/server.proto).

@@ -57,7 +57,8 @@ get_latency_ms 2.173560
 ## Configuration
 Here is the external probe configuration that makes use of this program:
 
-(Full listing: https://github.com/google/cloudprober/blob/master/examples/external/cloudprober.cfg)
+Full example in [examples/external/cloudprober.cfg](https://github.com/google/cloudprober/blob/master/examples/external/cloudprober.cfg).
+
 {{< highlight protobuf >}}
 # Run an external probe that executes a command from the current working
 # directory.
@@ -91,7 +92,7 @@ You can import this data in prometheus following the process outlined at:
 ## Distributions
 How nice will it be if we could find distribution of the set and get latency. If tail latency was too high, it could explain the random timeouts in your application. Fortunately, it's very easy to create distributions in Cloudprober. You just need to add the following section to your probe definition:
 
-(Full listing: https://github.com/google/cloudprober/blob/master/examples/external/cloudprober_aggregate.cfg)
+Full example in [examples/external/cloudprober_aggregate.cfg](https://github.com/google/cloudprober/blob/master/examples/external/cloudprober_aggregate.cfg).
 
 {{< highlight protobuf >}}
 # Run an external probe and aggregate metrics in cloudprober.
