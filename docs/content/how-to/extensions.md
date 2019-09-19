@@ -23,7 +23,7 @@ this probe-type provides a way to test redis server functionality and it takes
 the following options - operation (GET vs SET vs DELETE), key, value. This
 probe's configuration looks like this:
 
-{{< highlight protobuf >}}
+{{< highlight bash >}}
 probe {
   name: "redis_set"
   type: EXTENSION
@@ -73,11 +73,12 @@ message ProbeConf {
 extend cloudprober.probes.ProbeDef {
   optional ProbeConf redis_probe = 200;
 }
+
 {{< / highlight >}}
 
 Let's generate Go code for this protobuf:
 
-{{< highlight bash >}}
+{{< highlight shell >}}
 # From the myprober directory
 protoc --go_out=.,import_path=myprobe:. --proto_path=$GOPATH/src:. myprobe/*.proto
 
@@ -91,6 +92,9 @@ Now let's implement our probe type. Our probe type should implement the
 [probes.Probe](https://godoc.org/github.com/google/cloudprober/probes#Probe) interface.
 
 {{< highlight go >}}
+// Full listing:
+// github.com/google/cloudprober/examples/extensions/myprober/myprobe/myprobe.go
+
 package myprobe
 
 // Probe holds aggregate information about all probe runs, per-target.
@@ -160,8 +164,7 @@ func (p *Probe) runProbe(ctx context.Context) {
 }
 {{< / highlight >}}
 
-Full example in
-[examples/extensions/myprober/myprobe/myprobe.go](https://github.com/google/cloudprober/blob/master/examples/extensions/myprober/myprobe/myprobe.go).
+(Full listing: <https://github.com/google/cloudprober/blob/master/examples/extensions/myprober/myprobe/myprobe.go>)
 
 This probe type sets or gets (depending on the configuration) a key-valye in
 redis and records success and time taken (latency) if operation is successful.
@@ -169,6 +172,9 @@ redis and records success and time taken (latency) if operation is successful.
 ## Implement a cloudprober binary that includes support for our probe
 
 {{< highlight go >}}
+// Full listing:
+// github.com/google/cloudprober/examples/extensions/myprober/myprober.go
+
 package main
 
 ...
@@ -194,9 +200,7 @@ func main() {
   select {}
 }
 {{< / highlight >}}
-
-Full example in
-[examples/extensions/myprober/myprober.go](https://github.com/google/cloudprober/blob/master/examples/extensions/myprober/myprober.go).
+(Full listing: <https://github.com/google/cloudprober/blob/master/examples/extensions/myprober/myprober.go>)
 
 Let's write a test config that uses the newly defined probe type:
 
@@ -216,9 +220,7 @@ probe {
   }
 }
 {{< / highlight >}}
-
-Full example in
-[examples/extensions/myprober/myprober.cfg](https://github.com/google/cloudprober/blob/master/examples/extensions/myprober/myprober.cfg).
+(Full listing: <https://github.com/google/cloudprober/blob/master/examples/extensions/myprober/myprober.cfg>)
 
 Let's compile our prober and run it with the above config:
 
@@ -228,7 +230,7 @@ go build ./myprober.go
 {{< / highlight >}}
 
 you should see an output like the following:
-{{< highlight text >}}
+```
 cloudprober 1540848577649139842 1540848587 labels=ptype=redis,probe=redis_set,dst=localhost:6379 total=31 success=31 latency=70579.823
 cloudprober 1540848577649139843 1540848887 labels=ptype=sysvars,probe=sysvars hostname="manugarg-macbookpro5.roam.corp.google.com" start_timestamp="1540848577"
 cloudprober 1540848577649139844 1540848887 labels=ptype=sysvars,probe=sysvars uptime_msec=310007.784 gc_time_msec=0.000 mallocs=14504 frees=826
@@ -237,10 +239,10 @@ cloudprober 1540848577649139846 1540848587 labels=ptype=redis,probe=redis_set,ds
 cloudprober 1540848577649139847 1540848897 labels=ptype=sysvars,probe=sysvars hostname="manugarg-macbookpro5.roam.corp.google.com" start_timestamp="1540848577"
 cloudprober 1540848577649139848 1540848897 labels=ptype=sysvars,probe=sysvars uptime_msec=320006.541 gc_time_msec=0.000 mallocs=14731 frees=844
 cloudprober 1540848577649139849 1540848897 labels=ptype=sysvars,probe=sysvars goroutines=12 mem_stats_sys_bytes=7211256
-{{< / highlight >}}
+```
 
 You can import this data in prometheus following the process outlined at:
-[Running Prometheus]({{< ref "/getting-started.md#running-prometheus" >}}).
+[Running Prometheus]({{< ref "getting-started.md#running-prometheus" >}}).
 
 ## Conclusion
 
