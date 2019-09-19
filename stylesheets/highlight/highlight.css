@@ -5,9 +5,6 @@
 .article pre code {
 	color: rgba(0, 0, 0, 0.8) !important;
 }
-.article code {
-  background: none !important; /* pre already has a background color */
-}
 
 
 /*	
