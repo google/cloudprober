@@ -59,7 +59,7 @@ Here is the external probe configuration that makes use of this program:
 
 Full example in [examples/external/cloudprober.cfg](https://github.com/google/cloudprober/blob/master/examples/external/cloudprober.cfg).
 
-{{< highlight protobuf >}}
+{{< highlight shell >}}
 # Run an external probe that executes a command from the current working
 # directory.
 probe {
@@ -94,7 +94,7 @@ How nice will it be if we could find distribution of the set and get latency. If
 
 Full example in [examples/external/cloudprober_aggregate.cfg](https://github.com/google/cloudprober/blob/master/examples/external/cloudprober_aggregate.cfg).
 
-{{< highlight protobuf >}}
+{{< highlight shell >}}
 # Run an external probe and aggregate metrics in cloudprober.
 ...
 output_metrics_options {

@@ -23,7 +23,7 @@ this probe-type provides a way to test redis server functionality and it takes
 the following options - operation (GET vs SET vs DELETE), key, value. This
 probe's configuration looks like this:
 
-{{< highlight protobuf >}}
+{{< highlight shell >}}
 probe {
   name: "redis_set"
   type: EXTENSION
