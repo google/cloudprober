@@ -46,7 +46,7 @@
     <link rel="stylesheet" href="https://cloudprober.org/stylesheets/application.css">
     <link rel="stylesheet" href="https://cloudprober.org/stylesheets/temporary.css">
     <link rel="stylesheet" href="https://cloudprober.org/stylesheets/palettes.css">
-    <link rel="stylesheet" href="https://cloudprober.org/stylesheets/highlight/highlight.css">
+    <link rel="stylesheet" href="https://cloudprober.org/stylesheets/syntax.css">
 
     
     
@@ -427,7 +427,7 @@ In this mode, external program is expected to run in server mode. Cloudprober
 automatically starts the external program if it&rsquo;s not running at the time of
 the probe execution. Cloudprober and external probe process communicate with
 each other over stdin/stdout using protobuf messages defined in
-<a href="https://github.com/google/cloudprober/blob/master/probes/external/serverutils/server.proto">server.proto</a>.</p></li>
+<a href="https://github.com/google/cloudprober/blob/master/probes/external/proto/server.proto">probes/external/proto/server.proto</a>.</p></li>
 </ul>
 
 
@@ -536,9 +536,6 @@ each other over stdin/stdout using protobuf messages defined in
         });
       </script>
     
-
-    <script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.8.0/highlight.min.js"></script>
-    <script>hljs.initHighlightingOnLoad();</script>
   </body>
 </html>
 

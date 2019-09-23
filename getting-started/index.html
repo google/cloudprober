@@ -46,7 +46,7 @@
     <link rel="stylesheet" href="https://cloudprober.org/stylesheets/application.css">
     <link rel="stylesheet" href="https://cloudprober.org/stylesheets/temporary.css">
     <link rel="stylesheet" href="https://cloudprober.org/stylesheets/palettes.css">
-    <link rel="stylesheet" href="https://cloudprober.org/stylesheets/highlight/highlight.css">
+    <link rel="stylesheet" href="https://cloudprober.org/stylesheets/syntax.css">
 
     
     
@@ -275,25 +275,24 @@
 <h2 id="installation">Installation</h2>
 
 <ul>
-<li><p><strong>From Source</strong><br />
+<li><strong>From Source</strong><br />
 If you have Go 1.9 or higher installed and GOPATH environment variable properly set up, you
-can download and install <code>cloudprober</code> using the following commands:</p>
+can download and install <code>cloudprober</code> using the following commands:</li>
+</ul>
 
-<pre><code class="language-shell">go get github.com/google/cloudprober
-GOBIN=$GOPATH/bin go install $GOPATH/src/github.com/google/cloudprober/cmd/cloudprober.go
-</code></pre></li>
+<div class="highlight"><pre class="chroma"><code class="language-bash" data-lang="bash">go get github.com/google/cloudprober
+<span class="nv">GOBIN</span><span class="o">=</span><span class="nv">$GOPATH</span>/bin go install <span class="nv">$GOPATH</span>/src/github.com/google/cloudprober/cmd/cloudprober.go</code></pre></div>
 
+<ul>
 <li><p><strong>Pre-built Binaries</strong><br />
 You can download the pre-built binaries for Linux, Mac OS and Windows from the
 project&rsquo;s <a href="http://github.com/google/cloudprober/releases">releases page</a>.</p></li>
 
 <li><p><strong>Docker Image</strong><br />
-You can download and run the latest docker image using the following command:</p>
-
-<pre><code class="language-shell">docker run --net host cloudprober/cloudprober
-# Note: --net host provides better network performance and makes port forwarding
-# management easier.
-</code></pre></li>
+You can download and run the latest docker image using the following command:
+<div class="highlight"><pre class="chroma"><code class="language-bash" data-lang="bash">docker run --net host cloudprober/cloudprober
+<span class="c1"># Note: --net host provides better network performance and makes port forwarding
+</span><span class="c1"></span># management easier.</code></pre></div></p></li>
 </ul>
 
 <h2 id="configuration">Configuration</h2>
@@ -308,19 +307,18 @@ through the environment variable <em>CLOUDPROBER_HOST</em>).</p>
 <p>Since sysvars variables are not very interesting themselves, lets add a simple
 config that probes Google&rsquo;s homepage:</p>
 
-<pre><code class="language-shell"># Write config to a file in /tmp
-cat &gt; /tmp/cloudprober.cfg &lt;&lt;EOF
-probe {
-  name: &quot;google_homepage&quot;
-  type: HTTP
-  targets {
-    host_names: &quot;www.google.com&quot;
-  }
-  interval_msec: 5000  # 5s
-  timeout_msec: 1000   # 1s
-}
-EOF
-</code></pre>
+<div class="highlight"><pre class="chroma"><code class="language-bash" data-lang="bash"><span class="c1"># Write config to a file in /tmp
+</span><span class="c1"></span>cat &gt; /tmp/cloudprober.cfg <span class="s">&lt;&lt;EOF
+</span><span class="s">probe {
+</span><span class="s">  name: &#34;google_homepage&#34;
+</span><span class="s">  type: HTTP
+</span><span class="s">  targets {
+</span><span class="s">    host_names: &#34;www.google.com&#34;
+</span><span class="s">  }
+</span><span class="s">  interval_msec: 5000  # 5s
+</span><span class="s">  timeout_msec: 1000   # 1s
+</span><span class="s">}
+</span><span class="s">EOF</span></code></pre></div>
 
 <p>This config adds an HTTP probe that accesses the homepage of the target
 &ldquo;www.google.com&rdquo; every 5s with a timeout of 1s. Cloudprober configuration is
@@ -331,15 +329,12 @@ proto file: <a href="https://github.com/google/cloudprober/blob/master/config/pr
 <p>Assuming that you saved this file at <code>/tmp/cloudprober.cfg</code> (following the
 command above), you can have cloudprober use this config file using the following command line:</p>
 
-<pre><code class="language-shell">./cloudprober --config_file /tmp/cloudprober.cfg
-</code></pre>
+<div class="highlight"><pre class="chroma"><code class="language-bash" data-lang="bash">./cloudprober --config_file /tmp/cloudprober.cfg</code></pre></div>
 
 <p>You can have the standard docker image use this config using the following
-command:</p>
-
-<pre><code>docker run --net host -v /tmp/cloudprober.cfg:/etc/cloudprober.cfg \
-    cloudprober/cloudprober
-</code></pre>
+command:
+<div class="highlight"><pre class="chroma"><code class="language-bash" data-lang="bash">docker run --net host -v /tmp/cloudprober.cfg:/etc/cloudprober.cfg <span class="se">\
+</span><span class="se"></span>    cloudprober/cloudprober</code></pre></div></p>
 
 <p><em>Note: While running on GCE, cloudprober config can also be provided through a
 custom metadata attribute: cloudprober_config</em>.</p>
@@ -355,10 +350,9 @@ locally</em>): <a href="http://localhost:9313/status">http://localhost:9313/stat
 <p>You should be able to see the generated metrics at <a href="http://locahost:9313/metrics">http://locahost:9313/metrics</a>
 (prometheus format) and the stdout (cloudprober format):</p>
 
-<pre><code>cloudprober 1500590430132947313 1500590520 labels=ptype=http,probe=google-http,dst=www.google.com total=17 success=17 latency=1808357 timeouts=0 resp-code=map:code,200:17
-cloudprober 1500590430132947314 1500590530 labels=ptype=sysvars,probe=sysvars hostname=&quot;manugarg-workstation&quot; uptime=100
-cloudprober 1500590430132947315 1500590530 labels=ptype=http,probe=google-http,dst=www.google.com total=19 success=19 latency=2116441 timeouts=0 resp-code=map:code,200:19
-</code></pre>
+<div class="highlight"><pre class="chroma"><code class="language-text" data-lang="text">cloudprober 1500590430132947313 1500590520 labels=ptype=http,probe=google-http,dst=www.google.com total=17 success=17 latency=1808357 timeouts=0 resp-code=map:code,200:17
+cloudprober 1500590430132947314 1500590530 labels=ptype=sysvars,probe=sysvars hostname=&#34;manugarg-workstation&#34; uptime=100
+cloudprober 1500590430132947315 1500590530 labels=ptype=http,probe=google-http,dst=www.google.com total=19 success=19 latency=2116441 timeouts=0 resp-code=map:code,200:19</code></pre></div>
 
 <p>This information is good for debugging monitoring issues, but to really make
 sense of this data, you&rsquo;ll need to feed this data to another monitoring system
@@ -370,18 +364,17 @@ to make pretty graphs for us.</p>
 <p>Download prometheus binary from its <a href="https://prometheus.io/download/">release page</a>. You can use a config like the following
 to scrape cloudprober running on the same host.</p>
 
-<pre><code class="language-shell"># Write config to a file in /tmp
-cat &gt; /tmp/prometheus.yml &lt;&lt;EOF
-scrape_configs:
-  - job_name: 'cloudprober'
-    scrape_interval: 10s
-    static_configs:
-      - targets: ['localhost:9313']
-EOF
+<div class="highlight"><pre class="chroma"><code class="language-bash" data-lang="bash"><span class="c1"># Write config to a file in /tmp
+</span><span class="c1"></span>cat &gt; /tmp/prometheus.yml <span class="s">&lt;&lt;EOF
+</span><span class="s">scrape_configs:
+</span><span class="s">  - job_name: &#39;cloudprober&#39;
+</span><span class="s">    scrape_interval: 10s
+</span><span class="s">    static_configs:
+</span><span class="s">      - targets: [&#39;localhost:9313&#39;]
+</span><span class="s">EOF</span>
 
-Start prometheus:
-./prometheus --config.file=/tmp/prometheus.yml
-</code></pre>
+<span class="c1"># Start prometheus:
+</span><span class="c1"></span>./prometheus --config.file<span class="o">=</span>/tmp/prometheus.yml</code></pre></div>
 
 <p>Prometheus provides a web interface at <a href="http://localhost:9090">http://localhost:9090</a>. You can explore
 the probe metrics and build useful graphs through this interface. All probes
@@ -397,9 +390,8 @@ in cloudprober export at least 3 counters:</p>
 <p>Using these counters, probe failure ratio and average latency can be calculated
 as:</p>
 
-<pre><code>failure_ratio = (rate(total) - rate(success)) / rate(total)
-avg_latency = rate(latency) / rate(success)
-</code></pre>
+<div class="highlight"><pre class="chroma"><code class="language-text" data-lang="text">failure_ratio = (rate(total) - rate(success)) / rate(total)
+avg_latency = rate(latency) / rate(success)</code></pre></div>
 
 <p>Assuming that prometheus is running at <code>localhost:9090</code>, graphs depicting
 failure ratio and latency over time can be accessed in prometheus at: <a href="http://localhost:9090/graph?g0.range_input=1h&amp;g0.expr=(rate(total%5B1m%5D)+-+rate(success%5B1m%5D))+%2F+rate(total%5B1m%5D)&amp;g0.tab=0&amp;g1.range_input=1h&amp;g1.expr=rate(latency%5B1m%5D)+%2F+rate(success%5B1m%5D)+%2F+1000&amp;g1.tab=0">this url </a>.
@@ -522,9 +514,6 @@ Grafana dashboards from Cloudprober&rsquo;s probe results.</p>
         });
       </script>
     
-
-    <script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.8.0/highlight.min.js"></script>
-    <script>hljs.initHighlightingOnLoad();</script>
   </body>
 </html>
 
