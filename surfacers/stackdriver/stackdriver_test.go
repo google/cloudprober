@@ -36,6 +36,7 @@ func newTestSurfacer() SDSurfacer {
 	l, _ := logger.New(context.TODO(), "test-logger")
 	return SDSurfacer{
 		cache:        make(map[string]*monitoring.TimeSeries),
+		onGCE:        true,
 		projectName:  "test-project",
 		instanceName: "test-instance",
 		zone:         "us-central1-a",
