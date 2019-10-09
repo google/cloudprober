@@ -60,6 +60,7 @@ type SDSurfacer struct {
 	writeChan chan *metrics.EventMetrics
 
 	// VM Information
+	onGCE        bool
 	projectName  string
 	instanceName string
 	zone         string
@@ -84,11 +85,12 @@ func New(config *configpb.SurfacerConf, l *logger.Logger) (*SDSurfacer, error) {
 	// Create a cache, which is used for batching write requests together,
 	// and a channel for writing data.
 	s := SDSurfacer{
-		cache:     make(map[string]*monitoring.TimeSeries),
-		writeChan: make(chan *metrics.EventMetrics, 1000),
-		c:         config,
-		startTime: time.Now(),
-		l:         l,
+		cache:       make(map[string]*monitoring.TimeSeries),
+		writeChan:   make(chan *metrics.EventMetrics, 1000),
+		c:           config,
+		projectName: config.GetProject(),
+		startTime:   time.Now(),
+		l:           l,
 	}
 
 	if s.c.GetAllowedMetricsRegex() != "" {
@@ -105,16 +107,23 @@ func New(config *configpb.SurfacerConf, l *logger.Logger) (*SDSurfacer, error) {
 	// Find all the necessary information for writing metrics to Stack
 	// Driver.
 	var err error
-	if s.projectName, err = metadata.ProjectID(); err != nil {
-		return nil, fmt.Errorf("unable to retrieve project name: %v", err)
-	}
 
-	if s.instanceName, err = metadata.InstanceName(); err != nil {
-		return nil, fmt.Errorf("unable to retrieve instance name: %v", err)
-	}
+	if metadata.OnGCE() {
+		s.onGCE = true
 
-	if s.zone, err = metadata.Zone(); err != nil {
-		return nil, fmt.Errorf("unable to retrieve instance zone: %v", err)
+		if s.projectName == "" {
+			if s.projectName, err = metadata.ProjectID(); err != nil {
+				return nil, fmt.Errorf("unable to retrieve project name: %v", err)
+			}
+		}
+
+		if s.instanceName, err = metadata.InstanceName(); err != nil {
+			return nil, fmt.Errorf("unable to retrieve instance name: %v", err)
+		}
+
+		if s.zone, err = metadata.Zone(); err != nil {
+			return nil, fmt.Errorf("unable to retrieve instance zone: %v", err)
+		}
 	}
 
 	// Create monitoring client
@@ -127,10 +136,6 @@ func New(config *configpb.SurfacerConf, l *logger.Logger) (*SDSurfacer, error) {
 	s.client, err = monitoring.New(httpClient)
 	if err != nil {
 		return nil, err
-	}
-
-	if s.c != nil && s.c.Batch != nil {
-		s.l.Warningf("Setting 'batch' doesn't do anything anymore. Batching is always enabled. This field will be removed after release v0.10.3.")
 	}
 
 	// Start either the writeAsync or the writeBatch, depending on if we are
@@ -242,16 +247,6 @@ func (s *SDSurfacer) recordTimeSeries(metricKind, metricName, msgType string, la
 			Labels: labels,
 		},
 
-		// Resource is required only if we want the data to be parsable
-		// on the gce-instance level (as opposed to all globally).
-		Resource: &monitoring.MonitoredResource{
-			Type: "gce_instance",
-			Labels: map[string]string{
-				"instance_id": s.instanceName,
-				"zone":        s.zone,
-			},
-		},
-
 		// Must match the MetricKind and ValueType of the MetricDescriptor.
 		MetricKind: metricKind,
 		ValueType:  msgType,
@@ -268,6 +263,18 @@ func (s *SDSurfacer) recordTimeSeries(metricKind, metricName, msgType string, la
 				Value: tv,
 			},
 		},
+	}
+
+	if s.onGCE {
+		// Resource is required only if we want the data to be parsable
+		// on the gce-instance level (as opposed to all globally).
+		ts.Resource = &monitoring.MonitoredResource{
+			Type: "gce_instance",
+			Labels: map[string]string{
+				"instance_id": s.instanceName,
+				"zone":        s.zone,
+			},
+		}
 	}
 
 	// We create a key that is a composite of both the name and the
