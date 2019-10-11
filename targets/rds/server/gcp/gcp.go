@@ -48,6 +48,7 @@ const DefaultProviderID = "gcp"
 type Provider struct {
 	gceInstances map[string]*gceInstancesLister
 	rtcVariables map[string]*rtcVariablesLister
+	pubsubMsgs   map[string]*pubsubMsgsLister
 }
 
 // ListResources returns the list of resources from the cache.
@@ -74,6 +75,13 @@ func (p *Provider) ListResources(req *pb.ListResourcesRequest) (*pb.ListResource
 		}
 		resources, err := rvl.listResources(req.GetFilter())
 		return &pb.ListResourcesResponse{Resources: resources}, err
+	case "pubsub_messages":
+		lister := p.pubsubMsgs[project]
+		if lister == nil {
+			return nil, fmt.Errorf("gcp: Pub/Sub messages lister for the project %s not found", project)
+		}
+		resources, err := lister.listResources(req.GetFilter())
+		return &pb.ListResourcesResponse{Resources: resources}, err
 	default:
 		return nil, fmt.Errorf("gcp: unsupported resource type: %s", resType)
 	}
@@ -96,6 +104,7 @@ func New(c *configpb.ProviderConfig, l *logger.Logger) (*Provider, error) {
 	p := &Provider{
 		gceInstances: make(map[string]*gceInstancesLister),
 		rtcVariables: make(map[string]*rtcVariablesLister),
+		pubsubMsgs:   make(map[string]*pubsubMsgsLister),
 	}
 
 	// Enable GCE instances lister if configured.
@@ -112,6 +121,17 @@ func New(c *configpb.ProviderConfig, l *logger.Logger) (*Provider, error) {
 	// TODO(manugarg): implement this.
 	if c.GetRegionalForwardingRules() != nil {
 		return nil, errors.New("regional forwarding rules are not supported yet")
+	}
+
+	// Enable RTC variables lister if configured.
+	if c.GetPubsubMessages() != nil {
+		for _, project := range projects {
+			lister, err := newPubSubMsgsLister(project, c.GetPubsubMessages(), l)
+			if err != nil {
+				return nil, err
+			}
+			p.pubsubMsgs[project] = lister
+		}
 	}
 
 	// Enable RTC variables lister if configured.

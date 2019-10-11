@@ -43,6 +43,27 @@ message RTCVariables {
   repeated RTCConfig rtc_config = 1;
 }
 
+// Runtime configurator variables.
+message PubSubMessages {
+  message Subscription {
+    // Subscription name. If it doesn't exist already, we try to create one.
+    required string name = 1;
+
+    // Topic name. This is used to create the subscription if it doesn't exist
+    // already.
+    optional string topic_name = 2;
+
+    // If subscription already exists, how far back to seek back on restart.
+    // Note that duplicate data is fine as we filter by publish time.
+    optional int32 seek_back_duration_sec = 3 [default = 3600];
+  }
+
+  repeated Subscription subscription = 1;
+
+  // Only for testing.
+  optional string api_endpoint = 2;
+}
+
 // GCP provider config.
 message ProviderConfig {
   // GCP projects. If running on GCE, it defaults to the local project.
@@ -59,6 +80,9 @@ message ProviderConfig {
 
   // RTC variables discovery options.
   optional RTCVariables rtc_variables = 4;
+
+  // PubSub messages discovery options.
+  optional PubSubMessages pubsub_messages = 5;
 
   // Compute API version.
   optional string api_version = 99 [default = "v1"];
