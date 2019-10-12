@@ -9,14 +9,14 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,user-scalable=no,initial-scale=1,maximum-scale=1">
     <meta http-equiv="X-UA-Compatible" content="IE=10" />
-    <title>Getting Started - Cloudprober</title>
+    <title>Built-in Servers - Cloudprober</title>
     <meta name="generator" content="Hugo 0.48" />
 
     
-    <link rel="canonical" href="https://cloudprober.org/getting-started/">
+    <link rel="canonical" href="https://cloudprober.org/how-to/built-in-servers/">
     
 
-    <meta property="og:url" content="https://cloudprober.org/getting-started/">
+    <meta property="og:url" content="https://cloudprober.org/how-to/built-in-servers/">
     <meta property="og:title" content="Cloudprober">
     
     <meta name="apple-mobile-web-app-title" content="Cloudprober">
@@ -93,7 +93,7 @@
     </div>
     <div class="stretch">
       <div class="title">
-        Getting Started
+        Built-in Servers
       </div>
     </div>
 
@@ -186,14 +186,11 @@
 
 
 
-<a class="current" title="Getting Started" href="https://cloudprober.org/getting-started/">
+<a  title="Getting Started" href="https://cloudprober.org/getting-started/">
 	
 	Getting Started
 </a>
 
-
-<ul id="scrollspy">
-</ul>
 
 
   
@@ -242,11 +239,14 @@
 
 
 
-<a  title="Built-in Servers" href="https://cloudprober.org/how-to/built-in-servers/">
+<a class="current" title="Built-in Servers" href="https://cloudprober.org/how-to/built-in-servers/">
 	
 	Built-in Servers
 </a>
 
+
+<ul id="scrollspy">
+</ul>
 
 
       
@@ -281,145 +281,87 @@
 
 	<article class="article">
 		<div class="wrapper">
-			<h1>Getting Started </h1>
+			<h1>Built-in Servers </h1>
 
 			
 
-<h2 id="installation">Installation</h2>
+<p>Cloudprober has a few built in servers. This is useful when you are probing that
+a connection is working, or as a baseline to compare the probing results from
+your actual service to.</p>
+
+<h2 id="http">HTTP</h2>
+
+<div class="highlight"><pre class="chroma"><code class="language-shell" data-lang="shell">server <span class="o">{</span>
+  type: HTTP
+  http_server <span class="o">{</span>
+    port: <span class="m">8080</span>
+  <span class="o">}</span>
+<span class="o">}</span></code></pre></div>
+
+<p>This creates an HTTP server that responds on port <code>8080</code>. By default it will
+respond to the following endpoints:</p>
 
 <ul>
-<li><strong>From Source</strong><br />
-If you have Go 1.9 or higher installed and GOPATH environment variable properly set up, you
-can download and install <code>cloudprober</code> using the following commands:</li>
+<li><code>/healthcheck</code></li>
+<li><code>/lameduck</code></li>
 </ul>
 
-<div class="highlight"><pre class="chroma"><code class="language-bash" data-lang="bash">go get github.com/google/cloudprober
-<span class="nv">GOBIN</span><span class="o">=</span><span class="nv">$GOPATH</span>/bin go install <span class="nv">$GOPATH</span>/src/github.com/google/cloudprober/cmd/cloudprober.go</code></pre></div>
+<div class="highlight"><pre class="chroma"><code class="language-shell" data-lang="shell">server <span class="o">{</span>
+  type: HTTP
+  http_server <span class="o">{</span>
+    port: <span class="m">8080</span>
+    pattern_data_handler <span class="o">{</span>
+      response_size: <span class="m">1024</span>
+    <span class="o">}</span>
+    pattern_data_handler <span class="o">{</span>
+      response_size: <span class="m">4</span>
+      pattern: <span class="s2">&#34;four&#34;</span>
+    <span class="o">}</span>
+  <span class="o">}</span>
+<span class="o">}</span></code></pre></div>
+
+<p>This adds two endpoints to the HTTP server:</p>
 
 <ul>
-<li><p><strong>Pre-built Binaries</strong><br />
-You can download the pre-built binaries for Linux, Mac OS and Windows from the
-project&rsquo;s <a href="http://github.com/google/cloudprober/releases">releases page</a>.</p></li>
-
-<li><p><strong>Docker Image</strong><br />
-You can download and run the latest docker image using the following command:
-<div class="highlight"><pre class="chroma"><code class="language-bash" data-lang="bash">docker run --net host cloudprober/cloudprober
-<span class="c1"># Note: --net host provides better network performance and makes port forwarding
-</span><span class="c1"></span># management easier.</code></pre></div></p></li>
+<li><code>/data_1024</code> which responds with 1024 bytes of
+<code>cloudprobercloudprobercloudprober</code>.</li>
+<li><code>/data_4</code> which responds with <code>four</code>.</li>
 </ul>
 
-<h2 id="configuration">Configuration</h2>
+<p>See
+<a href="https://github.com/google/cloudprober/blob/master/servers/http/proto/config.proto">servers/http/proto/config.go</a>
+for all HTTP server configuration options.</p>
 
-<p>Without any config, cloudprober will run only the &ldquo;sysvars&rdquo; module (no probes)
-and write metrics to stdout in cloudprober&rsquo;s line protocol format (to be
-documented). It will also start a <a href="http://prometheus.io">Prometheus</a> exporter
-at: <a href="http://localhost:9313">http://localhost:9313</a> (you can change the default port through the
-environment variable <em>CLOUDPROBER_PORT</em> and the default listening address
-through the environment variable <em>CLOUDPROBER_HOST</em>).</p>
+<h2 id="udp">UDP</h2>
 
-<p>Since sysvars variables are not very interesting themselves, lets add a simple
-config that probes Google&rsquo;s homepage:</p>
+<p>A Cloudprober UDP server can be configured to either echo or discard packets it
+receives.</p>
 
-<div class="highlight"><pre class="chroma"><code class="language-bash" data-lang="bash"><span class="c1"># Write config to a file in /tmp
-</span><span class="c1"></span>cat &gt; /tmp/cloudprober.cfg <span class="s">&lt;&lt;EOF
-</span><span class="s">probe {
-</span><span class="s">  name: &#34;google_homepage&#34;
-</span><span class="s">  type: HTTP
-</span><span class="s">  targets {
-</span><span class="s">    host_names: &#34;www.google.com&#34;
-</span><span class="s">  }
-</span><span class="s">  interval_msec: 5000  # 5s
-</span><span class="s">  timeout_msec: 1000   # 1s
-</span><span class="s">}
-</span><span class="s">EOF</span></code></pre></div>
+<div class="highlight"><pre class="chroma"><code class="language-shell" data-lang="shell">server <span class="o">{</span>
+  type: UDP
+  udp_server <span class="o">{</span>
+    port: <span class="m">85</span>
+    type: ECHO
+  <span class="o">}</span>
+<span class="o">}</span>
 
-<p>This config adds an HTTP probe that accesses the homepage of the target
-&ldquo;www.google.com&rdquo; every 5s with a timeout of 1s. Cloudprober configuration is
-specified in the text protobuf format, with config schema described by the
-proto file: <a href="https://github.com/google/cloudprober/blob/master/config/proto/config.proto">config.proto
-</a>.</p>
+server <span class="o">{</span>
+  type: UDP
+  udp_server <span class="o">{</span>
+    port: <span class="m">90</span>
+    type: DISCARD
+  <span class="o">}</span>
+<span class="o">}</span></code></pre></div>
 
-<p>Assuming that you saved this file at <code>/tmp/cloudprober.cfg</code> (following the
-command above), you can have cloudprober use this config file using the following command line:</p>
+<p>See
+<a href="https://github.com/google/cloudprober/blob/master/servers/udp/proto/config.proto">servers/udp/proto/config.go</a>
+for all UDP server configuration options.</p>
 
-<div class="highlight"><pre class="chroma"><code class="language-bash" data-lang="bash">./cloudprober --config_file /tmp/cloudprober.cfg</code></pre></div>
+<h2 id="grpc">GRPC</h2>
 
-<p>You can have the standard docker image use this config using the following
-command:
-<div class="highlight"><pre class="chroma"><code class="language-bash" data-lang="bash">docker run --net host -v /tmp/cloudprober.cfg:/etc/cloudprober.cfg <span class="se">\
-</span><span class="se"></span>    cloudprober/cloudprober</code></pre></div></p>
-
-<p><em>Note: While running on GCE, cloudprober config can also be provided through a
-custom metadata attribute: cloudprober_config</em>.</p>
-
-<h2 id="verification">Verification</h2>
-
-<p>One quick way to verify that cloudprober got the correct config, is to access
-the URL <a href="http://localhost:9313/config">http://localhost:9313/config</a> (through cURL or in browser). It returns
-the config that cloudprober is using. You can also get a peek its current
-status at the URL (<em>replace localhost by the actual hostname if not running
-locally</em>): <a href="http://localhost:9313/status">http://localhost:9313/status</a>.</p>
-
-<p>You should be able to see the generated metrics at <a href="http://locahost:9313/metrics">http://locahost:9313/metrics</a>
-(prometheus format) and the stdout (cloudprober format):</p>
-
-<div class="highlight"><pre class="chroma"><code class="language-text" data-lang="text">cloudprober 1500590430132947313 1500590520 labels=ptype=http,probe=google-http,dst=www.google.com total=17 success=17 latency=1808357 timeouts=0 resp-code=map:code,200:17
-cloudprober 1500590430132947314 1500590530 labels=ptype=sysvars,probe=sysvars hostname=&#34;manugarg-workstation&#34; uptime=100
-cloudprober 1500590430132947315 1500590530 labels=ptype=http,probe=google-http,dst=www.google.com total=19 success=19 latency=2116441 timeouts=0 resp-code=map:code,200:19</code></pre></div>
-
-<p>This information is good for debugging monitoring issues, but to really make
-sense of this data, you&rsquo;ll need to feed this data to another monitoring system
-like <em>Prometheus</em> or <em>StackDriver</em>. Lets set up a Prometheus and Grafana stack
-to make pretty graphs for us.</p>
-
-<h2 id="running-prometheus">Running Prometheus</h2>
-
-<p>Download prometheus binary from its <a href="https://prometheus.io/download/">release page</a>. You can use a config like the following
-to scrape cloudprober running on the same host.</p>
-
-<div class="highlight"><pre class="chroma"><code class="language-bash" data-lang="bash"><span class="c1"># Write config to a file in /tmp
-</span><span class="c1"></span>cat &gt; /tmp/prometheus.yml <span class="s">&lt;&lt;EOF
-</span><span class="s">scrape_configs:
-</span><span class="s">  - job_name: &#39;cloudprober&#39;
-</span><span class="s">    scrape_interval: 10s
-</span><span class="s">    static_configs:
-</span><span class="s">      - targets: [&#39;localhost:9313&#39;]
-</span><span class="s">EOF</span>
-
-<span class="c1"># Start prometheus:
-</span><span class="c1"></span>./prometheus --config.file<span class="o">=</span>/tmp/prometheus.yml</code></pre></div>
-
-<p>Prometheus provides a web interface at <a href="http://localhost:9090">http://localhost:9090</a>. You can explore
-the probe metrics and build useful graphs through this interface. All probes
-in cloudprober export at least 3 counters:</p>
-
-<ul>
-<li><em>total</em>: Total number of probes.</li>
-<li><em>success</em>: Number of successful probes. Difference between <em>total</em> and
-           <em>success</em> indicates failures.</li>
-<li><em>latency</em>: Total (cumulative) probe latency.</li>
-</ul>
-
-<p>Using these counters, probe failure ratio and average latency can be calculated
-as:</p>
-
-<div class="highlight"><pre class="chroma"><code class="language-text" data-lang="text">failure_ratio = (rate(total) - rate(success)) / rate(total)
-avg_latency = rate(latency) / rate(success)</code></pre></div>
-
-<p>Assuming that prometheus is running at <code>localhost:9090</code>, graphs depicting
-failure ratio and latency over time can be accessed in prometheus at: <a href="http://localhost:9090/graph?g0.range_input=1h&amp;g0.expr=(rate(total%5B1m%5D)+-+rate(success%5B1m%5D))+%2F+rate(total%5B1m%5D)&amp;g0.tab=0&amp;g1.range_input=1h&amp;g1.expr=rate(latency%5B1m%5D)+%2F+rate(success%5B1m%5D)+%2F+1000&amp;g1.tab=0">this url </a>.
-Even though prometheus provides a graphing interface, Grafana provides much
-richer interface and has excellent support for prometheus.</p>
-
-<h2 id="grafana">Grafana</h2>
-
-<p><a href="https://grafana.com">Grafana</a> is a popular tool for building monitoring
-dashboards. Grafana has native support for prometheus and thanks to the
-excellent support for prometheus in Cloudprober itself, it&rsquo;s a breeze to build
-Grafana dashboards from Cloudprober&rsquo;s probe results.</p>
-
-<p>To get started with Grafana, follow the Grafana-Prometheus
-<a href="https://prometheus.io/docs/visualization/grafana/">integration guide</a>.</p>
+<p>See
+<a href="https://github.com/google/cloudprober/blob/master/servers/grpc/proto/config.proto">servers/grpc/proto/config.go</a>
+for all GRPC server configuration options.</p>
 
 
 			<aside class="copyright" role="note">

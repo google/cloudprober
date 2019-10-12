@@ -6,10 +6,21 @@
     <description>Recent content on Cloudprober</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
-    <lastBuildDate>Mon, 29 Oct 2018 17:24:32 -0700</lastBuildDate>
+    <lastBuildDate>Fri, 11 Oct 2019 17:48:13 -0500</lastBuildDate>
     
 	<atom:link href="https://cloudprober.org/index.xml" rel="self" type="application/rss+xml" />
     
+    
+    <item>
+      <title>Built-in Servers</title>
+      <link>https://cloudprober.org/how-to/built-in-servers/</link>
+      <pubDate>Fri, 11 Oct 2019 17:48:13 -0500</pubDate>
+      
+      <guid>https://cloudprober.org/how-to/built-in-servers/</guid>
+      <description>Cloudprober has a few built in servers. This is useful when you are probing that a connection is working, or as a baseline to compare the probing results from your actual service to.
+HTTP server { type: HTTP http_server { port: 8080 } } This creates an HTTP server that responds on port 8080. By default it will respond to the following endpoints:
+ /healthcheck /lameduck  server { type: HTTP http_server { port: 8080 pattern_data_handler { response_size: 1024 } pattern_data_handler { response_size: 4 pattern: &amp;#34;four&amp;#34; } } } This adds two endpoints to the HTTP server:</description>
+    </item>
     
     <item>
       <title>Extending Cloudprober</title>
