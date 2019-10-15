@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 2017-2019 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,13 +19,11 @@
 package lameduck
 
 import (
+	"context"
 	"errors"
 	"fmt"
-	"math/rand"
 	"net/http"
-	"strings"
 	"sync"
-	"time"
 
 	"cloud.google.com/go/compute/metadata"
 	"github.com/golang/protobuf/proto"
@@ -35,8 +33,10 @@ import (
 	rdsclient "github.com/google/cloudprober/targets/rds/client"
 	rdsclient_configpb "github.com/google/cloudprober/targets/rds/client/proto"
 	rdspb "github.com/google/cloudprober/targets/rds/proto"
+	"github.com/google/cloudprober/targets/rds/server"
+	gcpconfigpb "github.com/google/cloudprober/targets/rds/server/gcp/proto"
+	serverconfigpb "github.com/google/cloudprober/targets/rds/server/proto"
 	"github.com/google/cloudprober/targets/rtc/rtcservice"
-	runtimeconfig "google.golang.org/api/runtimeconfig/v1beta1"
 )
 
 // Lister is an interface for getting current lameducks.
@@ -65,61 +65,9 @@ var global struct {
 
 // service provides methods to do lameduck operations on VMs.
 type service struct {
-	rtc            rtcservice.Config
-	opts           *configpb.Options
-	expirationTime time.Duration
-	l              *logger.Logger
-
-	mu    sync.RWMutex
-	names []string
-}
-
-// Updates the list of lameduck targets' names.
-func (ldSvc *service) expand() {
-	resp, err := ldSvc.rtc.List()
-	if err != nil {
-		ldSvc.l.Errorf("targets: Error while getting the runtime config variables for lame-duck targets: %v", err)
-		return
-	}
-	ldSvc.mu.Lock()
-	ldSvc.names = ldSvc.processVars(resp)
-	ldSvc.mu.Unlock()
-}
-
-// Returns the list of un-expired names of lameduck targets.
-func (ldSvc *service) processVars(vars []*runtimeconfig.Variable) []string {
-	var result []string
-	expirationTime := time.Duration(ldSvc.opts.GetExpirationSec()) * time.Second
-	for _, v := range vars {
-		ldSvc.l.Debugf("targets: Processing runtime-config var: %s", v.Name)
-
-		// Variable names include the full path, including the config name.
-		varParts := strings.Split(v.Name, "/")
-		if len(varParts) == 0 {
-			ldSvc.l.Errorf("targets: Invalid variable name for lame-duck targets: %s", v.Name)
-			continue
-		}
-		ldName := varParts[len(varParts)-1]
-
-		// Variable update time is in RFC3339 format
-		// https://cloud.google.com/deployment-manager/runtime-configurator/reference/rest/v1beta1/projects.configs.variables
-		updateTime, err := time.Parse(time.RFC3339Nano, v.UpdateTime)
-		if err != nil {
-			ldSvc.l.Errorf("targets: Could not parse variable(%s) update time (%s): %v", v.Name, v.UpdateTime, err)
-			continue
-		}
-		if time.Since(updateTime) < expirationTime {
-			ldSvc.l.Infof("targets: Marking target \"%s\" as lame duck.", ldName)
-			result = append(result, ldName)
-			continue
-		}
-		// Log only if variable is not older than 10 times of expiration time. This
-		// is to avoid keep logging old expired entries.
-		if time.Since(updateTime) < 10*expirationTime {
-			ldSvc.l.Infof("targets: Ignoring the stale (%s) lame duck (%s) entry", time.Since(updateTime), ldName)
-		}
-	}
-	return result
+	rtc  rtcservice.Config
+	opts *configpb.Options
+	l    *logger.Logger
 }
 
 // Lameduck puts the target in lameduck mode.
@@ -131,13 +79,6 @@ func (ldSvc *service) Lameduck(name string) error {
 func (ldSvc *service) Unlameduck(name string) error {
 	err := ldSvc.rtc.Delete(name)
 	return err
-}
-
-// List returns the targets that are in lameduck mode.
-func (ldSvc *service) List() []string {
-	ldSvc.mu.RLock()
-	defer ldSvc.mu.RUnlock()
-	return append([]string{}, ldSvc.names...)
 }
 
 // NewService creates a new lameduck service using the provided config options
@@ -188,43 +129,164 @@ func NewLameducker(opts *configpb.Options, hc *http.Client, l *logger.Logger) (L
 	return newService(opts, project, hc, l)
 }
 
-func rdsClient(opts *configpb.Options, globalRDSAddr, project string, l *logger.Logger) (*rdsclient.Client, error) {
-	var listResourcesFunc rdsclient.ListResourcesFunc
-
-	serverAddr := globalRDSAddr
-	// If there is lameduck specific RDS server, use that.
-	if opts.GetRdsServerAddress() != "" {
-		serverAddr = opts.GetRdsServerAddress()
+func (li *lister) newRDSServer() (*server.Server, error) {
+	gcpConfig := &gcpconfigpb.ProviderConfig{
+		Project: []string{li.project},
 	}
 
-	if serverAddr == "" {
+	if li.rtcConfig != "" {
+		gcpConfig.RtcVariables = &gcpconfigpb.RTCVariables{
+			RtcConfig: []*gcpconfigpb.RTCVariables_RTCConfig{
+				{
+					Name: proto.String(li.rtcConfig),
+				},
+			},
+		}
+	}
+
+	if li.pubsubTopic != "" {
+		gcpConfig.PubsubMessages = &gcpconfigpb.PubSubMessages{
+			Subscription: []*gcpconfigpb.PubSubMessages_Subscription{
+				{
+					TopicName: proto.String(li.pubsubTopic),
+				},
+			},
+		}
+	}
+
+	serverConf := &serverconfigpb.ServerConf{
+		Provider: []*serverconfigpb.Provider{
+			{
+				Id:     proto.String("gcp"),
+				Config: &serverconfigpb.Provider_GcpConfig{GcpConfig: gcpConfig},
+			},
+		},
+	}
+
+	return server.New(context.Background(), serverConf, nil, li.l)
+}
+
+func (li *lister) initListFunc(globalRDSAddr string) error {
+	li.serverAddr = globalRDSAddr
+	// If there is lameduck specific RDS server, use that.
+	if li.opts.GetRdsServerAddress() != "" {
+		li.serverAddr = li.opts.GetRdsServerAddress()
+	}
+
+	if li.serverAddr == "" {
 		localRDSServer := runconfig.LocalRDSServer()
 		if localRDSServer == nil {
-			return nil, fmt.Errorf("rds_server_address not given and found no local RDS server")
+			li.l.Infof("rds_server_address not given and found no local RDS server, creating a new one.")
+
+			var err error
+			localRDSServer, err = li.newRDSServer()
+			if err != nil {
+				return fmt.Errorf("error while creating local RDS server: %v", err)
+			}
 		}
-		listResourcesFunc = localRDSServer.ListResources
+		li.listResourcesFunc = localRDSServer.ListResources
 	}
 
+	return nil
+}
+
+func (li *lister) rdsClient(baseResourcePath string, additionalFilter *rdspb.Filter) (*rdsclient.Client, error) {
 	rdsClientConf := &rdsclient_configpb.ClientConf{
-		ServerAddr: &serverAddr,
+		ServerAddr: &li.serverAddr,
 		Request: &rdspb.ListResourcesRequest{
 			Provider:     proto.String("gcp"),
-			ResourcePath: proto.String(fmt.Sprintf("rtc_variables/%s", project)),
+			ResourcePath: proto.String(fmt.Sprintf("%s/%s", baseResourcePath, li.project)),
 			Filter: []*rdspb.Filter{
 				{
-					Key:   proto.String("config_name"),
-					Value: proto.String(opts.GetRuntimeconfigName()),
-				},
-				{
 					Key:   proto.String("updated_within"),
-					Value: proto.String(fmt.Sprintf("%ds", opts.GetExpirationSec())),
+					Value: proto.String(fmt.Sprintf("%ds", li.opts.GetExpirationSec())),
 				},
 			},
 		},
-		ReEvalSec: proto.Int32(opts.GetReEvalSec()),
+		ReEvalSec: proto.Int32(li.opts.GetReEvalSec()),
 	}
 
-	return rdsclient.New(rdsClientConf, listResourcesFunc, l)
+	if additionalFilter != nil {
+		rdsClientConf.Request.Filter = append(rdsClientConf.Request.Filter, additionalFilter)
+	}
+
+	return rdsclient.New(rdsClientConf, li.listResourcesFunc, li.l)
+}
+
+func (li *lister) initClients() error {
+	if li.rtcConfig != "" {
+		li.l.Infof("lameduck: creating RDS client for RTC variables")
+
+		additionalFilter := &rdspb.Filter{
+			Key:   proto.String("config_name"),
+			Value: proto.String(li.opts.GetRuntimeconfigName()),
+		}
+
+		cl, err := li.rdsClient("rtc_variables", additionalFilter)
+		if err != nil {
+			return err
+		}
+		li.clients = append(li.clients, cl)
+	}
+
+	if li.pubsubTopic != "" {
+		li.l.Infof("lameduck: creating RDS client for PubSub messages")
+
+		// Here we assume that subscription name contains the topic name. This is
+		// true for the RDS implmentation.
+		additionalFilter := &rdspb.Filter{
+			Key:   proto.String("subscription"),
+			Value: proto.String(li.pubsubTopic),
+		}
+
+		cl, err := li.rdsClient("pubsub_messages", additionalFilter)
+		if err != nil {
+			return err
+		}
+		li.clients = append(li.clients, cl)
+	}
+
+	return nil
+}
+
+func (li *lister) List() []string {
+	var result []string
+	for _, cl := range li.clients {
+		result = append(result, cl.List()...)
+	}
+	return result
+}
+
+type lister struct {
+	opts              *configpb.Options
+	project           string
+	rtcConfig         string
+	pubsubTopic       string
+	serverAddr        string
+	listResourcesFunc rdsclient.ListResourcesFunc
+	clients           []*rdsclient.Client
+	l                 *logger.Logger
+}
+
+func newLister(opts *configpb.Options, globalRDSAddr string, l *logger.Logger) (*lister, error) {
+	li := &lister{
+		opts:        opts,
+		rtcConfig:   opts.GetRuntimeconfigName(),
+		pubsubTopic: opts.GetPubsubTopic(),
+		l:           l,
+	}
+
+	var err error
+	li.project, err = getProject(opts)
+	if err != nil {
+		return nil, err
+	}
+
+	if err = li.initListFunc(globalRDSAddr); err != nil {
+		return nil, err
+	}
+
+	return li, li.initClients()
 }
 
 // InitDefaultLister initializes the package using the given arguments. If a
@@ -247,44 +309,16 @@ func InitDefaultLister(opts *configpb.Options, globalRDSAddr string, lister List
 		return nil
 	}
 
-	project, err := getProject(opts)
-	if err != nil {
-		return err
-	}
-
 	if opts.GetUseRds() {
-		c, err := rdsClient(opts, globalRDSAddr, project, l)
-		if err != nil {
-			return err
-		}
-
-		global.lister = c
-		return nil
+		l.Warningf("lameduck: use_rds doesn't do anything anymore and will soon be removed.")
 	}
 
-	// Create a new lister and set it up for auto-refresh.
-	ldSvc, err := newService(opts, project, nil, l)
+	lister, err := newLister(opts, globalRDSAddr, l)
 	if err != nil {
 		return err
 	}
 
-	ldSvc.expand()
-	go func() {
-		// Introduce a random delay between 0-reEvalInterval before
-		// starting the refresh loop. If there are multiple cloudprober
-		// instances, this will make sure that each instance calls GCE
-		// API at a different point of time.
-		rand.Seed(time.Now().UnixNano())
-		randomDelaySec := rand.Intn(int(ldSvc.opts.GetReEvalSec()))
-		time.Sleep(time.Duration(randomDelaySec) * time.Second)
-
-		// Update the lameducks every [opts.ReEvalSec] seconds.
-		for range time.Tick(time.Duration(ldSvc.opts.GetReEvalSec()) * time.Second) {
-			ldSvc.expand()
-		}
-	}()
-
-	global.lister = ldSvc
+	global.lister = lister
 	return nil
 }
 
