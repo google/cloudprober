@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 2017-2019 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,8 +16,14 @@
 package lameduck
 
 import (
+	"context"
+	"errors"
 	"reflect"
+	"strings"
 	"testing"
+
+	"github.com/golang/protobuf/proto"
+	rdspb "github.com/google/cloudprober/targets/rds/proto"
 )
 
 type mockLDLister struct {
@@ -54,4 +60,55 @@ func TestDefaultLister(t *testing.T) {
 	if !reflect.DeepEqual(gotList, list1) {
 		t.Errorf("Default lister retured: %v, expected: %v", gotList, list1)
 	}
+}
+
+func TestList(t *testing.T) {
+	li := lister{
+		listResourcesFunc: funcListResources,
+		project:           "test-project",
+		rtcConfig:         "lame-duck-targets",
+		pubsubTopic:       "lame-duck-targets",
+	}
+	if err := li.initClients(); err != nil {
+		t.Errorf("lister.initClients(): %v", err)
+	}
+
+	names := li.List()
+	wantNames := []string{"v1", "v2", "m1", "m2"}
+
+	if !reflect.DeepEqual(names, wantNames) {
+		t.Errorf("lister.List(): got=%v, want=%v", names, wantNames)
+	}
+}
+
+// We use funcListResources to create RDS clients for testing purpose.
+func funcListResources(ctx context.Context, in *rdspb.ListResourcesRequest) (*rdspb.ListResourcesResponse, error) {
+	path := in.GetResourcePath()
+	resType := strings.SplitN(path, "/", 2)[0]
+	var resources []*rdspb.Resource
+
+	switch resType {
+	case "rtc_variables":
+		resources = []*rdspb.Resource{
+			{
+				Name: proto.String("v1"),
+			},
+			{
+				Name: proto.String("v2"),
+			},
+		}
+	case "pubsub_messages":
+		resources = []*rdspb.Resource{
+			{
+				Name: proto.String("m1"),
+			},
+			{
+				Name: proto.String("m2"),
+			},
+		}
+	default:
+		return nil, errors.New("unsupported resource_type")
+	}
+
+	return &rdspb.ListResourcesResponse{Resources: resources}, nil
 }
