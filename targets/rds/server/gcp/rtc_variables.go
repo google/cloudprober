@@ -82,6 +82,10 @@ func (rvl *rtcVariablesLister) listResources(filters []*pb.Filter) ([]*pb.Resour
 			})
 		}
 	}
+
+	if len(resources) > 0 {
+		rvl.l.Infof("rtc_variables.listResources: returning %d variables", len(resources))
+	}
 	return resources, nil
 }
 
@@ -121,8 +125,6 @@ func processVar(v *runtimeconfig.Variable) (*rtcVar, error) {
 // expand makes API calls to list variables in configured RTC configs and
 // populates the cache.
 func (rvl *rtcVariablesLister) expand(rtcConfig *configpb.RTCVariables_RTCConfig, reEvalInterval time.Duration) {
-	rvl.l.Infof("rtc_variables.expand: expanding RTC vars for project (%s) and config (%s)", rvl.project, rtcConfig.GetName())
-
 	path := "projects/" + rvl.project + "/configs/" + rtcConfig.GetName()
 	configVarsList, err := rvl.svc.List(path).Do()
 	if err != nil {
@@ -162,6 +164,8 @@ func newRTCVariablesLister(project, apiVersion string, c *configpb.RTCVariables,
 	}
 
 	for _, rtcConfig := range rvl.c.GetRtcConfig() {
+		rvl.l.Infof("rtc_variables.expand: expanding RTC vars for project (%s) and config (%s)", rvl.project, rtcConfig.GetName())
+
 		reEvalInterval := time.Duration(rtcConfig.GetReEvalSec()) * time.Second
 		go func(rtcConfig *configpb.RTCVariables_RTCConfig) {
 			rvl.expand(rtcConfig, 0)
@@ -172,7 +176,7 @@ func newRTCVariablesLister(project, apiVersion string, c *configpb.RTCVariables,
 			rand.Seed(time.Now().UnixNano())
 			randomDelaySec := rand.Intn(int(reEvalInterval.Seconds()))
 			time.Sleep(time.Duration(randomDelaySec) * time.Second)
-			for _ = range time.Tick(reEvalInterval) {
+			for range time.Tick(reEvalInterval) {
 				rvl.expand(rtcConfig, reEvalInterval)
 			}
 		}(rtcConfig)

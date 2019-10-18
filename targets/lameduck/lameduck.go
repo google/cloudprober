@@ -254,6 +254,10 @@ func (li *lister) List() []string {
 	for _, cl := range li.clients {
 		result = append(result, cl.List()...)
 	}
+
+	if len(result) != 0 {
+		li.l.Infof("Lameducked targets: %v", result)
+	}
 	return result
 }
 
