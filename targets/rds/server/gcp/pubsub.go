@@ -168,11 +168,12 @@ func newPubSubMsgsLister(project string, c *configpb.PubSubMessages, l *logger.L
 		lister.subs[sub.GetName()] = s
 		lister.cache[sub.GetName()] = make(map[string]time.Time)
 
+		lister.l.Infof("pubsub: Receiving pub/sub messages for project (%s) and subscription (%s)", lister.project, sub.GetName())
 		go s.Receive(ctx, func(ctx context.Context, msg *pubsub.Message) {
 			lister.mu.Lock()
 			defer lister.mu.Unlock()
 
-			lister.l.Infof("Adding message with name: %s, message id: %s, publish time: %s", msg.Attributes["name"], msg.ID, msg.PublishTime)
+			lister.l.Infof("pubsub: Adding message with name: %s, message id: %s, publish time: %s", msg.Attributes["name"], msg.ID, msg.PublishTime)
 			lister.cache[sub.GetName()][msg.Attributes["name"]] = msg.PublishTime
 			msg.Ack()
 		})
