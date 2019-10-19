@@ -25,9 +25,9 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/logger"
+	"github.com/google/cloudprober/rds/client"
+	rdspb "github.com/google/cloudprober/rds/proto"
 	configpb "github.com/google/cloudprober/targets/gce/proto"
-	"github.com/google/cloudprober/targets/rds/client"
-	rdspb "github.com/google/cloudprober/targets/rds/proto"
 )
 
 type testNetIf struct {

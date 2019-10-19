@@ -1,0 +1,89 @@
+// Configuration proto for GCE targets.
+// Example config:
+// {
+//   project: 'test-project-id'
+//
+//   # GCE instances
+//   gce_instances {}
+//
+//   # RTC variables from the config lame-duck-targets, re-evaluated every 10s.
+//   rtc_variables {
+//     rtc_config {
+//       name: "lame-duck-targets"
+//     }
+//   }
+// }
+syntax = "proto2";
+
+package cloudprober.rds.gcp;
+
+message GCEInstances {
+  // Zone filter, e.g. zone_filter: "us-east1-*" for all zones in us-east1
+  // region.
+  optional string zone_filter = 1;
+
+  // How often resources should be evaluated/expanded.
+  optional int32 re_eval_sec = 98 [default = 300];  // default 5 min
+}
+
+message RegionalForwardingRules {
+  // Region filter, e.g. "region_filter:europe-*"
+  optional string region_filter = 1;
+}
+
+// Runtime configurator variables.
+message RTCVariables {
+  message RTCConfig {
+    required string name = 1;
+
+    // How often RTC variables should be evaluated/expanded.
+    optional int32 re_eval_sec = 2 [default = 10];  // default 10 sec
+  }
+
+  repeated RTCConfig rtc_config = 1;
+}
+
+// Runtime configurator variables.
+message PubSubMessages {
+  message Subscription {
+    // Subscription name. If it doesn't exist already, we try to create one.
+    required string name = 1;
+
+    // Topic name. This is used to create the subscription if it doesn't exist
+    // already.
+    optional string topic_name = 2;
+
+    // If subscription already exists, how far back to seek back on restart.
+    // Note that duplicate data is fine as we filter by publish time.
+    optional int32 seek_back_duration_sec = 3 [default = 3600];
+  }
+
+  repeated Subscription subscription = 1;
+
+  // Only for testing.
+  optional string api_endpoint = 2;
+}
+
+// GCP provider config.
+message ProviderConfig {
+  // GCP projects. If running on GCE, it defaults to the local project.
+  repeated string project = 1;
+
+  // GCE instances discovery options. This field should be declared for the GCE
+  // instances discovery to be enabled.
+  optional GCEInstances gce_instances = 2;
+
+  // Regional forwarding rules discovery options. This field should be declared
+  // for the regional forwarding rules discovery to be enabled.
+  // NOTE: This is not supported yet.
+  optional RegionalForwardingRules regional_forwarding_rules = 3;
+
+  // RTC variables discovery options.
+  optional RTCVariables rtc_variables = 4;
+
+  // PubSub messages discovery options.
+  optional PubSubMessages pubsub_messages = 5;
+
+  // Compute API version.
+  optional string api_version = 99 [default = "v1"];
+}

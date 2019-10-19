@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"sync"
 
-	rdsserver "github.com/google/cloudprober/targets/rds/server"
+	rdsserver "github.com/google/cloudprober/rds/server"
 	"google.golang.org/grpc"
 )
 
