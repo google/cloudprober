@@ -1,6 +1,6 @@
 syntax = "proto2";
 
-package cloudprober.targets.rds;
+package cloudprober.rds;
 
 service ResourceDiscovery {
   // ListResources returns the list of resources matching the URI provided in

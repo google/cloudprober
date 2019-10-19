@@ -15,7 +15,7 @@
 // }
 syntax = "proto2";
 
-package cloudprober.targets.rds.kubernetes;
+package cloudprober.rds.kubernetes;
 
 message Pods {
   // Namespace to list resources for. If not specified, we default to all

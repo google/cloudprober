@@ -24,11 +24,11 @@ import (
 	"fmt"
 
 	"github.com/google/cloudprober/logger"
-	pb "github.com/google/cloudprober/targets/rds/proto"
-	spb "github.com/google/cloudprober/targets/rds/proto"
-	"github.com/google/cloudprober/targets/rds/server/gcp"
-	"github.com/google/cloudprober/targets/rds/server/kubernetes"
-	configpb "github.com/google/cloudprober/targets/rds/server/proto"
+	pb "github.com/google/cloudprober/rds/proto"
+	spb "github.com/google/cloudprober/rds/proto"
+	"github.com/google/cloudprober/rds/server/gcp"
+	"github.com/google/cloudprober/rds/server/kubernetes"
+	configpb "github.com/google/cloudprober/rds/server/proto"
 	"google.golang.org/grpc"
 )
 

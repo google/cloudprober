@@ -25,9 +25,9 @@ import (
 	"github.com/golang/protobuf/proto"
 
 	"github.com/google/cloudprober/logger"
-	"github.com/google/cloudprober/targets/rds/client"
-	configpb "github.com/google/cloudprober/targets/rds/client/proto"
-	pb "github.com/google/cloudprober/targets/rds/proto"
+	"github.com/google/cloudprober/rds/client"
+	configpb "github.com/google/cloudprober/rds/client/proto"
+	pb "github.com/google/cloudprober/rds/proto"
 )
 
 var (

@@ -22,10 +22,10 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/logger"
-	configpb "github.com/google/cloudprober/targets/rds/client/proto"
-	pb "github.com/google/cloudprober/targets/rds/proto"
-	"github.com/google/cloudprober/targets/rds/server"
-	serverpb "github.com/google/cloudprober/targets/rds/server/proto"
+	configpb "github.com/google/cloudprober/rds/client/proto"
+	pb "github.com/google/cloudprober/rds/proto"
+	"github.com/google/cloudprober/rds/server"
+	serverpb "github.com/google/cloudprober/rds/server/proto"
 )
 
 type testProvider struct {

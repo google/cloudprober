@@ -26,10 +26,10 @@ import (
 	"time"
 
 	"github.com/google/cloudprober/logger"
+	configpb "github.com/google/cloudprober/rds/client/proto"
+	pb "github.com/google/cloudprober/rds/proto"
+	spb "github.com/google/cloudprober/rds/proto"
 	"github.com/google/cloudprober/targets/endpoint"
-	configpb "github.com/google/cloudprober/targets/rds/client/proto"
-	pb "github.com/google/cloudprober/targets/rds/proto"
-	spb "github.com/google/cloudprober/targets/rds/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )

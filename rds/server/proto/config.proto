@@ -11,10 +11,10 @@
 // }
 syntax = "proto2";
 
-package cloudprober.targets.rds;
+package cloudprober.rds;
 
-import "github.com/google/cloudprober/targets/rds/server/gcp/proto/config.proto";
-import "github.com/google/cloudprober/targets/rds/server/kubernetes/proto/config.proto";
+import "github.com/google/cloudprober/rds/server/gcp/proto/config.proto";
+import "github.com/google/cloudprober/rds/server/kubernetes/proto/config.proto";
 
 message ServerConf {
   // List of providers that server supports.

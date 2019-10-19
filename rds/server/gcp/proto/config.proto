@@ -15,7 +15,7 @@
 // }
 syntax = "proto2";
 
-package cloudprober.targets.rds.gcp;
+package cloudprober.rds.gcp;
 
 message GCEInstances {
   // Zone filter, e.g. zone_filter: "us-east1-*" for all zones in us-east1

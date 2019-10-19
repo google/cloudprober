@@ -3,9 +3,9 @@ syntax = "proto2";
 
 package cloudprober.targets;
 
+import "github.com/google/cloudprober/rds/proto/rds.proto";
 import "github.com/google/cloudprober/targets/gce/proto/config.proto";
 import "github.com/google/cloudprober/targets/lameduck/proto/config.proto";
-import "github.com/google/cloudprober/targets/rds/proto/rds.proto";
 import "github.com/google/cloudprober/targets/rtc/proto/config.proto";
 
 message RDSTargets {

@@ -20,7 +20,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/logger"
-	pb "github.com/google/cloudprober/targets/rds/proto"
+	pb "github.com/google/cloudprober/rds/proto"
 	compute "google.golang.org/api/compute/v1"
 )
 

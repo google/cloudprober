@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	pb "github.com/google/cloudprober/targets/rds/proto"
+	pb "github.com/google/cloudprober/rds/proto"
 )
 
 // Filters encapsulates all types of filters. Its main purpose is to serve as a

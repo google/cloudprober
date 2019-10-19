@@ -33,8 +33,8 @@ import (
 	"strings"
 
 	"github.com/google/cloudprober/logger"
-	pb "github.com/google/cloudprober/targets/rds/proto"
-	configpb "github.com/google/cloudprober/targets/rds/server/kubernetes/proto"
+	pb "github.com/google/cloudprober/rds/proto"
+	configpb "github.com/google/cloudprober/rds/server/kubernetes/proto"
 )
 
 // DefaultProviderID is the povider id to use for this provider if a provider

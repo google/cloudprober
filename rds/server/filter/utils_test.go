@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/golang/protobuf/proto"
-	pb "github.com/google/cloudprober/targets/rds/proto"
+	pb "github.com/google/cloudprober/rds/proto"
 )
 
 func TestParseFilters(t *testing.T) {

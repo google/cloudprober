@@ -23,7 +23,7 @@ import (
 	"testing"
 
 	"github.com/golang/protobuf/proto"
-	rdspb "github.com/google/cloudprober/targets/rds/proto"
+	rdspb "github.com/google/cloudprober/rds/proto"
 )
 
 type mockLDLister struct {

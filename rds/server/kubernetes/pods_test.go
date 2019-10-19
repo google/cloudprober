@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/golang/protobuf/proto"
-	pb "github.com/google/cloudprober/targets/rds/proto"
+	pb "github.com/google/cloudprober/rds/proto"
 )
 
 func TestListResources(t *testing.T) {

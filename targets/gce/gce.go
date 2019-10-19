@@ -60,12 +60,12 @@ import (
 	configpb "github.com/google/cloudprober/targets/gce/proto"
 	dnsRes "github.com/google/cloudprober/targets/resolver"
 
-	"github.com/google/cloudprober/targets/rds/client"
-	clientconfigpb "github.com/google/cloudprober/targets/rds/client/proto"
-	rdspb "github.com/google/cloudprober/targets/rds/proto"
-	"github.com/google/cloudprober/targets/rds/server"
-	gcpconfigpb "github.com/google/cloudprober/targets/rds/server/gcp/proto"
-	serverconfigpb "github.com/google/cloudprober/targets/rds/server/proto"
+	"github.com/google/cloudprober/rds/client"
+	clientconfigpb "github.com/google/cloudprober/rds/client/proto"
+	rdspb "github.com/google/cloudprober/rds/proto"
+	"github.com/google/cloudprober/rds/server"
+	gcpconfigpb "github.com/google/cloudprober/rds/server/gcp/proto"
+	serverconfigpb "github.com/google/cloudprober/rds/server/proto"
 )
 
 var global struct {
