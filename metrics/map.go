@@ -169,8 +169,9 @@ func (m *Map) String() string {
 
 // ParseMapFromString parses a map value string into a map object.
 // Note that the values are always parsed as floats, so even a map with integer
-// values will become a float map. For example:
-// "map:code 200:10123 404:21" will be parsed as:
+// values will become a float map.
+// For example:
+// "map:code,200:10123,404:21" will be parsed as:
 // "map:code 200:10123.000 404:21.000".
 func ParseMapFromString(mapValue string) (*Map, error) {
 	tokens := strings.Split(mapValue, ",")

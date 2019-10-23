@@ -1,15 +1,23 @@
-// Configuration proto for GCE targets.
-// Example config:
+// Configuration proto for Kubernetes provider.
+//
+// Example provider config:
 // {
-//   project: 'test-project-id'
+//   pods {}
+// }
 //
-//   # GCE instances
-//   gce_instances {}
-//
-//   # RTC variables from the config lame-duck-targets, re-evaluated every 10s.
-//   rtc_variables {
-//     rtc_config {
-//       name: "lame-duck-targets"
+// In probe config:
+// probe {
+//   targets{
+//     rds_targets {
+//       resource_path: "k8s://pods"
+//       filter {
+//         key: "namespace"
+//         value: "default"
+//       }
+//       filter {
+//         key: "name"
+//         value: "cloudprober.*"
+//       }
 //     }
 //   }
 // }

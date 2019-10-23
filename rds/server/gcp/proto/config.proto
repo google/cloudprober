@@ -1,4 +1,4 @@
-// Configuration proto for GCE targets.
+// Configuration proto for GCP provider.
 // Example config:
 // {
 //   project: 'test-project-id'
@@ -10,6 +10,14 @@
 //   rtc_variables {
 //     rtc_config {
 //       name: "lame-duck-targets"
+//     }
+//   }
+//
+//   # Pub/Sub messages from the topic lame-duck-targets.
+//   pubsub_messages {
+//     subscription {
+//       name: "lame-duck-targets-{{.hostname}}"
+//       topic_name: "lame-duck-targets"
 //     }
 //   }
 // }
