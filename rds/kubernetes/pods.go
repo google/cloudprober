@@ -23,9 +23,9 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/logger"
+	configpb "github.com/google/cloudprober/rds/kubernetes/proto"
 	pb "github.com/google/cloudprober/rds/proto"
 	"github.com/google/cloudprober/rds/server/filter"
-	configpb "github.com/google/cloudprober/rds/server/kubernetes/proto"
 )
 
 type podsLister struct {
