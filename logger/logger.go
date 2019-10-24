@@ -107,6 +107,8 @@ func New(ctx context.Context, logName string) (*Logger, error) {
 	if !metadata.OnGCE() {
 		return l, nil
 	}
+
+	l.Infof("Running on GCE. Logs for %s will go to Cloud (Stackdriver).", logName)
 	projectID, err := metadata.ProjectID()
 	if err != nil {
 		return nil, err
