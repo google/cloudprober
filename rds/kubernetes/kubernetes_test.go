@@ -15,7 +15,6 @@
 package kubernetes
 
 import (
-	"io/ioutil"
 	"testing"
 )
 
@@ -43,36 +42,5 @@ func TestHTTPRequest(t *testing.T) {
 
 	if req.Header.Get("Authorization") != c.bearer {
 		t.Errorf("Got Authorization Header = %s, expected = %s", req.Header.Get("Authorization"), c.bearer)
-	}
-}
-
-func TestParseResourceList(t *testing.T) {
-	podsListFile := "./testdata/pods.json"
-	data, err := ioutil.ReadFile(podsListFile)
-
-	if err != nil {
-		t.Fatalf("error reading test data file: %s", podsListFile)
-	}
-
-	_, podsByName, err := parseResourceList(data, func(item jsonItem) (string, error) { return podIPFunc(item, nil) })
-	if err != nil {
-		t.Errorf("error parsing test json data: %s", string(data))
-	}
-
-	cpPod := "cloudprober-54778d95f5-7hqtd"
-	testNames := []string{cpPod, "test"}
-	for _, testP := range testNames {
-		if podsByName[testP] == nil {
-			t.Errorf("didn't get pod by the name: %s", testP)
-		}
-	}
-
-	if podsByName[cpPod].labels["app"] != "cloudprober" {
-		t.Errorf("cloudprober pod app label: got=%s, want=cloudprober", podsByName[cpPod].labels["app"])
-	}
-
-	cpPodIP := "10.28.0.3"
-	if podsByName[cpPod].ip != cpPodIP {
-		t.Errorf("cloudprober pod ip: got=%s, want=%s", podsByName[cpPod].ip, cpPodIP)
 	}
 }

@@ -248,7 +248,7 @@
         "enableServiceLinks": true
       },
       "status": {
-        "phase": "Running",
+        "phase": "Pending",
         "conditions": [
           {
             "type": "Initialized",
