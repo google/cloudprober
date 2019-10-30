@@ -47,6 +47,13 @@ type Provider struct {
 	podsLister *podsLister
 }
 
+// kMetadata represents metadata for all Kubernetes resources.
+type kMetadata struct {
+	Name      string
+	Namespace string
+	Labels    map[string]string
+}
+
 // ListResources returns the list of resources from the cache.
 func (p *Provider) ListResources(req *pb.ListResourcesRequest) (*pb.ListResourcesResponse, error) {
 	tok := strings.SplitN(req.GetResourcePath(), "/", 2)

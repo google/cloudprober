@@ -34,7 +34,7 @@ type podsLister struct {
 
 	mu    sync.RWMutex // Mutex for names and cache
 	names []string
-	cache map[string]*resource
+	cache map[string]*podInfo
 	l     *logger.Logger
 }
 
@@ -43,27 +43,6 @@ func podsURL(ns string) string {
 		return "api/v1/pods"
 	}
 	return fmt.Sprintf("api/v1/namespaces/%s/pods", ns)
-}
-
-// ipFunc implements the logic for retrieving IP address from a pod's JSON
-// representation.
-func podIPFunc(item jsonItem, l *logger.Logger) (string, error) {
-	var podStatus struct {
-		Phase string
-		PodIP string
-	}
-
-	err := json.Unmarshal(item.Status, &podStatus)
-	if err != nil {
-		return "", fmt.Errorf("error parsing status for the pod: %s", item.Metadata.Name)
-	}
-
-	if podStatus.Phase != "Running" {
-		l.Infof("Ignoring getting IP for non-running pod: %s", item.Metadata.Name)
-		return "", nil
-	}
-
-	return podStatus.PodIP, nil
 }
 
 func (pl *podsLister) listResources(filters []*pb.Filter) ([]*pb.Resource, error) {
@@ -84,24 +63,53 @@ func (pl *podsLister) listResources(filters []*pb.Filter) ([]*pb.Resource, error
 			continue
 		}
 
-		res := pl.cache[name]
-		if nsFilter != nil && !nsFilter.Match(res.namespace, pl.l) {
+		pod := pl.cache[name]
+		if nsFilter != nil && !nsFilter.Match(pod.Metadata.Namespace, pl.l) {
 			continue
 		}
-		if labelsFilter != nil && !labelsFilter.Match(res.labels, pl.l) {
+		if labelsFilter != nil && !labelsFilter.Match(pod.Metadata.Labels, pl.l) {
 			continue
 		}
 
 		resources = append(resources, &pb.Resource{
 			Name:   proto.String(name),
-			Ip:     proto.String(res.ip),
-			Port:   proto.Int32(int32(res.port)),
-			Labels: res.labels,
+			Ip:     proto.String(pod.Status.PodIP),
+			Labels: pod.Metadata.Labels,
 		})
 	}
 
 	pl.l.Infof("kubernetes.listResources: returning %d pods", len(resources))
 	return resources, nil
+}
+
+type podInfo struct {
+	Metadata kMetadata
+	Status   struct {
+		Phase string
+		PodIP string
+	}
+}
+
+func parsePodsJSON(resp []byte) (names []string, pods map[string]*podInfo, err error) {
+	var itemList struct {
+		Items []*podInfo
+	}
+
+	if err = json.Unmarshal(resp, &itemList); err != nil {
+		return
+	}
+
+	names = make([]string, len(itemList.Items))
+	pods = make(map[string]*podInfo)
+	for i, item := range itemList.Items {
+		if item.Status.Phase != "Running" {
+			continue
+		}
+		names[i] = item.Metadata.Name
+		pods[item.Metadata.Name] = item
+	}
+
+	return
 }
 
 func (pl *podsLister) expand() {
@@ -110,7 +118,7 @@ func (pl *podsLister) expand() {
 		pl.l.Warningf("podsLister.expand(): error while getting pods list from API: %v", err)
 	}
 
-	names, resources, err := parseResourceList(resp, func(item jsonItem) (string, error) { return podIPFunc(item, pl.l) })
+	names, pods, err := parsePodsJSON(resp)
 	if err != nil {
 		pl.l.Warningf("podsLister.expand(): error while parsing pods API response (%s): %v", string(resp), err)
 	}
@@ -120,7 +128,7 @@ func (pl *podsLister) expand() {
 	pl.mu.Lock()
 	defer pl.mu.Unlock()
 	pl.names = names
-	pl.cache = resources
+	pl.cache = pods
 }
 
 func newPodsLister(c *configpb.Pods, kc *client, l *logger.Logger) (*podsLister, error) {
