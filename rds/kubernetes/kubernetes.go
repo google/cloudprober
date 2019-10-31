@@ -31,6 +31,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/google/cloudprober/logger"
 	configpb "github.com/google/cloudprober/rds/kubernetes/proto"
@@ -89,9 +90,11 @@ func New(c *configpb.ProviderConfig, l *logger.Logger) (*Provider, error) {
 
 	p := &Provider{}
 
+	reEvalInterval := time.Duration(c.GetReEvalSec()) * time.Second
+
 	// Enable Pods lister if configured.
 	if c.GetPods() != nil {
-		podsLister, err := newPodsLister(c.GetPods(), client, l)
+		podsLister, err := newPodsLister(c.GetPods(), c.GetNamespace(), reEvalInterval, client, l)
 		if err != nil {
 			return nil, err
 		}
@@ -100,7 +103,7 @@ func New(c *configpb.ProviderConfig, l *logger.Logger) (*Provider, error) {
 
 	// Enable Endpoints lister if configured.
 	if c.GetEndpoints() != nil {
-		epLister, err := newEndpointsLister(c.GetEndpoints(), client, l)
+		epLister, err := newEndpointsLister(c.GetEndpoints(), c.GetNamespace(), reEvalInterval, client, l)
 		if err != nil {
 			return nil, err
 		}

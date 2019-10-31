@@ -31,8 +31,9 @@ import (
 )
 
 type epLister struct {
-	c       *configpb.Endpoints
-	kClient *client
+	c         *configpb.Endpoints
+	namespace string
+	kClient   *client
 
 	mu    sync.RWMutex // Mutex for names and cache
 	names []string
@@ -156,7 +157,7 @@ func parseEndpointsJSON(resp []byte) (names []string, endpoints map[string]*epIn
 }
 
 func (lister *epLister) expand() {
-	resp, err := lister.kClient.getURL(epURL(lister.c.GetNamespace()))
+	resp, err := lister.kClient.getURL(epURL(lister.namespace))
 	if err != nil {
 		lister.l.Warningf("epLister.expand(): error while getting endpoints list from API: %v", err)
 	}
@@ -174,14 +175,14 @@ func (lister *epLister) expand() {
 	lister.cache = endpoints
 }
 
-func newEndpointsLister(c *configpb.Endpoints, kc *client, l *logger.Logger) (*epLister, error) {
+func newEndpointsLister(c *configpb.Endpoints, namespace string, reEvalInterval time.Duration, kc *client, l *logger.Logger) (*epLister, error) {
 	lister := &epLister{
-		c:       c,
-		kClient: kc,
-		l:       l,
+		c:         c,
+		namespace: namespace,
+		kClient:   kc,
+		l:         l,
 	}
 
-	reEvalInterval := time.Duration(c.GetReEvalSec()) * time.Second
 	go func() {
 		lister.expand()
 		// Introduce a random delay between 0-reEvalInterval before
