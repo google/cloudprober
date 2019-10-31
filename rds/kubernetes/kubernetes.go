@@ -45,6 +45,7 @@ const DefaultProviderID = "k8s"
 // ResourceDiscovery server.
 type Provider struct {
 	podsLister *podsLister
+	epLister   *epLister
 }
 
 // kMetadata represents metadata for all Kubernetes resources.
@@ -66,6 +67,12 @@ func (p *Provider) ListResources(req *pb.ListResourcesRequest) (*pb.ListResource
 			return nil, errors.New("kubernetes: Pods lister not found")
 		}
 		resources, err := p.podsLister.listResources(req.GetFilter())
+		return &pb.ListResourcesResponse{Resources: resources}, err
+	case "endpoints":
+		if p.epLister == nil {
+			return nil, errors.New("kubernetes: Endpoints lister not found")
+		}
+		resources, err := p.epLister.listResources(req)
 		return &pb.ListResourcesResponse{Resources: resources}, err
 	default:
 		return nil, fmt.Errorf("kubernetes: unsupported resource type: %s", resType)
@@ -89,6 +96,15 @@ func New(c *configpb.ProviderConfig, l *logger.Logger) (*Provider, error) {
 			return nil, err
 		}
 		p.podsLister = podsLister
+	}
+
+	// Enable Endpoints lister if configured.
+	if c.GetEndpoints() != nil {
+		epLister, err := newEndpointsLister(c.GetEndpoints(), client, l)
+		if err != nil {
+			return nil, err
+		}
+		p.epLister = epLister
 	}
 
 	return p, nil
