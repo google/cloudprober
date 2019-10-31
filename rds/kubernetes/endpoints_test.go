@@ -32,7 +32,7 @@ func TestParseEndpoints(t *testing.T) {
 		}
 
 		if len(epi.Subsets) != 1 {
-			t.Errorf("cloudprober endpoints subsets count: got=%s, want=1", len(epi.Subsets))
+			t.Errorf("cloudprober endpoints subsets count: got=%d, want=1", len(epi.Subsets))
 		}
 
 		eps := epi.Subsets[0]
