@@ -29,8 +29,9 @@ import (
 )
 
 type podsLister struct {
-	c       *configpb.Pods
-	kClient *client
+	c         *configpb.Pods
+	namespace string
+	kClient   *client
 
 	mu    sync.RWMutex // Mutex for names and cache
 	names []string
@@ -113,7 +114,7 @@ func parsePodsJSON(resp []byte) (names []string, pods map[string]*podInfo, err e
 }
 
 func (pl *podsLister) expand() {
-	resp, err := pl.kClient.getURL(podsURL(pl.c.GetNamespace()))
+	resp, err := pl.kClient.getURL(podsURL(pl.namespace))
 	if err != nil {
 		pl.l.Warningf("podsLister.expand(): error while getting pods list from API: %v", err)
 	}
@@ -131,14 +132,14 @@ func (pl *podsLister) expand() {
 	pl.cache = pods
 }
 
-func newPodsLister(c *configpb.Pods, kc *client, l *logger.Logger) (*podsLister, error) {
+func newPodsLister(c *configpb.Pods, namespace string, reEvalInterval time.Duration, kc *client, l *logger.Logger) (*podsLister, error) {
 	pl := &podsLister{
-		c:       c,
-		kClient: kc,
-		l:       l,
+		c:         c,
+		namespace: namespace,
+		kClient:   kc,
+		l:         l,
 	}
 
-	reEvalInterval := time.Duration(c.GetReEvalSec()) * time.Second
 	go func() {
 		pl.expand()
 		// Introduce a random delay between 0-reEvalInterval before
