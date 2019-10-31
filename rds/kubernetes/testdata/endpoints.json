@@ -1,0 +1,152 @@
+{
+  "kind": "EndpointsList",
+  "apiVersion": "v1",
+  "metadata": {
+    "selfLink": "/api/v1/namespaces/default/endpoints/",
+    "resourceVersion": "82787693"
+  },
+  "items": [
+    {
+      "metadata": {
+        "name": "cloudprober",
+        "namespace": "default",
+        "selfLink": "/api/v1/namespaces/default/endpoints/cloudprober",
+        "uid": "4da58643-d753-11e8-ade0-42010a8a00bc",
+        "resourceVersion": "82682153",
+        "creationTimestamp": "2018-10-24T06:09:01Z",
+        "labels": {
+          "app": "cloudprober"
+        }
+      },
+      "subsets": [
+        {
+          "addresses": [
+            {
+              "ip": "10.28.0.3",
+              "nodeName": "gke-cluster-1-default-pool-abd8ad35-ccr7",
+              "targetRef": {
+                "kind": "Pod",
+                "namespace": "default",
+                "name": "cloudprober-test-577cf7bbcc-c7l5p",
+                "uid": "61b2a6f7-f9cc-11e9-a334-42010a8a00f9",
+                "resourceVersion": "82681480"
+              }
+            },
+            {
+              "ip": "10.28.2.3",
+              "nodeName": "gke-cluster-1-default-pool-abd8ad35-mzh9",
+              "targetRef": {
+                "kind": "Pod",
+                "namespace": "default",
+                "name": "cloudprober-test-577cf7bbcc-qnrvg",
+                "uid": "bacc6d7d-f9cc-11e9-a334-42010a8a00f9",
+                "resourceVersion": "82682121"
+              }
+            },
+            {
+              "ip": "10.28.2.6",
+              "nodeName": "gke-cluster-1-default-pool-abd8ad35-mzh9",
+              "targetRef": {
+                "kind": "Pod",
+                "namespace": "default",
+                "name": "cloudprober-54778d95f5-vms2d",
+                "uid": "bac90291-f9cc-11e9-a334-42010a8a00f9",
+                "resourceVersion": "82682150"
+              }
+            }
+          ],
+          "ports": [
+            {
+              "port": 9313,
+              "protocol": "TCP"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "metadata": {
+        "name": "cloudprober-test",
+        "namespace": "default",
+        "selfLink": "/api/v1/namespaces/default/endpoints/cloudprober-test",
+        "uid": "0767ed6e-bf94-11e9-bd13-42010a8a01bc",
+        "resourceVersion": "82682152",
+        "creationTimestamp": "2019-08-15T19:36:51Z",
+        "labels": {
+          "app": "cloudprober"
+        }
+      },
+      "subsets": [
+        {
+          "addresses": [
+            {
+              "ip": "10.28.0.3",
+              "nodeName": "gke-cluster-1-default-pool-abd8ad35-ccr7",
+              "targetRef": {
+                "kind": "Pod",
+                "namespace": "default",
+                "name": "cloudprober-test-577cf7bbcc-c7l5p",
+                "uid": "61b2a6f7-f9cc-11e9-a334-42010a8a00f9",
+                "resourceVersion": "82681480"
+              }
+            },
+            {
+              "ip": "10.28.2.3",
+              "nodeName": "gke-cluster-1-default-pool-abd8ad35-mzh9",
+              "targetRef": {
+                "kind": "Pod",
+                "namespace": "default",
+                "name": "cloudprober-test-577cf7bbcc-qnrvg",
+                "uid": "bacc6d7d-f9cc-11e9-a334-42010a8a00f9",
+                "resourceVersion": "82682121"
+              }
+            },
+            {
+              "ip": "10.28.2.6",
+              "nodeName": "gke-cluster-1-default-pool-abd8ad35-mzh9",
+              "targetRef": {
+                "kind": "Pod",
+                "namespace": "default",
+                "name": "cloudprober-54778d95f5-vms2d",
+                "uid": "bac90291-f9cc-11e9-a334-42010a8a00f9",
+                "resourceVersion": "82682150"
+              }
+            }
+          ],
+          "ports": [
+            {
+              "port": 9313,
+              "protocol": "TCP"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "metadata": {
+        "name": "kubernetes",
+        "namespace": "default",
+        "selfLink": "/api/v1/namespaces/default/endpoints/kubernetes",
+        "uid": "ae471cff-9b4f-11e8-a95e-42010a8a0ff8",
+        "resourceVersion": "32",
+        "creationTimestamp": "2018-08-08T21:11:56Z"
+      },
+      "subsets": [
+        {
+          "addresses": [
+            {
+              "ip": "35.233.172.216"
+            }
+          ],
+          "ports": [
+            {
+              "name": "https",
+              "port": 443,
+              "protocol": "TCP"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
