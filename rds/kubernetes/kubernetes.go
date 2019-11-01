@@ -45,8 +45,9 @@ const DefaultProviderID = "k8s"
 // Provider implements a Kubernetes (K8s) provider for use with a
 // ResourceDiscovery server.
 type Provider struct {
-	podsLister *podsLister
-	epLister   *epLister
+	podsLister     *podsLister
+	epLister       *epLister
+	servicesLister *servicesLister
 }
 
 // kMetadata represents metadata for all Kubernetes resources.
@@ -108,6 +109,15 @@ func New(c *configpb.ProviderConfig, l *logger.Logger) (*Provider, error) {
 			return nil, err
 		}
 		p.epLister = epLister
+	}
+
+	// Enable Endpoints lister if configured.
+	if c.GetServices() != nil {
+		servicesLister, err := newServicesLister(c.GetServices(), c.GetNamespace(), reEvalInterval, client, l)
+		if err != nil {
+			return nil, err
+		}
+		p.servicesLister = servicesLister
 	}
 
 	return p, nil

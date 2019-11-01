@@ -1,0 +1,124 @@
+{
+  "kind": "ServiceList",
+  "apiVersion": "v1",
+  "metadata": {
+    "selfLink": "/api/v1/namespaces/default/services",
+    "resourceVersion": "83573322"
+  },
+  "items": [
+    {
+      "metadata": {
+        "name": "cloudprober",
+        "namespace": "default",
+        "selfLink": "/api/v1/namespaces/default/services/cloudprober",
+        "uid": "4da3b97f-d753-11e8-ade0-42010a8a00bc",
+        "resourceVersion": "8911317",
+        "creationTimestamp": "2018-10-24T06:09:01Z",
+        "labels": {
+          "app": "cloudprober"
+        },
+        "annotations": {
+          "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"v1\",\"kind\":\"Service\",\"metadata\":{\"annotations\":{},\"labels\":{\"app\":\"cloudprober\"},\"name\":\"cloudprober\",\"namespace\":\"default\"},\"spec\":{\"ports\":[{\"port\":9313,\"protocol\":\"TCP\",\"targetPort\":9313}],\"selector\":{\"app\":\"cloudprober\"},\"type\":\"NodePort\"}}\n"
+        }
+      },
+      "spec": {
+        "ports": [
+          {
+            "protocol": "TCP",
+            "port": 9313,
+            "targetPort": 9313,
+            "nodePort": 30875
+          }
+        ],
+        "selector": {
+          "app": "cloudprober"
+        },
+        "clusterIP": "10.31.252.209",
+        "type": "NodePort",
+        "sessionAffinity": "None",
+        "externalTrafficPolicy": "Cluster"
+      },
+      "status": {
+        "loadBalancer": {
+
+        }
+      }
+    },
+    {
+      "metadata": {
+        "name": "cloudprober-test",
+        "namespace": "default",
+        "selfLink": "/api/v1/namespaces/default/services/cloudprober-test",
+        "uid": "0764e880-bf94-11e9-bd13-42010a8a01bc",
+        "resourceVersion": "82929468",
+        "creationTimestamp": "2019-08-15T19:36:51Z",
+        "labels": {
+          "app": "cloudprober"
+        },
+        "annotations": {
+          "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"v1\",\"kind\":\"Service\",\"metadata\":{\"annotations\":{},\"labels\":{\"app\":\"cloudprober\"},\"name\":\"cloudprober-test\",\"namespace\":\"default\"},\"spec\":{\"ports\":[{\"name\":\"http\",\"port\":9313,\"protocol\":\"TCP\",\"targetPort\":9313}],\"selector\":{\"app\":\"cloudprober\"},\"type\":\"NodePort\"}}\n"
+        }
+      },
+      "spec": {
+        "ports": [
+          {
+            "name": "http",
+            "protocol": "TCP",
+            "port": 9313,
+            "targetPort": 9313,
+            "nodePort": 32616
+          }
+        ],
+        "selector": {
+          "app": "cloudprober"
+        },
+        "clusterIP": "10.31.246.77",
+        "type": "NodePort",
+        "sessionAffinity": "None",
+        "externalTrafficPolicy": "Cluster"
+      },
+      "status": {
+        "loadBalancer": {
+
+        }
+      }
+    },
+    {
+      "metadata": {
+        "name": "kubernetes",
+        "namespace": "default",
+        "selfLink": "/api/v1/namespaces/default/services/kubernetes",
+        "uid": "ae448b87-9b4f-11e8-a95e-42010a8a0ff8",
+        "resourceVersion": "30",
+        "creationTimestamp": "2018-08-08T21:11:56Z",
+        "labels": {
+          "component": "apiserver",
+          "provider": "kubernetes"
+        }
+      },
+      "spec": {
+        "ports": [
+          {
+            "name": "https",
+            "protocol": "TCP",
+            "port": 443,
+            "targetPort": 443
+          }
+        ],
+        "clusterIP": "10.31.240.1",
+        "type": "ClusterIP",
+        "sessionAffinity": "ClientIP",
+        "sessionAffinityConfig": {
+          "clientIP": {
+            "timeoutSeconds": 10800
+          }
+        }
+      },
+      "status": {
+        "loadBalancer": {
+
+        }
+      }
+    }
+  ]
+}
