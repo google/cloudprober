@@ -364,7 +364,7 @@ minimum:</p>
 
 <tr>
 <td>latency</td>
-<td>Cumulative probe latency. Latency can be configured to be a distribution (histogram) metric through a config option. By default it&rsquo;s just a counter like <em>total</em> and <em>success</em>.</td>
+<td>Cumulative probe latency (by default in microseconds). Latency can also be configured to be a distribution (histogram) metric through a config option. By default it&rsquo;s just the sum of the latencies observed so far. Average latency can be computed using <em>rate(latency) / rate(success)</em>.</td>
 </tr>
 </tbody>
 </table>
