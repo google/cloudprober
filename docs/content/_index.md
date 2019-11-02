@@ -11,6 +11,7 @@ weight: -100
 [![Build
 Status](https://travis-ci.org/google/cloudprober.svg?branch=master)](https://travis-ci.org/google/cloudprober)
 [![Build status](https://ci.appveyor.com/api/projects/status/ypg1okxxfedwkksk?svg=true)](https://ci.appveyor.com/project/manugarg/cloudprober-wwcpu)
+![Docker Pulls](https://img.shields.io/docker/pulls/cloudprober/cloudprober.svg)
 
 Cloudprober is a monitoring software that makes it super-easy to monitor
 availability and performance of various components of your system. Cloudprober
@@ -26,25 +27,30 @@ what's broken in your system.
 
 ## Features
 
-*   Automated target discovery for Cloud targets. GCP is supported
-    out-of-the-box; other Cloud providers can be added easily.
-*   Integration with [StackDriver](https://cloud.google.com/stackdriver/). If
-    configured, Cloudprober exports probe results to StackDriver as custom
-    metrics.
+*   Automated target discovery for Cloud targets. GCE and Kubernetes are
+    supported out-of-the-box; other Cloud providers can be added easily.
 *   Integration with open source monitoring stack of
     [Prometheus](http://prometheus.io) and [Grafana](http://grafana.com).
     Cloudprober exports probe results as counter based metrics that work well
     with Prometheus and Grafana.
-*   Built-in implementations for the most common probe types: PING, HTTP, UDP,
-    DNS.
+*   Integration with [StackDriver](https://cloud.google.com/stackdriver/). If
+    configured, Cloudprober exports probe results to StackDriver as custom
+    metrics.
+*   Fast and efficient built-in implementations for the most common types of
+    checks: PING (ICMP), HTTP, UDP, DNS. Especially PING and UDP probes are
+    implemented in such a way that thousands of hosts can be probed with
+    minimal resources.
 *   Arbitrary, complex probes can be run through the external probe type. For
     example, you could write a simple script to insert and delete a row in your
     database, and execute this script through the 'EXTERNAL' probe type.
-*   Standard metrics - _total_, _success_, _latency_. Latency can be configured     to be a distribution (histogram) metric, allowing calculations of               percentiles.
-*   Fast and efficient PING and UDP probe implementations that allows probing       thousands of hosts with minimal resources.
+*   Standard metrics - _total_, _success_, _latency_. Latency can be configured
+    to be a distribution (histogram) metric, allowing calculations of
+    percentiles.
 *   Strong focus on ease of deployment. Cloudprober is written entirely in Go
-    and compiles into a static binary. It can be easily deployed, either as a standalone binary or through docker containers. Thanks to the automated, continuous, target discovery, there is usually no need to re-deploy or re-configure cloudprober in response to the most of the
-    changes.
+    and compiles into a static binary. It can be easily deployed, either as a
+    standalone binary or through docker containers. Thanks to the automated,
+    continuous, target discovery, there is usually no need to re-deploy or
+    re-configure cloudprober in response to the most of the changes.
 *   Low footprint. Cloudprober docker image is small, containing just the
     statically compiled binary and it takes very little CPU and RAM to run even
     a large number of probes.
