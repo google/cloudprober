@@ -2,7 +2,7 @@
 menu:
     main:
         parent: "How-Tos"
-        weight: 35
+        weight: 40
 title: "Extending Cloudprober"
 date: 2018-10-29T17:24:32-07:00
 ---

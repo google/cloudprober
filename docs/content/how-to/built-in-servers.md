@@ -2,7 +2,7 @@
 menu:
     main:
         parent: "How-Tos"
-        weight: 35
+        weight: 27
 title: "Built-in Servers"
 date: 2019-10-11T17:48:13-05:00
 ---
