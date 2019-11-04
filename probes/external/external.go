@@ -280,13 +280,19 @@ func (p *Probe) readProbeReplies(done chan struct{}) error {
 }
 
 func (p *Probe) defaultMetrics(target string, result *result) *metrics.EventMetrics {
-	return metrics.NewEventMetrics(time.Now()).
+	em := metrics.NewEventMetrics(time.Now()).
 		AddMetric("success", metrics.NewInt(result.success)).
 		AddMetric("total", metrics.NewInt(result.total)).
 		AddMetric("latency", result.latency).
 		AddLabel("ptype", "external").
 		AddLabel("probe", p.name).
 		AddLabel("dst", target)
+
+	if p.opts.Validators != nil {
+		em.AddMetric("validation_failure", result.validationFailure)
+	}
+
+	return em
 }
 
 func (p *Probe) labels(target string) map[string]string {
@@ -513,7 +519,8 @@ func (p *Probe) updateTargets() {
 			latencyValue = metrics.NewFloat(0)
 		}
 		p.results[t] = &result{
-			latency: latencyValue,
+			latency:           latencyValue,
+			validationFailure: validators.ValidationFailureMap(p.opts.Validators),
 		}
 		if p.c.GetOutputMetricsOptions().GetAggregateInCloudprober() {
 			// If we are aggregating in Cloudprober, we maintain an EventMetrics
