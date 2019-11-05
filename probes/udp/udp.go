@@ -37,6 +37,7 @@ import (
 	configpb "github.com/google/cloudprober/probes/udp/proto"
 	udpsrv "github.com/google/cloudprober/servers/udp"
 	"github.com/google/cloudprober/sysvars"
+	"github.com/google/cloudprober/targets/endpoint"
 )
 
 const (
@@ -72,7 +73,7 @@ type Probe struct {
 	runID       uint64
 	ipVer       int
 
-	targets []string              // List of targets for a probe iteration.
+	targets []endpoint.Endpoint   // List of targets for a probe iteration.
 	res     map[flow]*probeResult // Results by flow.
 	fsm     *message.FlowStateMap // Map flow parameters to flow state.
 
@@ -92,7 +93,7 @@ type probeResult struct {
 }
 
 // Metrics converts probeResult into metrics.EventMetrics object
-func (prr probeResult) EventMetrics(probeName string, f flow, c *configpb.ProbeConf) *metrics.EventMetrics {
+func (prr probeResult) eventMetrics(probeName string, opts *options.Options, f flow, c *configpb.ProbeConf) *metrics.EventMetrics {
 	var suffix string
 	if c.GetExportMetricsByPort() {
 		suffix = "-per-port"
@@ -105,10 +106,16 @@ func (prr probeResult) EventMetrics(probeName string, f flow, c *configpb.ProbeC
 		AddLabel("ptype", "udp").
 		AddLabel("probe", probeName).
 		AddLabel("dst", f.target)
+
+	for _, al := range opts.AdditionalLabels {
+		m.AddLabel(al.KeyValueForTarget(f.target))
+	}
+
 	if c.GetExportMetricsByPort() {
 		m.AddLabel("src_port", f.srcPort).
 			AddLabel("dst_port", fmt.Sprintf("%d", c.GetPort()))
 	}
+
 	return m
 }
 
@@ -198,7 +205,7 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 func (p *Probe) initProbeRunResults() error {
 	for _, target := range p.targets {
 		if !p.c.GetExportMetricsByPort() {
-			f := flow{"", target}
+			f := flow{"", target.Name}
 			if p.res[f] == nil {
 				p.res[f] = p.newProbeResult()
 			}
@@ -206,7 +213,7 @@ func (p *Probe) initProbeRunResults() error {
 		}
 
 		for _, srcPort := range p.srcPortList {
-			f := flow{srcPort, target}
+			f := flow{srcPort, target.Name}
 			if p.res[f] == nil {
 				p.res[f] = p.newProbeResult()
 			}
@@ -418,7 +425,7 @@ func (p *Probe) runProbe() {
 				if err := p.runSingleProbe(f, conn, maxLen, dstPort); err != nil {
 					p.l.Errorf("Probing %+v failed: %v", f, err)
 				}
-			}(conn, flow{p.srcPortList[connID], target})
+			}(conn, flow{p.srcPortList[connID], target.Name})
 		}
 	}
 	wg.Wait()
@@ -427,7 +434,7 @@ func (p *Probe) runProbe() {
 
 // Start starts and runs the probe indefinitely.
 func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) {
-	p.targets = p.opts.Targets.List()
+	p.targets = p.opts.Targets.ListEndpoints()
 	p.initProbeRunResults()
 
 	for _, conn := range p.connList {
@@ -451,12 +458,12 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 			p.processPackets()
 		case <-statsExportTicker.C:
 			for f, result := range p.res {
-				em := result.EventMetrics(p.name, f, p.c)
+				em := result.eventMetrics(p.name, p.opts, f, p.c)
 				p.opts.LogMetrics(em)
 				dataChan <- em
 			}
 
-			p.targets = p.opts.Targets.List()
+			p.targets = p.opts.Targets.ListEndpoints()
 			if len(p.targets) > maxTargets {
 				p.l.Warningf("Number of targets (%d) > maxTargets (%d). Truncating the targets list.", len(p.targets), maxTargets)
 				p.targets = p.targets[:maxTargets]
