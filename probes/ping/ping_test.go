@@ -28,6 +28,7 @@ import (
 	"github.com/google/cloudprober/probes/options"
 	configpb "github.com/google/cloudprober/probes/ping/proto"
 	"github.com/google/cloudprober/targets"
+	"github.com/google/cloudprober/targets/endpoint"
 	"golang.org/x/net/icmp"
 	"golang.org/x/net/ipv4"
 	"golang.org/x/net/ipv6"
@@ -73,14 +74,14 @@ type testICMPConn struct {
 	flipLastByteMu sync.Mutex
 }
 
-func newTestICMPConn(opts *options.Options, targets []string) *testICMPConn {
+func newTestICMPConn(opts *options.Options, targets []endpoint.Endpoint) *testICMPConn {
 	tic := &testICMPConn{
 		c:           opts.ProbeConf.(*configpb.ProbeConf),
 		ipVersion:   opts.IPVersion,
 		sentPackets: make(map[string](chan []byte)),
 	}
 	for _, target := range targets {
-		tic.sentPackets[target] = make(chan []byte, tic.c.GetPacketsPerProbe())
+		tic.sentPackets[target.Name] = make(chan []byte, tic.c.GetPacketsPerProbe())
 	}
 	return tic
 }
@@ -166,7 +167,8 @@ func sendAndCheckPackets(p *Probe, t *testing.T) {
 		expectedMsgType = ipv6.ICMPTypeEchoRequest
 	}
 
-	for _, target := range p.targets {
+	for _, ep := range p.targets {
+		target := ep.Name
 		if int(p.results[target].sent) != int(p.c.GetPacketsPerProbe()) {
 			t.Errorf("Mismatch in number of packets recorded to be sent. Sent: %d, Recorded: %d", p.c.GetPacketsPerProbe(), p.results[target].sent)
 		}
@@ -247,8 +249,8 @@ func TestSendPacketsIPv6ToIPv4Hosts(t *testing.T) {
 	trackerChan := make(chan bool, int(c.GetPacketsPerProbe())*len(p.targets))
 	p.sendPackets(p.newRunID(), trackerChan)
 	for _, target := range p.targets {
-		if len(tic.sentPackets[target]) != 0 {
-			t.Errorf("IPv6 probe: should not have received any packets for IPv4 only targets, but got %d packets", len(tic.sentPackets[target]))
+		if len(tic.sentPackets[target.Name]) != 0 {
+			t.Errorf("IPv6 probe: should not have received any packets for IPv4 only targets, but got %d packets", len(tic.sentPackets[target.Name]))
 		}
 	}
 }
@@ -301,7 +303,9 @@ func testRunProbe(t *testing.T, ipVersion int, useDatagramSocket bool, payloadSi
 
 	p.conn = newTestICMPConn(p.opts, p.targets)
 	p.runProbe()
-	for _, target := range p.targets {
+	for _, ep := range p.targets {
+		target := ep.Name
+
 		glog.Infof("target: %s, sent: %d, received: %d, total_rtt: %s", target, p.results[target].sent, p.results[target].rcvd, p.results[target].latency)
 		if p.results[target].sent == 0 || (p.results[target].sent != p.results[target].rcvd) {
 			t.Errorf("We are leaking packets. Sent: %d, Received: %d", p.results[target].sent, p.results[target].rcvd)
@@ -352,7 +356,9 @@ func TestDataIntegrityValidation(t *testing.T) {
 	// We'll use sent and rcvd to take a snapshot of the probe counters.
 	sent := make(map[string]int64)
 	rcvd := make(map[string]int64)
-	for _, target := range p.targets {
+	for _, ep := range p.targets {
+		target := ep.Name
+
 		sent[target] = p.results[target].sent
 		rcvd[target] = p.results[target].rcvd
 
@@ -367,7 +373,9 @@ func TestDataIntegrityValidation(t *testing.T) {
 
 	// Run probe again, this time we should see data integrity validation failures.
 	p.runProbe()
-	for _, target := range p.targets {
+	for _, ep := range p.targets {
+		target := ep.Name
+
 		glog.Infof("target: %s, sent: %d, received: %d, total_rtt: %s", target, p.results[target].sent, p.results[target].rcvd, p.results[target].latency)
 
 		// Verify that we didn't increased the received counter.

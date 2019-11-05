@@ -52,6 +52,7 @@ import (
 	"github.com/google/cloudprober/metrics"
 	"github.com/google/cloudprober/probes/options"
 	configpb "github.com/google/cloudprober/probes/ping/proto"
+	"github.com/google/cloudprober/targets/endpoint"
 	"github.com/google/cloudprober/validators"
 	"github.com/google/cloudprober/validators/integrity"
 )
@@ -82,7 +83,7 @@ type Probe struct {
 	// book-keeping params
 	source            string
 	ipVer             int
-	targets           []string
+	targets           []endpoint.Endpoint
 	results           map[string]*result
 	conn              icmpConn
 	runCnt            uint64
@@ -193,26 +194,31 @@ func (p *Probe) listen() error {
 }
 
 func (p *Probe) updateTargets() {
-	p.targets = p.opts.Targets.List()
+	p.targets = p.opts.Targets.ListEndpoints()
 
-	for _, t := range p.targets {
+	for _, target := range p.targets {
+		for _, al := range p.opts.AdditionalLabels {
+			al.UpdateForTarget(target.Name, target.Labels)
+		}
+
 		// Update results map:
-		p.updateResultForTarget(t)
+		p.updateResultForTarget(target.Name)
 
-		ip, err := p.opts.Targets.Resolve(t, p.ipVer)
+		ip, err := p.opts.Targets.Resolve(target.Name, p.ipVer)
 		if err != nil {
-			p.l.Warning("Bad target: ", t, ". Err: ", err.Error())
-			p.target2addr[t] = nil
+			p.l.Warning("Bad target: ", target.Name, ". Err: ", err.Error())
+			p.target2addr[target.Name] = nil
 			continue
 		}
+
 		var a net.Addr
 		if p.useDatagramSocket {
 			a = &net.UDPAddr{IP: ip}
 		} else {
 			a = &net.IPAddr{IP: ip}
 		}
-		p.target2addr[t] = a
-		p.ip2target[ipToKey(ip)] = t
+		p.target2addr[target.Name] = a
+		p.ip2target[ipToKey(ip)] = target.Name
 	}
 }
 
@@ -253,17 +259,17 @@ func (p *Probe) sendPackets(runID uint16, tracker chan bool) {
 
 	for {
 		for _, target := range p.targets {
-			if p.target2addr[target] == nil {
-				p.l.Debug("Skipping unresolved target: ", target)
+			if p.target2addr[target.Name] == nil {
+				p.l.Debug("Skipping unresolved target: ", target.Name)
 				continue
 			}
 			p.prepareRequestPacket(pktbuf, runID, seq, time.Now().UnixNano())
-			if _, err := p.conn.write(pktbuf, p.target2addr[target]); err != nil {
+			if _, err := p.conn.write(pktbuf, p.target2addr[target.Name]); err != nil {
 				p.l.Warning(err.Error())
 				continue
 			}
 			tracker <- true
-			p.results[target].sent++
+			p.results[target.Name].sent++
 		}
 
 		packetsSent++
@@ -462,15 +468,20 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 		if (p.runCnt % uint64(p.statsExportFreq)) != 0 {
 			continue
 		}
-		for _, t := range p.targets {
-			result := p.results[t]
+		for _, target := range p.targets {
+			result := p.results[target.Name]
 			em := metrics.NewEventMetrics(ts).
 				AddMetric("total", metrics.NewInt(result.sent)).
 				AddMetric("success", metrics.NewInt(result.rcvd)).
 				AddMetric("latency", result.latency).
 				AddLabel("ptype", "ping").
 				AddLabel("probe", p.name).
-				AddLabel("dst", t)
+				AddLabel("dst", target.Name)
+
+			for _, al := range p.opts.AdditionalLabels {
+				em.AddLabel(al.KeyValueForTarget(target.Name))
+			}
+
 			if p.opts.Validators != nil {
 				em.AddMetric("validation_failure", result.validationFailure)
 			}

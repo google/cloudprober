@@ -122,7 +122,9 @@ func runAndVerifyProbe(t *testing.T, p *Probe, tgts []string, total, success map
 
 	p.runProbe(context.Background())
 
-	for _, tgt := range p.targets {
+	for _, target := range p.targets {
+		tgt := target.Name
+
 		if p.results[tgt].total != total[tgt] {
 			t.Errorf("p.total[%s]=%d, Want: %d", tgt, p.results[tgt].total, total[tgt])
 		}
