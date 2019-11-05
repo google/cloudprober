@@ -57,6 +57,7 @@ import (
 	"cloud.google.com/go/compute/metadata"
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/logger"
+	"github.com/google/cloudprober/targets/endpoint"
 	configpb "github.com/google/cloudprober/targets/gce/proto"
 	dnsRes "github.com/google/cloudprober/targets/resolver"
 
@@ -180,13 +181,22 @@ func (gr *gceResources) initClients(projects []string) error {
 	return nil
 }
 
-// List calls List() on the underlying RDS clients.
+// List returns the list of target names.
 func (gr *gceResources) List() []string {
 	var names []string
 	for _, client := range gr.clients {
 		names = append(names, client.List()...)
 	}
 	return names
+}
+
+// ListEndpoints returns the list of GCE endpoints.
+func (gr *gceResources) ListEndpoints() []endpoint.Endpoint {
+	var ep []endpoint.Endpoint
+	for _, client := range gr.clients {
+		ep = append(ep, client.ListEndpoints()...)
+	}
+	return ep
 }
 
 // Resolve resolves the name into an IP address. Unless explicitly configured
