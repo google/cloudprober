@@ -116,7 +116,7 @@ func runProbe(ctx context.Context, t *testing.T, interval, timeout time.Duration
 	if err := p.Init("udp", opts); err != nil {
 		t.Fatalf("Error initializing UDP probe: %v", err)
 	}
-	p.targets = p.opts.Targets.List()
+	p.targets = p.opts.Targets.ListEndpoints()
 	p.initProbeRunResults()
 
 	for _, conn := range p.connList {
@@ -272,7 +272,7 @@ func TestExport(t *testing.T) {
 		ExportMetricsByPort: proto.Bool(true),
 		Port:                proto.Int32(1234),
 	}
-	m := res.EventMetrics("probe", flow{"port", "target"}, &conf)
+	m := res.eventMetrics("probe", &options.Options{}, flow{"port", "target"}, &conf)
 	if r := extractMetric(m, "total-per-port"); r != 3 {
 		t.Errorf("extractMetric(m,\"total-per-port\")=%d, want 3", r)
 	}
@@ -289,7 +289,7 @@ func TestExport(t *testing.T) {
 		ExportMetricsByPort: proto.Bool(false),
 		Port:                proto.Int32(1234),
 	}
-	m = res.EventMetrics("probe", flow{"port", "target"}, &conf)
+	m = res.eventMetrics("probe", &options.Options{}, flow{"port", "target"}, &conf)
 	if r := extractMetric(m, "total"); r != 3 {
 		t.Errorf("extractMetric(m,\"total\")=%d, want 3", r)
 	}
