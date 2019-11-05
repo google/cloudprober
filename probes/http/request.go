@@ -19,6 +19,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+
+	"github.com/google/cloudprober/targets/endpoint"
 )
 
 // requestBody encapsulates the request body and implements the io.ReadCloser()
@@ -38,14 +40,14 @@ func (rb *requestBody) Close() error {
 	return nil
 }
 
-func (p *Probe) httpRequestForTarget(target string) *http.Request {
+func (p *Probe) httpRequestForTarget(target endpoint.Endpoint) *http.Request {
 	// Prepare HTTP.Request for Client.Do
-	host := target
+	host := target.Name
 
 	if p.c.GetResolveFirst() {
-		ip, err := p.opts.Targets.Resolve(target, p.opts.IPVersion)
+		ip, err := p.opts.Targets.Resolve(target.Name, p.opts.IPVersion)
 		if err != nil {
-			p.l.Error("target: ", target, ", resolve error: ", err.Error())
+			p.l.Error("target: ", target.Name, ", resolve error: ", err.Error())
 			return nil
 		}
 		host = ip.String()
@@ -53,6 +55,8 @@ func (p *Probe) httpRequestForTarget(target string) *http.Request {
 
 	if p.c.GetPort() != 0 {
 		host = fmt.Sprintf("%s:%d", host, p.c.GetPort())
+	} else if target.Port != 0 {
+		host = fmt.Sprintf("%s:%d", host, target.Port)
 	}
 
 	url := fmt.Sprintf("%s://%s%s", p.protocol, host, p.url)
@@ -63,14 +67,14 @@ func (p *Probe) httpRequestForTarget(target string) *http.Request {
 	}
 	req, err := http.NewRequest(p.method, url, body)
 	if err != nil {
-		p.l.Error("target: ", target, ", error creating HTTP request: ", err.Error())
+		p.l.Error("target: ", target.Name, ", error creating HTTP request: ", err.Error())
 		return nil
 	}
 
 	// If resolving early, URL contains IP for the hostname (see above). Update
 	// req.Host after request creation, so that correct Host header is sent to the
 	// web server.
-	req.Host = target
+	req.Host = target.Name
 
 	for _, header := range p.c.GetHeaders() {
 		req.Header.Set(header.GetName(), header.GetValue())
