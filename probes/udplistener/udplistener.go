@@ -48,8 +48,8 @@ import (
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/message"
 	"github.com/google/cloudprober/metrics"
+	"github.com/google/cloudprober/probes/common/statskeeper"
 	"github.com/google/cloudprober/probes/options"
-	"github.com/google/cloudprober/probes/probeutils"
 
 	configpb "github.com/google/cloudprober/probes/udplistener/proto"
 	udpsrv "github.com/google/cloudprober/servers/udp"
@@ -231,7 +231,7 @@ func (p *Probe) processMessage(buf []byte, rxTS time.Time, srcAddr *net.UDPAddr)
 }
 
 // outputResults writes results to the output channel.
-func (p *Probe) outputResults(expectedCt int64, stats chan<- probeutils.ProbeResult) {
+func (p *Probe) outputResults(expectedCt int64, stats chan<- statskeeper.ProbeResult) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	for _, r := range p.res {
@@ -244,7 +244,7 @@ func (p *Probe) outputResults(expectedCt int64, stats chan<- probeutils.ProbeRes
 	p.initProbeRunResults()
 }
 
-func (p *Probe) outputLoop(ctx context.Context, stats chan<- probeutils.ProbeResult) {
+func (p *Probe) outputLoop(ctx context.Context, stats chan<- statskeeper.ProbeResult) {
 	// Use a ticker to control stats output and error logging.
 	// ticker should be a multiple of interval between pkts (i.e., p.opts.Interval).
 	pktsPerExportInterval := int64(p.opts.StatsExportInterval / p.opts.Interval)
@@ -331,7 +331,7 @@ func (p *Probe) recvLoop(ctx context.Context, echoChan chan<- *echoMsg) {
 }
 
 // probeLoop starts the necessary threads and waits for them to exit.
-func (p *Probe) probeLoop(ctx context.Context, resultsChan chan<- probeutils.ProbeResult) {
+func (p *Probe) probeLoop(ctx context.Context, resultsChan chan<- statskeeper.ProbeResult) {
 	var wg sync.WaitGroup
 
 	// Output Loop for metrics
@@ -358,12 +358,12 @@ func (p *Probe) probeLoop(ctx context.Context, resultsChan chan<- probeutils.Pro
 
 // Start starts and runs the probe indefinitely.
 func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) {
-	resultsChan := make(chan probeutils.ProbeResult, len(p.targets))
+	resultsChan := make(chan statskeeper.ProbeResult, len(p.targets))
 	targetsFunc := func() []string {
 		return p.targets
 	}
 
-	go probeutils.StatsKeeper(ctx, "udp", p.name, p.opts.StatsExportInterval, targetsFunc, resultsChan, dataChan, p.opts.LogMetrics, p.l)
+	go statskeeper.StatsKeeper(ctx, "udp", p.name, p.opts, targetsFunc, resultsChan, dataChan)
 
 	// probeLoop runs forever and returns only when the probe has to exit.
 	// So, it is safe to cleanup (in the "Start" function) once probeLoop returns.

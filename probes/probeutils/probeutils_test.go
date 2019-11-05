@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 2017-2019 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,101 +15,10 @@
 package probeutils
 
 import (
-	"context"
 	"net"
 	"reflect"
 	"testing"
-	"time"
-
-	"github.com/google/cloudprober/logger"
-	"github.com/google/cloudprober/metrics"
 )
-
-// probeRunResult captures the results of a single probe run. The way we work with
-// stats makes sure that probeRunResult and its fields are not accessed concurrently
-// (see documentation with statsKeeper below). That's the reason we use metrics.Int
-// types instead of metrics.AtomicInt.
-type probeRunResult struct {
-	target string
-	sent   metrics.Int
-	rcvd   metrics.Int
-	rtt    metrics.Int // microseconds
-}
-
-func newProbeRunResult(target string) probeRunResult {
-	return probeRunResult{
-		target: target,
-	}
-}
-
-// Metrics converts probeRunResult into a map of the metrics that is suitable for
-// working with metrics.EventMetrics.
-func (prr probeRunResult) Metrics() *metrics.EventMetrics {
-	return metrics.NewEventMetrics(time.Now()).
-		AddMetric("sent", &prr.sent).
-		AddMetric("rcvd", &prr.rcvd).
-		AddMetric("rtt", &prr.rtt)
-}
-
-// Target returns the p.target.
-func (prr probeRunResult) Target() string {
-	return prr.target
-}
-
-func TestStatsKeeper(t *testing.T) {
-	targets := []string{
-		"target1",
-		"target2",
-	}
-	pType := "test"
-	pName := "testProbe"
-	exportInterval := 2 * time.Second
-
-	resultsChan := make(chan ProbeResult, len(targets))
-	ctx, cancelFunc := context.WithCancel(context.Background())
-	defer cancelFunc()
-
-	targetsFunc := func() []string {
-		return targets
-	}
-	dataChan := make(chan *metrics.EventMetrics, len(targets))
-
-	go StatsKeeper(ctx, pType, pName, exportInterval, targetsFunc, resultsChan, dataChan, nil, &logger.Logger{})
-
-	for _, t := range targets {
-		prr := newProbeRunResult(t)
-		prr.sent.Inc()
-		prr.rcvd.Inc()
-		prr.rtt.IncBy(metrics.NewInt(20000))
-		resultsChan <- prr
-	}
-	time.Sleep(3 * time.Second)
-
-	for i := 0; i < len(dataChan); i++ {
-		em := <-dataChan
-		var foundTarget bool
-		for _, target := range targets {
-			if em.Label("dst") == target {
-				foundTarget = true
-				break
-			}
-		}
-		if !foundTarget {
-			t.Error("didn't get expected target label in the event metric")
-		}
-		expectedValues := map[string]int64{
-			"sent": 1,
-			"rcvd": 1,
-			"rtt":  20000,
-		}
-		for key, eVal := range expectedValues {
-			val := em.Metric(key).(metrics.NumValue).Int64()
-			if val != eVal {
-				t.Errorf("%s metric is not set correctly. Got: %d, Expected: %d", key, val, eVal)
-			}
-		}
-	}
-}
 
 func TestIPVersion(t *testing.T) {
 	rows := []struct {

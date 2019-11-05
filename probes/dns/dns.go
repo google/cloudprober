@@ -34,9 +34,9 @@ import (
 
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
+	"github.com/google/cloudprober/probes/common/statskeeper"
 	configpb "github.com/google/cloudprober/probes/dns/proto"
 	"github.com/google/cloudprober/probes/options"
-	"github.com/google/cloudprober/probes/probeutils"
 	"github.com/google/cloudprober/validators"
 	"github.com/miekg/dns"
 )
@@ -186,7 +186,7 @@ func (p *Probe) validateResponse(resp *dns.Msg, target string, result *probeRunR
 	return true
 }
 
-func (p *Probe) runProbe(resultsChan chan<- probeutils.ProbeResult) {
+func (p *Probe) runProbe(resultsChan chan<- statskeeper.ProbeResult) {
 	// Refresh the list of targets to probe.
 	p.targets = p.opts.Targets.List()
 
@@ -196,7 +196,7 @@ func (p *Probe) runProbe(resultsChan chan<- probeutils.ProbeResult) {
 
 		// Launch a separate goroutine for each target.
 		// Write probe results to the "resultsChan" channel.
-		go func(target string, resultsChan chan<- probeutils.ProbeResult) {
+		go func(target string, resultsChan chan<- statskeeper.ProbeResult) {
 			defer wg.Done()
 
 			result := probeRunResult{
@@ -235,7 +235,7 @@ func (p *Probe) runProbe(resultsChan chan<- probeutils.ProbeResult) {
 
 // Start starts and runs the probe indefinitely.
 func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) {
-	resultsChan := make(chan probeutils.ProbeResult, len(p.targets))
+	resultsChan := make(chan statskeeper.ProbeResult, len(p.targets))
 
 	// This function is used by StatsKeeper to get the latest list of targets.
 	// TODO(manugarg): Make p.targets mutex protected as it's read and written by concurrent goroutines.
@@ -243,7 +243,7 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 		return p.targets
 	}
 
-	go probeutils.StatsKeeper(ctx, "dns", p.name, p.opts.StatsExportInterval, targetsFunc, resultsChan, dataChan, p.opts.LogMetrics, p.l)
+	go statskeeper.StatsKeeper(ctx, "dns", p.name, p.opts, targetsFunc, resultsChan, dataChan)
 
 	ticker := time.NewTicker(p.opts.Interval)
 	defer ticker.Stop()
