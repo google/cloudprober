@@ -44,6 +44,7 @@ import (
 	serverpb "github.com/google/cloudprober/probes/external/proto"
 	"github.com/google/cloudprober/probes/external/serverutils"
 	"github.com/google/cloudprober/probes/options"
+	"github.com/google/cloudprober/targets/endpoint"
 	"github.com/google/cloudprober/validators"
 )
 
@@ -87,7 +88,7 @@ type Probe struct {
 	cmdStdout  io.ReadCloser
 	cmdStderr  io.ReadCloser
 	replyChan  chan *serverpb.ProbeReply
-	targets    []string
+	targets    []endpoint.Endpoint
 	results    map[string]*result // probe results keyed by targets
 	dataChan   chan *metrics.EventMetrics
 
@@ -288,6 +289,10 @@ func (p *Probe) defaultMetrics(target string, result *result) *metrics.EventMetr
 		AddLabel("probe", p.name).
 		AddLabel("dst", target)
 
+	for _, al := range p.opts.AdditionalLabels {
+		em.AddLabel(al.KeyValueForTarget(target))
+	}
+
 	if p.opts.Validators != nil {
 		em.AddMetric("validation_failure", result.validationFailure)
 	}
@@ -439,14 +444,14 @@ func (p *Probe) runServerProbe(ctx context.Context) {
 	// Send probe requests
 	for _, target := range p.targets {
 		p.requestID++
-		p.results[target].total++
+		p.results[target.Name].total++
 		requestsMu.Lock()
 		requests[p.requestID] = requestInfo{
-			target:    target,
+			target:    target.Name,
 			timestamp: time.Now(),
 		}
 		requestsMu.Unlock()
-		p.sendRequest(p.requestID, target)
+		p.sendRequest(p.requestID, target.Name)
 		time.Sleep(TimeBetweenRequests)
 	}
 
@@ -468,11 +473,11 @@ func (p *Probe) runOnceProbe(ctx context.Context) {
 
 	for _, target := range p.targets {
 		wg.Add(1)
-		go func(target string, result *result) {
+		go func(target endpoint.Endpoint, result *result) {
 			defer wg.Done()
 			args := make([]string, len(p.cmdArgs))
 			for i, arg := range p.cmdArgs {
-				res, found := substituteLabels(arg, p.labels(target))
+				res, found := substituteLabels(arg, p.labels(target.Name))
 				if !found {
 					p.l.Warningf("Substitution not found in %q", arg)
 				}
@@ -495,37 +500,44 @@ func (p *Probe) runOnceProbe(ctx context.Context) {
 			}
 
 			p.processProbeResult(&probeStatus{
-				target:  target,
+				target:  target.Name,
 				success: success,
 				latency: time.Since(startTime),
 				payload: string(b),
 			}, result)
-		}(target, p.results[target])
+		}(target, p.results[target.Name])
 	}
 	wg.Wait()
 }
 
 func (p *Probe) updateTargets() {
-	p.targets = p.opts.Targets.List()
+	p.targets = p.opts.Targets.ListEndpoints()
 
-	for _, t := range p.targets {
-		if _, ok := p.results[t]; ok {
+	for _, target := range p.targets {
+		if _, ok := p.results[target.Name]; ok {
 			continue
 		}
+
 		var latencyValue metrics.Value
 		if p.opts.LatencyDist != nil {
 			latencyValue = p.opts.LatencyDist.Clone()
 		} else {
 			latencyValue = metrics.NewFloat(0)
 		}
-		p.results[t] = &result{
+
+		p.results[target.Name] = &result{
 			latency:           latencyValue,
 			validationFailure: validators.ValidationFailureMap(p.opts.Validators),
 		}
+
+		for _, al := range p.opts.AdditionalLabels {
+			al.UpdateForTarget(target.Name, target.Labels)
+		}
+
 		if p.c.GetOutputMetricsOptions().GetAggregateInCloudprober() {
 			// If we are aggregating in Cloudprober, we maintain an EventMetrics
 			// struct per-target.
-			p.results[t].payloadMetrics = p.defaultPayloadMetrics.Clone().AddLabel("dst", t)
+			p.results[target.Name].payloadMetrics = p.defaultPayloadMetrics.Clone().AddLabel("dst", target.Name)
 		}
 	}
 }

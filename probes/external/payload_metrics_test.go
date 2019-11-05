@@ -95,8 +95,9 @@ func testPayload(td *testData) string {
 }
 
 func testPayloadMetrics(t *testing.T, p *Probe, td, etd *testData) {
-	for _, tgt := range p.targets {
-		em := p.payloadToMetrics(p.targets[0], testPayload(td), p.results[tgt])
+	for _, target := range p.targets {
+		tgt := target.Name
+		em := p.payloadToMetrics(p.targets[0].Name, testPayload(td), p.results[tgt])
 		expectedEM := testEM(em.Timestamp, etd, tgt)
 		if em.String() != expectedEM.String() {
 			t.Errorf("Output metrics not aggregated correctly:\nGot:      %s\nExpected: %s", em.String(), expectedEM.String())
