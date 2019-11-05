@@ -121,7 +121,11 @@ type ProbeConf struct {
 	Protocol *ProbeConf_ProtocolType `protobuf:"varint,1,opt,name=protocol,enum=cloudprober.probes.http.ProbeConf_ProtocolType,def=0" json:"protocol,omitempty"`
 	// Relative URL (to append to all targets). Must begin with '/'
 	RelativeUrl *string `protobuf:"bytes,2,opt,name=relative_url,json=relativeUrl" json:"relative_url,omitempty"`
-	// Port, default is 80 for HTTP and 443 for HTTPS
+	// Port for HTTP requests. If not specfied, port is selected in the following
+	// order:
+	//  - If port is provided by the targets (e.g. kubernetes endpoint or
+	//    service), that port is used.
+	//  - 80 for HTTP and 443 for HTTPS.
 	Port *int32 `protobuf:"varint,3,opt,name=port" json:"port,omitempty"`
 	// Whether to resolve the target before making the request. If set to false,
 	// we hand over the target and relative_url directly to the golang's HTTP
