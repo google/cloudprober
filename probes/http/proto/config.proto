@@ -28,7 +28,11 @@ message ProbeConf {
   optional ProtocolType protocol = 1 [default = HTTP];
   // Relative URL (to append to all targets). Must begin with '/'
   optional string relative_url = 2;
-  // Port, default is 80 for HTTP and 443 for HTTPS
+  // Port for HTTP requests. If not specfied, port is selected in the following
+  // order:
+  //  - If port is provided by the targets (e.g. kubernetes endpoint or
+  //    service), that port is used.
+  //  - 80 for HTTP and 443 for HTTPS.
   optional int32 port = 3;
 
   // Whether to resolve the target before making the request. If set to false,
