@@ -78,6 +78,8 @@ func main() {
 		glog.Exit(err)
 	}
 	for {
+		fmt.Printf("%s\n", time.Now())
+
 		for _, name := range tgts.List() {
 			ip, _ := tgts.Resolve(name, 4)
 			fmt.Printf("%s\t%s\n", name, ip.String())
