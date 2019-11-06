@@ -46,7 +46,7 @@ func testGCPConfig(t *testing.T, pc *serverconfigpb.Provider, projects []string,
 			t.Fatal("c.GetGceInstances() is nil, wanted=not-nil")
 		}
 		if c.GetGceInstances().GetReEvalSec() != int32(reEvalSec) {
-			t.Errorf("GCE instance reEvalSec=%d, wanted=%s", c.GetGceInstances().GetReEvalSec(), reEvalSec)
+			t.Errorf("GCE instance reEvalSec=%d, wanted=%d", c.GetGceInstances().GetReEvalSec(), reEvalSec)
 		}
 	}
 
@@ -63,7 +63,7 @@ func testGCPConfig(t *testing.T, pc *serverconfigpb.Provider, projects []string,
 			t.Errorf("RTC config=%s, wanted=%s", c.GetRtcVariables().GetRtcConfig()[0].GetName(), rtcConfig)
 		}
 		if c.GetRtcVariables().GetRtcConfig()[0].GetReEvalSec() != int32(reEvalSec) {
-			t.Errorf("RTC config reEvalSec=%d, wanted=%s", c.GetRtcVariables().GetRtcConfig()[0].GetReEvalSec(), reEvalSec)
+			t.Errorf("RTC config reEvalSec=%d, wanted=%d", c.GetRtcVariables().GetRtcConfig()[0].GetReEvalSec(), reEvalSec)
 		}
 	}
 
