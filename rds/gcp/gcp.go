@@ -1,4 +1,4 @@
-// Copyright 2017-2018 Google Inc.
+// Copyright 2017-2019 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -35,14 +35,25 @@ import (
 	"strings"
 
 	"cloud.google.com/go/compute/metadata"
+	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/logger"
+	configpb "github.com/google/cloudprober/rds/gcp/proto"
 	pb "github.com/google/cloudprober/rds/proto"
-	configpb "github.com/google/cloudprober/rds/server/gcp/proto"
+	serverconfigpb "github.com/google/cloudprober/rds/server/proto"
 )
 
 // DefaultProviderID is the povider id to use for this provider if a provider
 // id is not configured explicitly.
 const DefaultProviderID = "gcp"
+
+// ResourceTypes declares resource types supported by the GCP provider.
+var ResourceTypes = struct {
+	GCEInstances, RTCVariables, PubsubMessages string
+}{
+	"gce_instances",
+	"rtc_variables",
+	"pubsub_messages",
+}
 
 // Provider implements a GCP provider for a ResourceDiscovery server.
 type Provider struct {
@@ -61,21 +72,21 @@ func (p *Provider) ListResources(req *pb.ListResourcesRequest) (*pb.ListResource
 	project := tok[1]
 
 	switch resType {
-	case "gce_instances":
+	case ResourceTypes.GCEInstances:
 		gil := p.gceInstances[project]
 		if gil == nil {
 			return nil, fmt.Errorf("gcp: GCE instances lister for the project %s not found", project)
 		}
 		resources, err := gil.listResources(req.GetFilter(), req.GetIpConfig())
 		return &pb.ListResourcesResponse{Resources: resources}, err
-	case "rtc_variables":
+	case ResourceTypes.RTCVariables:
 		rvl := p.rtcVariables[project]
 		if rvl == nil {
 			return nil, fmt.Errorf("gcp: RTC variables lister for the project %s not found", project)
 		}
 		resources, err := rvl.listResources(req.GetFilter())
 		return &pb.ListResourcesResponse{Resources: resources}, err
-	case "pubsub_messages":
+	case ResourceTypes.PubsubMessages:
 		lister := p.pubsubMsgs[project]
 		if lister == nil {
 			return nil, fmt.Errorf("gcp: Pub/Sub messages lister for the project %s not found", project)
@@ -145,4 +156,44 @@ func New(c *configpb.ProviderConfig, l *logger.Logger) (*Provider, error) {
 		}
 	}
 	return p, nil
+}
+
+// DefaultProviderConfig is a convenience function that builds and returns a
+// basic GCP provider config based on the given parameters.
+func DefaultProviderConfig(projects []string, resTypes map[string]string, reEvalSec int, apiVersion string) *serverconfigpb.Provider {
+	c := &configpb.ProviderConfig{
+		Project:    projects,
+		ApiVersion: proto.String(apiVersion),
+	}
+
+	for k, v := range resTypes {
+		switch k {
+		case ResourceTypes.GCEInstances:
+			c.GceInstances = &configpb.GCEInstances{
+				ReEvalSec: proto.Int(reEvalSec),
+			}
+		case ResourceTypes.RTCVariables:
+			c.RtcVariables = &configpb.RTCVariables{
+				RtcConfig: []*configpb.RTCVariables_RTCConfig{
+					{
+						Name:      proto.String(v),
+						ReEvalSec: proto.Int(reEvalSec),
+					},
+				},
+			}
+		case ResourceTypes.PubsubMessages:
+			c.PubsubMessages = &configpb.PubSubMessages{
+				Subscription: []*configpb.PubSubMessages_Subscription{
+					{
+						TopicName: proto.String(v),
+					},
+				},
+			}
+		}
+	}
+
+	return &serverconfigpb.Provider{
+		Id:     proto.String(DefaultProviderID),
+		Config: &serverconfigpb.Provider_GcpConfig{GcpConfig: c},
+	}
 }

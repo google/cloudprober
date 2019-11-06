@@ -31,9 +31,9 @@ import (
 	"github.com/google/cloudprober/logger"
 	rdsclient "github.com/google/cloudprober/rds/client"
 	rdsclient_configpb "github.com/google/cloudprober/rds/client/proto"
+	"github.com/google/cloudprober/rds/gcp"
 	rdspb "github.com/google/cloudprober/rds/proto"
 	"github.com/google/cloudprober/rds/server"
-	gcpconfigpb "github.com/google/cloudprober/rds/server/gcp/proto"
 	serverconfigpb "github.com/google/cloudprober/rds/server/proto"
 	configpb "github.com/google/cloudprober/targets/lameduck/proto"
 	"github.com/google/cloudprober/targets/rtc/rtcservice"
@@ -130,40 +130,16 @@ func NewLameducker(opts *configpb.Options, hc *http.Client, l *logger.Logger) (L
 }
 
 func (li *lister) newRDSServer() (*server.Server, error) {
-	gcpConfig := &gcpconfigpb.ProviderConfig{
-		Project: []string{li.project},
-	}
-
+	resTypes := make(map[string]string)
 	if li.rtcConfig != "" {
-		gcpConfig.RtcVariables = &gcpconfigpb.RTCVariables{
-			RtcConfig: []*gcpconfigpb.RTCVariables_RTCConfig{
-				{
-					Name: proto.String(li.rtcConfig),
-				},
-			},
-		}
+		resTypes[gcp.ResourceTypes.RTCVariables] = li.rtcConfig
 	}
-
 	if li.pubsubTopic != "" {
-		gcpConfig.PubsubMessages = &gcpconfigpb.PubSubMessages{
-			Subscription: []*gcpconfigpb.PubSubMessages_Subscription{
-				{
-					TopicName: proto.String(li.pubsubTopic),
-				},
-			},
-		}
+		resTypes[gcp.ResourceTypes.PubsubMessages] = li.pubsubTopic
 	}
 
-	serverConf := &serverconfigpb.ServerConf{
-		Provider: []*serverconfigpb.Provider{
-			{
-				Id:     proto.String("gcp"),
-				Config: &serverconfigpb.Provider_GcpConfig{GcpConfig: gcpConfig},
-			},
-		},
-	}
-
-	return server.New(context.Background(), serverConf, nil, li.l)
+	pc := gcp.DefaultProviderConfig([]string{li.project}, resTypes, int(li.opts.GetReEvalSec()), "")
+	return server.New(context.Background(), &serverconfigpb.ServerConf{Provider: []*serverconfigpb.Provider{pc}}, nil, li.l)
 }
 
 func (li *lister) initListFunc(globalRDSAddr string) error {
