@@ -15,7 +15,6 @@
 package gce
 
 import (
-	"reflect"
 	"testing"
 
 	"github.com/golang/protobuf/proto"
@@ -62,7 +61,12 @@ func TestParseLabels(t *testing.T) {
 			} else if !test.shouldFail && err != nil {
 				t.Errorf("parseLabels()  error got:%s, want:nil", err)
 			}
-			if !reflect.DeepEqual(test.want, got) {
+
+			eq := len(got) == len(test.want)
+			for i := 0; i < len(got) && i < len(test.want); i++ {
+				eq = eq && proto.Equal(got[i], test.want[i])
+			}
+			if !eq {
 				t.Errorf("parseLabels()  got:%s, want:%s", got, test.want)
 			}
 		})
