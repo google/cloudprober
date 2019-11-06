@@ -26,8 +26,10 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/golang/protobuf/proto"
@@ -79,6 +81,22 @@ func getServerHost(c *configpb.ProberConfig) string {
 	return serverHost
 }
 
+func parsePort(portStr string) (int64, error) {
+	if strings.HasPrefix(portStr, "tcp://") {
+		u, err := url.Parse(portStr)
+		if err != nil {
+			return 0, err
+		}
+		if u.Port() == "" {
+			return 0, fmt.Errorf("no port specified in URL %s", portStr)
+		}
+		// u.Port() returns port as a string, thus it
+		// will be converted to int64 at the end.
+		portStr = u.Port()
+	}
+	return strconv.ParseInt(portStr, 10, 32)
+}
+
 func initDefaultServer(c *configpb.ProberConfig) (net.Listener, error) {
 	serverHost := getServerHost(c)
 	serverPort := int(c.GetPort())
@@ -88,7 +106,7 @@ func initDefaultServer(c *configpb.ProberConfig) (net.Listener, error) {
 		// If ServerPortEnvVar is defined, it will override the default
 		// server port.
 		if portStr := os.Getenv(ServerPortEnvVar); portStr != "" {
-			port, err := strconv.ParseInt(portStr, 10, 32)
+			port, err := parsePort(portStr)
 			if err != nil {
 				return nil, fmt.Errorf("failed to parse default port from the env var: %s=%s", ServerPortEnvVar, portStr)
 			}
