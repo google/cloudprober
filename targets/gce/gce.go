@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 2017-2019 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -63,9 +63,9 @@ import (
 
 	"github.com/google/cloudprober/rds/client"
 	clientconfigpb "github.com/google/cloudprober/rds/client/proto"
+	"github.com/google/cloudprober/rds/gcp"
 	rdspb "github.com/google/cloudprober/rds/proto"
 	"github.com/google/cloudprober/rds/server"
-	gcpconfigpb "github.com/google/cloudprober/rds/server/gcp/proto"
 	serverconfigpb "github.com/google/cloudprober/rds/server/proto"
 )
 
@@ -102,7 +102,7 @@ type gceResources struct {
 	useDNS bool
 }
 
-func initRDSServer(resourceType, apiVersion string, projects []string, reEvalInterval int32, l *logger.Logger) (*server.Server, error) {
+func initRDSServer(resourceType, apiVersion string, projects []string, reEvalInterval int, l *logger.Logger) (*server.Server, error) {
 	global.mu.Lock()
 	defer global.mu.Unlock()
 
@@ -114,25 +114,8 @@ func initRDSServer(resourceType, apiVersion string, projects []string, reEvalInt
 		return global.servers[resourceType], nil
 	}
 
-	gcpConfig := &gcpconfigpb.ProviderConfig{
-		Project:    projects,
-		ApiVersion: &apiVersion,
-	}
-
-	if resourceType == "gce_instances" {
-		gcpConfig.GceInstances = &gcpconfigpb.GCEInstances{ReEvalSec: &reEvalInterval}
-	}
-
-	serverConf := &serverconfigpb.ServerConf{
-		Provider: []*serverconfigpb.Provider{
-			{
-				Id:     proto.String("gcp"),
-				Config: &serverconfigpb.Provider_GcpConfig{GcpConfig: gcpConfig},
-			},
-		},
-	}
-
-	srv, err := server.New(context.Background(), serverConf, nil, l)
+	pc := gcp.DefaultProviderConfig(projects, map[string]string{gcp.ResourceTypes.GCEInstances: ""}, reEvalInterval, apiVersion)
+	srv, err := server.New(context.Background(), &serverconfigpb.ServerConf{Provider: []*serverconfigpb.Provider{pc}}, nil, l)
 	if err != nil {
 		return nil, err
 	}
@@ -165,7 +148,7 @@ func (gr *gceResources) rdsRequest(project string) *rdspb.ListResourcesRequest {
 }
 
 func (gr *gceResources) initClients(projects []string) error {
-	srv, err := initRDSServer(gr.resourceType, gr.globalOpts.GetApiVersion(), projects, gr.globalOpts.GetReEvalSec(), gr.l)
+	srv, err := initRDSServer(gr.resourceType, gr.globalOpts.GetApiVersion(), projects, int(gr.globalOpts.GetReEvalSec()), gr.l)
 	if err != nil {
 		return err
 	}

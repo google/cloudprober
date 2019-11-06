@@ -13,8 +13,8 @@ syntax = "proto2";
 
 package cloudprober.rds;
 
+import "github.com/google/cloudprober/rds/gcp/proto/config.proto";
 import "github.com/google/cloudprober/rds/kubernetes/proto/config.proto";
-import "github.com/google/cloudprober/rds/server/gcp/proto/config.proto";
 
 message ServerConf {
   // List of providers that server supports.

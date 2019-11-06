@@ -24,9 +24,9 @@ import (
 	"cloud.google.com/go/pubsub"
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/logger"
+	configpb "github.com/google/cloudprober/rds/gcp/proto"
 	pb "github.com/google/cloudprober/rds/proto"
 	"github.com/google/cloudprober/rds/server/filter"
-	configpb "github.com/google/cloudprober/rds/server/gcp/proto"
 	"google.golang.org/api/option"
 )
 

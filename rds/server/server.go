@@ -24,10 +24,10 @@ import (
 	"fmt"
 
 	"github.com/google/cloudprober/logger"
+	"github.com/google/cloudprober/rds/gcp"
 	"github.com/google/cloudprober/rds/kubernetes"
 	pb "github.com/google/cloudprober/rds/proto"
 	spb "github.com/google/cloudprober/rds/proto"
-	"github.com/google/cloudprober/rds/server/gcp"
 	configpb "github.com/google/cloudprober/rds/server/proto"
 	"google.golang.org/grpc"
 )
@@ -81,8 +81,8 @@ func (s *Server) initProviders(c *configpb.ServerConf) error {
 	return nil
 }
 
-// New creates a new instance of the ResourceDiscovery Server and attaches it
-// to the provided gRPC server.
+// New creates a new instance of the ResourceDiscovery Server using the server
+// conf.
 func New(initCtx context.Context, c *configpb.ServerConf, providers map[string]Provider, l *logger.Logger) (*Server, error) {
 	srv := &Server{
 		providers: make(map[string]Provider),
