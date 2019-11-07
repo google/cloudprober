@@ -21,6 +21,7 @@ import (
 
 	"github.com/google/cloudprober/metrics"
 	"github.com/google/cloudprober/probes/options"
+	"github.com/google/cloudprober/targets/endpoint"
 )
 
 // probeRunResult captures the results of a single probe run. The way we work with
@@ -55,9 +56,9 @@ func (prr probeRunResult) Target() string {
 }
 
 func TestStatsKeeper(t *testing.T) {
-	targets := []string{
-		"target1",
-		"target2",
+	targets := []endpoint.Endpoint{
+		{Name: "target1"},
+		{Name: "target2"},
 	}
 	pType := "test"
 	pName := "testProbe"
@@ -67,7 +68,7 @@ func TestStatsKeeper(t *testing.T) {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	defer cancelFunc()
 
-	targetsFunc := func() []string {
+	targetsFunc := func() []endpoint.Endpoint {
 		return targets
 	}
 	dataChan := make(chan *metrics.EventMetrics, len(targets))
@@ -77,8 +78,8 @@ func TestStatsKeeper(t *testing.T) {
 	}
 	go StatsKeeper(ctx, pType, pName, opts, targetsFunc, resultsChan, dataChan)
 
-	for _, t := range targets {
-		prr := newProbeRunResult(t)
+	for _, target := range targets {
+		prr := newProbeRunResult(target.Name)
 		prr.sent.Inc()
 		prr.rcvd.Inc()
 		prr.rtt.IncBy(metrics.NewInt(20000))
@@ -90,7 +91,7 @@ func TestStatsKeeper(t *testing.T) {
 		em := <-dataChan
 		var foundTarget bool
 		for _, target := range targets {
-			if em.Label("dst") == target {
+			if em.Label("dst") == target.Name {
 				foundTarget = true
 				break
 			}

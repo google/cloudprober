@@ -177,7 +177,7 @@ func runProbe(ctx context.Context, t *testing.T, inp *inputState) ([]int, chan s
 	}
 	port := p.conn.LocalAddr().(*net.UDPAddr).Port
 
-	p.targets = p.opts.Targets.List()
+	p.updateTargets()
 	resultsChan := make(chan statskeeper.ProbeResult, 10)
 	go p.probeLoop(ctx, resultsChan)
 	time.Sleep(interval) // Wait for echo loop to be active.
