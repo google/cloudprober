@@ -37,6 +37,7 @@ import (
 	"github.com/google/cloudprober/probes/common/statskeeper"
 	configpb "github.com/google/cloudprober/probes/dns/proto"
 	"github.com/google/cloudprober/probes/options"
+	"github.com/google/cloudprober/targets/endpoint"
 	"github.com/google/cloudprober/validators"
 	"github.com/miekg/dns"
 )
@@ -74,7 +75,7 @@ type Probe struct {
 	l    *logger.Logger
 
 	// book-keeping params
-	targets []string
+	targets []endpoint.Endpoint
 	msg     *dns.Msg
 	client  Client
 }
@@ -107,6 +108,16 @@ func (prr probeRunResult) Target() string {
 	return prr.target
 }
 
+func (p *Probe) updateTargets() {
+	p.targets = p.opts.Targets.ListEndpoints()
+
+	for _, target := range p.targets {
+		for _, al := range p.opts.AdditionalLabels {
+			al.UpdateForTarget(target.Name, target.Labels)
+		}
+	}
+}
+
 // Init initializes the probe with the given params.
 func (p *Probe) Init(name string, opts *options.Options) error {
 	c, ok := opts.ProbeConf.(*configpb.ProbeConf)
@@ -119,7 +130,7 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	if p.l = opts.Logger; p.l == nil {
 		p.l = &logger.Logger{}
 	}
-	p.targets = p.opts.Targets.List()
+	p.updateTargets()
 
 	// I believe these objects are safe for concurrent use by multiple goroutines
 	// (although the documentation doesn't explicitly say so). It uses locks
@@ -188,7 +199,7 @@ func (p *Probe) validateResponse(resp *dns.Msg, target string, result *probeRunR
 
 func (p *Probe) runProbe(resultsChan chan<- statskeeper.ProbeResult) {
 	// Refresh the list of targets to probe.
-	p.targets = p.opts.Targets.List()
+	p.updateTargets()
 
 	wg := sync.WaitGroup{}
 	for _, target := range p.targets {
@@ -196,11 +207,11 @@ func (p *Probe) runProbe(resultsChan chan<- statskeeper.ProbeResult) {
 
 		// Launch a separate goroutine for each target.
 		// Write probe results to the "resultsChan" channel.
-		go func(target string, resultsChan chan<- statskeeper.ProbeResult) {
+		go func(target endpoint.Endpoint, resultsChan chan<- statskeeper.ProbeResult) {
 			defer wg.Done()
 
 			result := probeRunResult{
-				target:            target,
+				target:            target.Name,
 				validationFailure: validators.ValidationFailureMap(p.opts.Validators),
 			}
 
@@ -210,7 +221,7 @@ func (p *Probe) runProbe(resultsChan chan<- statskeeper.ProbeResult) {
 				result.latency = metrics.NewFloat(0)
 			}
 
-			fullTarget := net.JoinHostPort(target, "53")
+			fullTarget := net.JoinHostPort(target.Name, "53")
 			result.total.Inc()
 			resp, latency, err := p.client.Exchange(p.msg, fullTarget)
 
@@ -239,7 +250,7 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 
 	// This function is used by StatsKeeper to get the latest list of targets.
 	// TODO(manugarg): Make p.targets mutex protected as it's read and written by concurrent goroutines.
-	targetsFunc := func() []string {
+	targetsFunc := func() []endpoint.Endpoint {
 		return p.targets
 	}
 

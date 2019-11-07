@@ -50,6 +50,7 @@ import (
 	"github.com/google/cloudprober/metrics"
 	"github.com/google/cloudprober/probes/common/statskeeper"
 	"github.com/google/cloudprober/probes/options"
+	"github.com/google/cloudprober/targets/endpoint"
 
 	configpb "github.com/google/cloudprober/probes/udplistener/proto"
 	udpsrv "github.com/google/cloudprober/servers/udp"
@@ -71,7 +72,7 @@ type Probe struct {
 	echoMode bool
 
 	// map target name to flow state.
-	targets []string
+	targets []endpoint.Endpoint
 	fsm     *message.FlowStateMap
 
 	// Process and output results synchronization.
@@ -144,6 +145,16 @@ func (prr probeRunResult) Metrics() *metrics.EventMetrics {
 		AddMetric("delayed", &prr.delayed)
 }
 
+func (p *Probe) updateTargets() {
+	p.targets = p.opts.Targets.ListEndpoints()
+
+	for _, target := range p.targets {
+		for _, al := range p.opts.AdditionalLabels {
+			al.UpdateForTarget(target.Name, target.Labels)
+		}
+	}
+}
+
 // Init initializes the probe with the given params.
 func (p *Probe) Init(name string, opts *options.Options) error {
 	c, ok := opts.ProbeConf.(*configpb.ProbeConf)
@@ -188,15 +199,15 @@ func (p *Probe) cleanup() {
 // initProbeRunResults empties the current probe results objects, updates the
 // list of targets and builds a new result object for each target.
 func (p *Probe) initProbeRunResults() {
-	p.targets = p.opts.Targets.List()
+	p.updateTargets()
 	if p.echoMode && len(p.targets) > maxTargets {
 		p.l.Warningf("too many targets (got %d > max %d), responses might be slow.", len(p.targets), maxTargets)
 	}
 
 	p.res = make(map[string]*probeRunResult)
 	for _, target := range p.targets {
-		p.res[target] = &probeRunResult{
-			target: target,
+		p.res[target.Name] = &probeRunResult{
+			target: target.Name,
 		}
 	}
 }
@@ -358,8 +369,16 @@ func (p *Probe) probeLoop(ctx context.Context, resultsChan chan<- statskeeper.Pr
 
 // Start starts and runs the probe indefinitely.
 func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) {
-	resultsChan := make(chan statskeeper.ProbeResult, len(p.targets))
-	targetsFunc := func() []string {
+	p.updateTargets()
+
+	// Make sure we don't create zero length results channel.
+	minResultsChLen := 10
+	resultsChLen := len(p.targets)
+	if resultsChLen < minResultsChLen {
+		resultsChLen = minResultsChLen
+	}
+	resultsChan := make(chan statskeeper.ProbeResult, resultsChLen)
+	targetsFunc := func() []endpoint.Endpoint {
 		return p.targets
 	}
 

@@ -24,6 +24,7 @@ import (
 
 	"github.com/google/cloudprober/metrics"
 	"github.com/google/cloudprober/probes/options"
+	"github.com/google/cloudprober/targets/endpoint"
 )
 
 // ProbeResult represents results of a probe run.
@@ -56,7 +57,7 @@ type ProbeResult interface {
 // targets for exporting results,  instead of getting a static list in the
 // arguments. We do that as the list of targets is usually dynamic and is
 // updated on a regular basis.
-func StatsKeeper(ctx context.Context, ptype, name string, opts *options.Options, targetsFunc func() []string, resultsChan <-chan ProbeResult, dataChan chan<- *metrics.EventMetrics) {
+func StatsKeeper(ctx context.Context, ptype, name string, opts *options.Options, targetsFunc func() []endpoint.Endpoint, resultsChan <-chan ProbeResult, dataChan chan<- *metrics.EventMetrics) {
 	targetMetrics := make(map[string]*metrics.EventMetrics)
 	exportTicker := time.NewTicker(opts.StatsExportInterval)
 	defer exportTicker.Stop()
@@ -76,12 +77,17 @@ func StatsKeeper(ctx context.Context, ptype, name string, opts *options.Options,
 			}
 		case ts := <-exportTicker.C:
 			for _, t := range targetsFunc() {
-				em := targetMetrics[t]
+				em := targetMetrics[t.Name]
 				if em != nil {
 					em.AddLabel("ptype", ptype)
 					em.AddLabel("probe", name)
-					em.AddLabel("dst", t)
+					em.AddLabel("dst", t.Name)
 					em.Timestamp = ts
+
+					for _, al := range opts.AdditionalLabels {
+						em.AddLabel(al.KeyValueForTarget(t.Name))
+					}
+
 					if opts.LogMetrics != nil {
 						opts.LogMetrics(em)
 					}
