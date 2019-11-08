@@ -66,7 +66,7 @@ func parseNumRange(s string) (*numRange, error) {
 
 	upper, err := strconv.ParseInt(fields[1], 10, 32)
 	if err != nil {
-		return nil, fmt.Errorf("got error while parsing the range's lower bound (%s): %v", fields[1], err)
+		return nil, fmt.Errorf("got error while parsing the range's upper bound (%s): %v", fields[1], err)
 	}
 
 	if upper < lower {
