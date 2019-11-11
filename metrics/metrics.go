@@ -15,6 +15,12 @@
 // Package metrics implements data types for probes generated data.
 package metrics
 
+import (
+	"errors"
+	"strconv"
+	"strings"
+)
+
 // Value represents any metric value
 type Value interface {
 	Clone() Value
@@ -32,4 +38,42 @@ type NumValue interface {
 	Int64() int64
 	Float64() float64
 	IncBy(delta NumValue)
+}
+
+// ParseValueFromString parses a value from its string representation
+func ParseValueFromString(val string) (Value, error) {
+	c := val[0]
+	switch {
+	// A float value
+	case '0' <= c && c <= '9':
+		f, err := strconv.ParseFloat(val, 64)
+		if err != nil {
+			return nil, err
+		}
+		return NewFloat(f), nil
+
+	// A map value
+	case c == 'm':
+		if !strings.HasPrefix(val, "map") {
+			break
+		}
+		return ParseMapFromString(val)
+
+	// A string value
+	case c == '"':
+		return NewString(strings.Trim(val, "\"")), nil
+
+	// A distribution value
+	case c == 'd':
+		if !strings.HasPrefix(val, "dist") {
+			break
+		}
+		distVal, err := ParseDistFromString(val)
+		if err != nil {
+			return nil, err
+		}
+		return distVal, nil
+	}
+
+	return nil, errors.New("unknown value type")
 }

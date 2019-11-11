@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 2017-2019 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -53,4 +53,13 @@ func (s String) String() string {
 // Clone returns the copy of receiver String.
 func (s String) Clone() Value {
 	return String{s: s.s}
+}
+
+// IsString checks if the given value is a string.
+func IsString(v Value) bool {
+	if v == nil {
+		return false
+	}
+	_, ok := v.(String)
+	return ok
 }
