@@ -79,6 +79,32 @@ func (p *Probe) initPayloadMetrics() error {
 	return nil
 }
 
+func (p *Probe) parseValue(val string) (metrics.Value, error) {
+	v, err := metrics.ParseValueFromString(val)
+	if err == nil && p.c.GetOutputMetricsOptions().GetAggregateInCloudprober() && metrics.IsString(v) {
+		return nil, fmt.Errorf("string metric value (%s) is incompatible with aggregate_in_cloudprober option", val)
+	}
+	return v, err
+}
+
+func (p *Probe) updateMetricValue(name string, mv metrics.Value, val string) {
+	// If a distribution, process it through processDistValue.
+	if mVal, ok := mv.(*metrics.Distribution); ok {
+		if err := processDistValue(mVal, val); err != nil {
+			p.l.Warningf("Error parsing distribution value (%s) for metric (%s) in probe payload: %v", val, name, err)
+			return
+		}
+	}
+
+	v, err := p.parseValue(val)
+	if err != nil {
+		p.l.Warningf("Error parsing value (%s) for metric (%s) in probe payload: %v", val, name, err)
+		return
+	}
+
+	mv.Add(v)
+}
+
 func (p *Probe) payloadToMetrics(target, payload string, result *result) *metrics.EventMetrics {
 	em := result.payloadMetrics
 	if em == nil {
@@ -113,20 +139,8 @@ func (p *Probe) payloadToMetrics(target, payload string, result *result) *metric
 		// handled in a special manner as their values can be provided in multiple
 		// ways.
 		if mv := em.Metric(metricName); mv != nil {
-			// If a distribution, process it through processDistValue.
-			if mVal, ok := mv.(*metrics.Distribution); ok {
-				if err := processDistValue(mVal, val); err != nil {
-					p.l.Warningf("Error parsing distribution value (%s) for metric (%s) in probe payload: %v", val, metricName, err)
-					continue
-				}
-			}
-
-			v, err := parseValue(val, p.c.GetOutputMetricsOptions().GetAggregateInCloudprober())
-			if err != nil {
-				p.l.Warningf("Error parsing value (%s) for metric (%s) in probe payload: %v", val, metricName, err)
-				continue
-			}
-			mv.Add(v)
+			p.updateMetricValue(metricName, mv, val)
+			continue
 		}
 
 		// New metric name, make sure it's not disallowed.
@@ -136,7 +150,7 @@ func (p *Probe) payloadToMetrics(target, payload string, result *result) *metric
 			continue
 		}
 
-		v, err := parseValue(val, p.c.GetOutputMetricsOptions().GetAggregateInCloudprober())
+		v, err := p.parseValue(val)
 		if err != nil {
 			p.l.Warningf("Could not parse value (%s) for the new metric name (%s): %v", val, metricName, err)
 			continue
@@ -171,44 +185,4 @@ func processDistValue(mVal *metrics.Distribution, val string) error {
 		mVal.AddFloat64(f)
 	}
 	return nil
-}
-
-func parseValue(val string, aggregationEnabled bool) (metrics.Value, error) {
-	c := val[0]
-	switch {
-	// A float value
-	case '0' <= c && c <= '9':
-		f, err := strconv.ParseFloat(val, 64)
-		if err != nil {
-			return nil, err
-		}
-		return metrics.NewFloat(f), nil
-
-	// A map value
-	case c == 'm':
-		if !strings.HasPrefix(val, "map") {
-			break
-		}
-		return metrics.ParseMapFromString(val)
-
-	// A string value
-	case c == '"':
-		if aggregationEnabled {
-			return nil, fmt.Errorf("string metric value (%s) is incompatible with aggregate_in_cloudprober option", val)
-		}
-		return metrics.NewString(strings.Trim(val, "\"")), nil
-
-	// A distribution value
-	case c == 'd':
-		if !strings.HasPrefix(val, "dist") {
-			break
-		}
-		distVal, err := metrics.ParseDistFromString(val)
-		if err != nil {
-			return nil, err
-		}
-		return distVal, nil
-	}
-
-	return nil, errors.New("unknown value type")
 }
