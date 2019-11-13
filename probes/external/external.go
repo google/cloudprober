@@ -95,6 +95,7 @@ type Probe struct {
 	// default payload metrics that we clone from to build per-target payload
 	// metrics.
 	defaultPayloadMetrics *metrics.EventMetrics
+	aggregate             bool
 }
 
 // Init initializes the probe with the given params.
@@ -137,10 +138,15 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	case configpb.ProbeConf_SERVER:
 		p.mode = "server"
 	default:
-		p.l.Errorf("Invalid mode: %s", p.c.GetMode())
+		return fmt.Errorf("invalid mode: %s", p.c.GetMode())
 	}
 
 	p.results = make(map[string]*result)
+	p.aggregate = p.c.GetOutputMetricsOptions().GetAggregateInCloudprober()
+
+	if !p.c.GetOutputAsMetrics() {
+		return nil
+	}
 
 	return p.initPayloadMetrics()
 }
@@ -377,9 +383,15 @@ func (p *Probe) processProbeResult(ps *probeStatus, result *result) {
 	// If probe is configured to use the external process output (or reply payload
 	// in case of server probe) as metrics.
 	if p.c.GetOutputAsMetrics() {
-		em := p.payloadToMetrics(ps.target, ps.payload, result)
-		p.opts.LogMetrics(em)
-		p.dataChan <- em
+		// If not initialized yet or not aggregating in cloudprober, initialize
+		// payloadMetrics from default payload metrics.
+		if result.payloadMetrics == nil || !p.aggregate {
+			result.payloadMetrics = p.defaultPayloadMetrics.Clone().AddLabel("dst", ps.target)
+		}
+
+		p.payloadToMetrics(result.payloadMetrics, ps.payload)
+		p.opts.LogMetrics(result.payloadMetrics)
+		p.dataChan <- result.payloadMetrics
 	}
 }
 
@@ -532,12 +544,6 @@ func (p *Probe) updateTargets() {
 
 		for _, al := range p.opts.AdditionalLabels {
 			al.UpdateForTarget(target.Name, target.Labels)
-		}
-
-		if p.c.GetOutputMetricsOptions().GetAggregateInCloudprober() {
-			// If we are aggregating in Cloudprober, we maintain an EventMetrics
-			// struct per-target.
-			p.results[target.Name].payloadMetrics = p.defaultPayloadMetrics.Clone().AddLabel("dst", target.Name)
 		}
 	}
 }

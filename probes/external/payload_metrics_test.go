@@ -29,27 +29,24 @@ import (
 
 func testProbe(t *testing.T, agg bool) *Probe {
 	p := &Probe{
-		name:    "testprobe",
-		c:       &configpb.ProbeConf{},
-		opts:    &options.Options{Targets: targets.StaticTargets("testTarget1")},
-		results: make(map[string]*result),
+		name:      "testprobe",
+		aggregate: agg,
+		c:         &configpb.ProbeConf{},
+		opts:      &options.Options{Targets: targets.StaticTargets("testTarget1")},
+		results:   make(map[string]*result),
 	}
 	testConf := `
-	  command: "/bin/true"
-	  output_metrics_options {
-            aggregate_in_cloudprober: %s
-            dist_metric {
-	      key: "op_latency"
-	      value {
-	        explicit_buckets: "1,10,100"
-	      }
-	   }
-	}`
-	aggStr := "false"
-	if agg {
-		aggStr = "true"
+	command: "/bin/true"
+	output_metrics_options {
+		dist_metric {
+			key: "op_latency"
+			value {
+				explicit_buckets: "1,10,100"
+			}
+		}
 	}
-	if err := proto.UnmarshalText(fmt.Sprintf(testConf, aggStr), p.c); err != nil {
+`
+	if err := proto.UnmarshalText(testConf, p.c); err != nil {
 		t.Error(err)
 	}
 	if err := p.initPayloadMetrics(); err != nil {
@@ -97,7 +94,14 @@ func testPayload(td *testData) string {
 func testPayloadMetrics(t *testing.T, p *Probe, td, etd *testData) {
 	for _, target := range p.targets {
 		tgt := target.Name
-		em := p.payloadToMetrics(p.targets[0].Name, testPayload(td), p.results[tgt])
+		result := p.results[tgt]
+
+		if result.payloadMetrics == nil || !p.aggregate {
+			result.payloadMetrics = p.defaultPayloadMetrics.Clone().AddLabel("dst", target.Name)
+		}
+
+		p.payloadToMetrics(p.results[tgt].payloadMetrics, testPayload(td))
+		em := p.results[tgt].payloadMetrics
 		expectedEM := testEM(em.Timestamp, etd, tgt)
 		if em.String() != expectedEM.String() {
 			t.Errorf("Output metrics not aggregated correctly:\nGot:      %s\nExpected: %s", em.String(), expectedEM.String())

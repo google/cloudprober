@@ -347,3 +347,11 @@ func TestUpdateAdditionalLabel(t *testing.T) {
 		}
 	}
 }
+
+func TestDefaultOptions(t *testing.T) {
+	// Most of all, it verifies that DefaultOptions() doesn't generate panic.
+	opts := DefaultOptions()
+	if opts == nil {
+		t.Errorf("Got nil default options")
+	}
+}
