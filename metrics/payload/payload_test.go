@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 2017-2019 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package external
+package payload
 
 import (
 	"fmt"
@@ -22,38 +22,34 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/metrics"
-	configpb "github.com/google/cloudprober/probes/external/proto"
-	"github.com/google/cloudprober/probes/options"
-	"github.com/google/cloudprober/targets"
+	configpb "github.com/google/cloudprober/metrics/payload/proto"
 )
 
-func testProbe(t *testing.T, agg bool) *Probe {
-	p := &Probe{
-		name:      "testprobe",
-		aggregate: agg,
-		c:         &configpb.ProbeConf{},
-		opts:      &options.Options{Targets: targets.StaticTargets("testTarget1")},
-		results:   make(map[string]*result),
-	}
+var (
+	testPtype  = "external"
+	testProbe  = "testprobe"
+	testTarget = "test-target"
+)
+
+func parserForTest(t *testing.T, agg bool) *Parser {
 	testConf := `
-	command: "/bin/true"
-	output_metrics_options {
+	  aggregate_in_cloudprober: %v
 		dist_metric {
 			key: "op_latency"
 			value {
 				explicit_buckets: "1,10,100"
 			}
 		}
-	}
-`
-	if err := proto.UnmarshalText(testConf, p.c); err != nil {
+ `
+	var c configpb.OutputMetricsOptions
+	if err := proto.UnmarshalText(fmt.Sprintf(testConf, agg), &c); err != nil {
 		t.Error(err)
 	}
-	if err := p.initPayloadMetrics(); err != nil {
+	p, err := NewParser(&c, testPtype, testProbe, metrics.CUMULATIVE, nil)
+	if err != nil {
 		t.Error(err)
 	}
 
-	p.updateTargets()
 	return p
 }
 
@@ -64,7 +60,7 @@ type testData struct {
 }
 
 // testEM returns an EventMetrics struct corresponding to the provided testData.
-func testEM(ts time.Time, td *testData, target string) *metrics.EventMetrics {
+func testEM(ts time.Time, td *testData) *metrics.EventMetrics {
 	d := metrics.NewDistribution([]float64{1, 10, 100})
 	for _, sample := range td.lat {
 		d.AddSample(sample)
@@ -73,9 +69,9 @@ func testEM(ts time.Time, td *testData, target string) *metrics.EventMetrics {
 		AddMetric("op_latency", d).
 		AddMetric("time_to_running", metrics.NewFloat(td.varA)).
 		AddMetric("time_to_ssh", metrics.NewFloat(td.varB)).
-		AddLabel("ptype", "external").
-		AddLabel("probe", "testprobe").
-		AddLabel("dst", target)
+		AddLabel("ptype", testPtype).
+		AddLabel("probe", testProbe).
+		AddLabel("dst", testTarget)
 }
 
 func testPayload(td *testData) string {
@@ -91,30 +87,23 @@ func testPayload(td *testData) string {
 	return strings.Join(payloadLines, "\n")
 }
 
-func testPayloadMetrics(t *testing.T, p *Probe, td, etd *testData) {
-	for _, target := range p.targets {
-		tgt := target.Name
-		result := p.results[tgt]
+func testPayloadMetrics(t *testing.T, em *metrics.EventMetrics, td, etd *testData) {
+	t.Helper()
 
-		if result.payloadMetrics == nil || !p.aggregate {
-			result.payloadMetrics = p.defaultPayloadMetrics.Clone().AddLabel("dst", target.Name)
-		}
-
-		p.payloadToMetrics(p.results[tgt].payloadMetrics, testPayload(td))
-		em := p.results[tgt].payloadMetrics
-		expectedEM := testEM(em.Timestamp, etd, tgt)
-		if em.String() != expectedEM.String() {
-			t.Errorf("Output metrics not aggregated correctly:\nGot:      %s\nExpected: %s", em.String(), expectedEM.String())
-		}
+	expectedEM := testEM(em.Timestamp, etd)
+	if em.String() != expectedEM.String() {
+		t.Errorf("Output metrics not aggregated correctly:\nGot:      %s\nExpected: %s", em.String(), expectedEM.String())
 	}
 }
 
 func TestAggreagateInCloudprober(t *testing.T) {
-	p := testProbe(t, true)
+	p := parserForTest(t, true)
 
 	// First payload
 	td := &testData{10, 30, []float64{3.1, 4.0, 13}}
-	testPayloadMetrics(t, p, td, td)
+	em := p.PayloadMetrics(nil, testPayload(td), testTarget)
+
+	testPayloadMetrics(t, em, td, td)
 
 	// Send another payload, cloudprober should aggregate the metrics.
 	oldtd := td
@@ -128,21 +117,25 @@ func TestAggreagateInCloudprober(t *testing.T) {
 		varB: oldtd.varB + td.varB,
 		lat:  append(oldtd.lat, td.lat...),
 	}
-	testPayloadMetrics(t, p, td, etd)
+
+	em = p.PayloadMetrics(em, testPayload(td), testTarget)
+	testPayloadMetrics(t, em, td, etd)
 }
 
 func TestNoAggregation(t *testing.T) {
-	p := testProbe(t, false)
+	p := parserForTest(t, false)
 
 	// First payload
 	td := &testData{10, 30, []float64{3.1, 4.0, 13}}
-	testPayloadMetrics(t, p, td, td)
+	em := p.PayloadMetrics(nil, testPayload(td), testTarget)
+	testPayloadMetrics(t, em, td, td)
 
-	// Send another payload, cloudprober should aggregate the metrics.
+	// Send another payload, cloudprober should not aggregate the metrics.
 	td = &testData{
 		varA: 8,
 		varB: 45,
 		lat:  []float64{6, 14.1, 2.1},
 	}
-	testPayloadMetrics(t, p, td, td)
+	em = p.PayloadMetrics(em, testPayload(td), testTarget)
+	testPayloadMetrics(t, em, td, td)
 }
