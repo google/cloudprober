@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -541,9 +542,6 @@ func TestUpdateTargets(t *testing.T) {
 	if _, ok := latVal.(*metrics.Float); !ok {
 		t.Errorf("latency value type is not metrics.Float: %v", latVal)
 	}
-	if p.results["2.2.2.2"].payloadMetrics != nil {
-		t.Errorf("payloadMetrics is not \"nil\" in the default result object even when aggregate_in_cloudprober is not set: %v", p.results["2.2.2.2"].payloadMetrics)
-	}
 
 	// Test with latency distribution option set.
 	p.opts.LatencyDist = metrics.NewDistribution([]float64{0.1, 0.2, 0.5})
@@ -553,23 +551,80 @@ func TestUpdateTargets(t *testing.T) {
 	if _, ok := latVal.(*metrics.Distribution); !ok {
 		t.Errorf("latency value type is not metrics.Distribution: %v", latVal)
 	}
+}
 
-	// Test with aggregate_in_cloudprober set
-	p = &Probe{}
-	err = p.Init("testprobe", &options.Options{
-		ProbeConf: &configpb.ProbeConf{
-			OutputMetricsOptions: &configpb.OutputMetricsOptions{
-				AggregateInCloudprober: proto.Bool(true),
-			},
-		},
-		Targets: targets.StaticTargets("2.2.2.2"),
-	})
-	if err != nil {
-		t.Fatalf("Got error while initializing the probe: %v", err)
+func verifyProcessedResult(t *testing.T, r *result, success int64, name string, val int64) {
+	t.Helper()
+
+	if r.success != success {
+		t.Errorf("r.success=%d, expected=%d", r.success, success)
 	}
 
-	p.updateTargets()
-	if p.results["2.2.2.2"].payloadMetrics == nil {
-		t.Error("payloadMetrics is \"nil\" in the default result object even when aggregate_in_cloudprober is set.")
+	if r.payloadMetrics == nil {
+		t.Fatalf("r.payloadMetrics is nil")
+	}
+
+	gotNames := r.payloadMetrics.MetricsKeys()
+	if !reflect.DeepEqual(gotNames, []string{name}) {
+		t.Errorf("r.payloadMetrics.MetricKeys()=%v, expected=%v", gotNames, []string{name})
+	}
+
+	gotValue := r.payloadMetrics.Metric(name).(metrics.NumValue).Int64()
+	if gotValue != val {
+		t.Errorf("r.payloadMetrics.Metric(%s)=%d, expected=%d", name, gotValue, val)
+	}
+
+	expectedLabels := map[string]string{"ptype": "external", "probe": "testprobe", "dst": "test-target"}
+	for key, val := range expectedLabels {
+		if r.payloadMetrics.Label(key) != val {
+			t.Errorf("r.payloadMetrics.Label(%s)=%s, expected=%s", key, r.payloadMetrics.Label(key), val)
+		}
+	}
+}
+
+func TestProcessProbeResult(t *testing.T) {
+	for _, agg := range []bool{true, false} {
+
+		t.Run(fmt.Sprint("With aggregation: %v", agg), func(t *testing.T) {
+
+			p := &Probe{}
+			opts := options.DefaultOptions()
+			opts.ProbeConf = &configpb.ProbeConf{}
+			err := p.Init("testprobe", opts)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			p.aggregate = agg
+			p.dataChan = make(chan *metrics.EventMetrics, 20)
+
+			r := &result{
+				latency: metrics.NewFloat(0),
+			}
+
+			// First run
+			p.processProbeResult(&probeStatus{
+				target:  "test-target",
+				success: true,
+				latency: time.Millisecond,
+				payload: "p-failures 14",
+			}, r)
+
+			verifyProcessedResult(t, r, 1, "p-failures", 14)
+
+			// Second run
+			p.processProbeResult(&probeStatus{
+				target:  "test-target",
+				success: true,
+				latency: time.Millisecond,
+				payload: "p-failures 11",
+			}, r)
+
+			if agg {
+				verifyProcessedResult(t, r, 2, "p-failures", 25)
+			} else {
+				verifyProcessedResult(t, r, 2, "p-failures", 11)
+			}
+		})
 	}
 }

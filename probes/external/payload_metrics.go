@@ -79,40 +79,23 @@ func (p *Probe) initPayloadMetrics() error {
 	return nil
 }
 
-func (p *Probe) parseValue(val string) (metrics.Value, error) {
-	v, err := metrics.ParseValueFromString(val)
-	if err == nil && p.c.GetOutputMetricsOptions().GetAggregateInCloudprober() && metrics.IsString(v) {
-		return nil, fmt.Errorf("string metric value (%s) is incompatible with aggregate_in_cloudprober option", val)
-	}
-	return v, err
-}
-
-func (p *Probe) updateMetricValue(name string, mv metrics.Value, val string) {
+func (p *Probe) updateMetricValue(mv metrics.Value, val string) error {
 	// If a distribution, process it through processDistValue.
 	if mVal, ok := mv.(*metrics.Distribution); ok {
 		if err := processDistValue(mVal, val); err != nil {
-			p.l.Warningf("Error parsing distribution value (%s) for metric (%s) in probe payload: %v", val, name, err)
-			return
+			return fmt.Errorf("error parsing distribution value (%s): %v", val, err)
 		}
 	}
 
-	v, err := p.parseValue(val)
+	v, err := metrics.ParseValueFromString(val)
 	if err != nil {
-		p.l.Warningf("Error parsing value (%s) for metric (%s) in probe payload: %v", val, name, err)
-		return
+		return fmt.Errorf("error parsing value (%s): %v", val, err)
 	}
 
-	mv.Add(v)
+	return mv.Add(v)
 }
 
-func (p *Probe) payloadToMetrics(target, payload string, result *result) *metrics.EventMetrics {
-	em := result.payloadMetrics
-	if em == nil {
-		// result will have a nil payloadMetrics only if we are not aggregating in
-		// cloudprober.
-		em = p.defaultPayloadMetrics.Clone().AddLabel("dst", target)
-	}
-
+func (p *Probe) payloadToMetrics(em *metrics.EventMetrics, payload string) {
 	em.Timestamp = time.Now()
 
 	// Convert payload variables into metrics. Variables are specified in
@@ -139,7 +122,9 @@ func (p *Probe) payloadToMetrics(target, payload string, result *result) *metric
 		// handled in a special manner as their values can be provided in multiple
 		// ways.
 		if mv := em.Metric(metricName); mv != nil {
-			p.updateMetricValue(metricName, mv, val)
+			if err := p.updateMetricValue(mv, val); err != nil {
+				p.l.Warningf("Error updating metric %s with val %s: %v", metricName, val, err)
+			}
 			continue
 		}
 
@@ -150,14 +135,13 @@ func (p *Probe) payloadToMetrics(target, payload string, result *result) *metric
 			continue
 		}
 
-		v, err := p.parseValue(val)
+		v, err := metrics.ParseValueFromString(val)
 		if err != nil {
 			p.l.Warningf("Could not parse value (%s) for the new metric name (%s): %v", val, metricName, err)
 			continue
 		}
 		em.AddMetric(metricName, v)
 	}
-	return em
 }
 
 // processDistValue processes a distribution value. It works with distribution
