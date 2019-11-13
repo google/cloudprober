@@ -585,7 +585,7 @@ func verifyProcessedResult(t *testing.T, r *result, success int64, name string, 
 func TestProcessProbeResult(t *testing.T) {
 	for _, agg := range []bool{true, false} {
 
-		t.Run(fmt.Sprint("With aggregation: %v", agg), func(t *testing.T) {
+		t.Run(fmt.Sprintf("With aggregation: %v", agg), func(t *testing.T) {
 
 			p := &Probe{}
 			opts := options.DefaultOptions()
