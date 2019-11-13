@@ -110,6 +110,10 @@ func Init(ll *logger.Logger, userVars map[string]string) error {
 		if err := gceVars(sysVars); err != nil {
 			return err
 		}
+	} else {
+		if err := getEC2Meta(sysVars); err != nil {
+			return fmt.Errorf("utils.SystemVars: error getting ec2 metadata: %v", err)
+		}
 	}
 
 	for k, v := range userVars {
