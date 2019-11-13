@@ -28,6 +28,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/metrics"
+	payloadconfigpb "github.com/google/cloudprober/metrics/payload/proto"
 	"github.com/google/cloudprober/metrics/testutils"
 	configpb "github.com/google/cloudprober/probes/external/proto"
 	serverpb "github.com/google/cloudprober/probes/external/proto"
@@ -589,13 +590,16 @@ func TestProcessProbeResult(t *testing.T) {
 
 			p := &Probe{}
 			opts := options.DefaultOptions()
-			opts.ProbeConf = &configpb.ProbeConf{}
+			opts.ProbeConf = &configpb.ProbeConf{
+				OutputMetricsOptions: &payloadconfigpb.OutputMetricsOptions{
+					AggregateInCloudprober: proto.Bool(agg),
+				},
+			}
 			err := p.Init("testprobe", opts)
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			p.aggregate = agg
 			p.dataChan = make(chan *metrics.EventMetrics, 20)
 
 			r := &result{

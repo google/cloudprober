@@ -40,6 +40,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
+	"github.com/google/cloudprober/metrics/payload"
 	configpb "github.com/google/cloudprober/probes/external/proto"
 	serverpb "github.com/google/cloudprober/probes/external/proto"
 	"github.com/google/cloudprober/probes/external/serverutils"
@@ -94,8 +95,7 @@ type Probe struct {
 
 	// default payload metrics that we clone from to build per-target payload
 	// metrics.
-	defaultPayloadMetrics *metrics.EventMetrics
-	aggregate             bool
+	payloadParser *payload.Parser
 }
 
 // Init initializes the probe with the given params.
@@ -142,13 +142,23 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	}
 
 	p.results = make(map[string]*result)
-	p.aggregate = p.c.GetOutputMetricsOptions().GetAggregateInCloudprober()
 
 	if !p.c.GetOutputAsMetrics() {
 		return nil
 	}
 
-	return p.initPayloadMetrics()
+	defaultKind := metrics.CUMULATIVE
+	if p.c.GetMode() == configpb.ProbeConf_ONCE {
+		defaultKind = metrics.GAUGE
+	}
+
+	var err error
+	p.payloadParser, err = payload.NewParser(p.c.GetOutputMetricsOptions(), "external", p.name, metrics.Kind(defaultKind), p.l)
+	if err != nil {
+		return fmt.Errorf("error initializing payload metrics: %v", err)
+	}
+
+	return nil
 }
 
 // substituteLabels replaces occurrences of @label@ with the values from
@@ -383,13 +393,7 @@ func (p *Probe) processProbeResult(ps *probeStatus, result *result) {
 	// If probe is configured to use the external process output (or reply payload
 	// in case of server probe) as metrics.
 	if p.c.GetOutputAsMetrics() {
-		// If not initialized yet or not aggregating in cloudprober, initialize
-		// payloadMetrics from default payload metrics.
-		if result.payloadMetrics == nil || !p.aggregate {
-			result.payloadMetrics = p.defaultPayloadMetrics.Clone().AddLabel("dst", ps.target)
-		}
-
-		p.payloadToMetrics(result.payloadMetrics, ps.payload)
+		result.payloadMetrics = p.payloadParser.PayloadMetrics(result.payloadMetrics, ps.payload, ps.target)
 		p.opts.LogMetrics(result.payloadMetrics)
 		p.dataChan <- result.payloadMetrics
 	}
