@@ -111,7 +111,7 @@ func Init(ll *logger.Logger, userVars map[string]string) error {
 			return err
 		}
 	} else {
-		if err := getEC2Meta(sysVars); err != nil {
+		if err := ec2Vars(sysVars); err != nil {
 			return fmt.Errorf("utils.SystemVars: error getting ec2 metadata: %v", err)
 		}
 	}
