@@ -35,7 +35,7 @@ func counterRuntimeVars(dataChan chan *metrics.EventMetrics, ts time.Time, m *ru
 	em.AddMetric("frees", metrics.NewInt(int64(m.Frees)))
 
 	dataChan <- em
-	l.Info(em.String())
+	l.Debug(em.String())
 }
 
 // gaugeRuntimeVars exports gauge runtime stats, stats that represent the
@@ -53,5 +53,5 @@ func gaugeRuntimeVars(dataChan chan *metrics.EventMetrics, ts time.Time, m *runt
 	em.AddMetric("mem_stats_sys_bytes", metrics.NewInt(int64(m.Sys)))
 
 	dataChan <- em
-	l.Info(em.String())
+	l.Debug(em.String())
 }
