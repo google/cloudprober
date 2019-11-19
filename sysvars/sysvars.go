@@ -159,7 +159,7 @@ func Start(ctx context.Context, dataChan chan *metrics.EventMetrics, interval ti
 			em.AddMetric(k, metrics.NewString(vars[k]))
 		}
 		dataChan <- em
-		l.Info(em.String())
+		l.Debug(em.String())
 
 		runtimeVars(dataChan, l)
 	}

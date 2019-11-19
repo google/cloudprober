@@ -24,5 +24,5 @@ func osRuntimeVars(dataChan chan *metrics.EventMetrics, l *logger.Logger) {
 	}
 
 	dataChan <- em
-	l.Info(em.String())
+	l.Debug(em.String())
 }
