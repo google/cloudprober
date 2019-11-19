@@ -4,6 +4,9 @@ jobs:
 
   build:
     name: Build and Test
+    env:
+      # UDP tests use this variable to disable IPv6.
+      TRAVIS: yes
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
