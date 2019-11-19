@@ -101,7 +101,7 @@ func Init(ll *logger.Logger, userVars map[string]string) error {
 
 	hostname, err := os.Hostname()
 	if err != nil {
-		return fmt.Errorf("utils.SystemVars: error getting local hostname: %v", err)
+		return fmt.Errorf("sysvars.Init(): error getting local hostname: %v", err)
 	}
 	sysVars["hostname"] = hostname
 
@@ -109,6 +109,15 @@ func Init(ll *logger.Logger, userVars map[string]string) error {
 	if metadata.OnGCE() {
 		if err := gceVars(sysVars); err != nil {
 			return err
+		}
+	} else {
+		// Note: ec2Vars doesn't return an error when not running on AWS. We still
+		// ignore errors as we don't want other platforms to be impacted if
+		// behavior of the underlying AWS libraries changes.
+		// TODO: Add a function to check if running on AWS, and then stop ignoring
+		// errors from ec2Vars.
+		if err := ec2Vars(sysVars); err != nil {
+			l.Warningf("sysvars.Init(): error getting ec2 metadata, ignoring: %v", err)
 		}
 	}
 
