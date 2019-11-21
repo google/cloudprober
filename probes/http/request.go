@@ -15,7 +15,6 @@
 package http
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"net/http"
@@ -23,21 +22,19 @@ import (
 	"github.com/google/cloudprober/targets/endpoint"
 )
 
-// requestBody encapsulates the request body and implements the io.ReadCloser()
+// requestBody encapsulates the request body and implements the io.Reader()
 // interface.
 type requestBody struct {
-	b *bytes.Reader
+	b []byte
 }
 
+// Read implements the io.Reader interface. Instead of using buffered read,
+// it simply copies the bytes to the provided slice in one go (depending on
+// the input slice capacity) and returns io.EOF. Buffered reads require
+// resetting the buffer before re-use, restricting our ability to use the
+// request object concurrently.
 func (rb *requestBody) Read(p []byte) (int, error) {
-	return rb.b.Read(p)
-}
-
-// Close resets the internal buffer's next read location, to make it ready for
-// the next HTTP request.
-func (rb *requestBody) Close() error {
-	rb.b.Seek(0, io.SeekStart)
-	return nil
+	return copy(p, rb.b), io.EOF
 }
 
 func (p *Probe) httpRequestForTarget(target endpoint.Endpoint) *http.Request {
@@ -62,8 +59,9 @@ func (p *Probe) httpRequestForTarget(target endpoint.Endpoint) *http.Request {
 	url := fmt.Sprintf("%s://%s%s", p.protocol, host, p.url)
 
 	// Prepare request body
-	body := &requestBody{
-		b: bytes.NewReader([]byte(p.c.GetBody())),
+	var body io.Reader
+	if p.c.GetBody() != "" {
+		body = &requestBody{[]byte(p.c.GetBody())}
 	}
 	req, err := http.NewRequest(p.method, url, body)
 	if err != nil {

@@ -150,9 +150,10 @@ type ProbeConf struct {
 	// Disable TLS certificate validation. If set to true, any certificate
 	// presented by the server for any host name will be accepted.
 	DisableCertValidation *bool `protobuf:"varint,14,opt,name=disable_cert_validation,json=disableCertValidation" json:"disable_cert_validation,omitempty"`
-	// Requests per probe (Deprecated).
-	// NOTE: This field is now deprecated and will be removed after the v0.10.3
-	// releases.
+	// Requests per probe.
+	// Number of HTTP requests per probe. Requests are executed concurrently and
+	// each HTTP re contributes to probe results. For example, if you run two
+	// requests per probe, "total" counter will be incremented by 2.
 	RequestsPerProbe *int32 `protobuf:"varint,98,opt,name=requests_per_probe,json=requestsPerProbe,def=1" json:"requests_per_probe,omitempty"`
 	// How long to wait between two requests to the same target
 	// NOTE: This field is now deprecated and will be removed after the v0.10.3
