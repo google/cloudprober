@@ -173,7 +173,7 @@ func TestSuccessMultipleCasesResultPerPort(t *testing.T) {
 		// 20 probes, probing each target from 2 ports, at the interval of 100ms, with 1000ms timeout and 50ms delay on server.
 		{"success_timeout_larger_than_interval_1", 100, 1000, 50, 20, true, 20},
 		// 20 probes, probing each target from 2 ports, at the interval of 100ms, with 1000ms timeout and 200ms delay on server.
-		{"success_timeout_larger_than_interval_2", 100, 1000, 200, 20, true, 20},
+		{"success_timeout_larger_than_interval_2", 10, 100, 20, 20, true, 20},
 		// 10 probes, probing each target just once, at the interval of 200ms, with 100ms timeout and 10ms delay on server.
 		{"single_port", 200, 100, 10, 10, false, 5},
 	}
