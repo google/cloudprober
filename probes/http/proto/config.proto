@@ -66,10 +66,12 @@ message ProbeConf {
   // presented by the server for any host name will be accepted.
   optional bool disable_cert_validation = 14;
 
-  // Requests per probe (Deprecated).
-  // NOTE: This field is now deprecated and will be removed after the v0.10.3
-  // releases.
+  // Requests per probe.
+  // Number of HTTP requests per probe. Requests are executed concurrently and
+  // each HTTP re contributes to probe results. For example, if you run two
+  // requests per probe, "total" counter will be incremented by 2.
   optional int32 requests_per_probe = 98 [default = 1];
+
   // How long to wait between two requests to the same target
   // NOTE: This field is now deprecated and will be removed after the v0.10.3
   // releases.

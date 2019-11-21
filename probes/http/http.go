@@ -52,7 +52,7 @@ type Probe struct {
 	// book-keeping params
 	targets      []endpoint.Endpoint
 	httpRequests map[string]*http.Request
-	results      map[string]*result
+	results      map[string]*probeResult
 	protocol     string
 	method       string
 	url          string
@@ -72,7 +72,7 @@ type Probe struct {
 	statsExportFrequency int64
 }
 
-type result struct {
+type probeResult struct {
 	total, success, timeouts int64
 	latency                  metrics.Value
 	respCodes                *metrics.Map
@@ -101,10 +101,6 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		return fmt.Errorf("Invalid Relative URL: %s, must begin with '/'", p.url)
 	}
 
-	if p.c.GetRequestsPerProbe() != 1 {
-		p.l.Warningf("requests_per_probe field is now deprecated and will be removed in future releases.")
-	}
-
 	// Create a transport for our use. This is mostly based on
 	// http.DefaultTransport with some timeouts changed.
 	// TODO(manugarg): Considering cloning DefaultTransport once
@@ -112,7 +108,6 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	dialer := &net.Dialer{
 		Timeout:   p.opts.Timeout,
 		KeepAlive: 30 * time.Second, // TCP keep-alive
-		DualStack: true,
 	}
 
 	if p.opts.SourceIP != nil {
@@ -182,12 +177,17 @@ func isClientTimeout(err error) bool {
 }
 
 // httpRequest executes an HTTP request and updates the provided result struct.
-func (p *Probe) doHTTPRequest(req *http.Request, result *result) {
+func (p *Probe) doHTTPRequest(req *http.Request, result *probeResult, resultMu *sync.Mutex) {
 	start := time.Now()
-	result.total++
 
 	resp, err := p.client.Do(req)
 	latency := time.Since(start)
+
+	// Note that we take lock on result object outside of the actual request.
+	resultMu.Lock()
+	defer resultMu.Unlock()
+
+	result.total++
 
 	if err != nil {
 		if isClientTimeout(err) {
@@ -237,7 +237,7 @@ func (p *Probe) updateTargets() {
 	}
 
 	if p.results == nil {
-		p.results = make(map[string]*result, len(p.targets))
+		p.results = make(map[string]*probeResult, len(p.targets))
 	}
 
 	for _, target := range p.targets {
@@ -259,7 +259,7 @@ func (p *Probe) updateTargets() {
 			} else {
 				latencyValue = metrics.NewFloat(0)
 			}
-			p.results[target.Name] = &result{
+			p.results[target.Name] = &probeResult{
 				latency:           latencyValue,
 				respCodes:         metrics.NewMap("code", metrics.NewInt(0)),
 				respBodies:        metrics.NewMap("resp", metrics.NewInt(0)),
@@ -275,28 +275,26 @@ func (p *Probe) runProbe(ctx context.Context) {
 
 	wg := sync.WaitGroup{}
 	for _, target := range p.targets {
-		req := p.httpRequests[target.Name]
+		req, result := p.httpRequests[target.Name], p.results[target.Name]
 		if req == nil {
 			continue
 		}
 
-		wg.Add(1)
+		// We launch a separate goroutine for each HTTP request. Since there can be
+		// multiple requests per probe per target, we use a mutex to protect access
+		// to per-target result object in doHTTPRequest. Note that result object is
+		// not accessed concurrently anywhere else -- export of the metrics happens
+		// when probe is not running.
+		var resultMu sync.Mutex
 
-		// Launch a separate goroutine for each target.
-		go func(target string, req *http.Request) {
-			defer wg.Done()
-			numRequests := int32(0)
-			for {
-				p.doHTTPRequest(req.WithContext(reqCtx), p.results[target])
+		for numReq := int32(0); numReq < p.c.GetRequestsPerProbe(); numReq++ {
+			wg.Add(1)
 
-				numRequests++
-				if numRequests >= p.c.GetRequestsPerProbe() {
-					break
-				}
-				// Sleep for requests_interval_msec before continuing.
-				time.Sleep(time.Duration(p.c.GetRequestsIntervalMsec()) * time.Millisecond)
-			}
-		}(target.Name, req)
+			go func(req *http.Request, result *probeResult) {
+				defer wg.Done()
+				p.doHTTPRequest(req.WithContext(reqCtx), result, &resultMu)
+			}(req, result)
+		}
 	}
 
 	// Wait until all probes are done.
