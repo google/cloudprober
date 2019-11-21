@@ -2,7 +2,7 @@ name: Go Build and Test
 on: [push, pull_request]
 jobs:
 
-  build:
+  build_ubuntu_windows:
     name: Build and Test
     env:
       # UDP tests use this variable to disable IPv6.
@@ -10,7 +10,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest, windows-latest]
     steps:
 
     - name: Set up Go 1.13
@@ -31,3 +31,30 @@ jobs:
 
     - name: Test
       run: go test -v -race -covermode=atomic ./...
+      
+  build_macos:
+    name: Build and Test on MacOS
+    env:
+      # Disable UDP tests on MacOS. They are flaky.
+      env: EXTRA_TEST_FLAGS="-tags skip_udp_probe_test"
+    runs-on: macOS-latest
+    steps:
+
+    - name: Set up Go 1.13
+      uses: actions/setup-go@v1
+      with:
+        go-version: 1.13
+      id: go
+
+    - name: Check out code into the Go module directory
+      uses: actions/checkout@v1
+
+    - name: Get dependencies
+      run: |
+        go get -v -t -d ./...
+
+    - name: Build
+      run: go build -v .
+
+    - name: Test
+      run: go test ${EXTRA_TEST_FLAGS} -v -race -covermode=atomic ./...
