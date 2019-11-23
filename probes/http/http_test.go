@@ -153,21 +153,30 @@ func TestProbeVariousMethods(t *testing.T) {
 }
 
 func TestProbeWithBody(t *testing.T) {
-
-	testBody := "TestHTTPBody"
+	testBody := `TestHTTPBody "val123"`
 	testTarget := "test.com"
 	// Build the expected response code map
 	expectedMap := metrics.NewMap("resp", metrics.NewInt(0))
 	expectedMap.IncKey(testBody)
 	expected := expectedMap.String()
+	// Build the expected metrics
+	testBodyLines := strings.Split(testBody, "\n")
+	expectedMetrics := make(map[string]metrics.Value)
+	for _, line := range testBodyLines {
+		lineSplit := strings.Fields(line)
+		if len(lineSplit) == 2 {
+			expectedMetrics[lineSplit[0]], _ = metrics.ParseValueFromString(lineSplit[1])
+		}
+	}
 
 	p := &Probe{}
 	err := p.Init("http_test", &options.Options{
 		Targets:  targets.StaticTargets(testTarget),
 		Interval: 2 * time.Second,
 		ProbeConf: &configpb.ProbeConf{
-			Body:                    &testBody,
-			ExportResponseAsMetrics: proto.Bool(true),
+			Body:                        &testBody,
+			ExportResponseCountAsMetric: proto.Bool(true),
+			ExportResponseAsMetrics:     proto.Bool(true),
 		},
 	})
 
@@ -182,14 +191,36 @@ func TestProbeWithBody(t *testing.T) {
 	if got != expected {
 		t.Errorf("response map: got=%s, expected=%s", got, expected)
 	}
+	for key, val := range expectedMetrics {
+		metrics := p.results[testTarget].responseMetrics
+		if metrics != nil {
+			actualMetric := metrics.Metric(key)
+			if actualMetric != val {
+				t.Errorf("metric %s: got=%s, expected=%s", key, actualMetric, val)
+			}
+		} else {
+			t.Errorf("metric %s: not found, expected=%s", key, val)
+		}
+	}
 
-	// Probe 2nd run (we should get the same request body).
+	// Probe 2nd run (we should get the same request body)
 	p.runProbe(context.Background())
 	expectedMap.IncKey(testBody)
 	expected = expectedMap.String()
 	got = p.results[testTarget].respBodies.String()
 	if got != expected {
 		t.Errorf("response map: got=%s, expected=%s", got, expected)
+	}
+	for key, val := range expectedMetrics {
+		metrics := p.results[testTarget].responseMetrics
+		if metrics != nil {
+			actualMetric := metrics.Metric(key)
+			if actualMetric != val {
+				t.Errorf("metric %s: got=%s, expected=%s", key, actualMetric, val)
+			}
+		} else {
+			t.Errorf("metric %s: not found, expected=%s", key, val)
+		}
 	}
 }
 

@@ -2,7 +2,9 @@ syntax = "proto2";
 
 package cloudprober.probes.http;
 
-// Next tag: 15
+import "github.com/google/cloudprober/metrics/payload/proto/config.proto";
+
+// Next tag: 18
 message ProbeConf {
   enum ProtocolType {
     HTTP = 0;
@@ -42,7 +44,7 @@ message ProbeConf {
   optional bool resolve_first = 4 [default = false];
 
   // Export response (body) count as a metric
-  optional bool export_response_as_metrics = 5 [default = false];
+  optional bool export_response_count_as_metric = 5 [default = false];
 
   // HTTP request method
   optional Method method = 7 [default = GET];
@@ -76,4 +78,11 @@ message ProbeConf {
   // NOTE: This field is now deprecated and will be removed after the v0.10.3
   // releases.
   optional int32 requests_interval_msec = 99 [default = 25];
+
+  // Output metrics options, where output is the response body returned by the
+  // HTTP probe process. Cloudprober expects variables to be in the following
+  // format in the response body:
+  // var1 value1 (for example: total_errors 589)
+  optional bool export_response_as_metrics = 16 [default = false];
+  optional metrics.payload.OutputMetricsOptions output_metrics_options = 17;
 }
