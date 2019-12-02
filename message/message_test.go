@@ -26,8 +26,15 @@ import (
 // if CreateMessage fails. This is for use in places where we don't expect
 // CreateMessage to fail.
 func createMessage(t *testing.T, fs *FlowState, ts time.Time) ([]byte, uint64) {
+	return createMessageWithPayload(t, fs, ts, nil)
+}
+
+// createMessageWithPayload is a helper function for creating a message and
+// fatally failing if CreateMessage fails. This is for use in places where we
+// don't expect CreateMessage to fail.
+func createMessageWithPayload(t *testing.T, fs *FlowState, ts time.Time, payload []byte) ([]byte, uint64) {
 	maxLen := 1024
-	msgBytes, msgSeq, err := fs.CreateMessage(ts, maxLen)
+	msgBytes, msgSeq, err := fs.CreateMessage(ts, payload, maxLen)
 	if err != nil {
 		t.Fatalf("Error creating message for seq %d: %v", fs.seq+1, err)
 	}
@@ -101,7 +108,7 @@ func TestInvalidMessage(t *testing.T) {
 	maxLen := 10
 
 	fs := fss.FlowState(src, "", dst)
-	if msgBytes, _, err := fs.CreateMessage(ts, maxLen); err == nil {
+	if msgBytes, _, err := fs.CreateMessage(ts, nil, maxLen); err == nil {
 		t.Errorf("Message too long(%d) for maxlen(%d) but did not fail.", len(msgBytes), maxLen)
 	}
 
@@ -305,5 +312,35 @@ func TestMultiplePorts(t *testing.T) {
 	if res.Success || res.LostCount != 1 || res.Delayed {
 		t.Errorf("Success, lostCount, delayed mismatch. got (%v %v %v) want (%v %v %v)",
 			res.Success, res.LostCount, res.Delayed, false, 1, false)
+	}
+}
+
+// TestMessagePayloadHandling tests payload handling of the messages.
+func TestMessagePayloadHandling(t *testing.T) {
+	txFSM := NewFlowStateMap()
+
+	testPayload := "cloudprober"
+
+	src := "aa-src"
+	dst := "zz-dst"
+	seq := uint64(100)
+	ts := time.Now().Truncate(time.Microsecond)
+
+	txFS := txFSM.FlowState(src, "", dst)
+	txFS.seq = seq - 1
+	msgBytes, msgSeq := createMessageWithPayload(t, txFS, ts, []byte(testPayload))
+	if msgSeq != seq {
+		t.Errorf("Incorrect seq in message: got %d want %d", msgSeq, seq)
+	}
+
+	msg, err := NewMessage(msgBytes)
+	if err != nil {
+		t.Fatalf("Process message failure: %v", err)
+	}
+	if msg.Src() != src || msg.Dst() != dst {
+		t.Errorf("Message content error (src, dst): got (%s, %s) want (%s, %s)", msg.Src(), msg.Dst(), src, dst)
+	}
+	if string(msg.Payload()) != testPayload {
+		t.Errorf("Message payload=%s, want=%s", string(msg.Payload()), testPayload)
 	}
 }

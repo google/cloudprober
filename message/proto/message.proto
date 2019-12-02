@@ -4,7 +4,7 @@ package message;
 
 // Constants defines constants with default values.
 message Constants {
-  optional uint64 magic = 1 [default=0xea74cace87ea];
+  optional uint64 magic = 1 [default = 0xea74cace87ea];
 }
 
 // Datanode is something that see's a message AND can modify it.
@@ -25,15 +25,16 @@ message DataNode {
 // Msg is a message sent over the network.
 // magic, seq, src and dst are required fields.
 message Msg {
-  optional fixed64 magic = 1; // required.
+  optional fixed64 magic = 1;  // required.
 
   // 8 bytes of sequence in pcap-friendly network byte order.
-  optional bytes seq = 2; // required.
+  optional bytes seq = 2;  // required.
 
   // Datanodes seen by this message.
-  optional DataNode src = 3; // required.
-  optional DataNode dst = 4; // required.
-  repeated DataNode nodes = 5; // Intermediate nodes.
+  optional DataNode src = 3;    // required.
+  optional DataNode dst = 4;    // required.
+  repeated DataNode nodes = 5;  // Intermediate nodes.
 
-  optional bytes pad = 99;
+  // Optional payload.
+  optional bytes payload = 99;
 }

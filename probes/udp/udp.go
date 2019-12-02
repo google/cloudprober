@@ -34,6 +34,7 @@ import (
 	"github.com/google/cloudprober/message"
 	"github.com/google/cloudprober/metrics"
 	"github.com/google/cloudprober/probes/options"
+	"github.com/google/cloudprober/probes/probeutils"
 	configpb "github.com/google/cloudprober/probes/udp/proto"
 	udpsrv "github.com/google/cloudprober/servers/udp"
 	"github.com/google/cloudprober/sysvars"
@@ -47,7 +48,8 @@ const (
 	// list under maxTargets.
 	// TODO(manugarg): Make it configurable with documentation on its implication
 	// on resource consumption.
-	maxTargets = 500
+	maxTargets     = 500
+	payloadPattern = "cloudprober"
 )
 
 // flow represents a UDP flow.
@@ -76,6 +78,7 @@ type Probe struct {
 	targets []endpoint.Endpoint   // List of targets for a probe iteration.
 	res     map[flow]*probeResult // Results by flow.
 	fsm     *message.FlowStateMap // Map flow parameters to flow state.
+	payload []byte
 
 	// Intermediate buffers of sent and received packets
 	sentPackets, rcvdPackets chan packetID
@@ -146,6 +149,11 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	p.c = c
 	p.fsm = message.NewFlowStateMap()
 	p.res = make(map[flow]*probeResult)
+
+	if p.c.GetPayloadSize() != 0 {
+		p.payload = make([]byte, p.c.GetPayloadSize())
+		probeutils.PatternPayload(p.payload, []byte(payloadPattern))
+	}
 
 	// Initialize intermediate buffers of sent and received packets
 	p.flushIntv = 2 * p.opts.Interval
@@ -371,7 +379,11 @@ func (p *Probe) runSingleProbe(f flow, conn *net.UDPConn, maxLen, dstPort int) e
 
 	flowState := p.fsm.FlowState(p.src, f.srcPort, f.target)
 	now := time.Now()
-	msg, seq, err := flowState.CreateMessage(now, maxLen)
+	msg, seq, err := flowState.CreateMessage(now, p.payload, maxLen)
+	if err != nil {
+		return fmt.Errorf("error creating new message to probe target(%s): %v", f.target, err)
+	}
+
 	if _, err := conn.WriteToUDP(msg, raddr); err != nil {
 		flowState.WithdrawMessage(seq)
 		return fmt.Errorf("unable to send to %s(%v): %v", f.target, raddr, err)
