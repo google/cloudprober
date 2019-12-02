@@ -160,6 +160,11 @@ func (m *Message) SrcTS() time.Time {
 	return time.Unix(0, int64(tsVal)*1000)
 }
 
+// Payload returns the payload in the UDP message.
+func (m *Message) Payload() []byte {
+	return m.m.GetPayload()
+}
+
 // NewFlowStateMap returns a new FlowStateMap variable.
 func NewFlowStateMap() *FlowStateMap {
 	return &FlowStateMap{
@@ -201,7 +206,7 @@ func (fs *FlowState) NextSeq() uint64 {
 // CreateMessage creates a message for the flow and returns byte array
 // representation of the message and sequence number used on success.
 // TODO: add Message.CreateMessage() fn and use it in FlowState.CreateMessage.
-func (fs *FlowState) CreateMessage(ts time.Time, maxLen int) ([]byte, uint64, error) {
+func (fs *FlowState) CreateMessage(ts time.Time, payload []byte, maxLen int) ([]byte, uint64, error) {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
@@ -219,6 +224,7 @@ func (fs *FlowState) CreateMessage(ts time.Time, maxLen int) ([]byte, uint64, er
 			TimestampUsec: Uint64ToNetworkBytes(uint64(0)),
 			Type:          &dstType,
 		},
+		Payload: payload,
 	}
 	bytes, err := proto.Marshal(msg)
 	if err != nil {

@@ -14,6 +14,9 @@ message ProbeConf {
   // message max to account for MTU.
   optional int32 max_length = 5 [default = 1300];
 
+  // Payload size
+  optional int32 payload_size = 6;
+
   // Changes the exported monitoring streams to be per port:
   // 1. Changes the streams names to total-per-port, success-per-port etc.
   // 2. Adds src_port and dst_port as stream labels.

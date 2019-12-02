@@ -118,7 +118,7 @@ func sendPktsAndCollectReplies(ctx context.Context, t *testing.T, srvPort int, i
 			time.Sleep(interval * time.Duration(seq-prevSeq))
 		}
 		fs.SetSeq(uint64(seq))
-		buf, _, err := fs.CreateMessage(time.Now(), maxLen)
+		buf, _, err := fs.CreateMessage(time.Now(), nil, maxLen)
 		if err != nil {
 			t.Fatalf("Unable to create message: %v", err)
 		}
