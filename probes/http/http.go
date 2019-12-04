@@ -30,6 +30,7 @@ import (
 
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
+	"github.com/google/cloudprober/metrics/payload"
 	configpb "github.com/google/cloudprober/probes/http/proto"
 	"github.com/google/cloudprober/probes/options"
 	"github.com/google/cloudprober/targets/endpoint"
@@ -56,6 +57,7 @@ type Probe struct {
 	protocol     string
 	method       string
 	url          string
+	dataChan     chan *metrics.EventMetrics
 
 	// Run counter, used to decide when to update targets or export
 	// stats.
@@ -70,6 +72,9 @@ type Probe struct {
 	// statsExportInterval / p.opts.Interval. Metrics are exported when
 	// (runCnt % statsExportFrequency) == 0
 	statsExportFrequency int64
+
+	// parser for reading metrics from response body
+	payloadParser *payload.Parser
 }
 
 type probeResult struct {
@@ -78,6 +83,7 @@ type probeResult struct {
 	respCodes                *metrics.Map
 	respBodies               *metrics.Map
 	validationFailure        *metrics.Map
+	responseMetrics          *metrics.EventMetrics
 }
 
 // Init initializes the probe with the given params.
@@ -161,6 +167,13 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		p.targetsUpdateFrequency = 1
 	}
 
+	defaultKind := metrics.CUMULATIVE
+	parser, err := payload.NewParser(p.c.GetOutputMetricsOptions(), "http", p.name, metrics.Kind(defaultKind), p.l)
+	if err != nil {
+		return fmt.Errorf("error initializing payload metrics: %v", err)
+	}
+
+	p.payloadParser = parser
 	return nil
 }
 
@@ -222,10 +235,14 @@ func (p *Probe) doHTTPRequest(req *http.Request, result *probeResult, resultMu *
 
 	result.success++
 	result.latency.AddFloat64(latency.Seconds() / p.opts.LatencyUnit.Seconds())
-	if p.c.GetExportResponseAsMetrics() {
+	if p.c.GetExportResponseCountAsMetric() {
 		if len(respBody) <= maxResponseSizeForMetrics {
 			result.respBodies.IncKey(string(respBody))
 		}
+	}
+	if p.c.GetExportResponseAsMetrics() {
+		// Parse response body as metrics
+		result.responseMetrics = p.payloadParser.PayloadMetrics(result.responseMetrics, string(respBody), req.Host)
 	}
 }
 
@@ -303,10 +320,12 @@ func (p *Probe) runProbe(ctx context.Context) {
 
 // Start starts and runs the probe indefinitely.
 func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) {
+	p.dataChan = dataChan
+
 	ticker := time.NewTicker(p.opts.Interval)
 	defer ticker.Stop()
 
-	for ts := range ticker.C {
+	for range ticker.C {
 		// Don't run another probe if context is canceled already.
 		select {
 		case <-ctx.Done():
@@ -325,28 +344,35 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 		if (p.runCnt % p.statsExportFrequency) == 0 {
 			for _, target := range p.targets {
 				result := p.results[target.Name]
-				em := metrics.NewEventMetrics(ts).
-					AddMetric("total", metrics.NewInt(result.total)).
-					AddMetric("success", metrics.NewInt(result.success)).
-					AddMetric("latency", result.latency).
-					AddMetric("timeouts", metrics.NewInt(result.timeouts)).
-					AddMetric("resp-code", result.respCodes).
-					AddMetric("resp-body", result.respBodies).
-					AddLabel("ptype", "http").
-					AddLabel("probe", p.name).
-					AddLabel("dst", target.Name)
-
-				for _, al := range p.opts.AdditionalLabels {
-					em.AddLabel(al.KeyValueForTarget(target.Name))
-				}
-
-				if p.opts.Validators != nil {
-					em.AddMetric("validation_failure", result.validationFailure)
-				}
+				em := p.defaultMetrics(target.Name, result)
 
 				p.opts.LogMetrics(em)
-				dataChan <- em
+				p.dataChan <- em
+
+				if p.c.GetExportResponseAsMetrics() {
+					p.dataChan <- result.responseMetrics
+				}
 			}
 		}
 	}
+}
+
+func (p *Probe) defaultMetrics(target string, result *probeResult) *metrics.EventMetrics {
+	em := metrics.NewEventMetrics(time.Now()).
+		AddMetric("success", metrics.NewInt(result.success)).
+		AddMetric("total", metrics.NewInt(result.total)).
+		AddMetric("latency", result.latency).
+		AddLabel("ptype", "external").
+		AddLabel("probe", p.name).
+		AddLabel("dst", target)
+
+	for _, al := range p.opts.AdditionalLabels {
+		em.AddLabel(al.KeyValueForTarget(target))
+	}
+
+	if p.opts.Validators != nil {
+		em.AddMetric("validation_failure", result.validationFailure)
+	}
+
+	return em
 }
