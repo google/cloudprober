@@ -187,7 +187,7 @@ func (p *Probe) validateResponse(resp *dns.Msg, target string, result *probeRunR
 		}
 		respBytes := []byte(strings.Join(answers, "\n"))
 
-		failedValidations := validators.RunValidators(p.opts.Validators, nil, respBytes, result.validationFailure, p.l)
+		failedValidations := validators.RunValidators(p.opts.Validators, &validators.Input{ResponseBody: respBytes}, result.validationFailure, p.l)
 		if len(failedValidations) > 0 {
 			p.l.Debugf("Target(%s): validators %v failed. Resp: %v", target, failedValidations, answers)
 			return false

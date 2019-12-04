@@ -36,20 +36,20 @@ func (tv *testValidator) Validate(responseObject interface{}, responseBody []byt
 	return false, nil
 }
 
-var testValidators = []*ValidatorWithName{
+var testValidators = []*Validator{
 	{
-		Name:      "test-v1",
-		Validator: &testValidator{true},
+		Name:     "test-v1",
+		Validate: func(input *Input) (bool, error) { return true, nil },
 	},
 	{
-		Name:      "test-v2",
-		Validator: &testValidator{false},
+		Name:     "test-v2",
+		Validate: func(input *Input) (bool, error) { return false, nil },
 	},
 }
 
 func TestRunValidators(t *testing.T) {
 	vfMap := ValidationFailureMap(testValidators)
-	failures := RunValidators(testValidators, nil, nil, vfMap, nil)
+	failures := RunValidators(testValidators, &Input{}, vfMap, nil)
 
 	if vfMap.GetKey("test-v1").Int64() != 0 {
 		t.Error("Got unexpected test-v1 validation failure.")
@@ -59,7 +59,7 @@ func TestRunValidators(t *testing.T) {
 		t.Errorf("Didn't get expected test-v2 validation failure.")
 	}
 
-	if len(failures) != 1 && failures[0] != "test-v2" {
+	if !reflect.DeepEqual(failures, []string{"test-v2"}) {
 		t.Errorf("Didn't get expected validation failures. Expected: {\"test-v2\"}, Got: %v", failures)
 	}
 }

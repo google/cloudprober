@@ -166,12 +166,17 @@ func (p *Probe) configureIntegrityCheck() error {
 		}
 	}
 
-	v, err := integrity.PatternNumBytesValidator(timeBytesSize, p.l)
+	iv, err := integrity.PatternNumBytesValidator(timeBytesSize, p.l)
 	if err != nil {
 		return err
 	}
 
-	p.opts.Validators = append(p.opts.Validators, &validators.ValidatorWithName{Name: dataIntegrityKey, Validator: v})
+	v := &validators.Validator{
+		Name:     dataIntegrityKey,
+		Validate: func(input *validators.Input) (bool, error) { return iv.Validate(input.ResponseBody) },
+	}
+
+	p.opts.Validators = append(p.opts.Validators, v)
 
 	return nil
 }
@@ -387,7 +392,7 @@ func (p *Probe) recvPackets(runID uint16, tracker chan bool) {
 		result := p.results[pkt.target]
 
 		if p.opts.Validators != nil {
-			failedValidations := validators.RunValidators(p.opts.Validators, nil, pkt.data, result.validationFailure, p.l)
+			failedValidations := validators.RunValidators(p.opts.Validators, &validators.Input{ResponseBody: pkt.data}, result.validationFailure, p.l)
 
 			// If any validation failed, return now, leaving the success and latency
 			// counters unchanged.

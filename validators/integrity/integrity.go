@@ -56,7 +56,7 @@ func (v *Validator) Init(config interface{}, l *logger.Logger) error {
 
 // Validate validates the provided responseBody for data integrity errors, for
 // example, data corruption.
-func (v *Validator) Validate(unusedResponseObj interface{}, responseBody []byte) (bool, error) {
+func (v *Validator) Validate(responseBody []byte) (bool, error) {
 	pattern := v.pattern
 	if len(pattern) == 0 {
 		if len(responseBody) < int(v.patternNumBytes) {

@@ -372,7 +372,7 @@ type probeStatus struct {
 
 func (p *Probe) processProbeResult(ps *probeStatus, result *result) {
 	if ps.success && p.opts.Validators != nil {
-		failedValidations := validators.RunValidators(p.opts.Validators, nil, []byte(ps.payload), result.validationFailure, p.l)
+		failedValidations := validators.RunValidators(p.opts.Validators, &validators.Input{ResponseBody: []byte(ps.payload)}, result.validationFailure, p.l)
 
 		// If any validation failed, log and set success to false.
 		if len(failedValidations) > 0 {
