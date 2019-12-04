@@ -54,6 +54,6 @@ func (v *Validator) Init(config interface{}, l *logger.Logger) error {
 
 // Validate the provided responseBody and return true if responseBody matches
 // the configured regex.
-func (v *Validator) Validate(unusedResponseObj interface{}, responseBody []byte) (bool, error) {
+func (v *Validator) Validate(responseBody []byte) (bool, error) {
 	return v.r.Match(responseBody), nil
 }

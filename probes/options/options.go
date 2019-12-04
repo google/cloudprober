@@ -73,7 +73,7 @@ type Options struct {
 	ProbeConf           interface{} // Probe-type specific config
 	LatencyDist         *metrics.Distribution
 	LatencyUnit         time.Duration
-	Validators          []*validators.ValidatorWithName
+	Validators          []*validators.Validator
 	SourceIP            net.IP
 	IPVersion           int
 	StatsExportInterval time.Duration

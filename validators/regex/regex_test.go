@@ -47,7 +47,7 @@ func verifyValidate(t *testing.T, respBody []byte, regexStr string, expected boo
 		t.Errorf("v.Init(%s, l): got error: %v", regexStr, err)
 	}
 
-	result, err := v.Validate(nil, respBody)
+	result, err := v.Validate(respBody)
 	if err != nil {
 		t.Errorf("v.Validate(nil, %s): got error: %v", string(respBody), err)
 	}

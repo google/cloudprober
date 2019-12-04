@@ -27,31 +27,19 @@ import (
 	"github.com/google/cloudprober/validators/regex"
 )
 
-// Validator interface represents a validator.
+// Validator implements a validator.
 //
 // A validator runs a test on the provided input, usually the probe response,
 // and returns the test result. If test cannot be run successfully for some
 // reason (e.g. for malformed input), an error is returned.
-type Validator interface {
-	Init(config interface{}, l *logger.Logger) error
-	Validate(responseObject interface{}, responseBody []byte) (bool, error)
-}
-
-// ValidatorWithName encapsulate a Validator and its name.
-type ValidatorWithName struct {
-	Name      string
-	Validator Validator
-}
-
-// Validate is simply a wrapper around the encapsulated Validator's Validate
-// method.
-func (vwn *ValidatorWithName) Validate(responseObject interface{}, responseBody []byte) (bool, error) {
-	return vwn.Validator.Validate(responseObject, responseBody)
+type Validator struct {
+	Name     string
+	Validate func(input *Input) (bool, error)
 }
 
 // Init initializes the validators defined in the config.
-func Init(validatorConfs []*configpb.Validator, l *logger.Logger) ([]*ValidatorWithName, error) {
-	var validators []*ValidatorWithName
+func Init(validatorConfs []*configpb.Validator, l *logger.Logger) ([]*Validator, error) {
+	var validators []*Validator
 	names := make(map[string]bool)
 
 	for _, vc := range validatorConfs {
@@ -64,43 +52,66 @@ func Init(validatorConfs []*configpb.Validator, l *logger.Logger) ([]*ValidatorW
 			return nil, err
 		}
 
-		validators = append(validators, &ValidatorWithName{vc.GetName(), v})
+		validators = append(validators, v)
 		names[vc.GetName()] = true
 	}
 
 	return validators, nil
 }
 
-func initValidator(validatorConf *configpb.Validator, l *logger.Logger) (validator Validator, err error) {
-	var c interface{}
+func initValidator(validatorConf *configpb.Validator, l *logger.Logger) (validator *Validator, err error) {
+	validator = &Validator{Name: validatorConf.GetName()}
 
 	switch validatorConf.Type.(type) {
 	case *configpb.Validator_HttpValidator:
-		validator = &http.Validator{}
-		c = validatorConf.GetHttpValidator()
+		v := &http.Validator{}
+		if err := v.Init(validatorConf.GetHttpValidator(), l); err != nil {
+			return nil, err
+		}
+		validator.Validate = func(input *Input) (bool, error) {
+			return v.Validate(input.Response, input.ResponseBody)
+		}
+		return
+
 	case *configpb.Validator_IntegrityValidator:
-		validator = &integrity.Validator{}
-		c = validatorConf.GetIntegrityValidator()
+		v := &integrity.Validator{}
+		if err := v.Init(validatorConf.GetIntegrityValidator(), l); err != nil {
+			return nil, err
+		}
+		validator.Validate = func(input *Input) (bool, error) {
+			return v.Validate(input.ResponseBody)
+		}
+		return
+
 	case *configpb.Validator_Regex:
-		validator = &regex.Validator{}
-		c = validatorConf.GetRegex()
+		v := &regex.Validator{}
+		if err := v.Init(validatorConf.GetRegex(), l); err != nil {
+			return nil, err
+		}
+		validator.Validate = func(input *Input) (bool, error) {
+			return v.Validate(input.ResponseBody)
+		}
+		return
 	default:
 		err = fmt.Errorf("unknown validator type: %v", validatorConf.Type)
 		return
 	}
+}
 
-	err = validator.Init(c, l)
-	return
+// Input encapsulates the input for validators.
+type Input struct {
+	Response     interface{}
+	ResponseBody []byte
 }
 
 // RunValidators runs the list of validators on the given response and
 // responseBody, updates the given validationFailure map and returns the list
 // of failures.
-func RunValidators(vs []*ValidatorWithName, resp interface{}, respBody []byte, validationFailure *metrics.Map, l *logger.Logger) []string {
+func RunValidators(vs []*Validator, input *Input, validationFailure *metrics.Map, l *logger.Logger) []string {
 	var failures []string
 
 	for _, v := range vs {
-		success, err := v.Validate(resp, respBody)
+		success, err := v.Validate(input)
 		if err != nil {
 			l.Error("Error while running the validator ", v.Name, ": ", err.Error())
 			continue
@@ -115,7 +126,7 @@ func RunValidators(vs []*ValidatorWithName, resp interface{}, respBody []byte, v
 }
 
 // ValidationFailureMap returns an initialized validation failures map.
-func ValidationFailureMap(vs []*ValidatorWithName) *metrics.Map {
+func ValidationFailureMap(vs []*Validator) *metrics.Map {
 	m := metrics.NewMap("validator", metrics.NewInt(0))
 	// Initialize validation failure map with validator keys, so that we always
 	// export the metrics.

@@ -64,7 +64,7 @@ func verifyValidate(t *testing.T, v Validator, testPattern string) {
 	}
 
 	for i, r := range rows {
-		result, err := v.Validate(nil, r.respBody)
+		result, err := v.Validate(r.respBody)
 		if (err != nil) != r.wantErr {
 			t.Errorf("v.Validate(nil, %s), row #%d: err=%v, expectedError(bool)=%v", string(r.respBody), i, err, r.wantErr)
 		}
