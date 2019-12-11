@@ -35,12 +35,25 @@ import (
 )
 
 var (
-	debugLog = flag.Bool("debug_log", false, "Whether to output debug logs or not")
+	debugLog     = flag.Bool("debug_log", false, "Whether to output debug logs or not")
+	debugLogList = flag.String("debug_logname_regex", "", "Enable debug logs for only for log names that match this regex (e.g. --debug_logname_regex=.*probe1.*")
+
+	// Enable/Disable cloud logging
+	disableCloudLogging = flag.Bool("disable_cloud_logging", false, "Disable cloud logging.")
 
 	// LogPrefixEnvVar environment variable is used to determine the stackdriver
 	// log name prefix. Default prefix is "cloudprober".
 	LogPrefixEnvVar = "CLOUDPROBER_LOG_PREFIX"
 )
+
+// EnvVars defines environment variables that can be used to modify the logging
+// behavior.
+var EnvVars = struct {
+	DisableCloudLogging, DebugLog string
+}{
+	"CLOUDPROBER_DISABLE_CLOUD_LOGGING",
+	"CLOUDPROBER_DEBUG_LOG",
+}
 
 const (
 	// Prefix for the cloudprober stackdriver log names.
@@ -64,6 +77,28 @@ const (
 	MaxLogEntrySize = 102400
 )
 
+func enableDebugLog(debugLog bool, debugLogRe string, logName string) bool {
+	if !debugLog && debugLogRe == "" {
+		return false
+	}
+
+	if debugLog && debugLogRe == "" {
+		// Enable for all logs, regardless of log names.
+		return true
+	}
+
+	r, err := regexp.Compile(debugLogRe)
+	if err != nil {
+		panic(fmt.Sprintf("error while parsing log name regex (%s): %v", debugLogRe, err))
+	}
+
+	if r.MatchString(logName) {
+		return true
+	}
+
+	return false
+}
+
 // Logger implements a logger that logs messages to Google Cloud Logging. It
 // provides a suite of methods where each method corresponds to a specific
 // logging.Level, e.g. Error(paylod interface{}). Each method takes a payload
@@ -79,8 +114,10 @@ const (
 // Logger{} is a valid object that will log through the traditional logger.
 //
 type Logger struct {
-	logc   *logging.Client
-	logger *logging.Logger
+	logc                *logging.Client
+	logger              *logging.Logger
+	debugLog            bool
+	disableCloudLogging bool
 	// TODO(manugarg): Logger should eventually embed the probe id and each probe
 	// should get a different Logger object (embedding that probe's probe id) but
 	// sharing the same logging client. We could then make probe id one of the
@@ -102,9 +139,12 @@ func NewCloudproberLog(component string) (*Logger, error) {
 
 // New returns a new Logger object with cloud logging client initialized if running on GCE.
 func New(ctx context.Context, logName string) (*Logger, error) {
-	l := &Logger{}
+	l := &Logger{
+		debugLog:            enableDebugLog(*debugLog, *debugLogList, logName),
+		disableCloudLogging: *disableCloudLogging,
+	}
 
-	if !metadata.OnGCE() {
+	if !metadata.OnGCE() || l.disableCloudLogging {
 		return l, nil
 	}
 
@@ -206,7 +246,7 @@ func (l *Logger) close() error {
 
 // Debug logs messages with logging level set to "Debug".
 func (l *Logger) Debug(payload ...string) {
-	if *debugLog {
+	if l.debugLog {
 		l.log(logging.Debug, payload...)
 	}
 }
@@ -238,7 +278,7 @@ func (l *Logger) Critical(payload ...string) {
 
 // Debugf logs formatted text messages with logging level "Debug".
 func (l *Logger) Debugf(format string, args ...interface{}) {
-	if *debugLog {
+	if l.debugLog {
 		l.log(logging.Debug, fmt.Sprintf(format, args...))
 	}
 }
@@ -282,5 +322,23 @@ func genericLog(severity logging.Severity, s string) {
 		glog.ErrorDepth(depth, s)
 	case logging.Critical:
 		glog.FatalDepth(depth, s)
+	}
+}
+
+func envVarSet(key string) bool {
+	v, ok := os.LookupEnv(key)
+	if ok && strings.ToUpper(v) != "NO" && strings.ToUpper(v) != "FALSE" {
+		return true
+	}
+	return false
+}
+
+func init() {
+	if envVarSet(EnvVars.DisableCloudLogging) {
+		*disableCloudLogging = true
+	}
+
+	if envVarSet(EnvVars.DebugLog) {
+		*debugLog = true
 	}
 }
