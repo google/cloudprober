@@ -1,0 +1,17 @@
+syntax = "proto2";
+
+package cloudprober.tlsconfig;
+
+message TLSConfig {
+  // CA certificate file to verify certificates provided by the other party.
+  optional string ca_cert_file = 1;
+
+  // Local certificate file.
+  optional string tls_cert_file = 2;
+
+  // Private key file corresponding to the certificate above.
+  optional string tls_key_file = 3;
+
+  // Whether to ignore the cert validation.
+  optional bool disable_cert_validation = 4;
+}
