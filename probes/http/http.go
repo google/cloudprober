@@ -28,6 +28,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/cloudprober/common/tlsconfig"
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
 	configpb "github.com/google/cloudprober/probes/http/proto"
@@ -123,8 +124,21 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		TLSHandshakeTimeout: p.opts.Timeout,
 	}
 
-	if p.c.GetDisableCertValidation() {
-		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+	if p.c.GetDisableCertValidation() || p.c.GetTlsConfig() != nil {
+		if transport.TLSClientConfig == nil {
+			transport.TLSClientConfig = &tls.Config{}
+		}
+
+		if p.c.GetDisableCertValidation() {
+			p.l.Warning("disable_cert_validation is deprecated as of v0.10.6. Instead of this, please use \"tls_config {disable_cert_validation: true}\"")
+			transport.TLSClientConfig.InsecureSkipVerify = true
+		}
+
+		if p.c.GetTlsConfig() != nil {
+			if err := tlsconfig.UpdateTLSConfig(transport.TLSClientConfig, p.c.GetTlsConfig(), false); err != nil {
+				return err
+			}
+		}
 	}
 
 	// If HTTP keep-alives are not enabled (default), disable HTTP keep-alive in

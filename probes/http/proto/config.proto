@@ -2,7 +2,9 @@ syntax = "proto2";
 
 package cloudprober.probes.http;
 
-// Next tag: 15
+import "github.com/google/cloudprober/common/tlsconfig/proto/config.proto";
+
+// Next tag: 16
 message ProbeConf {
   enum ProtocolType {
     HTTP = 0;
@@ -63,8 +65,16 @@ message ProbeConf {
   optional bool disable_http2 = 13;
 
   // Disable TLS certificate validation. If set to true, any certificate
-  // presented by the server for any host name will be accepted.
+  // presented by the server for any host name will be accepted
+  // Deprecation: This option is now subsumed by the tls_config below. To
+  // disable cert validation use:
+  // tls_config {
+  //   disable_cert_validation: true
+  // }
   optional bool disable_cert_validation = 14;
+
+  // TLS config
+  optional tlsconfig.TLSConfig tls_config = 15;
 
   // Requests per probe.
   // Number of HTTP requests per probe. Requests are executed concurrently and
