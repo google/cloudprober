@@ -75,6 +75,10 @@ func (p *Probe) httpRequestForTarget(target endpoint.Endpoint) *http.Request {
 	req.Host = target.Name
 
 	for _, header := range p.c.GetHeaders() {
+		if header.GetName() == "Host" {
+			req.Host = header.GetValue()
+			continue
+		}
 		req.Header.Set(header.GetName(), header.GetValue())
 	}
 
