@@ -30,7 +30,6 @@ func ec2Vars(sysVars map[string]string) error {
 	md := ec2metadata.New(s)
 	// Doing the availability check in module since we need a session
 	if md.Available() == false {
-		sysVars["EC2_METADATA_Available"] = "false"
 		return nil
 	}
 
