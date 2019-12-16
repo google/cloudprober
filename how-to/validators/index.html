@@ -10,7 +10,7 @@
     <meta name="viewport" content="width=device-width,user-scalable=no,initial-scale=1,maximum-scale=1">
     <meta http-equiv="X-UA-Compatible" content="IE=10" />
     <title>Validators - Cloudprober</title>
-    <meta name="generator" content="Hugo 0.48" />
+    <meta name="generator" content="Hugo 0.61.0" />
 
     
     <link rel="canonical" href="https://cloudprober.org/how-to/validators/">
@@ -226,6 +226,19 @@
 
 
 
+<a  title="Running On Kubernetes" href="https://cloudprober.org/how-to/run-on-kubernetes/">
+	
+	Running On Kubernetes
+</a>
+
+
+
+      
+        
+        
+
+
+
 <a  title="External Probe" href="https://cloudprober.org/how-to/external-probe/">
 	
 	External Probe
@@ -296,82 +309,66 @@
 		<div class="wrapper">
 			<h1>Validators </h1>
 
-			
-
-<p>Validators allow you to run checks on the probe request output (if any). For
+			<p>Validators allow you to run checks on the probe request output (if any). For
 example, you can specify if you expect the probe output to match a certain
 regex or return a certain status code (for HTTP). You can configure more than
 one validators and all validators should succeed for the probe to be marked as
 success.</p>
-
 <div class="highlight"><pre class="chroma"><code class="language-bash" data-lang="bash">probe <span class="o">{</span>
     name: <span class="s2">&#34;google_homepage&#34;</span>
     type: HTTP
     targets <span class="o">{</span>
         host_names: <span class="s2">&#34;www.google.com&#34;</span>
     <span class="o">}</span>
-    interval_msec: <span class="m">10000</span>    <span class="c1"># Probe every 10s
-</span><span class="c1"></span>
-    <span class="c1"># This validator should succeed.
-</span><span class="c1"></span>    validator <span class="o">{</span>
+    interval_msec: <span class="m">10000</span>    <span class="c1"># Probe every 10s</span>
+
+    <span class="c1"># This validator should succeed.</span>
+    validator <span class="o">{</span>
         name: <span class="s2">&#34;status_code_2xx&#34;</span>
         http_validator <span class="o">{</span>
             success_status_codes: <span class="s2">&#34;200-299&#34;</span>
         <span class="o">}</span>
     <span class="o">}</span>
 
-    <span class="c1"># This validator will fail, notice missing &#39;o&#39; in our regex.
-</span><span class="c1"></span>    validator <span class="o">{</span>
+    <span class="c1"># This validator will fail, notice missing &#39;o&#39; in our regex.</span>
+    validator <span class="o">{</span>
         name: <span class="s2">&#34;gogle_re&#34;</span>
         regex: <span class="s2">&#34;gogle&#34;</span>
     <span class="o">}</span>
 <span class="o">}</span></code></pre></div>
-
 <p>(Full listing: <a href="https://github.com/google/cloudprober/blob/master/examples/validators/cloudprober_validator.cfg">https://github.com/google/cloudprober/blob/master/examples/validators/cloudprober_validator.cfg</a>)</p>
-
 <p>To make the debugging easier, validation failures are logged and exported as an
 independent map counter &ndash; <em>validation_failure</em>, with <em>validator</em> key. For
 example, the above example will result in the following counters being
 exported after 5 runs:</p>
-
 <div class="highlight"><pre class="chroma"><code class="language-bash" data-lang="bash">total<span class="o">{</span><span class="nv">probe</span><span class="o">=</span><span class="s2">&#34;google_homepage&#34;</span>,dst<span class="o">=</span><span class="s2">&#34;www.google.com&#34;</span><span class="o">}</span> <span class="m">5</span>
 success<span class="o">{</span><span class="nv">probe</span><span class="o">=</span><span class="s2">&#34;google_homepage&#34;</span>,dst<span class="o">=</span><span class="s2">&#34;www.google.com&#34;</span><span class="o">}</span> <span class="m">0</span>
 validation_failure<span class="o">{</span><span class="nv">validator</span><span class="o">=</span><span class="s2">&#34;status_code_2xx&#34;</span>,probe<span class="o">=</span><span class="s2">&#34;google_homepage&#34;</span>,dst<span class="o">=</span><span class="s2">&#34;www.google.com&#34;</span><span class="o">}</span> <span class="m">0</span>
 validation_failure<span class="o">{</span><span class="nv">validator</span><span class="o">=</span><span class="s2">&#34;gogle_re&#34;</span>,probe<span class="o">=</span><span class="s2">&#34;google_homepage&#34;</span>,dst<span class="o">=</span><span class="s2">&#34;www.google.com&#34;</span><span class="o">}</span> <span class="m">5</span></code></pre></div>
-
 <p>Note that validator counter will <strong>not</strong> go up if probe fails for other
-reasons, for example web server timing out. That&rsquo;s why you typically don&rsquo;t want
+reasons, for example web server timing out. That's why you typically don't want
 to alert only on validation failures. That said, in some cases, validation
-failures could be the only thing you&rsquo;re interested in, for example, if you&rsquo;re
+failures could be the only thing you're interested in, for example, if you're
 trying to make sure that a certain copyright is always present in your web
 pages or you want to catch data integrity issues in your network.</p>
-
-<p>Let&rsquo;s take a look at the types of validators you can configure.</p>
-
+<p>Let's take a look at the types of validators you can configure.</p>
 <h2 id="regex-validator">Regex Validator</h2>
-
 <p>Regex validator simply checks for a regex in the probe request output. It works
-for all probe types except for UDP and UDP_LISTENER - these probe types don&rsquo;t
+for all probe types except for UDP and UDP_LISTENER - these probe types don't
 support any validators at the moment.</p>
-
 <h2 id="http-validator">HTTP Validator</h2>
-
 <p>HTTP response validator works only for the HTTP probe type. You can currently
 use HTTP  validator to define success and failure status codes (represented by
 success_status_codes and failure_stauts_codes in the config):</p>
-
 <ul>
 <li>If <em>failure_status_codes</em> is defined and response status code falls within
 that range, validator is considered to have failed.</li>
 <li>If <em>success_status_codes</em> is defined and response status code <em>does not</em>
 fall within that range, validator is considered to have failed.</li>
 </ul>
-
 <p>We can possibly add more checks to HTTP validator in the future, for example to
 verify headers.</p>
-
 <h2 id="data-integrity-validator">Data Integrity Validator</h2>
-
 <p>Data integrity validator is designed to catch the packet corruption issues in
 the network. We have a basic check that verifies that the probe output is made
 up purely of a pattern repeated many times over.</p>

@@ -10,7 +10,7 @@
     <meta name="viewport" content="width=device-width,user-scalable=no,initial-scale=1,maximum-scale=1">
     <meta http-equiv="X-UA-Compatible" content="IE=10" />
     <title>Built-in Servers - Cloudprober</title>
-    <meta name="generator" content="Hugo 0.48" />
+    <meta name="generator" content="Hugo 0.61.0" />
 
     
     <link rel="canonical" href="https://cloudprober.org/how-to/built-in-servers/">
@@ -226,6 +226,19 @@
 
 
 
+<a  title="Running On Kubernetes" href="https://cloudprober.org/how-to/run-on-kubernetes/">
+	
+	Running On Kubernetes
+</a>
+
+
+
+      
+        
+        
+
+
+
 <a  title="External Probe" href="https://cloudprober.org/how-to/external-probe/">
 	
 	External Probe
@@ -296,29 +309,22 @@
 		<div class="wrapper">
 			<h1>Built-in Servers </h1>
 
-			
-
-<p>Cloudprober has a few built in servers. This is useful when you are probing that
+			<p>Cloudprober has a few built in servers. This is useful when you are probing that
 a connection is working, or as a baseline to compare the probing results from
 your actual service to.</p>
-
 <h2 id="http">HTTP</h2>
-
 <div class="highlight"><pre class="chroma"><code class="language-shell" data-lang="shell">server <span class="o">{</span>
   type: HTTP
   http_server <span class="o">{</span>
     port: <span class="m">8080</span>
   <span class="o">}</span>
 <span class="o">}</span></code></pre></div>
-
 <p>This creates an HTTP server that responds on port <code>8080</code>. By default it will
 respond to the following endpoints:</p>
-
 <ul>
 <li><code>/healthcheck</code></li>
 <li><code>/lameduck</code></li>
 </ul>
-
 <div class="highlight"><pre class="chroma"><code class="language-shell" data-lang="shell">server <span class="o">{</span>
   type: HTTP
   http_server <span class="o">{</span>
@@ -332,24 +338,18 @@ respond to the following endpoints:</p>
     <span class="o">}</span>
   <span class="o">}</span>
 <span class="o">}</span></code></pre></div>
-
 <p>This adds two endpoints to the HTTP server:</p>
-
 <ul>
 <li><code>/data_1024</code> which responds with 1024 bytes of
 <code>cloudprobercloudprobercloudprober</code>.</li>
 <li><code>/data_4</code> which responds with <code>four</code>.</li>
 </ul>
-
 <p>See
 <a href="https://github.com/google/cloudprober/blob/master/servers/http/proto/config.proto">servers/http/proto/config.go</a>
 for all HTTP server configuration options.</p>
-
 <h2 id="udp">UDP</h2>
-
 <p>A Cloudprober UDP server can be configured to either echo or discard packets it
 receives.</p>
-
 <div class="highlight"><pre class="chroma"><code class="language-shell" data-lang="shell">server <span class="o">{</span>
   type: UDP
   udp_server <span class="o">{</span>
@@ -365,13 +365,10 @@ server <span class="o">{</span>
     type: DISCARD
   <span class="o">}</span>
 <span class="o">}</span></code></pre></div>
-
 <p>See
 <a href="https://github.com/google/cloudprober/blob/master/servers/udp/proto/config.proto">servers/udp/proto/config.go</a>
 for all UDP server configuration options.</p>
-
 <h2 id="grpc">GRPC</h2>
-
 <p>See
 <a href="https://github.com/google/cloudprober/blob/master/servers/grpc/proto/config.proto">servers/grpc/proto/config.go</a>
 for all GRPC server configuration options.</p>

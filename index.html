@@ -10,7 +10,7 @@
     <meta name="viewport" content="width=device-width,user-scalable=no,initial-scale=1,maximum-scale=1">
     <meta http-equiv="X-UA-Compatible" content="IE=10" />
     <title>Cloudprober</title>
-    <meta name="generator" content="Hugo 0.48" />
+    <meta name="generator" content="Hugo 0.61.0" />
 
     
     <link rel="canonical" href="https://cloudprober.org/">
@@ -232,6 +232,19 @@
 
 
 
+<a  title="Running On Kubernetes" href="https://cloudprober.org/how-to/run-on-kubernetes/">
+	
+	Running On Kubernetes
+</a>
+
+
+
+      
+        
+        
+
+
+
 <a  title="External Probe" href="https://cloudprober.org/how-to/external-probe/">
 	
 	External Probe
@@ -300,13 +313,9 @@
 			
 				<h1>Cloudprober </h1>
 
-				
-
-<p><a href="https://travis-ci.org/google/cloudprober"><img src="https://travis-ci.org/google/cloudprober.svg?branch=master" alt="Build
-Status" /></a>
-<a href="https://ci.appveyor.com/project/manugarg/cloudprober-wwcpu"><img src="https://ci.appveyor.com/api/projects/status/ypg1okxxfedwkksk?svg=true" alt="Build status" /></a>
-<img src="https://img.shields.io/docker/pulls/cloudprober/cloudprober.svg" alt="Docker Pulls" /></p>
-
+				<p><a href="https://travis-ci.org/google/cloudprober"><img src="https://travis-ci.org/google/cloudprober.svg?branch=master" alt="BuildStatus"></a>
+<a href="https://ci.appveyor.com/project/manugarg/cloudprober-wwcpu"><img src="https://ci.appveyor.com/api/projects/status/ypg1okxxfedwkksk?svg=true" alt="Build status"></a>
+<img src="https://img.shields.io/docker/pulls/cloudprober/cloudprober.svg" alt="Docker Pulls"></p>
 <p>Cloudprober is a monitoring software that makes it super-easy to monitor
 availability and performance of various components of your system. Cloudprober
 employs the &ldquo;active&rdquo; monitoring model. It runs probes against (or on) your
@@ -315,12 +324,9 @@ a probe to verify that your frontends can reach your backends. Similarly it can
 run a probe to verify that your in-Cloud VMs can actually reach your on-premise
 systems. This kind of monitoring makes it possible to monitor your systems&rsquo;
 interfaces regardless of the implementation and helps you quickly pin down
-what&rsquo;s broken in your system.</p>
-
-<p><img src="https://cloudprober.org/diagrams/cloudprober_use_case.svg" alt="Cloudprober Use Case" /></p>
-
+what's broken in your system.</p>
+<p><img src="https://cloudprober.org/diagrams/cloudprober_use_case.svg" alt="Cloudprober Use Case"></p>
 <h2 id="features">Features</h2>
-
 <ul>
 <li>Automated target discovery for Cloud targets. GCE and Kubernetes are
 supported out-of-the-box; other Cloud providers can be added easily.</li>
@@ -351,14 +357,11 @@ statically compiled binary and it takes very little CPU and RAM to run even
 a large number of probes.</li>
 <li>Extensible architecture. Cloudprober can be easily extended along most of
 the dimensions. Adding support for other Cloud targets, monitoring systems
-and even a new probe type, is straight-forward and fairly easy.
-<br /></li>
+and even a new probe type, is straight-forward and fairly easy.</li>
 </ul>
-
-<p>We&rsquo;d love to hear your feedback. If you&rsquo;re using Cloudprober, would you please
+<p>We'd love to hear your feedback. If you're using Cloudprober, would you please
 mind sharing how you use it by adding a comment <a href="https://github.com/google/cloudprober/issues/123">here</a>. It will be a great help in
-planning Cloudprober&rsquo;s future progression.</p>
-
+planning Cloudprober's future progression.</p>
 <p>Join <a href="https://join.slack.com/t/cloudprober/shared_invite/enQtNjA1OTkyOTk3ODc3LWQzZDM2ZWUyNTI0M2E4NmM4NTIyMjM5M2E0MDdjMmU1NGQ3NWNiMjU4NTViMWMyMjg0M2QwMDhkZGZjZmFlNGE">Cloudprober Slack</a> or <a href="https://groups.google.com/forum/#!forum/cloudprober">mailing list</a> for questions and discussion
 about Cloudprober.</p>
 

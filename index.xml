@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>Cloudprober</title>
@@ -23,13 +23,24 @@ HTTP server { type: HTTP http_server { port: 8080 } } This creates an HTTP serve
     </item>
     
     <item>
+      <title>Running On Kubernetes</title>
+      <link>https://cloudprober.org/how-to/run-on-kubernetes/</link>
+      <pubDate>Tue, 08 Oct 2019 17:24:32 -0700</pubDate>
+      
+      <guid>https://cloudprober.org/how-to/run-on-kubernetes/</guid>
+      <description>Kubernetes is a popular platform for running containers, and Cloudprober container runs on Kubernetes right out of the box. This document shows how you can use config map to provide config to cloudprober and reload cloudprober on config changes.
+In Kubernetes, a convenient way to provide config to containers is to use config maps. Let&#39;s create a config that specifies a probe to monitor &amp;ldquo;google.com&amp;rdquo;.
+probe { name: &amp;#34;google-http&amp;#34; type: HTTP targets { host_names: &amp;#34;www.</description>
+    </item>
+    
+    <item>
       <title>Validators</title>
       <link>https://cloudprober.org/how-to/validators/</link>
       <pubDate>Sun, 28 Jul 2019 17:24:32 -0700</pubDate>
       
       <guid>https://cloudprober.org/how-to/validators/</guid>
       <description>Validators allow you to run checks on the probe request output (if any). For example, you can specify if you expect the probe output to match a certain regex or return a certain status code (for HTTP). You can configure more than one validators and all validators should succeed for the probe to be marked as success.
-probe { name: &amp;#34;google_homepage&amp;#34; type: HTTP targets { host_names: &amp;#34;www.google.com&amp;#34; } interval_msec: 10000 # Probe every 10s  # This validator should succeed.</description>
+probe { name: &amp;#34;google_homepage&amp;#34; type: HTTP targets { host_names: &amp;#34;www.google.com&amp;#34; } interval_msec: 10000 # Probe every 10s # This validator should succeed.</description>
     </item>
     
     <item>
@@ -38,7 +49,7 @@ probe { name: &amp;#34;google_homepage&amp;#34; type: HTTP targets { host_names:
       <pubDate>Mon, 29 Oct 2018 17:24:32 -0700</pubDate>
       
       <guid>https://cloudprober.org/how-to/extensions/</guid>
-      <description>Cloudprober allows you to extend it across &amp;ldquo;probe&amp;rdquo; and &amp;ldquo;target&amp;rdquo; dimensions, that is, you can add new probe and target types to it without having to fork the entire codebase. Note that to extend cloudprober in this way, you will have to maintain your own cloudprober binary (which is mostly a wrapper around the &amp;ldquo;cloudprober package&amp;rdquo;), but you&amp;rsquo;ll be able to use rest of the cloudprober code from the common location.</description>
+      <description>Cloudprober allows you to extend it across &amp;ldquo;probe&amp;rdquo; and &amp;ldquo;target&amp;rdquo; dimensions, that is, you can add new probe and target types to it without having to fork the entire codebase. Note that to extend cloudprober in this way, you will have to maintain your own cloudprober binary (which is mostly a wrapper around the &amp;ldquo;cloudprober package&amp;rdquo;), but you&#39;ll be able to use rest of the cloudprober code from the common location.</description>
     </item>
     
     <item>
@@ -47,8 +58,8 @@ probe { name: &amp;#34;google_homepage&amp;#34; type: HTTP targets { host_names:
       <pubDate>Sun, 08 Oct 2017 17:24:32 -0700</pubDate>
       
       <guid>https://cloudprober.org/how-to/external-probe/</guid>
-      <description>External probe type allows you to run arbitrary, complex probes through Cloudprober. An external probe runs an independent external program for actual probing. Cloudprober calculates probe metrics based on program&amp;rsquo;s exit status and time elapsed in execution. Cloudprober also allows external programs to provide additional metrics over stdout.
-Sample Probe To understand how it works, lets create a sample probe that sets and gets a key in a redis server.</description>
+      <description>External probe type allows you to run arbitrary, complex probes through Cloudprober. An external probe runs an independent external program for actual probing. Cloudprober calculates probe metrics based on program&#39;s exit status and time elapsed in execution. Cloudprober also allows external programs to provide additional metrics over stdout.
+Sample Probe To understand how it works, lets create a sample probe that sets and gets a key in a redis server. Here is the main function of such a probe:</description>
     </item>
     
     <item>
@@ -57,7 +68,8 @@ Sample Probe To understand how it works, lets create a sample probe that sets an
       <pubDate>Tue, 25 Jul 2017 17:24:32 -0700</pubDate>
       
       <guid>https://cloudprober.org/concepts/probe/</guid>
-      <description>Cloudprober&amp;rsquo;s main task is to run probes. A probe executes something, usually against a set of targets, to verify that the systems are working as expected from consumers&amp;rsquo; point of view. For example, an HTTP probe executes an HTTP request against a web server to verify that the web server is available. Cloudprober probes run repeatedly at a configured interval and export probe results as a set of metrics.</description>
+      <description>Cloudprober&#39;s main task is to run probes. A probe executes something, usually against a set of targets, to verify that the systems are working as expected from consumers&amp;rsquo; point of view. For example, an HTTP probe executes an HTTP request against a web server to verify that the web server is available. Cloudprober probes run repeatedly at a configured interval and export probe results as a set of metrics.
+A probe is defined as a set of the following fields:</description>
     </item>
     
     <item>
@@ -67,9 +79,9 @@ Sample Probe To understand how it works, lets create a sample probe that sets an
       
       <guid>https://cloudprober.org/getting-started/</guid>
       <description>Installation  From Source
-If you have Go 1.9 or higher installed and GOPATH environment variable properly set up, you can download and install cloudprober using the following commands:  go get github.com/google/cloudprober GOBIN=$GOPATH/bin go install $GOPATH/src/github.com/google/cloudprober/cmd/cloudprober.go  Pre-built Binaries
-You can download the pre-built binaries for Linux, Mac OS and Windows from the project&amp;rsquo;s releases page.
- Docker Image
+If you have Go 1.9 or higher installed and GOPATH environment variable properly set up, you can download and install cloudprober using the following commands:  go get github.com/google/cloudprober GOBIN=$GOPATH/bin go install $GOPATH/src/github.com/google/cloudprober/cmd/cloudprober.go   Pre-built Binaries
+You can download the pre-built binaries for Linux, Mac OS and Windows from the project&#39;s releases page.
+  Docker Image
 You can download and run the latest docker image using the following command: docker run --net host cloudprober/cloudprober # Note: --net host provides better network performance and makes port forwarding # management easier.</description>
     </item>
     
