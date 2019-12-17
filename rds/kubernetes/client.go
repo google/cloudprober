@@ -65,6 +65,10 @@ func (c *client) getURL(url string) ([]byte, error) {
 		return nil, err
 	}
 
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("HTTP response status code: %d, status: %s", resp.StatusCode, resp.Status)
+	}
+
 	return ioutil.ReadAll(resp.Body)
 }
 
