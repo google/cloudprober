@@ -17,7 +17,9 @@ Package kubernetes implements a kubernetes resources provider for
 ResourceDiscovery server.
 
 It currently supports following kubernetes resources:
-		Pods (pods)
+		Pods
+		Endpoints
+    Services
 
 Kubernetes provider is configured through a protobuf based config file
 (proto/config.proto). Example config:
@@ -84,7 +86,7 @@ func (p *Provider) ListResources(req *pb.ListResourcesRequest) (*pb.ListResource
 // New creates a Kubernetes (k8s) provider for RDS server, based on the
 // provided config.
 func New(c *configpb.ProviderConfig, l *logger.Logger) (*Provider, error) {
-	client, err := newClient(l)
+	client, err := newClient(c, l)
 	if err != nil {
 		return nil, fmt.Errorf("error while creating the kubernetes client: %v", err)
 	}
