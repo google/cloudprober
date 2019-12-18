@@ -9,6 +9,8 @@ date: 2019-10-08T17:24:32-07:00
 
 Kubernetes is a popular platform for running containers, and Cloudprober container runs on Kubernetes right out of the box. This document shows how you can use config map to provide config to cloudprober and reload cloudprober on config changes.
 
+## ConfigMap
+
 In Kubernetes, a convenient way to provide config to containers is to use config maps.  Let's create a config that specifies a probe to monitor "google.com".
 
 ```bash
@@ -18,10 +20,7 @@ probe {
   targets {
     host_names: "www.google.com"
   }
-  http_probe {
-      protocol: HTTP
-      relative_url: "/"
-  }
+  http_probe {}
   interval_msec: 15000
   timeout_msec: 1000
 }
@@ -36,6 +35,8 @@ kubectl create configmap cloudprober-config \
 
 
 
+## Deployment Map
+
 Now let's add a `deployment.yaml` to add the config volume and cloudprober container:
 
 ```yaml
@@ -47,10 +48,10 @@ spec:
   replicas: 1
   template:
     metadata:
+      annotations:
+        checksum/config: "${CONFIG_CHECKSUM}"
       labels:
         app: cloudprober
-        annotations:
-          checksum/config: "${CONFIG_CHECKSUM}"
     spec:
       volumes:
       - name: cloudprober-config
@@ -59,7 +60,7 @@ spec:
       containers:
       - name: cloudprober
         image: cloudprober/cloudprober
-        command: ["/usr/bin/cloudprober"]
+        command: ["/cloudprober"]
         args: [
           "--config_file","/cfg/cloudprober.cfg",
           "--logtostderr"
@@ -92,8 +93,8 @@ Note that we added an annotation to the deployment spec; this annotation allows 
 ```bash
 # Update the config checksum annotation in deployment.yaml before running
 # kubectl apply.
-export CONFIG_CHECKSUM=$(sha256sum cloudprober.cfg); cat deployment.yaml | envsubst | \
-  kubectl apply -f -
+CONFIG_CHECKSUM=$(kubectl get cm/cloudprober-config -o yaml | sha256sum) && \
+cat deployment.yaml | envsubst | kubectl apply -f -
 ```
 
 (Note: If you use Helm for Kubernetes deployments, Helm provides [a more native way](https://helm.sh/docs/howto/charts_tips_and_tricks/#automatically-roll-deployments) to include config checksums in deployments.)
@@ -117,3 +118,113 @@ kubectl port-forward svc/cloudprober 9313:9313
 ```
 
 Once you've verified that everything is working as expected, you can go on setting up metrics collection through prometheus (or stackdriver) in usual ways.
+
+
+
+## Kubernetes Targets
+
+If you're running on Kuberenetes, it's likely that you want to monitor Kubernetes resources (e.g. pods, endpoints, etc). Good news is that cloudprober supports dynamic discovery for Kubernetes targets.
+
+Following config enables targets discovery for kubernetes resources:
+
+```bash
+probe {
+  name: "pod-to-endpoints"
+  type: HTTP
+
+  targets {
+    # RDS (resource discovery service) targets 
+    rds_targets {
+      resource_path: "k8s://endpoints/cloudprober"
+    }
+  }
+  
+  http_probe {
+    resolve_first: true
+    relative_url: "/status"
+  }
+}
+
+# Run an RDS gRPC server to discover Kubernetes targets.
+rds_server {
+  provider {
+    kubernetes_config {
+      endpoints {}
+    }
+  }
+}
+```
+
+This config adds a probe for endpoints named 'cloudprober'. There are a few cloudprober features that we use here which have not been explained anywhere else.
+
+### RDS Targets
+
+Cloudprober uses [RDS protocol](https://github.com/google/cloudprober/blob/master/rds/proto/rds.proto) as an interface for dynamic targets discovery. This allows us to add new target types without modifying the rest of the code. In this config, we add an internal RDS server that provides expansion for kubernetes endpoints (other supported types are -- pods, services).  Inside the probe, we specify targets of the type `rds_targets` (which by default talks to the internal RDS server but can be configured to talk to a remote RDS server as well) to discover targets. Here resource path, `k8s://endpoints/cloudprober` specifies endpoints named 'cloudprober' (Hint: you could skip the name part of the resource path to discover all endpoints in the cluster).
+
+### Cluster Resources Access
+
+RDS server that we added above discovers cluster resources using kubernetes APIs. It assumes that we are interested in the cluster we are running it in, and uses in-cluster config to talk to the kubernetes API server. For this set up to work, we need to give our container read-only access to kubernetes resources:
+
+```yaml
+cat <<EOF | kubectl apply -f -
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  annotations:
+    rbac.authorization.kubernetes.io/autoupdate: "true"
+  labels:
+  name: resource-reader
+  namespace: default
+rules:
+- apiGroups: [""]
+  resources: ["*"]
+  verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+ name: default-resource-reader
+ namespace: default
+subjects:
+- kind: ServiceAccount
+  name: default
+  namespace: default
+roleRef:
+ kind: ClusterRole
+ name: resource-reader
+ apiGroup: rbac.authorization.k8s.io
+EOF
+```
+
+This will give `default` service account read-only access to the cluster resources. If you don't want to give the "default" user this access, you can create a new service account for cloudprober and use it in the deployment spec above.
+
+### Push Config Update
+
+To push new cloudprober config to the cluster:
+
+```bash
+# Update the config map
+kubectl create configmap cloudprober-config \
+  --from-file=cloudprober.cfg=cloudprober.cfg  -o yaml --dry-run | \
+  kubectl replace -f -
+
+# Update deployment
+CONFIG_CHECKSUM=$(kubectl get cm/cloudprober-config -o yaml | sha256sum) && \
+cat deployment.yaml | envsubst | kubectl apply -f -
+```
+
+Cloudprober should now start monitoring cloudprober endpoints. To verify:
+
+```bash
+# Set up port fowarding such that you can access cloudprober:9313 through
+# localhost:9313.
+kubectl port-forward svc/cloudprober 9313:9313 &
+
+# Check config
+curl localhost:9313/config
+
+# Check metrics
+curl localhost:9313/metrics
+```
+
+If you're running on GKE and have not disabled cloud, you'll also see logs in [Stackdriver Logging](https://pantheon.corp.google.com/logs/viewer?resource=gce_instance).
