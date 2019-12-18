@@ -310,6 +310,7 @@
 			<h1>Running On Kubernetes </h1>
 
 			<p>Kubernetes is a popular platform for running containers, and Cloudprober container runs on Kubernetes right out of the box. This document shows how you can use config map to provide config to cloudprober and reload cloudprober on config changes.</p>
+<h2 id="configmap">ConfigMap</h2>
 <p>In Kubernetes, a convenient way to provide config to containers is to use config maps.  Let's create a config that specifies a probe to monitor &ldquo;google.com&rdquo;.</p>
 <div class="highlight"><pre class="chroma"><code class="language-bash" data-lang="bash">probe <span class="o">{</span>
   name: <span class="s2">&#34;google-http&#34;</span>
@@ -317,17 +318,15 @@
   targets <span class="o">{</span>
     host_names: <span class="s2">&#34;www.google.com&#34;</span>
   <span class="o">}</span>
-  http_probe <span class="o">{</span>
-      protocol: HTTP
-      relative_url: <span class="s2">&#34;/&#34;</span>
-  <span class="o">}</span>
+  http_probe <span class="o">{</span><span class="o">}</span>
   interval_msec: <span class="m">15000</span>
   timeout_msec: <span class="m">1000</span>
 <span class="o">}</span>
 </code></pre></div><p>Save this config in <code>cloudprober.cfg</code>, create a config map using the following command:</p>
 <div class="highlight"><pre class="chroma"><code class="language-bash" data-lang="bash">kubectl create configmap cloudprober-config <span class="se">\
 </span><span class="se"></span>  --from-file<span class="o">=</span>cloudprober.cfg<span class="o">=</span>cloudprober.cfg
-</code></pre></div><p>Now let's add a <code>deployment.yaml</code> to add the config volume and cloudprober container:</p>
+</code></pre></div><h2 id="deployment-map">Deployment Map</h2>
+<p>Now let's add a <code>deployment.yaml</code> to add the config volume and cloudprober container:</p>
 <div class="highlight"><pre class="chroma"><code class="language-yaml" data-lang="yaml">apiVersion<span class="p">:</span><span class="w"> </span>apps/v1beta1<span class="w">
 </span><span class="w"></span>kind<span class="p">:</span><span class="w"> </span>Deployment<span class="w">
 </span><span class="w"></span>metadata<span class="p">:</span><span class="w">
@@ -336,10 +335,10 @@
 </span><span class="w">  </span>replicas<span class="p">:</span><span class="w"> </span><span class="m">1</span><span class="w">
 </span><span class="w">  </span>template<span class="p">:</span><span class="w">
 </span><span class="w">    </span>metadata<span class="p">:</span><span class="w">
+</span><span class="w">      </span>annotations<span class="p">:</span><span class="w">
+</span><span class="w">        </span>checksum/config<span class="p">:</span><span class="w"> </span><span class="s2">&#34;${CONFIG_CHECKSUM}&#34;</span><span class="w">
 </span><span class="w">      </span>labels<span class="p">:</span><span class="w">
 </span><span class="w">        </span>app<span class="p">:</span><span class="w"> </span>cloudprober<span class="w">
-</span><span class="w">        </span>annotations<span class="p">:</span><span class="w">
-</span><span class="w">          </span>checksum/config<span class="p">:</span><span class="w"> </span><span class="s2">&#34;${CONFIG_CHECKSUM}&#34;</span><span class="w">
 </span><span class="w">    </span>spec<span class="p">:</span><span class="w">
 </span><span class="w">      </span>volumes<span class="p">:</span><span class="w">
 </span><span class="w">      </span>-<span class="w"> </span>name<span class="p">:</span><span class="w"> </span>cloudprober-config<span class="w">
@@ -348,7 +347,7 @@
 </span><span class="w">      </span>containers<span class="p">:</span><span class="w">
 </span><span class="w">      </span>-<span class="w"> </span>name<span class="p">:</span><span class="w"> </span>cloudprober<span class="w">
 </span><span class="w">        </span>image<span class="p">:</span><span class="w"> </span>cloudprober/cloudprober<span class="w">
-</span><span class="w">        </span>command<span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&#34;/usr/bin/cloudprober&#34;</span><span class="p">]</span><span class="w">
+</span><span class="w">        </span>command<span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&#34;/cloudprober&#34;</span><span class="p">]</span><span class="w">
 </span><span class="w">        </span>args<span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
 </span><span class="w">          </span><span class="s2">&#34;--config_file&#34;</span><span class="p">,</span><span class="s2">&#34;/cfg/cloudprober.cfg&#34;</span><span class="p">,</span><span class="w">
 </span><span class="w">          </span><span class="s2">&#34;--logtostderr&#34;</span><span class="w">
@@ -377,8 +376,8 @@
 </span></code></pre></div><p>Note that we added an annotation to the deployment spec; this annotation allows us to update the deployment whenever cloudprober config changes. We can update this annotation based on the local cloudprober config content, and update the deployment using the following one-liner:</p>
 <div class="highlight"><pre class="chroma"><code class="language-bash" data-lang="bash"><span class="c1"># Update the config checksum annotation in deployment.yaml before running</span>
 <span class="c1"># kubectl apply.</span>
-<span class="nb">export</span> <span class="nv">CONFIG_CHECKSUM</span><span class="o">=</span><span class="k">$(</span>sha256sum cloudprober.cfg<span class="k">)</span><span class="p">;</span> cat deployment.yaml <span class="p">|</span> envsubst <span class="p">|</span> <span class="se">\
-</span><span class="se"></span>  kubectl apply -f -
+<span class="nv">CONFIG_CHECKSUM</span><span class="o">=</span><span class="k">$(</span>kubectl get cm/cloudprober-config -o yaml <span class="p">|</span> sha256sum<span class="k">)</span> <span class="o">&amp;&amp;</span> <span class="se">\
+</span><span class="se"></span>cat deployment.yaml <span class="p">|</span> envsubst <span class="p">|</span> kubectl apply -f -
 </code></pre></div><p>(Note: If you use Helm for Kubernetes deployments, Helm provides <a href="https://helm.sh/docs/howto/charts_tips_and_tricks/#automatically-roll-deployments">a more native way</a> to include config checksums in deployments.)</p>
 <p>Applying the above yaml file, should create a deployment with a service at port 9313:</p>
 <div class="highlight"><pre class="chroma"><code class="language-bash" data-lang="bash">$ kubectl get deployment
@@ -391,6 +390,89 @@ cloudprober   NodePort   10.31.249.108   &lt;none&gt;        9313:31367/TCP   94
 </code></pre></div><p>Now you should be able to access various cloudprober URLs (<code>/status</code> for status,<code>/config</code> for config, <code>/metrics</code> for prometheus-format metrics) from within the cluster. For quick verification you can also set up a port forwarder and access these URLs locally at <code>localhost:9313</code>:</p>
 <pre><code>kubectl port-forward svc/cloudprober 9313:9313
 </code></pre><p>Once you've verified that everything is working as expected, you can go on setting up metrics collection through prometheus (or stackdriver) in usual ways.</p>
+<h2 id="kubernetes-targets">Kubernetes Targets</h2>
+<p>If you're running on Kuberenetes, it's likely that you want to monitor Kubernetes resources (e.g. pods, endpoints, etc). Good news is that cloudprober supports dynamic discovery for Kubernetes targets.</p>
+<p>Following config enables targets discovery for kubernetes resources:</p>
+<div class="highlight"><pre class="chroma"><code class="language-bash" data-lang="bash">probe <span class="o">{</span>
+  name: <span class="s2">&#34;pod-to-endpoints&#34;</span>
+  type: HTTP
+
+  targets <span class="o">{</span>
+    <span class="c1"># RDS (resource discovery service) targets</span> 
+    rds_targets <span class="o">{</span>
+      resource_path: <span class="s2">&#34;k8s://endpoints/cloudprober&#34;</span>
+    <span class="o">}</span>
+  <span class="o">}</span>
+  
+  http_probe <span class="o">{</span>
+    resolve_first: <span class="nb">true</span>
+    relative_url: <span class="s2">&#34;/status&#34;</span>
+  <span class="o">}</span>
+<span class="o">}</span>
+
+<span class="c1"># Run an RDS gRPC server to discover Kubernetes targets.</span>
+rds_server <span class="o">{</span>
+  provider <span class="o">{</span>
+    kubernetes_config <span class="o">{</span>
+      endpoints <span class="o">{</span><span class="o">}</span>
+    <span class="o">}</span>
+  <span class="o">}</span>
+<span class="o">}</span>
+</code></pre></div><p>This config adds a probe for endpoints named &lsquo;cloudprober&rsquo;. There are a few cloudprober features that we use here which have not been explained anywhere else.</p>
+<h3 id="rds-targets">RDS Targets</h3>
+<p>Cloudprober uses <a href="https://github.com/google/cloudprober/blob/master/rds/proto/rds.proto">RDS protocol</a> as an interface for dynamic targets discovery. This allows us to add new target types without modifying the rest of the code. In this config, we add an internal RDS server that provides expansion for kubernetes endpoints (other supported types are &ndash; pods, services).  Inside the probe, we specify targets of the type <code>rds_targets</code> (which by default talks to the internal RDS server but can be configured to talk to a remote RDS server as well) to discover targets. Here resource path, <code>k8s://endpoints/cloudprober</code> specifies endpoints named &lsquo;cloudprober&rsquo; (Hint: you could skip the name part of the resource path to discover all endpoints in the cluster).</p>
+<h3 id="cluster-resources-access">Cluster Resources Access</h3>
+<p>RDS server that we added above discovers cluster resources using kubernetes APIs. It assumes that we are interested in the cluster we are running it in, and uses in-cluster config to talk to the kubernetes API server. For this set up to work, we need to give our container read-only access to kubernetes resources:</p>
+<div class="highlight"><pre class="chroma"><code class="language-yaml" data-lang="yaml">cat<span class="w"> </span>&lt;&lt;EOF<span class="w"> </span>|<span class="w"> </span>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>-<span class="w">
+</span><span class="w"></span>apiVersion<span class="p">:</span><span class="w"> </span>rbac.authorization.k8s.io/v1<span class="w">
+</span><span class="w"></span>kind<span class="p">:</span><span class="w"> </span>ClusterRole<span class="w">
+</span><span class="w"></span>metadata<span class="p">:</span><span class="w">
+</span><span class="w">  </span>annotations<span class="p">:</span><span class="w">
+</span><span class="w">    </span>rbac.authorization.kubernetes.io/autoupdate<span class="p">:</span><span class="w"> </span><span class="s2">&#34;true&#34;</span><span class="w">
+</span><span class="w">  </span>labels<span class="p">:</span><span class="w">
+</span><span class="w">  </span>name<span class="p">:</span><span class="w"> </span>resource-reader<span class="w">
+</span><span class="w">  </span>namespace<span class="p">:</span><span class="w"> </span>default<span class="w">
+</span><span class="w"></span>rules<span class="p">:</span><span class="w">
+</span><span class="w"></span>-<span class="w"> </span>apiGroups<span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&#34;&#34;</span><span class="p">]</span><span class="w">
+</span><span class="w">  </span>resources<span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&#34;*&#34;</span><span class="p">]</span><span class="w">
+</span><span class="w">  </span>verbs<span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&#34;get&#34;</span><span class="p">,</span><span class="w"> </span><span class="s2">&#34;list&#34;</span><span class="p">]</span><span class="w">
+</span><span class="w"></span>---<span class="w">
+</span><span class="w"></span>apiVersion<span class="p">:</span><span class="w"> </span>rbac.authorization.k8s.io/v1<span class="w">
+</span><span class="w"></span>kind<span class="p">:</span><span class="w"> </span>ClusterRoleBinding<span class="w">
+</span><span class="w"></span>metadata<span class="p">:</span><span class="w">
+</span><span class="w"> </span>name<span class="p">:</span><span class="w"> </span>default-resource-reader<span class="w">
+</span><span class="w"> </span>namespace<span class="p">:</span><span class="w"> </span>default<span class="w">
+</span><span class="w"></span>subjects<span class="p">:</span><span class="w">
+</span><span class="w"></span>-<span class="w"> </span>kind<span class="p">:</span><span class="w"> </span>ServiceAccount<span class="w">
+</span><span class="w">  </span>name<span class="p">:</span><span class="w"> </span>default<span class="w">
+</span><span class="w">  </span>namespace<span class="p">:</span><span class="w"> </span>default<span class="w">
+</span><span class="w"></span>roleRef<span class="p">:</span><span class="w">
+</span><span class="w"> </span>kind<span class="p">:</span><span class="w"> </span>ClusterRole<span class="w">
+</span><span class="w"> </span>name<span class="p">:</span><span class="w"> </span>resource-reader<span class="w">
+</span><span class="w"> </span>apiGroup<span class="p">:</span><span class="w"> </span>rbac.authorization.k8s.io<span class="w">
+</span><span class="w"></span>EOF<span class="w">
+</span></code></pre></div><p>This will give <code>default</code> service account read-only access to the cluster resources. If you don't want to give the &ldquo;default&rdquo; user this access, you can create a new service account for cloudprober and use it in the deployment spec above.</p>
+<h3 id="push-config-update">Push Config Update</h3>
+<p>To push new cloudprober config to the cluster:</p>
+<div class="highlight"><pre class="chroma"><code class="language-bash" data-lang="bash"><span class="c1"># Update the config map</span>
+kubectl create configmap cloudprober-config <span class="se">\
+</span><span class="se"></span>  --from-file<span class="o">=</span>cloudprober.cfg<span class="o">=</span>cloudprober.cfg  -o yaml --dry-run <span class="p">|</span> <span class="se">\
+</span><span class="se"></span>  kubectl replace -f -
+
+<span class="c1"># Update deployment</span>
+<span class="nv">CONFIG_CHECKSUM</span><span class="o">=</span><span class="k">$(</span>kubectl get cm/cloudprober-config -o yaml <span class="p">|</span> sha256sum<span class="k">)</span> <span class="o">&amp;&amp;</span> <span class="se">\
+</span><span class="se"></span>cat deployment.yaml <span class="p">|</span> envsubst <span class="p">|</span> kubectl apply -f -
+</code></pre></div><p>Cloudprober should now start monitoring cloudprober endpoints. To verify:</p>
+<div class="highlight"><pre class="chroma"><code class="language-bash" data-lang="bash"><span class="c1"># Set up port fowarding such that you can access cloudprober:9313 through</span>
+<span class="c1"># localhost:9313.</span>
+kubectl port-forward svc/cloudprober 9313:9313 <span class="p">&amp;</span>
+
+<span class="c1"># Check config</span>
+curl localhost:9313/config
+
+<span class="c1"># Check metrics</span>
+curl localhost:9313/metrics
+</code></pre></div><p>If you're running on GKE and have not disabled cloud, you'll also see logs in <a href="https://pantheon.corp.google.com/logs/viewer?resource=gce_instance">Stackdriver Logging</a>.</p>
 
 
 			<aside class="copyright" role="note">

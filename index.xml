@@ -29,7 +29,7 @@ HTTP server { type: HTTP http_server { port: 8080 } } This creates an HTTP serve
       
       <guid>https://cloudprober.org/how-to/run-on-kubernetes/</guid>
       <description>Kubernetes is a popular platform for running containers, and Cloudprober container runs on Kubernetes right out of the box. This document shows how you can use config map to provide config to cloudprober and reload cloudprober on config changes.
-In Kubernetes, a convenient way to provide config to containers is to use config maps. Let&#39;s create a config that specifies a probe to monitor &amp;ldquo;google.com&amp;rdquo;.
+ConfigMap In Kubernetes, a convenient way to provide config to containers is to use config maps. Let&#39;s create a config that specifies a probe to monitor &amp;ldquo;google.com&amp;rdquo;.
 probe { name: &amp;#34;google-http&amp;#34; type: HTTP targets { host_names: &amp;#34;www.</description>
     </item>
     
