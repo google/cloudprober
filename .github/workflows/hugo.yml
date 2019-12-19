@@ -1,0 +1,35 @@
+name: Build and deploy gh-pages
+
+on: [push]
+
+jobs:
+  build-and-deploy:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v1
+
+    - name: Set up hugo
+      uses: peaceiris/actions-hugo@v2
+      with:
+        hugo-version: '0.61.0'
+
+    - name: Setup public worktree
+      run: git worktree add public gh-pages
+
+    - name: Build pages
+      run: cd docs && hugo
+
+    - name: Deploy
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        cd public
+        git config user.name "${GITHUB_ACTOR}"
+        git config user.email "${GITHUB_ACTOR}@users.noreply.github.com"
+        git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git
+        git checkout -b gh-pages-github-action
+        git add --all
+        git diff-index --quiet HEAD || git commit -m "Update gh-pages" && git push --set-upstream origin gh-pages-github-action
+
