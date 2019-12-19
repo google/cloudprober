@@ -28,6 +28,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/cloudprober/common/oauth"
 	"github.com/google/cloudprober/common/tlsconfig"
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
@@ -35,6 +36,7 @@ import (
 	"github.com/google/cloudprober/probes/options"
 	"github.com/google/cloudprober/targets/endpoint"
 	"github.com/google/cloudprober/validators"
+	"golang.org/x/oauth2"
 )
 
 const (
@@ -57,6 +59,8 @@ type Probe struct {
 	protocol     string
 	method       string
 	url          string
+	oauthTS      oauth2.TokenSource
+	bearerToken  string
 
 	// Run counter, used to decide when to update targets or export
 	// stats.
@@ -150,6 +154,14 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		transport.IdleConnTimeout = 2 * p.opts.Interval
 	}
 
+	if p.c.GetOauthConfig() != nil {
+		oauthTS, err := oauth.TokenSourceFromConfig(p.c.GetOauthConfig(), p.l)
+		if err != nil {
+			return err
+		}
+		p.oauthTS = oauthTS
+	}
+
 	if p.c.GetDisableHttp2() {
 		// HTTP/2 is enabled by default if server supports it. Setting TLSNextProto
 		// to an empty dict is the only to disable it.
@@ -219,6 +231,8 @@ func (p *Probe) doHTTPRequest(req *http.Request, result *probeResult, resultMu *
 		return
 	}
 
+	p.l.Debug("Target:", req.Host, ", URL:", req.URL.String(), ", response: ", string(respBody))
+
 	// Calling Body.Close() allows the TCP connection to be reused.
 	resp.Body.Close()
 	result.respCodes.IncKey(strconv.FormatInt(int64(resp.StatusCode), 10))
@@ -252,6 +266,17 @@ func (p *Probe) updateTargets() {
 
 	if p.results == nil {
 		p.results = make(map[string]*probeResult, len(p.targets))
+	}
+
+	// OAuth token is target independent.
+	if p.oauthTS != nil {
+		tok, err := p.oauthTS.Token()
+		if err != nil {
+			p.l.Error("Error getting OAuth token: ", err.Error(), ". Skipping updating the token.")
+		} else {
+			p.l.Debug("Got OAuth token, len: ", strconv.FormatInt(int64(len(tok.AccessToken)), 10), ", expirationTime: ", tok.Expiry.String())
+			p.bearerToken = tok.AccessToken
+		}
 	}
 
 	for _, target := range p.targets {

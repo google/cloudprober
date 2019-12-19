@@ -2,6 +2,7 @@ syntax = "proto2";
 
 package cloudprober.probes.http;
 
+import "github.com/google/cloudprober/common/oauth/proto/config.proto";
 import "github.com/google/cloudprober/common/tlsconfig/proto/config.proto";
 
 // Next tag: 16
@@ -57,7 +58,10 @@ message ProbeConf {
 
   // Enable HTTP keep-alive. If set to true, underlying connection is reused
   // for further probes. Default is to close the connection after every request.
-  optional bool keep_alive = 12;
+  optional bool keep_alive = 10;
+
+  // OAuth Config
+  optional oauth.Config oauth_config = 11;
 
   // Disable HTTP2
   // Golang HTTP client automatically enables HTTP/2 if server supports it. This
