@@ -31,4 +31,5 @@ jobs:
         git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git
         git checkout -b gh-pages-github-action
         git add --all
-        git commit -m "Update gh-pages" 
+        git diff-index --quiet HEAD || git commit -m "Update gh-pages"
+        git push 
