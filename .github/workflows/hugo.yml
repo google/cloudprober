@@ -32,4 +32,5 @@ jobs:
         git checkout -b gh-pages-github-action
         git add --all
         git diff-index --quiet HEAD || git commit -m "Update gh-pages"
-        git push 
+        git push --set-upstream origin gh-pages-github-action
+
