@@ -31,6 +31,5 @@ jobs:
         git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git
         git checkout -b gh-pages-github-action
         git add --all
-        git diff-index --quiet HEAD || git commit -m "Update gh-pages"
-        git push --set-upstream origin gh-pages-github-action
+        git diff-index --quiet HEAD || git commit -m "Update gh-pages" && git push --set-upstream origin gh-pages-github-action
 
