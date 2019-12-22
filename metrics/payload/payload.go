@@ -90,6 +90,7 @@ func updateMetricValue(mv metrics.Value, val string) error {
 		if err := processDistValue(mVal, val); err != nil {
 			return fmt.Errorf("error parsing distribution value (%s): %v", val, err)
 		}
+		return nil
 	}
 
 	v, err := metrics.ParseValueFromString(val)
