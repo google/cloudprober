@@ -3,15 +3,21 @@ syntax = "proto2";
 
 package cloudprober.targets;
 
+import "github.com/google/cloudprober/rds/client/proto/config.proto";
 import "github.com/google/cloudprober/rds/proto/rds.proto";
 import "github.com/google/cloudprober/targets/gce/proto/config.proto";
 import "github.com/google/cloudprober/targets/lameduck/proto/config.proto";
 import "github.com/google/cloudprober/targets/rtc/proto/config.proto";
 
 message RDSTargets {
-  // RDS server address. If not specified, RDS server address from the global
-  // options is used.
-  optional string rds_server_address = 1;
+  // RDS server options, for example:
+  // rds_server_options {
+  //   server_address: "rds-server.xyz:9314"
+  //   oauth_config: {
+  //     ...
+  //   }
+  // }
+  optional rds.ClientConf.ServerOptions rds_server_options = 1;
 
   // Resource path specifies the resources to return. Resources paths have the
   // following format:
@@ -105,7 +111,18 @@ message DummyTargets {}
 // not.
 message GlobalTargetsOptions {
   // RDS server address
-  optional string rds_server_address = 3;
+  // Deprecated: This option is now deprecated, please use rds_server_options
+  // instead.
+  optional string rds_server_address = 3 [deprecated = true];
+
+  // RDS server options, for example:
+  // rds_server_options {
+  //   server_address: "rds-server.xyz:9314"
+  //   oauth_config: {
+  //     ...
+  //   }
+  // }
+  optional rds.ClientConf.ServerOptions rds_server_options = 4;
 
   // GCE targets options.
   optional gce.GlobalOptions global_gce_targets_options = 1;

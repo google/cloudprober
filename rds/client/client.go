@@ -19,12 +19,16 @@ package client
 
 import (
 	"context"
+	"crypto/tls"
+	"errors"
 	"fmt"
 	"math/rand"
 	"net"
 	"sync"
 	"time"
 
+	"github.com/google/cloudprober/common/oauth"
+	"github.com/google/cloudprober/common/tlsconfig"
 	"github.com/google/cloudprober/logger"
 	configpb "github.com/google/cloudprober/rds/client/proto"
 	pb "github.com/google/cloudprober/rds/proto"
@@ -32,6 +36,7 @@ import (
 	"github.com/google/cloudprober/targets/endpoint"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	grpcoauth "google.golang.org/grpc/credentials/oauth"
 )
 
 type cacheRecord struct {
@@ -44,6 +49,8 @@ type cacheRecord struct {
 type Client struct {
 	mu            sync.Mutex
 	c             *configpb.ClientConf
+	serverOpts    *configpb.ClientConf_ServerOptions
+	dialOpts      []grpc.DialOption
 	cache         map[string]*cacheRecord
 	names         []string
 	listResources func(context.Context, *pb.ListResourcesRequest) (*pb.ListResourcesResponse, error)
@@ -135,18 +142,39 @@ func (client *Client) Resolve(name string, ipVer int) (net.IP, error) {
 	return nil, fmt.Errorf("no IPv4 address (IP: %s) for %s", ip.String(), name)
 }
 
-func (client *Client) grpcListResources() error {
-	dialOpts := grpc.WithInsecure()
-	if client.c.GetTlsCertFile() != "" {
-		creds, err := credentials.NewClientTLSFromFile(client.c.GetTlsCertFile(), "")
+// initListResourcesFunc uses server options to establish a connection with the
+// given RDS server.
+func (client *Client) initListResourcesFunc() error {
+	if client.listResources != nil {
+		return nil
+	}
+
+	if client.serverOpts == nil || client.serverOpts.GetServerAddress() == "" {
+		return errors.New("rds.Client: RDS server address not defined")
+	}
+
+	// Transport security options.
+	if client.serverOpts.GetTlsConfig() != nil {
+		tlsConfig := &tls.Config{}
+		if err := tlsconfig.UpdateTLSConfig(tlsConfig, client.serverOpts.GetTlsConfig(), false); err != nil {
+			return err
+		}
+		client.dialOpts = append(client.dialOpts, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
+	} else {
+		client.dialOpts = append(client.dialOpts, grpc.WithInsecure())
+	}
+
+	// OAuth related options.
+	if client.serverOpts.GetOauthConfig() != nil {
+		oauthTS, err := oauth.TokenSourceFromConfig(client.serverOpts.GetOauthConfig(), client.l)
 		if err != nil {
 			return err
 		}
-		dialOpts = grpc.WithTransportCredentials(creds)
+		client.dialOpts = append(client.dialOpts, grpc.WithPerRPCCredentials(grpcoauth.TokenSource{oauthTS}))
 	}
 
-	client.l.Infof("rds.client: using RDS server at: %s", client.c.GetServerAddr())
-	conn, err := grpc.Dial(client.c.GetServerAddr(), dialOpts)
+	client.l.Infof("rds.client: using RDS server at: %s", client.serverOpts.GetServerAddress())
+	conn, err := grpc.Dial(client.serverOpts.GetServerAddress(), client.dialOpts...)
 	if err != nil {
 		return err
 	}
@@ -154,6 +182,7 @@ func (client *Client) grpcListResources() error {
 	client.listResources = func(ctx context.Context, in *pb.ListResourcesRequest) (*pb.ListResourcesResponse, error) {
 		return spb.NewResourceDiscoveryClient(conn).ListResources(ctx, in)
 	}
+
 	return nil
 }
 
@@ -162,17 +191,14 @@ func (client *Client) grpcListResources() error {
 func New(c *configpb.ClientConf, listResources ListResourcesFunc, l *logger.Logger) (*Client, error) {
 	client := &Client{
 		c:             c,
+		serverOpts:    c.GetServerOptions(),
 		cache:         make(map[string]*cacheRecord),
 		listResources: listResources,
 		l:             l,
 	}
 
-	// If listResources is not provided, use gRPC client's.
-	if client.listResources == nil {
-		err := client.grpcListResources()
-		if err != nil {
-			return nil, err
-		}
+	if err := client.initListResourcesFunc(); err != nil {
+		return nil, err
 	}
 
 	reEvalInterval := time.Duration(client.c.GetReEvalSec()) * time.Second

@@ -35,7 +35,7 @@ import (
 	"github.com/google/cloudprober/config/runconfig"
 	"github.com/google/cloudprober/logger"
 	rdsclient "github.com/google/cloudprober/rds/client"
-	clientconfigpb "github.com/google/cloudprober/rds/client/proto"
+	rdsclientpb "github.com/google/cloudprober/rds/client/proto"
 	rdspb "github.com/google/cloudprober/rds/proto"
 	"github.com/google/cloudprober/targets/endpoint"
 	"github.com/google/cloudprober/targets/gce"
@@ -285,20 +285,26 @@ func StaticTargets(hosts string) Targets {
 }
 
 // RDSClientConf converts RDS targets into RDS client configuration.
-func RDSClientConf(pb *targetspb.RDSTargets, globalOpts *targetspb.GlobalTargetsOptions) (rdsclient.ListResourcesFunc, *clientconfigpb.ClientConf, error) {
+func RDSClientConf(pb *targetspb.RDSTargets, globalOpts *targetspb.GlobalTargetsOptions, l *logger.Logger) (rdsclient.ListResourcesFunc, *rdsclientpb.ClientConf, error) {
 	var listResourcesFunc rdsclient.ListResourcesFunc
 
 	// Intialize server address with global options.
-	addr := globalOpts.GetRdsServerAddress()
+	serverOpts := globalOpts.GetRdsServerOptions()
+	if serverOpts == nil && globalOpts.GetRdsServerAddress() != "" {
+		l.Warning("rds_server_address is now deprecated. please use rds_server_options instead")
+		serverOpts = &rdsclientpb.ClientConf_ServerOptions{
+			ServerAddress: proto.String(globalOpts.GetRdsServerAddress()),
+		}
+	}
 
-	// If targets specific rds_server_address is given, use that.
-	if pb.GetRdsServerAddress() != "" {
-		addr = pb.GetRdsServerAddress()
+	// If targets specific rds_server_options is given, use that.
+	if pb.GetRdsServerOptions() != nil {
+		serverOpts = pb.GetRdsServerOptions()
 	}
 
 	// If rds_server_address is not given in both, local options and in global
 	// options, look for the locally running RDS server.
-	if addr == "" {
+	if serverOpts == nil {
 		localRDSServer := runconfig.LocalRDSServer()
 		if localRDSServer == nil {
 			return nil, nil, fmt.Errorf("rds_server_address not given and found no local RDS server")
@@ -312,8 +318,8 @@ func RDSClientConf(pb *targetspb.RDSTargets, globalOpts *targetspb.GlobalTargets
 	}
 	provider := toks[0]
 
-	return listResourcesFunc, &clientconfigpb.ClientConf{
-		ServerAddr: &addr,
+	return listResourcesFunc, &rdsclientpb.ClientConf{
+		ServerOptions: serverOpts,
 		Request: &rdspb.ListResourcesRequest{
 			Provider:     &provider,
 			ResourcePath: &toks[1],
@@ -363,7 +369,7 @@ func New(targetsDef *targetspb.TargetsDef, ldLister lameduck.Lister, globalOpts 
 		t.lister, t.resolver = s, s
 
 	case *targetspb.TargetsDef_RdsTargets:
-		listResourcesFunc, clientConf, err := RDSClientConf(targetsDef.GetRdsTargets(), globalOpts)
+		listResourcesFunc, clientConf, err := RDSClientConf(targetsDef.GetRdsTargets(), globalOpts, l)
 		if err != nil {
 			return nil, fmt.Errorf("target.New(): error creating RDS client: %v", err)
 		}
