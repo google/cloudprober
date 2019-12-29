@@ -24,6 +24,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/logger"
+	rdsclientpb "github.com/google/cloudprober/rds/client/proto"
 	"github.com/google/cloudprober/targets"
 	"github.com/google/cloudprober/targets/endpoint"
 	targetspb "github.com/google/cloudprober/targets/proto"
@@ -286,15 +287,19 @@ func TestRDSClientConf(t *testing.T) {
 				ResourcePath: proto.String(fmt.Sprintf("%s://%s", r.provider, rPath)),
 			}
 			if r.localAddr != "" {
-				pb.RdsServerAddress = proto.String(r.localAddr)
+				pb.RdsServerOptions = &rdsclientpb.ClientConf_ServerOptions{
+					ServerAddress: proto.String(r.localAddr),
+				}
 			}
 
 			globalOpts := &targetspb.GlobalTargetsOptions{}
 			if r.globalAddr != "" {
-				globalOpts.RdsServerAddress = proto.String(r.globalAddr)
+				globalOpts.RdsServerOptions = &rdsclientpb.ClientConf_ServerOptions{
+					ServerAddress: proto.String(r.globalAddr),
+				}
 			}
 
-			_, cc, err := targets.RDSClientConf(pb, globalOpts)
+			_, cc, err := targets.RDSClientConf(pb, globalOpts, nil)
 			if (err != nil) != r.wantErr {
 				t.Errorf("wantErr: %v, got err: %v", r.wantErr, err)
 			}
@@ -303,8 +308,8 @@ func TestRDSClientConf(t *testing.T) {
 				return
 			}
 
-			if cc.GetServerAddr() != r.wantAddr {
-				t.Errorf("Got RDS server address: %s, wanted: %s", cc.GetServerAddr(), r.wantAddr)
+			if cc.GetServerOptions().GetServerAddress() != r.wantAddr {
+				t.Errorf("Got RDS server address: %s, wanted: %s", cc.GetServerOptions().GetServerAddress(), r.wantAddr)
 			}
 			if cc.GetRequest().GetProvider() != provider {
 				t.Errorf("Got provider: %s, wanted: %s", cc.GetRequest().GetProvider(), provider)

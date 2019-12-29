@@ -24,6 +24,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 
+	tlsconfigpb "github.com/google/cloudprober/common/tlsconfig/proto"
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/rds/client"
 	configpb "github.com/google/cloudprober/rds/client/proto"
@@ -47,11 +48,12 @@ func main() {
 	}
 
 	c := &configpb.ClientConf{
-		TlsCertFile: rdsServerCert,
-	}
-
-	if *rdsServer != "" {
-		c.ServerAddr = rdsServer
+		ServerOptions: &configpb.ClientConf_ServerOptions{
+			ServerAddress: rdsServer,
+			TlsConfig: &tlsconfigpb.TLSConfig{
+				CaCertFile: rdsServerCert,
+			},
+		},
 	}
 
 	c.Request = &pb.ListResourcesRequest{

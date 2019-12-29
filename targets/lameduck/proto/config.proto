@@ -3,6 +3,8 @@ syntax = "proto2";
 
 package cloudprober.targets.lameduck;
 
+import "github.com/google/cloudprober/rds/client/proto/config.proto";
+
 message Options {
   // How often to check for lame-ducked targets
   optional int32 re_eval_sec = 1 [default = 10];
@@ -27,10 +29,14 @@ message Options {
   optional int32 expiration_sec = 4 [default = 300];
 
   // Use an RDS client to get lame-duck-targets.
-  // This option is always true now and will be removed after v0.10.5.
-  optional bool use_rds = 5;
+  // This option is always true now and will be removed after v0.10.7.
+  optional bool use_rds = 5 [deprecated = true];
 
-  // RDS server address. If not specified, RDS server address from the global
-  // options is used, which in turn defaults to localhost:9314.
-  optional string rds_server_address = 6;
+  // RDS server options, for example:
+  // rds_server_options {
+  //   server_address: "rds-server.xyz:9314"
+  //   oauth_config: {
+  //     ...
+  //   }
+  optional rds.ClientConf.ServerOptions rds_server_options = 6;
 }

@@ -156,7 +156,7 @@ func (pr *Prober) Init(ctx context.Context, cfg *configpb.ProberConfig, l *logge
 			return fmt.Errorf("error in initializing lame-duck logger: %v", err)
 		}
 
-		if err := lameduck.InitDefaultLister(globalTargetsOpts.GetLameDuckOptions(), globalTargetsOpts.GetRdsServerAddress(), nil, ldLogger); err != nil {
+		if err := lameduck.InitDefaultLister(globalTargetsOpts, nil, ldLogger); err != nil {
 			return err
 		}
 

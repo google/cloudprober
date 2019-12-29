@@ -30,12 +30,13 @@ import (
 	"github.com/google/cloudprober/config/runconfig"
 	"github.com/google/cloudprober/logger"
 	rdsclient "github.com/google/cloudprober/rds/client"
-	rdsclient_configpb "github.com/google/cloudprober/rds/client/proto"
+	rdsclientpb "github.com/google/cloudprober/rds/client/proto"
 	"github.com/google/cloudprober/rds/gcp"
 	rdspb "github.com/google/cloudprober/rds/proto"
 	"github.com/google/cloudprober/rds/server"
 	serverconfigpb "github.com/google/cloudprober/rds/server/proto"
 	configpb "github.com/google/cloudprober/targets/lameduck/proto"
+	targetspb "github.com/google/cloudprober/targets/proto"
 	"github.com/google/cloudprober/targets/rtc/rtcservice"
 )
 
@@ -142,33 +143,9 @@ func (li *lister) newRDSServer() (*server.Server, error) {
 	return server.New(context.Background(), &serverconfigpb.ServerConf{Provider: []*serverconfigpb.Provider{pc}}, nil, li.l)
 }
 
-func (li *lister) initListFunc(globalRDSAddr string) error {
-	li.serverAddr = globalRDSAddr
-	// If there is lameduck specific RDS server, use that.
-	if li.opts.GetRdsServerAddress() != "" {
-		li.serverAddr = li.opts.GetRdsServerAddress()
-	}
-
-	if li.serverAddr == "" {
-		localRDSServer := runconfig.LocalRDSServer()
-		if localRDSServer == nil {
-			li.l.Infof("rds_server_address not given and found no local RDS server, creating a new one.")
-
-			var err error
-			localRDSServer, err = li.newRDSServer()
-			if err != nil {
-				return fmt.Errorf("error while creating local RDS server: %v", err)
-			}
-		}
-		li.listResourcesFunc = localRDSServer.ListResources
-	}
-
-	return nil
-}
-
 func (li *lister) rdsClient(baseResourcePath string, additionalFilter *rdspb.Filter) (*rdsclient.Client, error) {
-	rdsClientConf := &rdsclient_configpb.ClientConf{
-		ServerAddr: &li.serverAddr,
+	rdsClientConf := &rdsclientpb.ClientConf{
+		ServerOptions: li.rdsServerOpts,
 		Request: &rdspb.ListResourcesRequest{
 			Provider:     proto.String("gcp"),
 			ResourcePath: proto.String(fmt.Sprintf("%s/%s", baseResourcePath, li.project)),
@@ -242,18 +219,20 @@ type lister struct {
 	project           string
 	rtcConfig         string
 	pubsubTopic       string
-	serverAddr        string
+	rdsServerOpts     *rdsclientpb.ClientConf_ServerOptions
 	listResourcesFunc rdsclient.ListResourcesFunc
 	clients           []*rdsclient.Client
 	l                 *logger.Logger
 }
 
-func newLister(opts *configpb.Options, globalRDSAddr string, l *logger.Logger) (*lister, error) {
+func newLister(globalOpts *targetspb.GlobalTargetsOptions, l *logger.Logger) (*lister, error) {
+	opts := globalOpts.GetLameDuckOptions()
 	li := &lister{
-		opts:        opts,
-		rtcConfig:   opts.GetRuntimeconfigName(),
-		pubsubTopic: opts.GetPubsubTopic(),
-		l:           l,
+		opts:          opts,
+		rdsServerOpts: globalOpts.GetRdsServerOptions(),
+		rtcConfig:     opts.GetRuntimeconfigName(),
+		pubsubTopic:   opts.GetPubsubTopic(),
+		l:             l,
 	}
 
 	var err error
@@ -262,8 +241,24 @@ func newLister(opts *configpb.Options, globalRDSAddr string, l *logger.Logger) (
 		return nil, err
 	}
 
-	if err = li.initListFunc(globalRDSAddr); err != nil {
-		return nil, err
+	// If there are lameduck specific RDS server options, use them.
+	if li.opts.GetRdsServerOptions() != nil {
+		li.rdsServerOpts = li.opts.GetRdsServerOptions()
+	}
+
+	// If no RDS server options are configured, look for a local one.
+	if li.rdsServerOpts == nil {
+		localRDSServer := runconfig.LocalRDSServer()
+		if localRDSServer == nil {
+			li.l.Infof("rds_server_address not given and found no local RDS server, creating a new one.")
+
+			var err error
+			localRDSServer, err = li.newRDSServer()
+			if err != nil {
+				return nil, fmt.Errorf("error while creating local RDS server: %v", err)
+			}
+		}
+		li.listResourcesFunc = localRDSServer.ListResources
 	}
 
 	return li, li.initClients()
@@ -274,7 +269,7 @@ func newLister(opts *configpb.Options, globalRDSAddr string, l *logger.Logger) (
 // new lameduck service is created using the config options, and global.lister
 // is set to that service. Initiating the package from a given lister is useful
 // for testing pacakges that depend on this package.
-func InitDefaultLister(opts *configpb.Options, globalRDSAddr string, lister Lister, l *logger.Logger) error {
+func InitDefaultLister(globalOpts *targetspb.GlobalTargetsOptions, lister Lister, l *logger.Logger) error {
 	global.mu.Lock()
 	defer global.mu.Unlock()
 
@@ -289,11 +284,11 @@ func InitDefaultLister(opts *configpb.Options, globalRDSAddr string, lister List
 		return nil
 	}
 
-	if opts.GetUseRds() {
-		l.Warningf("lameduck: use_rds doesn't do anything anymore and will soon be removed.")
+	if globalOpts.GetLameDuckOptions().GetUseRds() {
+		l.Warning("lameduck: use_rds doesn't do anything anymore and will soon be removed.")
 	}
 
-	lister, err := newLister(opts, globalRDSAddr, l)
+	lister, err := newLister(globalOpts, l)
 	if err != nil {
 		return err
 	}
