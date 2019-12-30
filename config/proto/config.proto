@@ -2,6 +2,7 @@ syntax = "proto2";
 
 package cloudprober;
 
+import "github.com/google/cloudprober/common/tlsconfig/proto/config.proto";
 import "github.com/google/cloudprober/probes/proto/config.proto";
 import "github.com/google/cloudprober/rds/server/proto/config.proto";
 import "github.com/google/cloudprober/servers/proto/config.proto";
@@ -58,7 +59,7 @@ message ProberConfig {
   repeated SharedTargets shared_targets = 4;
 
   // Common services related options.
-  // Next tag: 107
+  // Next tag: 106
 
   // Resource discovery server
   optional rds.ServerConf rds_server = 95;
@@ -75,12 +76,18 @@ message ProberConfig {
   // well, default gRPC server is not started.
   optional int32 grpc_port = 104;
 
-  // If grpc_tls_cert_file and grpc_tls_key_file are given, default gRPC server
-  // uses the TLS certificate for authentication -- that is, client should
-  // provide the same TLS certificate to authenticate itself while making calls
-  // to the gRPC server.
-  optional string grpc_tls_cert_file = 105;
-  optional string grpc_tls_key_file = 106;
+  // TLS config, it can be used to:
+  // - Specify client's CA cert for client cert verification:
+  //     tls_config {
+  //       ca_cert_file: "...."
+  //     }
+  //
+  // - Specify TLS cert and key:
+  //     tls_config {
+  //       tls_cert_file: "..."
+  //       tls_key_file: "..."
+  //     }
+  optional tlsconfig.TLSConfig grpc_tls_config = 105;
 
   // Host for the default HTTP server. Default listens on all addresses. If not
   // specified in the config, default port can be overridden by the environment
