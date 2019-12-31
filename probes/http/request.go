@@ -82,5 +82,9 @@ func (p *Probe) httpRequestForTarget(target endpoint.Endpoint) *http.Request {
 		req.Header.Set(header.GetName(), header.GetValue())
 	}
 
+	if p.bearerToken != "" {
+		req.Header.Set("Authorization", "Bearer "+p.bearerToken)
+	}
+
 	return req
 }

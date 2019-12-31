@@ -1,0 +1,38 @@
+syntax = "proto2";
+
+package cloudprober.oauth;
+
+message Config {
+  oneof type {
+    BearerToken bearer_token = 1;
+    GoogleCredentials google_credentials = 2;
+  }
+}
+
+// Bearer token is added to the HTTP request through an HTTP header:
+// "Authorization: Bearer <access_token>"
+message BearerToken {
+  oneof source {
+    // Path to token file.
+    string file = 1;
+
+    // Run a comand to obtain the token, e.g.
+    // cat /var/lib/myapp/token, or
+    // /var/lib/run/get_token.sh
+    string cmd = 2;
+
+    // GCE metadata token
+    string gce_service_account = 3;
+  }
+
+  // How often to refresh token. As OAuth token usually expire, we need to
+  // refresh them on a regular interval. If set to 0, caching is disabled.
+  optional float refresh_interval_sec = 90 [default = 60];
+}
+
+// Google credentials in JSON format. We simply use oauth2/google package to
+// use these credentials.
+message GoogleCredentials {
+  optional string json_file = 1;
+  repeated string scope = 2;
+}
