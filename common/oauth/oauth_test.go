@@ -22,7 +22,6 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	configpb "github.com/google/cloudprober/common/oauth/proto"
-	"google3/base/go/log"
 )
 
 func createTempFile(t *testing.T, b []byte) string {
@@ -34,7 +33,7 @@ func createTempFile(t *testing.T, b []byte) string {
 
 	defer tmpfile.Close()
 	if _, err := tmpfile.Write(b); err != nil {
-		log.Fatal(err)
+		t.Fatal(err)
 	}
 
 	return tmpfile.Name()
