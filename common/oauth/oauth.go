@@ -52,6 +52,14 @@ func TokenSourceFromConfig(c *configpb.Config, l *logger.Logger) (oauth2.TokenSo
 			return nil, fmt.Errorf("error reading Google Credentials file (%s): %v", f, err)
 		}
 
+		aud := c.GetGoogleCredentials().GetAudience()
+		if aud != "" || c.GetGoogleCredentials().GetJwtAsAccessToken() {
+			if !c.GetGoogleCredentials().GetJwtAsAccessToken() {
+				return nil, fmt.Errorf("oauth: audience (%s) should only be set if jwt_as_access_token is set to true", aud)
+			}
+			return google.JWTAccessTokenSourceFromJSON(jsonKey, aud)
+		}
+
 		creds, err := google.CredentialsFromJSON(context.Background(), jsonKey, c.GetGoogleCredentials().GetScope()...)
 		if err != nil {
 			return nil, fmt.Errorf("error parsing Google Credentials file (%s): %v", f, err)

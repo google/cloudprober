@@ -35,4 +35,11 @@ message BearerToken {
 message GoogleCredentials {
   optional string json_file = 1;
   repeated string scope = 2;
+
+  // Use encoded JWT directly as access token, instead of implementing the whole
+  // OAuth2.0 flow.
+  optional bool jwt_as_access_token = 4;
+
+  // Audience works only if jwt_as_access_token is true.
+  optional string audience = 3;
 }
