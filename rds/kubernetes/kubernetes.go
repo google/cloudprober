@@ -78,12 +78,6 @@ func (p *Provider) ListResources(req *pb.ListResourcesRequest) (*pb.ListResource
 		}
 		resources, err := p.epLister.listResources(req)
 		return &pb.ListResourcesResponse{Resources: resources}, err
-	case "services":
-		if p.servicesLister == nil {
-			return nil, errors.New("kubernetes: Services lister not found")
-		}
-		resources, err := p.servicesLister.listResources(req)
-		return &pb.ListResourcesResponse{Resources: resources}, err
 	default:
 		return nil, fmt.Errorf("kubernetes: unsupported resource type: %s", resType)
 	}
