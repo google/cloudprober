@@ -23,6 +23,7 @@ package cloudprober
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net"
 	"net/http"
@@ -33,6 +34,7 @@ import (
 	"sync"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/google/cloudprober/common/tlsconfig"
 	"github.com/google/cloudprober/config"
 	configpb "github.com/google/cloudprober/config/proto"
 	"github.com/google/cloudprober/config/runconfig"
@@ -174,12 +176,12 @@ func InitFromConfig(configFile string) error {
 		// their services with it in the prober.Init() phase.
 		var serverOpts []grpc.ServerOption
 
-		if cfg.GetGrpcTlsCertFile() != "" {
-			creds, err := credentials.NewServerTLSFromFile(cfg.GetGrpcTlsCertFile(), cfg.GetGrpcTlsKeyFile())
-			if err != nil {
-				return fmt.Errorf("error initializing gRPC server TLS credentials: %v", err)
+		if cfg.GetGrpcTlsConfig() != nil {
+			tlsConfig := &tls.Config{}
+			if err := tlsconfig.UpdateTLSConfig(tlsConfig, cfg.GetGrpcTlsConfig(), true); err != nil {
+				return err
 			}
-			serverOpts = append(serverOpts, grpc.Creds(creds))
+			serverOpts = append(serverOpts, grpc.Creds(credentials.NewTLS(tlsConfig)))
 		}
 
 		runconfig.SetDefaultGRPCServer(grpc.NewServer(serverOpts...))
