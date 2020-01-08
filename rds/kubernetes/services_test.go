@@ -23,9 +23,17 @@ import (
 	pb "github.com/google/cloudprober/rds/proto"
 )
 
-func testServiceInfo(name, ns, ip string, labels map[string]string) *serviceInfo {
+func testServiceInfo(name, ns, ip, publicIP string, labels map[string]string) *serviceInfo {
 	si := &serviceInfo{Metadata: kMetadata{Name: name, Namespace: ns, Labels: labels}}
 	si.Spec.ClusterIP = ip
+
+	if publicIP != "" {
+		si.Status.LoadBalancer.Ingress = []struct{ IP string }{
+			{
+				IP: publicIP,
+			},
+		}
+	}
 	return si
 }
 
@@ -33,19 +41,20 @@ func TestListSvcResources(t *testing.T) {
 	sl := &servicesLister{}
 	sl.names = []string{"serviceA", "serviceB", "serviceC"}
 	sl.cache = map[string]*serviceInfo{
-		"serviceA": testServiceInfo("serviceA", "nsAB", "10.1.1.1", map[string]string{"app": "appA"}),
-		"serviceB": testServiceInfo("serviceB", "nsAB", "10.1.1.2", map[string]string{"app": "appB"}),
-		"serviceC": testServiceInfo("serviceC", "nsC", "10.1.1.3", map[string]string{"app": "appC", "func": "web"}),
+		"serviceA": testServiceInfo("serviceA", "nsAB", "10.1.1.1", "", map[string]string{"app": "appA"}),
+		"serviceB": testServiceInfo("serviceB", "nsAB", "10.1.1.2", "192.16.16.199", map[string]string{"app": "appB"}),
+		"serviceC": testServiceInfo("serviceC", "nsC", "10.1.1.3", "192.16.16.200", map[string]string{"app": "appC", "func": "web"}),
 	}
 
 	tests := []struct {
-		desc         string
-		nameFilter   string
-		filters      map[string]string
-		labelsFilter map[string]string
-		wantServices []string
-		wantIPs      []string
-		wantErr      bool
+		desc          string
+		nameFilter    string
+		filters       map[string]string
+		labelsFilter  map[string]string
+		wantServices  []string
+		wantIPs       []string
+		wantPublicIPs []string
+		wantErr       bool
 	}{
 		{
 			desc:    "bad filter key, expect error",
@@ -70,6 +79,11 @@ func TestListSvcResources(t *testing.T) {
 			wantServices: []string{"serviceA", "serviceB"},
 			wantIPs:      []string{"10.1.1.1", "10.1.1.2"},
 		},
+		{
+			desc:          "only services with public IPs",
+			wantServices:  []string{"serviceB", "serviceC"},
+			wantPublicIPs: []string{"192.16.16.199", "192.16.16.200"},
+		},
 	}
 
 	for _, test := range tests {
@@ -79,7 +93,15 @@ func TestListSvcResources(t *testing.T) {
 				filtersPB = append(filtersPB, &pb.Filter{Key: proto.String(k), Value: proto.String(v)})
 			}
 
-			results, err := sl.listResources(filtersPB)
+			req := &pb.ListResourcesRequest{Filter: filtersPB}
+
+			if len(test.wantPublicIPs) != 0 {
+				req.IpConfig = &pb.IPConfig{
+					IpType: pb.IPConfig_PUBLIC.Enum(),
+				}
+			}
+
+			results, err := sl.listResources(req)
 			if err != nil {
 				if !test.wantErr {
 					t.Errorf("got unexpected error: %v", err)
@@ -97,8 +119,13 @@ func TestListSvcResources(t *testing.T) {
 				t.Errorf("services.listResources: got=%v, expected=%v", gotNames, test.wantServices)
 			}
 
-			if !reflect.DeepEqual(gotIPs, test.wantIPs) {
-				t.Errorf("services.listResources IPs: got=%v, expected=%v", gotIPs, test.wantIPs)
+			wantIPs := test.wantIPs
+			if len(test.wantPublicIPs) != 0 {
+				wantIPs = test.wantPublicIPs
+			}
+
+			if !reflect.DeepEqual(gotIPs, wantIPs) {
+				t.Errorf("services.listResources IPs: got=%v, expected=%v", gotIPs, wantIPs)
 			}
 		})
 	}
@@ -118,12 +145,18 @@ func TestParseSvcResourceList(t *testing.T) {
 	}
 
 	services := map[string]struct {
-		ip     string
-		labels map[string]string
+		ip       string
+		publicIP string
+		labels   map[string]string
 	}{
 		"cloudprober": {
 			ip:     "10.31.252.209",
 			labels: map[string]string{"app": "cloudprober"},
+		},
+		"cloudprober-rds": {
+			ip:       "10.96.15.88",
+			publicIP: "192.88.99.199",
+			labels:   map[string]string{"app": "cloudprober"},
 		},
 		"cloudprober-test": {
 			ip:     "10.31.246.77",
@@ -147,6 +180,12 @@ func TestParseSvcResourceList(t *testing.T) {
 
 		if servicesByName[name].Spec.ClusterIP != svc.ip {
 			t.Errorf("%s service ip: got=%s, want=%s", name, servicesByName[name].Spec.ClusterIP, svc.ip)
+		}
+
+		if svc.publicIP != "" {
+			if servicesByName[name].Status.LoadBalancer.Ingress[0].IP != svc.publicIP {
+				t.Errorf("%s service load balancer ip: got=%s, want=%s", name, servicesByName[name].Status.LoadBalancer.Ingress[0].IP, svc.publicIP)
+			}
 		}
 	}
 }
