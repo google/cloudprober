@@ -46,6 +46,56 @@
     },
     {
       "metadata": {
+        "name": "cloudprober-rds",
+        "namespace": "default",
+        "resourceVersion": "2698123",
+        "selfLink": "/api/v1/namespaces/default/services/cloudprober-rds",
+        "uid": "xxxxxxx-25b6-11ea-9c29-42010a8000ca",
+        "creationTimestamp": "2019-12-23T18:58:31Z",
+        "labels": {
+          "app": "cloudprober"
+        },
+        "annotations": {
+          "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"v1\",\"kind\":\"Service\",\"metadata\":{\"annotations\":{},\"name\":\"cloudprober-rds\",\"namespace\":\"default\"},\"spec\":{\"ports\":[{\"name\":\"grpc\",\"port\":9314,\"protocol\":\"TCP\",\"targetPort\":443},{\"name\":\"http\",\"port\":9313,\"protocol\":\"TCP\",\"targetPort\":9313}],\"selector\":{\"app\":\"rds\"},\"type\":\"LoadBalancer\"}}\n"
+        }
+      },
+      "spec": {
+        "clusterIP": "10.96.15.88",
+        "externalTrafficPolicy": "Cluster",
+        "ports": [
+          {
+            "name": "grpc",
+            "nodePort": 30177,
+            "port": 9314,
+            "protocol": "TCP",
+            "targetPort": 443
+          },
+          {
+            "name": "http",
+            "nodePort": 31392,
+            "port": 9313,
+            "protocol": "TCP",
+            "targetPort": 9313
+          }
+        ],
+        "selector": {
+          "app": "rds"
+        },
+        "sessionAffinity": "None",
+        "type": "LoadBalancer"
+      },
+      "status": {
+        "loadBalancer": {
+          "ingress": [
+            {
+                "ip": "192.88.99.199"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "metadata": {
         "name": "cloudprober-test",
         "namespace": "default",
         "selfLink": "/api/v1/namespaces/default/services/cloudprober-test",
