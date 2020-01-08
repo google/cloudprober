@@ -29,9 +29,9 @@ import (
 	"flag"
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
+	"github.com/google/cloudprober/contrib/gcp/bigquery"
 	serverpb "github.com/google/cloudprober/probes/external/proto"
 	"github.com/google/cloudprober/probes/external/serverutils"
-	"google3/third_party/cloudprober/contrib/gcp/bigquery"
 )
 
 var (
