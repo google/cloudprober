@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/rand"
+	"strings"
 	"sync"
 	"time"
 
@@ -46,10 +47,16 @@ func servicesURL(ns string) string {
 	return fmt.Sprintf("api/v1/namespaces/%s/services", ns)
 }
 
-func (lister *servicesLister) listResources(filters []*pb.Filter) ([]*pb.Resource, error) {
+func (lister *servicesLister) listResources(req *pb.ListResourcesRequest) ([]*pb.Resource, error) {
 	var resources []*pb.Resource
 
-	allFilters, err := filter.ParseFilters(filters, []string{"name", "namespace"}, "")
+	var svcName string
+	tok := strings.SplitN(req.GetResourcePath(), "/", 2)
+	if len(tok) == 2 {
+		svcName = tok[1]
+	}
+
+	allFilters, err := filter.ParseFilters(req.GetFilter(), []string{"name", "namespace"}, "")
 	if err != nil {
 		return nil, err
 	}
@@ -60,6 +67,10 @@ func (lister *servicesLister) listResources(filters []*pb.Filter) ([]*pb.Resourc
 	defer lister.mu.RUnlock()
 
 	for _, name := range lister.names {
+		if svcName != "" && name != svcName {
+			continue
+		}
+
 		if nameFilter != nil && !nameFilter.Match(name, lister.l) {
 			continue
 		}
@@ -72,11 +83,22 @@ func (lister *servicesLister) listResources(filters []*pb.Filter) ([]*pb.Resourc
 			continue
 		}
 
-		resources = append(resources, &pb.Resource{
+		res := &pb.Resource{
 			Name:   proto.String(name),
-			Ip:     proto.String(svc.Spec.ClusterIP),
 			Labels: svc.Metadata.Labels,
-		})
+		}
+
+		if req.GetIpConfig().GetIpType() == pb.IPConfig_PUBLIC {
+			// If there is no ingress IP, skip the resource.
+			if len(svc.Status.LoadBalancer.Ingress) == 0 {
+				continue
+			}
+			res.Ip = proto.String(svc.Status.LoadBalancer.Ingress[0].IP)
+		} else {
+			res.Ip = proto.String(svc.Spec.ClusterIP)
+		}
+
+		resources = append(resources, res)
 	}
 
 	lister.l.Infof("kubernetes.listResources: returning %d services", len(resources))
@@ -90,6 +112,13 @@ type serviceInfo struct {
 		Ports     []struct {
 			Name string
 			Port int
+		}
+	}
+	Status struct {
+		LoadBalancer struct {
+			Ingress []struct {
+				IP string
+			}
 		}
 	}
 }
