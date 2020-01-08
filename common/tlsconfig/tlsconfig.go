@@ -19,8 +19,8 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"io/ioutil"
 
+	"github.com/google/cloudprober/common/file"
 	configpb "github.com/google/cloudprober/common/tlsconfig/proto"
 )
 
@@ -31,7 +31,7 @@ func UpdateTLSConfig(tlsConfig *tls.Config, c *configpb.TLSConfig, addClientCACe
 	}
 
 	if c.GetCaCertFile() != "" {
-		caCert, err := ioutil.ReadFile(c.GetCaCertFile())
+		caCert, err := file.ReadFile(c.GetCaCertFile())
 		if err != nil {
 			return err
 		}
@@ -48,7 +48,16 @@ func UpdateTLSConfig(tlsConfig *tls.Config, c *configpb.TLSConfig, addClientCACe
 	}
 
 	if c.GetTlsCertFile() != "" {
-		cert, err := tls.LoadX509KeyPair(c.GetTlsCertFile(), c.GetTlsKeyFile())
+		certPEMBlock, err := file.ReadFile(c.GetTlsCertFile())
+		if err != nil {
+			return err
+		}
+		keyPEMBlock, err := file.ReadFile(c.GetTlsKeyFile())
+		if err != nil {
+			return err
+		}
+
+		cert, err := tls.X509KeyPair(certPEMBlock, keyPEMBlock)
 		if err != nil {
 			return err
 		}

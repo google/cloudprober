@@ -20,8 +20,8 @@ package oauth
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 
+	"github.com/google/cloudprober/common/file"
 	configpb "github.com/google/cloudprober/common/oauth/proto"
 	"github.com/google/cloudprober/logger"
 	"golang.org/x/oauth2"
@@ -47,7 +47,7 @@ func TokenSourceFromConfig(c *configpb.Config, l *logger.Logger) (oauth2.TokenSo
 			return creds.TokenSource, nil
 		}
 
-		jsonKey, err := ioutil.ReadFile(f)
+		jsonKey, err := file.ReadFile(f)
 		if err != nil {
 			return nil, fmt.Errorf("error reading Google Credentials file (%s): %v", f, err)
 		}

@@ -16,12 +16,12 @@ package oauth
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os/exec"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/google/cloudprober/common/file"
 	configpb "github.com/google/cloudprober/common/oauth/proto"
 	"github.com/google/cloudprober/logger"
 	"golang.org/x/oauth2"
@@ -37,7 +37,7 @@ type bearerTokenSource struct {
 }
 
 var getTokenFromFile = func(c *configpb.BearerToken) (string, error) {
-	b, err := ioutil.ReadFile(c.GetFile())
+	b, err := file.ReadFile(c.GetFile())
 	if err != nil {
 		return "", err
 	}

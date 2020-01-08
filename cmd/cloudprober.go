@@ -23,7 +23,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
@@ -33,6 +32,7 @@ import (
 	"flag"
 	"github.com/golang/glog"
 	"github.com/google/cloudprober"
+	"github.com/google/cloudprober/common/file"
 	"github.com/google/cloudprober/config"
 	"github.com/google/cloudprober/config/runconfig"
 	"github.com/google/cloudprober/sysvars"
@@ -112,7 +112,7 @@ func setupProfiling() {
 }
 
 func configFileToString(fileName string) string {
-	b, err := ioutil.ReadFile(fileName)
+	b, err := file.ReadFile(fileName)
 	if err != nil {
 		glog.Exitf("Failed to read the config file: %v", err)
 	}
