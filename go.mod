@@ -4,6 +4,7 @@ go 1.13
 
 require (
 	cloud.google.com/go v0.48.0
+	cloud.google.com/go/bigquery v1.0.1
 	cloud.google.com/go/logging v1.0.0
 	cloud.google.com/go/pubsub v1.0.1
 	github.com/aws/aws-sdk-go v1.25.37
