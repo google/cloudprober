@@ -16,21 +16,20 @@
 Package kubernetes implements a kubernetes resources provider for
 ResourceDiscovery server.
 
-It currently supports following kubernetes resources:
-		Pods
-		Endpoints
-    Services
+See:
+ ResourceTypes variable for the list of supported resource types.
+ SupportedFilters variable for the list of supported filters.
+
 
 Kubernetes provider is configured through a protobuf based config file
 (proto/config.proto). Example config:
-{
-  pods {}
-}
+	{
+		pods {}
+	}
 */
 package kubernetes
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -44,12 +43,47 @@ import (
 // id is not configured explicitly.
 const DefaultProviderID = "k8s"
 
+// ResourceTypes declares resource types supported by the Kubernetes provider.
+var ResourceTypes = struct {
+	Pods, Endpoints, Services string
+}{
+	"pods",
+	"endpoints",
+	"services",
+}
+
+/*
+SupportedFilters defines filters supported by this provider.
+ Example filters:
+ filter {
+	 key: "name"
+	 value: "cloudprober.*"
+ }
+ filter {
+	 key: "namespace"
+	 value: "teamx.*"
+ }
+ filter {
+	 key: "labels.app"
+	 value: "service-a"
+ }
+*/
+var SupportedFilters = struct {
+	RegexFilterKeys []string
+	LabelsFilter    bool
+}{
+	[]string{"name", "namespace"},
+	true,
+}
+
+type lister interface {
+	listResources(*pb.ListResourcesRequest) ([]*pb.Resource, error)
+}
+
 // Provider implements a Kubernetes (K8s) provider for use with a
 // ResourceDiscovery server.
 type Provider struct {
-	podsLister     *podsLister
-	epLister       *epLister
-	servicesLister *servicesLister
+	listers map[string]lister
 }
 
 // kMetadata represents metadata for all Kubernetes resources.
@@ -65,28 +99,12 @@ func (p *Provider) ListResources(req *pb.ListResourcesRequest) (*pb.ListResource
 
 	resType := tok[0]
 
-	switch resType {
-	case "pods":
-		if p.podsLister == nil {
-			return nil, errors.New("kubernetes: Pods lister not found")
-		}
-		resources, err := p.podsLister.listResources(req.GetFilter())
-		return &pb.ListResourcesResponse{Resources: resources}, err
-	case "endpoints":
-		if p.epLister == nil {
-			return nil, errors.New("kubernetes: Endpoints lister not found")
-		}
-		resources, err := p.epLister.listResources(req)
-		return &pb.ListResourcesResponse{Resources: resources}, err
-	case "services":
-		if p.servicesLister == nil {
-			return nil, errors.New("kubernetes: Services lister not found")
-		}
-		resources, err := p.servicesLister.listResources(req)
-		return &pb.ListResourcesResponse{Resources: resources}, err
-	default:
+	lr := p.listers[resType]
+	if lr == nil {
 		return nil, fmt.Errorf("kubernetes: unsupported resource type: %s", resType)
 	}
+	resources, err := lr.listResources(req)
+	return &pb.ListResourcesResponse{Resources: resources}, err
 }
 
 // New creates a Kubernetes (k8s) provider for RDS server, based on the
@@ -97,35 +115,37 @@ func New(c *configpb.ProviderConfig, l *logger.Logger) (*Provider, error) {
 		return nil, fmt.Errorf("error while creating the kubernetes client: %v", err)
 	}
 
-	p := &Provider{}
+	p := &Provider{
+		listers: make(map[string]lister),
+	}
 
 	reEvalInterval := time.Duration(c.GetReEvalSec()) * time.Second
 
 	// Enable Pods lister if configured.
 	if c.GetPods() != nil {
-		podsLister, err := newPodsLister(c.GetPods(), c.GetNamespace(), reEvalInterval, client, l)
+		lr, err := newPodsLister(c.GetPods(), c.GetNamespace(), reEvalInterval, client, l)
 		if err != nil {
 			return nil, err
 		}
-		p.podsLister = podsLister
+		p.listers[ResourceTypes.Pods] = lr
 	}
 
 	// Enable Endpoints lister if configured.
 	if c.GetEndpoints() != nil {
-		epLister, err := newEndpointsLister(c.GetEndpoints(), c.GetNamespace(), reEvalInterval, client, l)
+		lr, err := newEndpointsLister(c.GetEndpoints(), c.GetNamespace(), reEvalInterval, client, l)
 		if err != nil {
 			return nil, err
 		}
-		p.epLister = epLister
+		p.listers[ResourceTypes.Endpoints] = lr
 	}
 
 	// Enable Endpoints lister if configured.
 	if c.GetServices() != nil {
-		servicesLister, err := newServicesLister(c.GetServices(), c.GetNamespace(), reEvalInterval, client, l)
+		lr, err := newServicesLister(c.GetServices(), c.GetNamespace(), reEvalInterval, client, l)
 		if err != nil {
 			return nil, err
 		}
-		p.servicesLister = servicesLister
+		p.listers[ResourceTypes.Services] = lr
 	}
 
 	return p, nil

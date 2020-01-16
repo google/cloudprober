@@ -75,7 +75,7 @@ func TestListResources(t *testing.T) {
 				filtersPB = append(filtersPB, &pb.Filter{Key: proto.String(k), Value: proto.String(v)})
 			}
 
-			results, err := pl.listResources(filtersPB)
+			results, err := pl.listResources(&pb.ListResourcesRequest{Filter: filtersPB})
 			if err != nil {
 				if !test.wantErr {
 					t.Errorf("got unexpected error: %v", err)
