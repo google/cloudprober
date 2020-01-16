@@ -46,10 +46,10 @@ func podsURL(ns string) string {
 	return fmt.Sprintf("api/v1/namespaces/%s/pods", ns)
 }
 
-func (pl *podsLister) listResources(filters []*pb.Filter) ([]*pb.Resource, error) {
+func (pl *podsLister) listResources(req *pb.ListResourcesRequest) ([]*pb.Resource, error) {
 	var resources []*pb.Resource
 
-	allFilters, err := filter.ParseFilters(filters, []string{"name", "namespace"}, "")
+	allFilters, err := filter.ParseFilters(req.GetFilter(), SupportedFilters.RegexFilterKeys, "")
 	if err != nil {
 		return nil, err
 	}

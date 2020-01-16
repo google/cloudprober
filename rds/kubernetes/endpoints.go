@@ -57,7 +57,7 @@ func (lister *epLister) listResources(req *pb.ListResourcesRequest) ([]*pb.Resou
 		epName = tok[1]
 	}
 
-	allFilters, err := filter.ParseFilters(req.GetFilter(), []string{"name", "namespace"}, "")
+	allFilters, err := filter.ParseFilters(req.GetFilter(), SupportedFilters.RegexFilterKeys, "")
 	if err != nil {
 		return nil, err
 	}
