@@ -85,7 +85,6 @@ jobs:
         
     - name: Build Docker Image
       run: |
-        ls
         mv cloudprober-binary-ubuntu-latest cloudprober
         make docker_build
 
