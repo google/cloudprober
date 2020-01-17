@@ -67,6 +67,15 @@ jobs:
 
     - name: Test
       run: go test ${EXTRA_TEST_FLAGS} -v -race -covermode=atomic ./...
+
+    - name: Build cloudprober Binary
+      run: make cloudprober
+      
+    - name: Upload cloudprober binary
+      uses: actions/upload-artifact@v1
+      with:
+        name: cloudprober-binary-macos
+        path: cloudprober
       
   build_and_push_docker:
     name: Build and push docker image
