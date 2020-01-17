@@ -58,3 +58,19 @@ jobs:
 
     - name: Test
       run: go test ${EXTRA_TEST_FLAGS} -v -race -covermode=atomic ./...
+      
+  build_and_push_docker:
+    name: Build and push docker image
+    needs: [build_ubuntu_windows, build_macos]
+    runs-on: ubuntu-latest
+    steps:
+
+    - name: Build Docker Image
+      run: make docker_build
+
+    - name: Push Docker Image
+      env: 
+        DOCKER_IMAGE: cloudprober/cloudprober-test  
+        DOCKER_USER: ${{ secrets.docker_login }}
+        DOCKER_PASS: ${{ secrets.docker_pass }}
+      run: make docker_push
