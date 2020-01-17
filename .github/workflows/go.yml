@@ -84,7 +84,10 @@ jobs:
         key: cloudprober  
         
     - name: Build Docker Image
-      run: make docker_build
+      run: |
+        ls
+        mv cloudprober-binary-ubuntu-latest cloudprober
+        make docker_build
 
     - name: Push Docker Image
       env: 
