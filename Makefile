@@ -27,6 +27,11 @@ docker_push:
 	docker login -u "${DOCKER_USER}" -p "${DOCKER_PASS}"
 	docker push $(DOCKER_IMAGE):latest
 
+docker_push_tagged:
+	docker tag $(DOCKER_IMAGE) $(DOCKER_IMAGE):$(DOCKER_VERSION)
+	docker login -u "${DOCKER_USER}" -p "${DOCKER_PASS}"
+	docker push $(DOCKER_IMAGE):$(DOCKER_VERSION)
+
 install:
 	GOBIN=$(GOBIN) CGO_ENABLED=0 go install -ldflags "-X main.version=$(VERSION) -extldflags -static" ./cmd/cloudprober.go
 
