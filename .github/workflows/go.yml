@@ -79,6 +79,7 @@ jobs:
       
   build_and_push_docker:
     name: Build and push docker image
+    if: github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags')
     needs: [build_ubuntu_windows, build_macos]
     runs-on: ubuntu-latest
     
@@ -105,9 +106,18 @@ jobs:
         DOCKER_USER: ${{ secrets.docker_login }}
         DOCKER_PASS: ${{ secrets.docker_pass }}
       run: make docker_push
+
+    - name: Push Docker Image With Version
+      if: startsWith(github.ref, 'refs/tags')
+      env: 
+        DOCKER_IMAGE: cloudprober/cloudprober-test  
+        DOCKER_USER: ${{ secrets.docker_login }}
+        DOCKER_PASS: ${{ secrets.docker_pass }}
+      run: make docker_push_tagged
       
   build_and_push_contrib_docker:
     name: Build and push contrib docker image
+    if: github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags')
     needs: [build_ubuntu_windows, build_macos]
     runs-on: ubuntu-latest
     
@@ -131,3 +141,10 @@ jobs:
         DOCKER_USER: ${{ secrets.docker_login }}
         DOCKER_PASS: ${{ secrets.docker_pass }}
       run: make -C contrib docker_push
+
+    - name: Push Docker Image With Version
+      if: startsWith(github.ref, 'refs/tags')
+      env: 
+        DOCKER_USER: ${{ secrets.docker_login }}
+        DOCKER_PASS: ${{ secrets.docker_pass }}
+      run: make -C contrib docker_push_tagged
