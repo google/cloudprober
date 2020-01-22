@@ -5,6 +5,7 @@ package cloudprober.probes;
 import "github.com/google/cloudprober/metrics/proto/dist.proto";
 import "github.com/google/cloudprober/probes/dns/proto/config.proto";
 import "github.com/google/cloudprober/probes/external/proto/config.proto";
+import "github.com/google/cloudprober/probes/grpc/proto/config.proto";
 import "github.com/google/cloudprober/probes/http/proto/config.proto";
 import "github.com/google/cloudprober/probes/ping/proto/config.proto";
 import "github.com/google/cloudprober/probes/udp/proto/config.proto";
@@ -22,6 +23,7 @@ message ProbeDef {
     EXTERNAL = 3;
     UDP = 4;
     UDP_LISTENER = 5;
+    GRPC = 6;  // Not implemented yet.
 
     // One of the extension probe types. See "extensions" below for more
     // details.
@@ -118,6 +120,8 @@ message ProbeDef {
     external.ProbeConf external_probe = 23;
     udp.ProbeConf udp_probe = 24;
     udplistener.ProbeConf udp_listener_probe = 25;
+    grpc.ProbeConf grpc_probe = 26; // Not implemented yet.
+
     // This field's contents are passed on to the user defined probe, registered
     // for this probe's name through probes.RegisterUserDefined().
     string user_defined_probe = 99;

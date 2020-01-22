@@ -1,0 +1,45 @@
+syntax = "proto2";
+
+package cloudprober.probes.grpc;
+
+import "github.com/google/cloudprober/common/oauth/proto/config.proto";
+
+message ProbeConf {
+  // Optional oauth config. For GOOGLE_DEFAULT_CREDENTIALS, use:
+  // oauth_config: { bearer_token { gce_service_account: "default" } }
+  optional oauth.Config oauth_config = 1;
+
+  // ALTS is a gRPC security method supported by some Google services.
+  // If enabled, peers, with the help of a handshaker service (e.g. metadata
+  // server of GCE instances), use credentials attached to the service accounts
+  // to authenticate each other. See
+  // https://cloud.google.com/security/encryption-in-transit/#service_integrity_encryption
+  // for more details.
+  message ALTSConfig {
+    // If provided, ALTS verifies that peer is using one of the given service
+    // accounts.
+    repeated string target_service_account = 1;
+
+    // Handshaker service address. Default is to use the local metadata server.
+    // For most of the ALTS use cases, default address should be okay.
+    optional string handshaker_service_address = 2;
+  }
+  // If alts_config is provided, gRPC client uses ALTS for authentication and
+  // encryption. For default alts configs, use:
+  // alts_config: {}
+  optional ALTSConfig alts_config = 2;
+
+  enum MethodType {
+    ECHO = 1;
+    READ = 2;
+    WRITE = 3;
+  }
+  optional MethodType method = 3 [default = ECHO];
+
+  optional int32 blob_size = 4 [default=1024];
+  optional int32 num_conns = 5 [default=2];
+  optional bool keep_alive = 6 [default=true];
+
+  // If connect_timeout is not specified, reuse probe timeout.
+  optional int32 connect_timeout_msec = 7;
+}
