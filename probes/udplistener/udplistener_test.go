@@ -24,8 +24,8 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/google/cloudprober/common/message"
 	"github.com/google/cloudprober/logger"
-	"github.com/google/cloudprober/message"
 	"github.com/google/cloudprober/metrics"
 	"github.com/google/cloudprober/probes/common/statskeeper"
 	"github.com/google/cloudprober/probes/options"

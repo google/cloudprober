@@ -30,8 +30,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/cloudprober/common/message"
 	"github.com/google/cloudprober/logger"
-	"github.com/google/cloudprober/message"
 	"github.com/google/cloudprober/metrics"
 	"github.com/google/cloudprober/probes/options"
 	"github.com/google/cloudprober/probes/probeutils"
