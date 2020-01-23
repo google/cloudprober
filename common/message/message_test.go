@@ -19,7 +19,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	msgpb "github.com/google/cloudprober/message/proto"
+	msgpb "github.com/google/cloudprober/common/message/proto"
 )
 
 // createMessage is a helper function for creating a message and fatally failing

@@ -22,7 +22,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	msgpb "github.com/google/cloudprober/message/proto"
+	msgpb "github.com/google/cloudprober/common/message/proto"
 )
 
 // FlowState maintains the state of flow on both the src and dst sides.
