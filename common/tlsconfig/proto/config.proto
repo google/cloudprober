@@ -14,4 +14,7 @@ message TLSConfig {
 
   // Whether to ignore the cert validation.
   optional bool disable_cert_validation = 4;
+
+  // ServerName override
+  optional string server_name = 5;
 }

@@ -64,5 +64,9 @@ func UpdateTLSConfig(tlsConfig *tls.Config, c *configpb.TLSConfig, addClientCACe
 		tlsConfig.Certificates = append(tlsConfig.Certificates, cert)
 	}
 
+	if c.GetServerName() != "" {
+		tlsConfig.ServerName = c.GetServerName()
+	}
+
 	return nil
 }
