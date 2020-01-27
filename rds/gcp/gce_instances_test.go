@@ -237,7 +237,10 @@ func testListResources(t *testing.T, f []*pb.Filter, ipConfig *pb.IPConfig, gil 
 		filters = append(filters, f...)
 	}
 
-	resources, err := gil.listResources(filters, ipConfig)
+	resources, err := gil.listResources(&pb.ListResourcesRequest{
+		Filter:   filters,
+		IpConfig: ipConfig,
+	})
 
 	if err != nil {
 		if !expectError {

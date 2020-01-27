@@ -40,6 +40,27 @@ type instanceData struct {
 	labels map[string]string
 }
 
+/*
+GCEInstancesFilters defines filters supported by the gce_instances resource
+type.
+ Example:
+ filter {
+	 key: "name"
+	 value: "cloudprober.*"
+ }
+ filter {
+	 key: "labels.app"
+	 value: "service-a"
+ }
+*/
+var GCEInstancesFilters = struct {
+	RegexFilterKeys []string
+	LabelsFilter    bool
+}{
+	[]string{"name"},
+	true,
+}
+
 // gceInstancesLister is a GCE instances lister. It implements a cache,
 // that's populated at a regular interval by making the GCE API calls.
 // Listing actually only returns the current contents of that cache.
@@ -101,10 +122,10 @@ func instanceIP(nis []*compute.NetworkInterface, ipConfig *pb.IPConfig) (string,
 // listResources returns the list of resource records, where each record
 // consists of an instance name and the IP address associated with it. IP address
 // to return is selected based on the provided ipConfig.
-func (il *gceInstancesLister) listResources(filters []*pb.Filter, ipConfig *pb.IPConfig) ([]*pb.Resource, error) {
+func (il *gceInstancesLister) listResources(req *pb.ListResourcesRequest) ([]*pb.Resource, error) {
 	var resources []*pb.Resource
 
-	allFilters, err := filter.ParseFilters(filters, []string{"name"}, "")
+	allFilters, err := filter.ParseFilters(req.GetFilter(), GCEInstancesFilters.RegexFilterKeys, "")
 	if err != nil {
 		return nil, err
 	}
@@ -123,7 +144,7 @@ func (il *gceInstancesLister) listResources(filters []*pb.Filter, ipConfig *pb.I
 		}
 
 		nis := il.cache[name].nis
-		ip, err := instanceIP(nis, ipConfig)
+		ip, err := instanceIP(nis, req.GetIpConfig())
 		if err != nil {
 			return nil, fmt.Errorf("gce_instances (instance %s): error while getting IP - %v", name, err)
 		}
