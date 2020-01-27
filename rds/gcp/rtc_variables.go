@@ -55,10 +55,10 @@ type rtcVariablesLister struct {
 
 // listResources returns the list of resource records, where each record
 // consists of a RTC variable name.
-func (rvl *rtcVariablesLister) listResources(filters []*pb.Filter) ([]*pb.Resource, error) {
+func (rvl *rtcVariablesLister) listResources(req *pb.ListResourcesRequest) ([]*pb.Resource, error) {
 	var resources []*pb.Resource
 
-	allFilters, err := filter.ParseFilters(filters, []string{"config_name"}, "updated_within")
+	allFilters, err := filter.ParseFilters(req.GetFilter(), []string{"config_name"}, "updated_within")
 	if err != nil {
 		return nil, err
 	}

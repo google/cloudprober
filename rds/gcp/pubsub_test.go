@@ -44,14 +44,16 @@ func TestListMessages(t *testing.T) {
 
 	// Subscription s1, updated within 5m
 	want = []string{"m2"}
-	resources, err = lister.listResources([]*pb.Filter{
-		&pb.Filter{
-			Key:   proto.String("subscription"),
-			Value: proto.String("s1"),
-		},
-		&pb.Filter{
-			Key:   proto.String("updated_within"),
-			Value: proto.String("5m"),
+	resources, err = lister.listResources(&pb.ListResourcesRequest{
+		Filter: []*pb.Filter{
+			&pb.Filter{
+				Key:   proto.String("subscription"),
+				Value: proto.String("s1"),
+			},
+			&pb.Filter{
+				Key:   proto.String("updated_within"),
+				Value: proto.String("5m"),
+			},
 		},
 	})
 
@@ -62,10 +64,12 @@ func TestListMessages(t *testing.T) {
 
 	// Subscription s1 and s2
 	want = []string{"m1", "m2", "m3"}
-	resources, _ = lister.listResources([]*pb.Filter{
-		&pb.Filter{
-			Key:   proto.String("subscription"),
-			Value: proto.String("s"),
+	resources, _ = lister.listResources(&pb.ListResourcesRequest{
+		Filter: []*pb.Filter{
+			&pb.Filter{
+				Key:   proto.String("subscription"),
+				Value: proto.String("s"),
+			},
 		},
 	})
 

@@ -30,6 +30,26 @@ import (
 	"google.golang.org/api/option"
 )
 
+/*
+PubSubFilters defines filters supported by the pubsub_messages resource type.
+ Example:
+ filter {
+	 key: "subscription"
+	 value: "sub1.*"
+ }
+ filter {
+	 key: "updated_within"
+	 value: "5m"
+ }
+*/
+var PubSubFilters = struct {
+	RegexFilterKeys    []string
+	FreshnessFilterKey string
+}{
+	[]string{"subscription"},
+	"updated_within",
+}
+
 // pubsubMsgsLister is a PubSub Messages lister. It implements a cache,
 // that's populated at a regular interval by making the GCP API calls.
 // Listing actually only returns the current contents of that cache.
@@ -48,8 +68,8 @@ type pubsubMsgsLister struct {
 
 // listResources returns the list of resource records, where each record
 // consists of a PubSub message name.
-func (lister *pubsubMsgsLister) listResources(filters []*pb.Filter) ([]*pb.Resource, error) {
-	allFilters, err := filter.ParseFilters(filters, []string{"subscription"}, "updated_within")
+func (lister *pubsubMsgsLister) listResources(req *pb.ListResourcesRequest) ([]*pb.Resource, error) {
+	allFilters, err := filter.ParseFilters(req.GetFilter(), PubSubFilters.RegexFilterKeys, PubSubFilters.FreshnessFilterKey)
 	if err != nil {
 		return nil, err
 	}

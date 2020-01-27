@@ -101,14 +101,16 @@ func TestListRTCVars(t *testing.T) {
 
 	// Config c1, updated within 5m
 	want = []string{"v2"}
-	resources, err = rvl.listResources([]*pb.Filter{
-		&pb.Filter{
-			Key:   proto.String("config_name"),
-			Value: proto.String("c1"),
-		},
-		&pb.Filter{
-			Key:   proto.String("updated_within"),
-			Value: proto.String("5m"),
+	resources, err = rvl.listResources(&pb.ListResourcesRequest{
+		Filter: []*pb.Filter{
+			&pb.Filter{
+				Key:   proto.String("config_name"),
+				Value: proto.String("c1"),
+			},
+			&pb.Filter{
+				Key:   proto.String("updated_within"),
+				Value: proto.String("5m"),
+			},
 		},
 	})
 
@@ -119,10 +121,12 @@ func TestListRTCVars(t *testing.T) {
 
 	// Config c1 and c2
 	want = []string{"v1", "v2", "v3"}
-	resources, _ = rvl.listResources([]*pb.Filter{
-		&pb.Filter{
-			Key:   proto.String("config_name"),
-			Value: proto.String("c"),
+	resources, _ = rvl.listResources(&pb.ListResourcesRequest{
+		Filter: []*pb.Filter{
+			&pb.Filter{
+				Key:   proto.String("config_name"),
+				Value: proto.String("c"),
+			},
 		},
 	})
 
