@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 2017-2020 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,85 +26,94 @@ Macros
 
 Cloudprober configs support some macros to make configs construction easier:
 
-*) env: get the value of an environment variable. A common use-case for this
-is using it inside a kubernetes cluster. Example:
+ env
+	Get the value of an environment variable.
 
- # Use an environment variable in probe config
- probe {
-   name: "dns_google_jp"
-   type: DNS
-   targets {
-     host_names: "1.1.1.1"
-   }
-   dns_probe {
-     resolved_domain: "{{env "TEST_DOM"}}"
-   }
-   interval_msec: 5000  # 5s
-   timeout_msec: 1000   # 1s
- }
+	Example:
 
- # Then run cloudprober as:
- TEST_DOM=google.co.jp ./cloudprober --config_file=cloudprober.cfg
+	probe {
+	  name: "dns_google_jp"
+	  type: DNS
+	  targets {
+	    host_names: "1.1.1.1"
+	  }
+	  dns_probe {
+	    resolved_domain: "{{env "TEST_DOM"}}"
+	  }
+	}
 
-*) extractSubstring - extract substring from a string using regex. Example use in config:
+	# Then run cloudprober as:
+	TEST_DOM=google.co.jp ./cloudprober --config_file=cloudprober.cfg
 
- # Sharded VM-to-VM connectivity checks over internal IP
- # Instance name format: ig-<zone>-<shard>-<random-characters>, e.g. ig-asia-east1-a-00-ftx1
- {{$shard := .instance | extractSubstring "[^-]+-[^-]+-[^-]+-[^-]+-([^-]+)-.*" 1}}
- probe {
-   name: "vm-to-vm-{{$shard}}"
-   type: PING
-   targets {
-     gce_targets {
-       instances {}
-     }
-     regex: "{{$targets}}"
-   }
-   run_on: "{{$run_on}}"
- }
+ gceCustomMetadata
+ 	Get value of a GCE custom metadata key. It first looks for the given key in
+	the instance's custom metadata and if it is not found there, it looks for it
+	in the project's custom metaata.
 
-*) mkMap - mkMap returns a map built from the arguments. It's useful as Go
-templates take only one argument. With this function, we can create a map of
-multiple values and pass it to a template. Example use in config:
+	# Get load balancer IP from metadata.
+	probe {
+	  name: "http_lb"
+	  type: HTTP
+	  targets {
+	    host_names: "{{ gceCustomMetadata lb_ip }}"
+	  }
+	}
 
- {{define "probeTmpl"}}
- probe {
-   type: {{.typ}}
-   name: "{{.name}}"
-   targets {
-     host_names: "www.google.com"
-   }
- }
- {{end}}
+ extractSubstring
+	Extract substring from a string using regex. Example use in config:
 
- {{template "probeTmpl" mkMap "typ" "PING" "name" "ping_google"}}
-{{template "probeTmpl" mkMap "typ" "HTTP" "name" "http_google"}}
+	# Sharded VM-to-VM connectivity checks over internal IP
+	# Instance name format: ig-<zone>-<shard>-<random-characters>, e.g. ig-asia-east1-a-00-ftx1
+	{{$shard := .instance | extractSubstring "[^-]+-[^-]+-[^-]+-[^-]+-([^-]+)-.*" 1}}
+	probe {
+	  name: "vm-to-vm-{{$shard}}"
+	  type: PING
+	  targets {
+	    gce_targets {
+	      instances {}
+	    }
+	    regex: "{{$targets}}"
+	  }
+	  run_on: "{{$run_on}}"
+	}
+
+ mkMap
+	Returns a map built from the arguments. It's useful as Go templates take only
+	one argument. With this function, we can create a map of multiple values and
+	pass it to a template. Example use in config:
+
+	{{define "probeTmpl"}}
+	probe {
+	  type: {{.typ}}
+	  name: "{{.name}}"
+	  targets {
+	    host_names: "www.google.com"
+	  }
+	}
+	{{end}}
+
+	{{template "probeTmpl" mkMap "typ" "PING" "name" "ping_google"}}
+	{{template "probeTmpl" mkMap "typ" "HTTP" "name" "http_google"}}
 
 
-*) mkSlice - mkSlice returns a slice consisting of the arguments. Example use in config:
+ mkSlice
+	Returns a slice consisting of the arguments. It can be used with the built-in
+	'range' function to replicate text.
 
- # Sharded VM-to-VM connectivity checks over internal IP
- # Instance name format: ig-<zone>-<shard>-<random-characters>, e.g. ig-asia-east1-a-00-ftx1
 
- {{with $shards := mkSlice "00" "01" "02" "03"}}
- {{range $_, $shard := $shards}}
- {{$targets := printf "^ig-([^-]+-[^-]+-[^-]+)-%s-[^-]+$" $shard}}
- {{$run_on := printf "^ig-([^-]+-[^-]+-[^-]+)-%s-[^-.]+(|[.].*)$" $shard}}
+	{{with $regions := mkSlice "us=central1" "us-east1"}}
+	{{range $_, $region := $regions}}
 
- probe {
-   name: "vm-to-vm-{{$shard}}"
-   type: PING
-   targets {
-     gce_targets {
-       instances {}
-     }
-     regex: "{{$targets}}"
-   }
-   run_on: "{{$run_on}}"
- }
+	probe {
+	  name: "service-a-{{$region}}"
+	  type: HTTP
+	  targets {
+	    host_names: "service-a.{{$region}}.corp.xx.com"
+	  }
+	}
 
- {{end}}
- {{end}}
+	{{end}}
+	{{end}}
 */
 package config
 
@@ -124,18 +133,18 @@ import (
 // ReadFromGCEMetadata reads the config from the GCE metadata. To allow for
 // instance level as well as project-wide config, we look for the config in
 // metadata in the following manner:
-//	a. If cloudprober_config is set in the instance's custom metadata, its
-//         value is returned.
-//	b. If (and only if), the key is not found in the step above, we look for
-//	   the same key in the project's custom metadata.
+// a. If the given key is set in the instance's custom metadata, its value is
+//    returned.
+// b. If (and only if), the key is not found in the step above, we look for
+//    the same key in the project's custom metadata.
 func ReadFromGCEMetadata(metadataKeyName string) (string, error) {
-	config, err := metadata.Get("instance/attributes/" + metadataKeyName)
+	config, err := metadata.InstanceAttributeValue(metadataKeyName)
 	// If instance level config found, return
 	if _, notFound := err.(metadata.NotDefinedError); !notFound {
 		return config, err
 	}
 	// Check project level config next
-	return metadata.Get("project/attributes/" + metadataKeyName)
+	return metadata.ProjectAttributeValue(metadataKeyName)
 }
 
 // DefaultConfig returns the default config string.
@@ -155,6 +164,9 @@ func ParseTemplate(config string, sysVars map[string]string) (string, error) {
 			}
 			return value
 		},
+
+		"gceCustomMetadata": ReadFromGCEMetadata,
+
 		// extractSubstring allows us to extract substring from a string using regex
 		// matching groups.
 		"extractSubstring": func(re string, n int, s string) (string, error) {
@@ -183,6 +195,7 @@ func ParseTemplate(config string, sysVars map[string]string) (string, error) {
 			}
 			return m, nil
 		},
+
 		// mkSlice makes a slice from its arguments.
 		"mkSlice": func(args ...interface{}) []interface{} {
 			return args
