@@ -1,4 +1,4 @@
-// Copyright 2018-2019 Google Inc.
+// Copyright 2018-2020 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
+	"strings"
 	"sync"
 	"time"
 
@@ -44,6 +45,9 @@ type cacheRecord struct {
 	port   int
 	labels map[string]string
 }
+
+// Default RDS port
+const defaultRDSPort = "9314"
 
 // Client represents an RDS based client instance.
 type Client struct {
@@ -142,6 +146,16 @@ func (client *Client) Resolve(name string, ipVer int) (net.IP, error) {
 	return nil, fmt.Errorf("no IPv4 address (IP: %s) for %s", ip.String(), name)
 }
 
+func (client *Client) connect(serverAddr string) (*grpc.ClientConn, error) {
+	client.l.Infof("rds.client: using RDS servers at: %s", serverAddr)
+
+	if strings.HasPrefix(serverAddr, "srvlist:///") {
+		client.dialOpts = append(client.dialOpts, grpc.WithResolvers(&srvListBuilder{defaultPort: defaultRDSPort}))
+	}
+
+	return grpc.Dial(client.serverOpts.GetServerAddress(), client.dialOpts...)
+}
+
 // initListResourcesFunc uses server options to establish a connection with the
 // given RDS server.
 func (client *Client) initListResourcesFunc() error {
@@ -173,8 +187,7 @@ func (client *Client) initListResourcesFunc() error {
 		client.dialOpts = append(client.dialOpts, grpc.WithPerRPCCredentials(grpcoauth.TokenSource{oauthTS}))
 	}
 
-	client.l.Infof("rds.client: using RDS server at: %s", client.serverOpts.GetServerAddress())
-	conn, err := grpc.Dial(client.serverOpts.GetServerAddress(), client.dialOpts...)
+	conn, err := client.connect(client.serverOpts.GetServerAddress())
 	if err != nil {
 		return err
 	}
