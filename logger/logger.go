@@ -1,4 +1,4 @@
-// Copyright 2017-2019 Google Inc.
+// Copyright 2017-2020 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -114,6 +114,7 @@ func enableDebugLog(debugLog bool, debugLogRe string, logName string) bool {
 // Logger{} is a valid object that will log through the traditional logger.
 //
 type Logger struct {
+	name                string
 	logc                *logging.Client
 	logger              *logging.Logger
 	debugLog            bool
@@ -140,6 +141,7 @@ func NewCloudproberLog(component string) (*Logger, error) {
 // New returns a new Logger object with cloud logging client initialized if running on GCE.
 func New(ctx context.Context, logName string) (*Logger, error) {
 	l := &Logger{
+		name:                logName,
 		debugLog:            enableDebugLog(*debugLog, *debugLogList, logName),
 		disableCloudLogging: *disableCloudLogging,
 	}
@@ -149,34 +151,49 @@ func New(ctx context.Context, logName string) (*Logger, error) {
 	}
 
 	l.Infof("Running on GCE. Logs for %s will go to Cloud (Stackdriver).", logName)
+	if err := l.EnableStackdriverLogging(ctx); err != nil {
+		return nil, err
+	}
+	return l, nil
+}
+
+// EnableStackdriverLogging enables logging to stackdriver.
+func (l *Logger) EnableStackdriverLogging(ctx context.Context) error {
+	if !metadata.OnGCE() {
+		return fmt.Errorf("not running on GCE")
+	}
+
 	projectID, err := metadata.ProjectID()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	instanceID, err := metadata.InstanceID()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	zone, err := metadata.Zone()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
+	if l.name == "" {
+		return fmt.Errorf("logName cannot be empty")
+	}
 	// Check for illegal characters in the log name
-	if match, err := regexp.Match(disapprovedRegExp, []byte(logName)); err != nil || match {
+	if match, err := regexp.Match(disapprovedRegExp, []byte(l.name)); err != nil || match {
 		if err != nil {
-			return nil, fmt.Errorf("unable to parse logName: %v", err)
+			return fmt.Errorf("unable to parse logName: %v", err)
 		}
-		return nil, fmt.Errorf("logName of %s contains an invalid character, valid characters are [A-Za-z0-9_/.-]", logName)
+		return fmt.Errorf("logName of %s contains an invalid character, valid characters are [A-Za-z0-9_/.-]", l.name)
 	}
 	// Any forward slashes need to be URL encoded, so we query escape to replace them
-	logName = url.QueryEscape(logName)
+	logName := url.QueryEscape(l.name)
 
 	l.logc, err = logging.NewClient(ctx, projectID, option.WithTokenSource(google.ComputeTokenSource("")))
 	if err != nil {
-		return nil, err
+		return err
 	}
 	l.logger = l.logc.Logger(logName,
 		logging.CommonResource(&monpb.MonitoredResource{
@@ -196,7 +213,7 @@ func New(ctx context.Context, logName string) (*Logger, error) {
 		// above), rather than time.
 		logging.DelayThreshold(10*time.Second),
 	)
-	return l, nil
+	return nil
 }
 
 func payloadToString(payload ...string) string {
@@ -234,9 +251,9 @@ func (l *Logger) log(severity logging.Severity, payload ...string) {
 	})
 }
 
-// close closes the cloud logging client if it exists. This flushes the buffer
+// Close closes the cloud logging client if it exists. This flushes the buffer
 // and should be called before exiting the program to ensure all logs are persisted.
-func (l *Logger) close() error {
+func (l *Logger) Close() error {
 	if l != nil && l.logc != nil {
 		return l.logc.Close()
 	}
@@ -270,7 +287,7 @@ func (l *Logger) Error(payload ...string) {
 // exits the process with error status. The buffer is flushed before exiting.
 func (l *Logger) Critical(payload ...string) {
 	l.log(logging.Critical, payload...)
-	if err := l.close(); err != nil {
+	if err := l.Close(); err != nil {
 		panic(fmt.Sprintf("could not close client: %v", err))
 	}
 	os.Exit(1)
@@ -302,7 +319,7 @@ func (l *Logger) Errorf(format string, args ...interface{}) {
 // exits the process with error status. The buffer is flushed before exiting.
 func (l *Logger) Criticalf(format string, args ...interface{}) {
 	l.log(logging.Critical, fmt.Sprintf(format, args...))
-	if err := l.close(); err != nil {
+	if err := l.Close(); err != nil {
 		panic(fmt.Sprintf("could not close client: %v", err))
 	}
 	os.Exit(1)
