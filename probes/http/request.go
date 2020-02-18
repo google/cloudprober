@@ -17,6 +17,7 @@ package http
 import (
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 
 	"github.com/google/cloudprober/targets/endpoint"
@@ -37,26 +38,40 @@ func (rb *requestBody) Read(p []byte) (int, error) {
 	return copy(p, rb.b), io.EOF
 }
 
-func (p *Probe) httpRequestForTarget(target endpoint.Endpoint) *http.Request {
+// resolveFunc resolves the given host for the IP version.
+// This type is mainly used for testing. For all other cases, a nil function
+// should be passed to the httpRequestForTarget function.
+type resolveFunc func(host string, ipVer int) (net.IP, error)
+
+func (p *Probe) httpRequestForTarget(target endpoint.Endpoint, resolveF resolveFunc) *http.Request {
 	// Prepare HTTP.Request for Client.Do
-	host := target.Name
+	port := int(p.c.GetPort())
+	// If port is not configured explicitly, use target's port if available.
+	if port == 0 {
+		port = target.Port
+	}
+
+	urlHost, hostHeader := target.Name, target.Name
 
 	if p.c.GetResolveFirst() {
-		ip, err := p.opts.Targets.Resolve(target.Name, p.opts.IPVersion)
+		if resolveF == nil {
+			resolveF = p.opts.Targets.Resolve
+		}
+
+		ip, err := resolveF(target.Name, p.opts.IPVersion)
 		if err != nil {
 			p.l.Error("target: ", target.Name, ", resolve error: ", err.Error())
 			return nil
 		}
-		host = ip.String()
+		urlHost = ip.String()
 	}
 
-	if p.c.GetPort() != 0 {
-		host = fmt.Sprintf("%s:%d", host, p.c.GetPort())
-	} else if target.Port != 0 {
-		host = fmt.Sprintf("%s:%d", host, target.Port)
+	if port != 0 {
+		urlHost = fmt.Sprintf("%s:%d", urlHost, port)
+		hostHeader = fmt.Sprintf("%s:%d", hostHeader, port)
 	}
 
-	url := fmt.Sprintf("%s://%s%s", p.protocol, host, p.url)
+	url := fmt.Sprintf("%s://%s%s", p.protocol, urlHost, p.url)
 
 	// Prepare request body
 	var body io.Reader
@@ -70,9 +85,9 @@ func (p *Probe) httpRequestForTarget(target endpoint.Endpoint) *http.Request {
 	}
 
 	// If resolving early, URL contains IP for the hostname (see above). Update
-	// req.Host after request creation, so that correct Host header is sent to the
-	// web server.
-	req.Host = target.Name
+	// req.Host after request creation, so that correct Host header is sent to
+	// the web server.
+	req.Host = hostHeader
 
 	for _, header := range p.c.GetHeaders() {
 		if header.GetName() == "Host" {

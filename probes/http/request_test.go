@@ -15,57 +15,119 @@
 package http
 
 import (
+	"fmt"
+	"net"
 	"testing"
 
 	"github.com/golang/protobuf/proto"
 	configpb "github.com/google/cloudprober/probes/http/proto"
+	"github.com/google/cloudprober/probes/options"
+	"github.com/google/cloudprober/targets"
 	"github.com/google/cloudprober/targets/endpoint"
 )
 
-func newProbe(port int) *Probe {
+func newProbe(port int, resolveFirst bool, target, hostHeader string) *Probe {
 	p := &Probe{
 		protocol: "http",
+		c: &configpb.ProbeConf{
+			ResolveFirst: proto.Bool(resolveFirst),
+		},
+		opts: &options.Options{Targets: targets.StaticTargets(target)},
 	}
 
 	if port != 0 {
-		p.c = &configpb.ProbeConf{
-			Port: proto.Int(port),
-		}
+		p.c.Port = proto.Int(port)
+	}
+
+	if hostHeader != "" {
+		p.c.Headers = append(p.c.Headers, &configpb.ProbeConf_Header{
+			Name:  proto.String("Host"),
+			Value: proto.String(hostHeader),
+		})
 	}
 
 	return p
 }
 
-func testReq(t *testing.T, p *Probe, ep endpoint.Endpoint, wantURL, wantHost string) {
+func hostWithPort(host string, port int) string {
+	if port == 0 {
+		return host
+	}
+	return fmt.Sprintf("%s:%d", host, port)
+}
+
+func testReq(t *testing.T, p *Probe, ep endpoint.Endpoint, wantURLHost, hostHeader string, port int, resolveF resolveFunc) {
 	t.Helper()
 
-	req := p.httpRequestForTarget(ep)
+	wantURL := fmt.Sprintf("http://%s", hostWithPort(wantURLHost, port))
+	wantHost := hostHeader
+	if wantHost == "" {
+		wantHost = hostWithPort(ep.Name, port)
+	}
+
+	req := p.httpRequestForTarget(ep, resolveF)
 	if req.URL.String() != wantURL {
 		t.Errorf("HTTP req URL: %s, wanted: %s", req.URL.String(), wantURL)
 	}
+
+	if req.Host != wantHost {
+		t.Errorf("HTTP req.Host: %s, wanted: %s", req.Host, wantHost)
+	}
 }
 
-func TestHTTPRequestForTarget(t *testing.T) {
-	// Probe has no port
-	p := newProbe(0)
-	ep := endpoint.Endpoint{
-		Name: "test-target.com",
+func testRequestHostAndURL(t *testing.T, resolveFirst bool, target, urlHost, hostHeader string) {
+	t.Helper()
+
+	var resolveF resolveFunc
+	if resolveFirst {
+		resolveF = func(target string, ipVer int) (net.IP, error) {
+			return net.ParseIP(urlHost), nil
+		}
 	}
-	testReq(t, p, ep, "http://test-target.com", ep.Name)
+
+	// Probe has no port
+	p := newProbe(0, resolveFirst, target, hostHeader)
+	expectedPort := 0
+
+	// If hostHeader is set, change probe config and expectedHost.
+	ep := endpoint.Endpoint{
+		Name: target,
+	}
+	testReq(t, p, ep, urlHost, hostHeader, expectedPort, resolveF)
 
 	// Probe and endpoint have port, probe's port wins.
-	p = newProbe(8080)
+	p = newProbe(8080, resolveFirst, target, hostHeader)
 	ep = endpoint.Endpoint{
-		Name: "test-target.com",
+		Name: target,
 		Port: 9313,
 	}
-	testReq(t, p, ep, "http://test-target.com:8080", ep.Name)
+	expectedPort = 8080
+	testReq(t, p, ep, urlHost, hostHeader, expectedPort, resolveF)
 
 	// Only endpoint has port, endpoint's port is used.
-	p = newProbe(0)
+	p = newProbe(0, resolveFirst, target, hostHeader)
 	ep = endpoint.Endpoint{
-		Name: "test-target.com",
+		Name: target,
 		Port: 9313,
 	}
-	testReq(t, p, ep, "http://test-target.com:9313", ep.Name)
+	expectedPort = 9313
+	testReq(t, p, ep, urlHost, hostHeader, expectedPort, resolveF)
+}
+
+func TestRequestHostAndURL(t *testing.T) {
+	t.Run("no_resolve_first,no_host_header", func(t *testing.T) {
+		testRequestHostAndURL(t, false, "test-target.com", "test-target.com", "")
+	})
+
+	t.Run("no_resolve_first,host_header", func(t *testing.T) {
+		testRequestHostAndURL(t, false, "test-target.com", "test-target.com", "test-host")
+	})
+
+	t.Run("resolve_first,no_host_header", func(t *testing.T) {
+		testRequestHostAndURL(t, true, "localhost", "127.0.0.1", "")
+	})
+
+	t.Run("resolve_first,host_header", func(t *testing.T) {
+		testRequestHostAndURL(t, true, "localhost", "127.0.0.1", "test-host")
+	})
 }
