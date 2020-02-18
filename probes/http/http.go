@@ -281,7 +281,7 @@ func (p *Probe) updateTargets() {
 
 	for _, target := range p.targets {
 		// Update HTTP request
-		req := p.httpRequestForTarget(target)
+		req := p.httpRequestForTarget(target, nil)
 		if req != nil {
 			p.httpRequests[target.Name] = req
 		}
