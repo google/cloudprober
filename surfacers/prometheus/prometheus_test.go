@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 2017-2020 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -189,6 +189,7 @@ func TestScrapeOutput(t *testing.T) {
 		"#TYPE sent counter",
 		"#TYPE rcvd counter",
 		"#TYPE resp_code counter",
+		"#TYPE latency histogram",
 		"sent{ptype=\"http\"} 32 " + promTS,
 		"rcvd{ptype=\"http\"} 22 " + promTS,
 		"resp_code{ptype=\"http\",code=\"200\"} 19 " + promTS,
@@ -224,6 +225,7 @@ func TestScrapeOutputNoTimestamp(t *testing.T) {
 		"#TYPE sent counter",
 		"#TYPE rcvd counter",
 		"#TYPE resp_code counter",
+		"#TYPE latency histogram",
 		"sent{ptype=\"http\"} 32",
 		"rcvd{ptype=\"http\"} 22",
 		"resp_code{ptype=\"http\",code=\"200\"} 19",
