@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 2017-2020 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -199,8 +199,7 @@ func promTime(t time.Time) int64 {
 	return t.UnixNano() / (1000 * 1000)
 }
 
-func (ps *PromSurfacer) recordMetric(metricName string, labels []string, value string, em *metrics.EventMetrics, typ string) {
-	key := metricName + "{" + strings.Join(labels, ",") + "}"
+func (ps *PromSurfacer) recordMetric(metricName, key, value string, em *metrics.EventMetrics, typ string) {
 	// Recognized metric
 	if pm := ps.metrics[metricName]; pm != nil {
 		// Recognized metric name and labels combination.
@@ -288,6 +287,10 @@ func (ps *PromSurfacer) promMetricName(k string) string {
 	return metricName
 }
 
+func dataKey(metricName string, labels []string) string {
+	return metricName + "{" + strings.Join(labels, ",") + "}"
+}
+
 // record processes the incoming EventMetrics and updates the in-memory
 // database.
 //
@@ -328,16 +331,17 @@ func (ps *PromSurfacer) record(em *metrics.EventMetrics) {
 			}
 			for _, k := range mapVal.Keys() {
 				labelsWithMap := append(labels, labelName+"=\""+k+"\"")
-				ps.recordMetric(pMetricName, labelsWithMap, mapVal.GetKey(k).String(), em, "")
+				ps.recordMetric(pMetricName, dataKey(pMetricName, labelsWithMap), mapVal.GetKey(k).String(), em, "")
 			}
 			continue
 		}
+
 		// Distribution values get expanded into metrics with extra label "le".
 		if distVal, ok := val.(*metrics.Distribution); ok {
 			d := distVal.Data()
 			var val int64
-			ps.recordMetric(pMetricName+"_sum", labels, strconv.FormatFloat(d.Sum, 'f', -1, 64), em, histogram)
-			ps.recordMetric(pMetricName+"_count", labels, strconv.FormatInt(d.Count, 10), em, histogram)
+			ps.recordMetric(pMetricName, dataKey(pMetricName+"_sum", labels), strconv.FormatFloat(d.Sum, 'f', -1, 64), em, histogram)
+			ps.recordMetric(pMetricName, dataKey(pMetricName+"_count", labels), strconv.FormatInt(d.Count, 10), em, histogram)
 			for i := range d.LowerBounds {
 				val += d.BucketCounts[i]
 				var lb string
@@ -347,19 +351,20 @@ func (ps *PromSurfacer) record(em *metrics.EventMetrics) {
 					lb = strconv.FormatFloat(d.LowerBounds[i+1], 'f', -1, 64)
 				}
 				labelsWithBucket := append(labels, "le=\""+lb+"\"")
-				ps.recordMetric(pMetricName+"_bucket", labelsWithBucket, strconv.FormatInt(val, 10), em, histogram)
+				ps.recordMetric(pMetricName, dataKey(pMetricName+"_bucket", labelsWithBucket), strconv.FormatInt(val, 10), em, histogram)
 			}
 			continue
 		}
+
 		// String values get converted into a label.
 		if _, ok := val.(metrics.String); ok {
 			newLabels := append(labels, "val="+val.String())
-			ps.recordMetric(pMetricName, newLabels, "1", em, "")
+			ps.recordMetric(pMetricName, dataKey(pMetricName, newLabels), "1", em, "")
 			continue
 		}
 
 		// All other value types, mostly numerical types.
-		ps.recordMetric(pMetricName, labels, val.String(), em, "")
+		ps.recordMetric(pMetricName, dataKey(pMetricName, labels), val.String(), em, "")
 	}
 }
 
