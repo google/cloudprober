@@ -4,6 +4,8 @@ import (
 	"io/ioutil"
 	"reflect"
 	"testing"
+
+	"github.com/google/cloudprober/rds/server/filter"
 )
 
 func TestParseEndpoints(t *testing.T) {
@@ -82,10 +84,15 @@ func TestEndpointsToResources(t *testing.T) {
 		}{
 			{Port: 9313},
 			{Name: "rds", Port: 9314},
+			{Name: "not-rds", Port: 9315}, // should be excluded
 		},
 	}
 
-	resources := epi.resources()
+	portFilter, err := filter.NewRegexFilter("^(rds|9313)$")
+	if err != nil {
+		t.Fatal(err)
+	}
+	resources := epi.resources(portFilter, nil)
 
 	// We'll get 4 resources = 2 ports x 2 IPs
 	if len(resources) != 4 {

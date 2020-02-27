@@ -64,6 +64,10 @@ SupportedFilters defines filters supported by this provider.
 	 value: "teamx.*"
  }
  filter {
+	 key: "port" # note: the port filter only applies to endpoints
+	 value: "http.*"
+ }
+ filter {
 	 key: "labels.app"
 	 value: "service-a"
  }
@@ -72,7 +76,8 @@ var SupportedFilters = struct {
 	RegexFilterKeys []string
 	LabelsFilter    bool
 }{
-	[]string{"name", "namespace"},
+	// note: the port filter only applies to endpoints
+	[]string{"name", "namespace", "port"},
 	true,
 }
 
