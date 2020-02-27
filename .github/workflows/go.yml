@@ -95,7 +95,7 @@ jobs:
         
     - name: Build Docker Image
       env: 
-        DOCKER_IMAGE: cloudprober/cloudprober-test  
+        DOCKER_IMAGE: cloudprober/cloudprober
       run: |
         mv cloudprober-binary-ubuntu-latest cloudprober
         make docker_build
