@@ -95,7 +95,8 @@ jobs:
         
     - name: Build Docker Image
       run: |
-        mv cloudprober-binary-ubuntu-latest cloudprober
+        mv cloudprober-binary-ubuntu-latest/cloudprober cloudprober
+        chmod a+rx cloudprober
         make docker_build
 
     - name: Push Docker Image
@@ -129,7 +130,8 @@ jobs:
         
     - name: Build Docker Image
       run: |
-        mv cloudprober-binary-ubuntu-latest contrib/cloudprober
+        mv cloudprober-binary-ubuntu-latest/cloudprober contrib/cloudprober
+        chmod a+rx contrib/cloudprober
         make -C contrib docker_build
 
     - name: Push Docker Image
