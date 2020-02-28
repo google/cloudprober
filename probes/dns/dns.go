@@ -197,7 +197,12 @@ func (p *Probe) validateResponse(resp *dns.Msg, target string, result *probeRunR
 	return true
 }
 
-func (p *Probe) runProbe(resultsChan chan<- statskeeper.ProbeResult) {
+// resolveFunc resolves the given host for the IP version.
+// This type is mainly used for testing. For all other cases, a nil function
+// should be passed to the runProbe function.
+type resolveFunc func(host string, ipVer int) (net.IP, error)
+
+func (p *Probe) runProbe(resultsChan chan<- statskeeper.ProbeResult, resolveF resolveFunc) {
 	// Refresh the list of targets to probe.
 	p.updateTargets()
 
@@ -221,8 +226,22 @@ func (p *Probe) runProbe(resultsChan chan<- statskeeper.ProbeResult) {
 				result.latency = metrics.NewFloat(0)
 			}
 
-			fullTarget := net.JoinHostPort(target.Name, "53")
 			result.total.Inc()
+
+			fullTarget := net.JoinHostPort(target.Name, "53")
+			if p.c.GetResolveFirst() {
+				if resolveF == nil {
+					resolveF = p.opts.Targets.Resolve
+				}
+				ip, err := resolveF(target.Name, p.opts.IPVersion)
+				if err != nil {
+					p.l.Warningf("Target(%s): Resolve error: %v", target.Name, err)
+					resultsChan <- result
+					return
+				}
+				fullTarget = net.JoinHostPort(ip.String(), "53")
+			}
+
 			resp, latency, err := p.client.Exchange(p.msg, fullTarget)
 
 			if err != nil {
@@ -266,6 +285,6 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 			return
 		default:
 		}
-		p.runProbe(resultsChan)
+		p.runProbe(resultsChan, nil)
 	}
 }
