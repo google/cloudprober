@@ -84,7 +84,7 @@ func (lister *epLister) listResources(req *pb.ListResourcesRequest) ([]*pb.Resou
 			continue
 		}
 
-		resources = append(resources, epi.resources()...)
+		resources = append(resources, epi.resources(allFilters.RegexFilters["port"], lister.l)...)
 	}
 
 	lister.l.Infof("kubernetes.endpoints.listResources: returning %d resources", len(resources))
@@ -111,7 +111,7 @@ type epInfo struct {
 // is composed of multiple addresses and ports. If an endpoint subset as 3
 // addresses and 2 ports, there will be 6 resources corresponding to that
 // subset.
-func (epi *epInfo) resources() (resources []*pb.Resource) {
+func (epi *epInfo) resources(portFilter *filter.RegexFilter, l *logger.Logger) (resources []*pb.Resource) {
 	for _, eps := range epi.Subsets {
 		// There is usually one port, but there can be multiple ports, e.g. 9313
 		// and 9314.
@@ -120,6 +120,10 @@ func (epi *epInfo) resources() (resources []*pb.Resource) {
 			portName := port.Name
 			if portName == "" {
 				portName = strconv.FormatInt(int64(port.Port), 10)
+			}
+
+			if portFilter != nil && !portFilter.Match(portName, l) {
+				continue
 			}
 
 			for _, addr := range eps.Addresses {
