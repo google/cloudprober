@@ -87,9 +87,9 @@ func gceVars(vars map[string]string) error {
 	}
 
 	for k, v := range ls {
-		// Adds GCE labels to the dictionary with a 'labels_' prefix so they can be
+		// Adds GCE labels to the dictionary with a 'label_' prefix so they can be
 		// referenced in the cfg file.
-		vars["labels_"+k] = v
+		vars["label_"+k] = v
 
 	}
 	return nil
@@ -111,6 +111,9 @@ func labelsFromGCE(project, zone, instance string) (map[string]string, error) {
 // addGceNicInfo adds nic information to vars.
 // The following information is added for each nic.
 // - Primary IP, if one is assigned to nic.
+//	 If no primary IP is found, assume that NIC doesn't exist.
+// - IPv6 IP, if one is assigned to nic.
+//   If nic0 has IPv6 IP, then assign ip to key: "internal_ipv6_ip"
 // - External IP, if one is assigned to nic.
 // - An IP alias, if any IP alias ranges are assigned to nic.
 //
@@ -125,6 +128,18 @@ func addGceNicInfo(vars map[string]string) {
 			continue
 		}
 		vars[k] = v
+
+		k = fmt.Sprintf("instance/network-interfaces/%v/ipv6s", i)
+		v, err = metadata.Get(k)
+		if err != nil {
+			glog.Infof("VM does not have ipv6 ip on interface# %d", i)
+		} else {
+			v = strings.TrimSpace(v)
+			vars[k] = v
+			if i == 0 {
+				vars["internal_ipv6_ip"] = v
+			}
+		}
 
 		k = fmt.Sprintf("instance/network-interfaces/%v/access-configs/%v/external-ip", i, i)
 		v, err = metadata.Get(k)
