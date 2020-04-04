@@ -81,12 +81,12 @@ func gceVars(vars map[string]string) error {
 	vars["region"] = strings.Join(zoneParts[0:len(zoneParts)-1], "-")
 	addGceNicInfo(vars)
 
-	ls, err := labelsFromGCE(vars["project"], vars["zone"], vars["instance"])
+	labels, err := labelsFromGCE(vars["project"], vars["zone"], vars["instance"])
 	if err != nil {
 		return err
 	}
 
-	for k, v := range ls {
+	for k, v := range labels {
 		// Adds GCE labels to the dictionary with a 'label_' prefix so they can be
 		// referenced in the cfg file.
 		vars["label_"+k] = v
@@ -101,10 +101,15 @@ func labelsFromGCE(project, zone, instance string) (map[string]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error creating compute service to get instance labels: %v", err)
 	}
+
+	// Following call requires read-only access to compute API. We don't want to
+	// fail initialization if that happens.
 	i, err := computeService.Instances.Get(project, zone, instance).Context(ctx).Do()
 	if err != nil {
-		return nil, fmt.Errorf("error while fetching the instance resource using GCE API: %v", err)
+		l.Warningf("sysvars: Error while fetching the instance resource using GCE API: %v. Continuing without labels info.", err)
+		return nil, nil
 	}
+
 	return i.Labels, nil
 }
 
