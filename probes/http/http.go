@@ -128,6 +128,14 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		TLSHandshakeTimeout: p.opts.Timeout,
 	}
 
+	if p.c.GetProxyUrl() != "" {
+		url, err := url.Parse(p.c.GetProxyUrl())
+		if err != nil {
+			return fmt.Errorf("error parsing proxy URL (%s): %v", p.c.GetProxyUrl(), err)
+		}
+		transport.Proxy = http.ProxyURL(url)
+	}
+
 	if p.c.GetDisableCertValidation() || p.c.GetTlsConfig() != nil {
 		if transport.TLSClientConfig == nil {
 			transport.TLSClientConfig = &tls.Config{}
