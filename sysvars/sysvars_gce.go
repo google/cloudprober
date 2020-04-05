@@ -87,9 +87,9 @@ func gceVars(vars map[string]string) error {
 	}
 
 	for k, v := range labels {
-		// Adds GCE labels to the dictionary with a 'label_' prefix so they can be
+		// Adds GCE labels to the dictionary with a 'labels_' prefix so they can be
 		// referenced in the cfg file.
-		vars["label_"+k] = v
+		vars["labels_"+k] = v
 
 	}
 	return nil
