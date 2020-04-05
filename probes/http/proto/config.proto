@@ -5,7 +5,7 @@ package cloudprober.probes.http;
 import "github.com/google/cloudprober/common/oauth/proto/config.proto";
 import "github.com/google/cloudprober/common/tlsconfig/proto/config.proto";
 
-// Next tag: 16
+// Next tag: 17
 message ProbeConf {
   enum ProtocolType {
     HTTP = 0;
@@ -79,6 +79,9 @@ message ProbeConf {
 
   // TLS config
   optional tlsconfig.TLSConfig tls_config = 15;
+
+  // Proxy URL, e.g. http://myproxy:3128
+  optional string proxy_url = 16;
 
   // Requests per probe.
   // Number of HTTP requests per probe. Requests are executed concurrently and
