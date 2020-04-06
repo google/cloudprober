@@ -1,6 +1,9 @@
 name: Build and deploy gh-pages
 
-on: [push]
+on:
+  push:
+    paths:
+    - 'docs/**'
 
 jobs:
   build-and-deploy:
@@ -21,6 +24,7 @@ jobs:
     - name: Create a branch for pull request
       run: |
         cd docs/public
+        git branch -D gh-pages-github-action
         git checkout -b gh-pages-github-action gh-pages
 
     - name: Build pages
