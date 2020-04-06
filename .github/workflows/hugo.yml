@@ -20,6 +20,7 @@ jobs:
 
     - name: Build pages
       run: |
+        ls
         cd public && git checkout -b gh-pages-github-action gh-pages && cd ..
         hugo
 
@@ -32,5 +33,6 @@ jobs:
         git config user.email "${GITHUB_ACTOR}@users.noreply.github.com"
         git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git
         git add --all
+        git status
         git diff-index --quiet HEAD || git commit -m "Update gh-pages" && git push --set-upstream origin gh-pages-github-action
 
