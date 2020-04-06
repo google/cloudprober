@@ -5,7 +5,9 @@ theme = "hugo-material-docs"
 googleAnalytics = "UA-79661-8"
 pygmentsUseClasses = true
 canonifyURLs = true
-
 [params]
   provider = "GitHub"
   repo_url = "https://github.com/google/cloudprober"
+
+[markup.goldmark.renderer]
+unsafe= true
