@@ -25,7 +25,7 @@ jobs:
     - name: Create a branch for pull request
       run: |
         cd docs/public
-        git branch -D gh-pages-github-action || true
+        git push --delete gh-pages-github-action || true
         git checkout -b gh-pages-github-action gh-pages
 
     - name: Build pages
@@ -41,5 +41,6 @@ jobs:
         git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git
         git add --all
         git status
-        git diff-index --quiet HEAD || git commit -m "Update gh-pages" && git push
+        git diff-index --quiet HEAD || git commit -m "Update gh-pages" && git push --set-upstream origin gh-pages-github-action
+
 
