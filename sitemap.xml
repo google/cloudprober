@@ -4,7 +4,17 @@
   
   <url>
     <loc>https://cloudprober.org/</loc>
-    <lastmod>2019-10-11T17:48:13-05:00</lastmod>
+    <lastmod>2019-10-25T17:24:32-07:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://cloudprober.org/concepts/</loc>
+    <lastmod>2019-10-25T17:24:32-07:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://cloudprober.org/concepts/targets/</loc>
+    <lastmod>2019-10-25T17:24:32-07:00</lastmod>
   </url>
   
   <url>
@@ -35,11 +45,6 @@
   <url>
     <loc>https://cloudprober.org/how-to/external-probe/</loc>
     <lastmod>2017-10-08T17:24:32-07:00</lastmod>
-  </url>
-  
-  <url>
-    <loc>https://cloudprober.org/concepts/</loc>
-    <lastmod>2017-07-25T17:24:32-07:00</lastmod>
   </url>
   
   <url>

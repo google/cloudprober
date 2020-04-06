@@ -6,10 +6,19 @@
     <description>Recent content in Concepts on Cloudprober</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
-    <lastBuildDate>Tue, 25 Jul 2017 17:24:32 -0700</lastBuildDate>
+    <lastBuildDate>Fri, 25 Oct 2019 17:24:32 -0700</lastBuildDate>
     
 	<atom:link href="https://cloudprober.org/concepts/index.xml" rel="self" type="application/rss+xml" />
     
+    
+    <item>
+      <title>Targets Discovery</title>
+      <link>https://cloudprober.org/concepts/targets/</link>
+      <pubDate>Fri, 25 Oct 2019 17:24:32 -0700</pubDate>
+      
+      <guid>https://cloudprober.org/concepts/targets/</guid>
+      <description>Automatic and continuous discovery of the targets is one of the core features of Cloudprober. This feature is specially critical for the dynamic environments that today&#39;s cloud based deployments make possible. For exmaple, in a kubernetes cluster number of pods and their IPs can change on the fly, either in response to replica count changes or node failures. Automated targets discovery makes sure that we don&#39;t have to reconfigure Cloudprober in response to such events.</description>
+    </item>
     
     <item>
       <title>Probe</title>
