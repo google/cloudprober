@@ -34,3 +34,13 @@ func EndpointsFromNames(names []string) []Endpoint {
 	}
 	return result
 }
+
+// NamesFromEndpoints is convenience function to build a list of names
+// from endpoints.
+func NamesFromEndpoints(endpoints []Endpoint) []string {
+	result := make([]string, len(endpoints))
+	for i, ep := range endpoints {
+		result[i] = ep.Name
+	}
+	return result
+}

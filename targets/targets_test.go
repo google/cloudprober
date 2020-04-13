@@ -107,7 +107,7 @@ func TestList(t *testing.T) {
 				return
 			}
 
-			got := bt.List()
+			got := endpoint.NamesFromEndpoints(bt.ListEndpoints())
 			if !reflect.DeepEqual(got, r.expect) {
 				// Ignore the case when both slices are zero length, DeepEqual doesn't
 				// handle initialized but zero and non-initialized comparison very well.
@@ -141,7 +141,7 @@ func TestDummyTargets(t *testing.T) {
 	if err != nil {
 		t.Fatalf("targets.New(...) Unexpected errors %v", err)
 	}
-	got := tgts.List()
+	got := endpoint.NamesFromEndpoints(tgts.ListEndpoints())
 	want := []string{""}
 	if !reflect.DeepEqual(got, []string{""}) {
 		t.Errorf("tgts.List() = %q, want %q", got, want)
@@ -162,9 +162,9 @@ func TestDummyTargets(t *testing.T) {
 
 func TestStaticTargets(t *testing.T) {
 	testHosts := "host1,host2"
-	tgts := targets.StaticTargets(testHosts)
-	if !reflect.DeepEqual(tgts.List(), strings.Split(testHosts, ",")) {
-		t.Errorf("StaticTargets not working as expected. Got list: %q, Expected: %s", tgts.List(), strings.Split(testHosts, ","))
+	got := endpoint.NamesFromEndpoints(targets.StaticTargets(testHosts).ListEndpoints())
+	if !reflect.DeepEqual(got, strings.Split(testHosts, ",")) {
+		t.Errorf("StaticTargets not working as expected. Got list: %q, Expected: %s", got, strings.Split(testHosts, ","))
 	}
 }
 
@@ -209,7 +209,7 @@ func TestGetExtensionTargets(t *testing.T) {
 	if err != nil {
 		t.Errorf("Got error in building targets from extensions: %v.", err)
 	}
-	tgtsList := tgts.List()
+	tgtsList := endpoint.NamesFromEndpoints(tgts.ListEndpoints())
 	if !reflect.DeepEqual(tgtsList, testTargets) {
 		t.Errorf("Extended targets: tgts.List()=%v, expected=%v", tgtsList, testTargets)
 	}
@@ -235,7 +235,7 @@ func TestSharedTargets(t *testing.T) {
 			t.Errorf("got error while creating targets from shared targets: %v", err)
 		}
 
-		got := tgts[i].List()
+		got := endpoint.NamesFromEndpoints(tgts[i].ListEndpoints())
 		if !reflect.DeepEqual(got, testHosts) {
 			t.Errorf("Unexpected targets: tgts.List()=%v, expected=%v", got, testHosts)
 		}

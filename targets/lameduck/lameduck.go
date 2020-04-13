@@ -35,6 +35,7 @@ import (
 	rdspb "github.com/google/cloudprober/rds/proto"
 	"github.com/google/cloudprober/rds/server"
 	serverconfigpb "github.com/google/cloudprober/rds/server/proto"
+	"github.com/google/cloudprober/targets/endpoint"
 	configpb "github.com/google/cloudprober/targets/lameduck/proto"
 	targetspb "github.com/google/cloudprober/targets/proto"
 	"github.com/google/cloudprober/targets/rtc/rtcservice"
@@ -205,7 +206,7 @@ func (li *lister) initClients() error {
 func (li *lister) List() []string {
 	var result []string
 	for _, cl := range li.clients {
-		result = append(result, cl.List()...)
+		result = append(result, endpoint.NamesFromEndpoints(cl.ListEndpoints())...)
 	}
 
 	if len(result) != 0 {
