@@ -237,11 +237,11 @@ Nextrow:
 			nameToIP: make(map[string]net.IP),
 		}
 		// List targets
-		gotlist := targs.List()
+		gotlist := targs.list()
 		// TODO(izzycecil): Need to catch errors with something like this. This
 		// requires looking at the logger.
 		// if (err != nil) != r.wantError {
-		// 	t.Errorf("%v: targs.List() gave error %q. r.wantError = %v", r.name, err, r.wantError)
+		// 	t.Errorf("%v: targs.list() gave error %q. r.wantError = %v", r.name, err, r.wantError)
 		// 	continue Nextrow
 		// }
 		// if err != nil {
@@ -374,7 +374,7 @@ Nextrow:
 			nameToIP: make(map[string]net.IP),
 		}
 		// List targets
-		got := targs.List()
+		got := targs.list()
 		sort.Strings(got)
 		sort.Strings(r.want)
 
@@ -444,7 +444,7 @@ Nextrow:
 			nameToIP: make(map[string]net.IP),
 		}
 		// List targets
-		got := targs.List()
+		got := targs.list()
 		sort.Strings(got)
 		sort.Strings(r.want)
 

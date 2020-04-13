@@ -9,6 +9,7 @@ import (
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
 	"github.com/google/cloudprober/probes/options"
+	"github.com/google/cloudprober/targets/endpoint"
 	"github.com/hoisie/redis"
 )
 
@@ -52,7 +53,7 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 			for _, em := range p.res {
 				dataChan <- em
 			}
-			p.targets = p.opts.Targets.List()
+			p.targets = endpoint.NamesFromEndpoints(p.opts.Targets.ListEndpoints())
 			p.initProbeMetrics()
 			probeCtx, cancelFunc := context.WithDeadline(ctx, time.Now().Add(p.opts.Timeout))
 			p.runProbe(probeCtx)
@@ -107,7 +108,7 @@ func (p *Probe) runProbeForTarget(ctx context.Context, target string) error {
 
 // runProbe runs probe for all targets and update EventMetrics.
 func (p *Probe) runProbe(ctx context.Context) {
-	p.targets = p.opts.Targets.List()
+	p.targets = endpoint.NamesFromEndpoints(p.opts.Targets.ListEndpoints())
 
 	var wg sync.WaitGroup
 	for _, target := range p.targets {

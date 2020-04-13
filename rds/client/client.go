@@ -98,13 +98,6 @@ func (client *Client) updateState(response *pb.ListResourcesResponse) {
 	}
 }
 
-// List returns the list of resource names.
-func (client *Client) List() []string {
-	client.mu.Lock()
-	defer client.mu.Unlock()
-	return append([]string{}, client.names...)
-}
-
 // ListEndpoints returns the list of resources.
 func (client *Client) ListEndpoints() []endpoint.Endpoint {
 	client.mu.Lock()

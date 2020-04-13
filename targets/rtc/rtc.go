@@ -25,6 +25,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/logger"
+	"github.com/google/cloudprober/targets/endpoint"
 	configpb "github.com/google/cloudprober/targets/rtc/proto"
 	cpb "github.com/google/cloudprober/targets/rtc/rtcreporter/proto"
 	"github.com/google/cloudprober/targets/rtc/rtcservice"
@@ -84,12 +85,7 @@ func (t *Targets) Resolve(name string, ipVer int) (net.IP, error) {
 	return ip, nil
 }
 
-// List produces a list of targets found in the RTC configuration for this
-// project. It ignores all sufficiently old RTC entries, as configured by
-// "exp_msec" in the TargetsConf protobuf. Then entries will be filtered by group
-// names, if "groups" was non-empty. If there is an empty intersection
-// between "groups" and the groups in RtcTargetInfo, the entry will be filtered out.
-func (t *Targets) List() []string {
+func (t *Targets) list() []string {
 	if t.cacheTicker == nil {
 		resp, err := t.evalList()
 		if err != nil {
@@ -100,6 +96,16 @@ func (t *Targets) List() []string {
 	t.cacheMu.RLock()
 	defer t.cacheMu.RUnlock()
 	return append([]string{}, t.cache...)
+}
+
+// ListEndpoints produces a list of targets found in the RTC configuration for
+// this project. It ignores all sufficiently old RTC entries, as configured by
+// "exp_msec" in the TargetsConf protobuf. Then entries will be filtered by
+// group names, if "groups" was non-empty. If there is an empty intersection
+// between "groups" and the groups in RtcTargetInfo, the entry will be filtered
+// out.
+func (t *Targets) ListEndpoints() []endpoint.Endpoint {
+	return endpoint.EndpointsFromNames(t.list())
 }
 
 // updateCacheResults tries to get the list of targets. It doesn't update cache

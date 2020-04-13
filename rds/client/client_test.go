@@ -90,14 +90,6 @@ func TestListAndResolve(t *testing.T) {
 		}
 		client.refreshState(time.Second)
 
-		// Test List()
-		list := client.List()
-		for i, res := range testResources {
-			if res.GetName() != list[i] {
-				t.Errorf("Didn't get expected resource. Got: %s, Want: %s", list[i], res.GetName())
-			}
-		}
-
 		// Test ListEndpoint()
 		epList := client.ListEndpoints()
 		for i, res := range testResources {

@@ -82,9 +82,9 @@ func main() {
 	for {
 		fmt.Printf("%s\n", time.Now())
 
-		for _, name := range tgts.List() {
-			ip, _ := tgts.Resolve(name, 4)
-			fmt.Printf("%s\t%s\n", name, ip.String())
+		for _, ep := range tgts.ListEndpoints() {
+			ip, _ := tgts.Resolve(ep.Name, 4)
+			fmt.Printf("%s\t%s\n", ep.Name, ip.String())
 		}
 		time.Sleep(5 * time.Second)
 	}

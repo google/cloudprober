@@ -70,21 +70,11 @@ var (
 // --- if multiple sets of resources need to be listed/resolved, a separate
 // instance of Targets will be needed.
 type Targets interface {
-	listerWithEndpoints
+	lister
 	resolver
 }
 
 type lister interface {
-	// List produces list of targets.
-	List() []string
-}
-
-// listerWithEndpoints encapsulates lister and a new method ListEndpoints().
-// Note: This is a temporary interface to provide easy transition from List()
-// returning []string to to List() returning []Endpoint.
-type listerWithEndpoints interface {
-	lister
-
 	// ListEndpoints returns list of endpoints (name, port tupples).
 	ListEndpoints() []endpoint.Endpoint
 }
@@ -104,8 +94,8 @@ type staticLister struct {
 }
 
 // List returns a copy of its static host list.
-func (sh *staticLister) List() []string {
-	return append([]string{}, sh.list...)
+func (sh *staticLister) ListEndpoints() []endpoint.Endpoint {
+	return endpoint.EndpointsFromNames(append([]string{}, sh.list...))
 }
 
 // A dummy target object, for external probes that don't have any
@@ -115,8 +105,8 @@ type dummy struct {
 
 // List for dummy targets returns one empty string.  This is to ensure
 // that any iteration over targets will at least be executed once.
-func (d *dummy) List() []string {
-	return []string{""}
+func (d *dummy) ListEndpoints() []endpoint.Endpoint {
+	return []endpoint.Endpoint{endpoint.Endpoint{Name: ""}}
 }
 
 // Resolve will just return an unspecified IP address.  This can be
@@ -173,39 +163,15 @@ func (t *targets) includeInResult(name string, ldMap map[string]bool) bool {
 	return include
 }
 
-// List returns the list of targets. It gets the list of targets from the
-// targets provider (instances, or forwarding rules), filters them by the
-// configured regex, excludes lame ducks and returns the resultant list.
+// ListEndpoints returns the list of target endpoints, where each endpoint
+// consists of a name and associated metadata like port and target labels.
+//
+// It gets the list of targets from the configured targets type, filters them
+// by the configured regex, excludes lame ducks and returns the resultant list.
 //
 // This method should be concurrency safe as it doesn't modify any shared
 // variables and doesn't rely on multiple accesses to same variable being
 // consistent.
-func (t *targets) List() []string {
-	if t.lister == nil {
-		t.l.Error("List(): Lister t.lister is nil")
-		return []string{}
-	}
-
-	list := t.lister.List()
-
-	ldMap := t.lameduckMap()
-	if t.re != nil || len(ldMap) != 0 {
-		var result []string
-		for _, i := range list {
-			if t.includeInResult(i, ldMap) {
-				result = append(result, i)
-			}
-		}
-		list = result
-	}
-
-	return list
-}
-
-// ListEndpoints returns the list of target endpoints, where each endpoint
-// consists of a name and associated metadata like port and target labels. This
-// function is similar to List() above, except for the fact that it returns a
-// list of Endpoint objects instead of a list of only names.
 //
 // Note that some targets, for example static hosts, may not have any
 // associated metadata at all, those endpoint fields are left empty in that
@@ -218,15 +184,7 @@ func (t *targets) ListEndpoints() []endpoint.Endpoint {
 
 	var list []endpoint.Endpoint
 
-	// Check if our lister supports ListEndpoint() call itself. If it doesn't,
-	// create a list of Endpoint just from the names returned by the List() method
-	// leaving the Port field empty.
-	if epLister, ok := t.lister.(listerWithEndpoints); ok {
-		list = epLister.ListEndpoints()
-	} else {
-		names := t.lister.List()
-		list = endpoint.EndpointsFromNames(names)
-	}
+	list = t.lister.ListEndpoints()
 
 	ldMap := t.lameduckMap()
 	if t.re != nil || len(ldMap) != 0 {
