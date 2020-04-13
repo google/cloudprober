@@ -50,10 +50,13 @@ func main() {
 	c := &configpb.ClientConf{
 		ServerOptions: &configpb.ClientConf_ServerOptions{
 			ServerAddress: rdsServer,
-			TlsConfig: &tlsconfigpb.TLSConfig{
-				CaCertFile: rdsServerCert,
-			},
 		},
+	}
+
+	if *rdsServerCert != "" {
+		c.ServerOptions.TlsConfig = &tlsconfigpb.TLSConfig{
+			CaCertFile: rdsServerCert,
+		}
 	}
 
 	c.Request = &pb.ListResourcesRequest{

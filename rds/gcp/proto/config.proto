@@ -26,17 +26,22 @@ syntax = "proto2";
 package cloudprober.rds.gcp;
 
 message GCEInstances {
-  // Zone filter, e.g. zone_filter: "us-east1-*" for all zones in us-east1
-  // region.
+  // Optional zone filter regex to limit discovery to the specific zones
+  // For example, zone_filter: "us-east1-*" will limit instances discovery to
+  // only to the zones in the "us-east1" region.
   optional string zone_filter = 1;
 
-  // How often resources should be evaluated/expanded.
+  // How often resources should be refreshed.
   optional int32 re_eval_sec = 98 [default = 300];  // default 5 min
 }
 
-message RegionalForwardingRules {
-  // Region filter, e.g. "region_filter:europe-*"
+message ForwardingRules {
+  // Optionl region filter regex to limit discovery to specific regions, e.g.
+  // "region_filter:europe-*"
   optional string region_filter = 1;
+
+  // How often resources should be refreshed.
+  optional int32 re_eval_sec = 98 [default = 300];  // default 5 min
 }
 
 // Runtime configurator variables.
@@ -81,10 +86,10 @@ message ProviderConfig {
   // instances discovery to be enabled.
   optional GCEInstances gce_instances = 2;
 
-  // Regional forwarding rules discovery options. This field should be declared
-  // for the regional forwarding rules discovery to be enabled.
-  // NOTE: This is not supported yet.
-  optional RegionalForwardingRules regional_forwarding_rules = 3;
+  // Forwarding rules discovery options. This field should be declared for the
+  // forwarding rules discovery to be enabled.
+  // Note that RDS supports only regional forwarding rules.
+  optional ForwardingRules forwarding_rules = 3;
 
   // RTC variables discovery options.
   optional RTCVariables rtc_variables = 4;

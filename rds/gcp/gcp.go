@@ -1,4 +1,4 @@
-// Copyright 2017-2019 Google Inc.
+// Copyright 2017-2020 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -51,9 +51,10 @@ const DefaultProviderID = "gcp"
 // Note that "rtc_variables" resource type is deprecated now and will soon be
 // removed.
 var ResourceTypes = struct {
-	GCEInstances, RTCVariables, PubsubMessages string
+	GCEInstances, ForwardingRules, RTCVariables, PubsubMessages string
 }{
 	"gce_instances",
+	"forwarding_rules",
 	"rtc_variables",
 	"pubsub_messages",
 }
@@ -111,10 +112,13 @@ func initGCPProject(project string, c *configpb.ProviderConfig, l *logger.Logger
 		projectLister[ResourceTypes.GCEInstances] = lr
 	}
 
-	// Enable regional forwarding lister if configured.
-	// TODO(manugarg): implement this.
-	if c.GetRegionalForwardingRules() != nil {
-		return nil, errors.New("regional forwarding rules are not supported yet")
+	// Enable forwarding rules lister if configured.
+	if c.GetForwardingRules() != nil {
+		lr, err := newForwardingRulesLister(project, c.GetApiVersion(), c.GetForwardingRules(), l)
+		if err != nil {
+			return nil, err
+		}
+		projectLister[ResourceTypes.ForwardingRules] = lr
 	}
 
 	// Enable RTC variables lister if configured.
@@ -181,17 +185,24 @@ func DefaultProviderConfig(projects []string, resTypes map[string]string, reEval
 		switch k {
 		case ResourceTypes.GCEInstances:
 			c.GceInstances = &configpb.GCEInstances{
-				ReEvalSec: proto.Int(reEvalSec),
+				ReEvalSec: proto.Int32(int32(reEvalSec)),
 			}
+
+		case ResourceTypes.ForwardingRules:
+			c.ForwardingRules = &configpb.ForwardingRules{
+				ReEvalSec: proto.Int32(int32(reEvalSec)),
+			}
+
 		case ResourceTypes.RTCVariables:
 			c.RtcVariables = &configpb.RTCVariables{
 				RtcConfig: []*configpb.RTCVariables_RTCConfig{
 					{
 						Name:      proto.String(v),
-						ReEvalSec: proto.Int(reEvalSec),
+						ReEvalSec: proto.Int32(int32(reEvalSec)),
 					},
 				},
 			}
+
 		case ResourceTypes.PubsubMessages:
 			c.PubsubMessages = &configpb.PubSubMessages{
 				Subscription: []*configpb.PubSubMessages_Subscription{
