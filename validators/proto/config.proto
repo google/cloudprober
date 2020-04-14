@@ -1,9 +1,11 @@
 syntax = "proto2";
 
+package cloudprober.validators;
+
 import "github.com/google/cloudprober/validators/http/proto/config.proto";
 import "github.com/google/cloudprober/validators/integrity/proto/config.proto";
 
-package cloudprober.validators;
+option go_package = "github.com/google/cloudprober/validators/proto";
 
 message Validator {
   required string name = 1;

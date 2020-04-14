@@ -2,6 +2,8 @@ syntax = "proto2";
 
 package cloudprober.targets.rtcreporter;
 
+option go_package = "github.com/google/cloudprober/targets/rtc/rtcreporter/proto";
+
 message RtcReportOptions {
   // RTC configs which cloudprober should report itself to.
   repeated string cfgs = 1;

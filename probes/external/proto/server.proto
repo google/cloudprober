@@ -4,6 +4,8 @@ syntax = "proto2";
 
 package cloudprober;
 
+option go_package = "github.com/google/cloudprober/probes/external/proto";
+
 // ProbeRequest is the message that cloudprober sends to the external probe
 // server.
 message ProbeRequest {
@@ -22,7 +24,7 @@ message ProbeRequest {
     required string value = 2;
   }
   repeated Option options = 3;
-};
+}
 
 // ProbeReply is the message that external probe server sends back to the
 // cloudprober.
@@ -40,4 +42,4 @@ message ProbeReply {
   // TODO(manugarg): Add an option to export mapped variables, for example:
   // client-errors map:lang java:200 python:20 golang:3
   optional string payload = 3;
-};
+}

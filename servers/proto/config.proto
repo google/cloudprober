@@ -1,10 +1,12 @@
 syntax = "proto2";
 
+package cloudprober.servers;
+
 import "github.com/google/cloudprober/servers/grpc/proto/config.proto";
 import "github.com/google/cloudprober/servers/http/proto/config.proto";
 import "github.com/google/cloudprober/servers/udp/proto/config.proto";
 
-package cloudprober.servers;
+option go_package = "github.com/google/cloudprober/servers/proto";
 
 message ServerDef {
   enum Type {

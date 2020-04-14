@@ -4,6 +4,8 @@ package cloudprober.metrics.payload;
 
 import "github.com/google/cloudprober/metrics/proto/dist.proto";
 
+option go_package = "github.com/google/cloudprober/metrics/payload/proto";
+
 message OutputMetricsOptions {
   // MetricsKind specifies whether to treat output metrics as GAUGE or
   // CUMULATIVE. If left unspecified, metrics from ONCE mode probes are treated

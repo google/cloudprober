@@ -2,6 +2,8 @@ syntax = "proto2";
 
 package cloudprober.metrics;
 
+option go_package = "github.com/google/cloudprober/metrics/proto";
+
 // Dist defines a Distribution data type.
 message Dist {
   oneof buckets {

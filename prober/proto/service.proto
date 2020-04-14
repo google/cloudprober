@@ -4,6 +4,8 @@ package cloudprober;
 
 import "github.com/google/cloudprober/probes/proto/config.proto";
 
+option go_package = "github.com/google/cloudprober/prober/proto";
+
 service Cloudprober {
   // AddProbe adds a probe to cloudprober. Error is returned if probe is already
   // defined or there is an error during initialization of the probe.

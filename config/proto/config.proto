@@ -10,6 +10,8 @@ import "github.com/google/cloudprober/surfacers/proto/config.proto";
 import "github.com/google/cloudprober/targets/proto/targets.proto";
 import "github.com/google/cloudprober/targets/rtc/rtcreporter/proto/rtcreporter.proto";
 
+option go_package = "github.com/google/cloudprober/config/proto";
+
 message ProberConfig {
   // Probes to run.
   repeated probes.ProbeDef probe = 1;

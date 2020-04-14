@@ -5,6 +5,8 @@ package cloudprober.probes.http;
 import "github.com/google/cloudprober/common/oauth/proto/config.proto";
 import "github.com/google/cloudprober/common/tlsconfig/proto/config.proto";
 
+option go_package = "github.com/google/cloudprober/probes/http/proto";
+
 // Next tag: 17
 message ProbeConf {
   enum ProtocolType {

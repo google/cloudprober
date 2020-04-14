@@ -4,6 +4,8 @@ package cloudprober.probes.external;
 
 import "github.com/google/cloudprober/metrics/payload/proto/config.proto";
 
+option go_package = "github.com/google/cloudprober/probes/external/proto";
+
 message ProbeConf {
   // External probes support two mode: ONCE and SERVER. In ONCE mode, external
   // command is re-executed for each probe run, while in SERVER mode, command
