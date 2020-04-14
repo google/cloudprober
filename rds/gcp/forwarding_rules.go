@@ -39,7 +39,7 @@ type frData struct {
 }
 
 /*
-ForwardingRulesFilters defines filters supported by the gce_instances resource
+ForwardingRulesFilters defines filters supported by the forwarding_rules resource
 type.
  Example:
  filter {
@@ -101,18 +101,18 @@ func (frl *forwardingRulesLister) listResources(req *pb.ListResourcesRequest) ([
 		})
 	}
 
-	frl.l.Infof("gce_instances.listResources: returning %d instance", len(resources))
+	frl.l.Infof("forwarding_rules.listResources: returning %d forwarding rules", len(resources))
 	return resources, nil
 }
 
 // expand runs equivalent API calls as "gcloud compute instances list",
 // and is what is used to populate the cache.
 func (frl *forwardingRulesLister) expand(reEvalInterval time.Duration) {
-	frl.l.Infof("gce_instances.expand: expanding GCE targets for project: %s", frl.project)
+	frl.l.Debugf("forwarding_rules.expand: running for project: %s", frl.project)
 
 	regionList, err := frl.computeSvc.Regions.List(frl.project).Filter(frl.c.GetRegionFilter()).Do()
 	if err != nil {
-		frl.l.Errorf("gce_instances.expand: error while getting list of all regions: %v", err)
+		frl.l.Errorf("forwarding_rules.expand: error while getting list of all regions: %v", err)
 		return
 	}
 
@@ -152,7 +152,7 @@ func (frl *forwardingRulesLister) expand(reEvalInterval time.Duration) {
 func newForwardingRulesLister(project, apiVersion string, c *configpb.ForwardingRules, l *logger.Logger) (*forwardingRulesLister, error) {
 	cs, err := defaultComputeService(apiVersion)
 	if err != nil {
-		return nil, fmt.Errorf("gce_instances.expand: error creating compute service: %v", err)
+		return nil, fmt.Errorf("forwarding_rules.expand: error creating compute service: %v", err)
 	}
 
 	frl := &forwardingRulesLister{
