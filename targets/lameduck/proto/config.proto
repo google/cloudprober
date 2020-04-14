@@ -5,6 +5,8 @@ package cloudprober.targets.lameduck;
 
 import "github.com/google/cloudprober/rds/client/proto/config.proto";
 
+option go_package = "github.com/google/cloudprober/targets/lameduck/proto";
+
 message Options {
   // How often to check for lame-ducked targets
   optional int32 re_eval_sec = 1 [default = 10];

@@ -16,6 +16,8 @@ package cloudprober.rds;
 import "github.com/google/cloudprober/rds/gcp/proto/config.proto";
 import "github.com/google/cloudprober/rds/kubernetes/proto/config.proto";
 
+option go_package = "github.com/google/cloudprober/rds/server/proto";
+
 message ServerConf {
   // List of providers that server supports.
   repeated Provider provider = 1;

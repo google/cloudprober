@@ -3,6 +3,8 @@ syntax = "proto2";
 
 package cloudprober.targets.rtc;
 
+option go_package = "github.com/google/cloudprober/targets/rtc/proto";
+
 // TargetsConf represents listing targets from a key/val set stored in the RTC
 // API under a certain provided configuration. It always only lists the keys
 // (hostnames) and provides a resolver which will resolve to a single tag. This

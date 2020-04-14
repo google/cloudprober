@@ -9,6 +9,8 @@ import "github.com/google/cloudprober/targets/gce/proto/config.proto";
 import "github.com/google/cloudprober/targets/lameduck/proto/config.proto";
 import "github.com/google/cloudprober/targets/rtc/proto/config.proto";
 
+option go_package = "github.com/google/cloudprober/targets/proto";
+
 message RDSTargets {
   // RDS server options, for example:
   // rds_server_options {

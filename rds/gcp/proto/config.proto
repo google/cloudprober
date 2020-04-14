@@ -25,6 +25,8 @@ syntax = "proto2";
 
 package cloudprober.rds.gcp;
 
+option go_package = "github.com/google/cloudprober/rds/gcp/proto";
+
 message GCEInstances {
   // Optional zone filter regex to limit discovery to the specific zones
   // For example, zone_filter: "us-east1-*" will limit instances discovery to

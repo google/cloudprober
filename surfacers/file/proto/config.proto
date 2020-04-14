@@ -2,6 +2,8 @@ syntax = "proto2";
 
 package cloudprober.surfacer.file;
 
+option go_package = "github.com/google/cloudprober/surfacers/file/proto";
+
 message SurfacerConf {
   // Where to write the results. If left unset, file surfacer writes to the
   // standard output.

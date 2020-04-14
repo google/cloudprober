@@ -27,6 +27,8 @@ package cloudprober.rds.kubernetes;
 
 import "github.com/google/cloudprober/common/tlsconfig/proto/config.proto";
 
+option go_package = "github.com/google/cloudprober/rds/kubernetes/proto";
+
 message Pods {}
 
 message Endpoints {}

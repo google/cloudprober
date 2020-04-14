@@ -2,6 +2,8 @@ syntax = "proto2";
 
 package message;
 
+option go_package = "github.com/google/cloudprober/common/message/proto";
+
 // Constants defines constants with default values.
 message Constants {
   optional uint64 magic = 1 [default = 0xea74cace87ea];

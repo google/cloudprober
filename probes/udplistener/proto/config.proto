@@ -2,6 +2,8 @@ syntax = "proto2";
 
 package cloudprober.probes.udplistener;
 
+option go_package = "github.com/google/cloudprober/probes/udplistener/proto";
+
 message ProbeConf {
   // Port to listen.
   optional int32 port = 3 [default = 32212];

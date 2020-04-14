@@ -2,6 +2,8 @@ syntax = "proto2";
 
 package cloudprober.surfacer.stackdriver;
 
+option go_package = "github.com/google/cloudprober/surfacers/stackdriver/proto";
+
 message SurfacerConf {
   // GCP project name for stackdriver. If not specified and running on GCP,
   // project is used.

@@ -2,6 +2,8 @@ syntax = "proto2";
 
 package cloudprober.probes.dns;
 
+option go_package = "github.com/google/cloudprober/probes/dns/proto";
+
 // DNS query types from https://en.wikipedia.org/wiki/List_of_DNS_record_types
 enum QueryType {
   NONE = 0;

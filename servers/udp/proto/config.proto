@@ -2,6 +2,8 @@ syntax = "proto2";
 
 package cloudprober.servers.udp;
 
+option go_package = "github.com/google/cloudprober/servers/udp/proto";
+
 message ServerConf {
   required int32 port = 1;
 

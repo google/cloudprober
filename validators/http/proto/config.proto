@@ -2,6 +2,8 @@ syntax = "proto2";
 
 package cloudprober.validators.http;
 
+option go_package = "github.com/google/cloudprober/validators/http/proto";
+
 message Validator {
   // Comma-separated list of success status codes and code ranges.
   // Example: success_stauts_codes: 200-299,301,302

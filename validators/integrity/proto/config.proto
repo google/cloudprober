@@ -2,6 +2,8 @@ syntax = "proto2";
 
 package cloudprober.validators.integrity;
 
+option go_package = "github.com/google/cloudprober/validators/integrity/proto";
+
 message Validator {
   // Validate the data integrity of the response using a pattern that is
   // repeated throughout the length of the response, with last len(response) %
