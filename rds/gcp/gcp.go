@@ -68,32 +68,41 @@ type lister interface {
 // Provider implements a GCP provider for a ResourceDiscovery server.
 type Provider struct {
 	localProject string
-
-	listers map[string]map[string]lister
+	projects     []string
+	listers      map[string]map[string]lister
 }
 
-// ListResources returns the list of resources from the cache.
-func (p *Provider) ListResources(req *pb.ListResourcesRequest) (*pb.ListResourcesResponse, error) {
-	tok := strings.SplitN(req.GetResourcePath(), "/", 2)
+func (p *Provider) listerForResourcePath(resourcePath string) (lister, error) {
+	tok := strings.SplitN(resourcePath, "/", 2)
 	resType := tok[0]
-	project := tok[1]
 
-	var projectListers map[string]lister
+	var project string
+	if len(tok) == 2 {
+		project = tok[1]
+	}
 
-	if project == "" && len(p.listers) == 1 {
-		for _, pL := range p.listers {
-			projectListers = pL
-		}
-	} else {
-		projectListers = p.listers[project]
-		if projectListers == nil {
-			return nil, fmt.Errorf("no lister found for the project: %s", project)
-		}
+	if project == "" {
+		// If project is not specified, use the first supported project.
+		project = p.projects[0]
+	}
+
+	projectListers := p.listers[project]
+	if projectListers == nil {
+		return nil, fmt.Errorf("no listers found for the project: %s", project)
 	}
 
 	lr := projectListers[resType]
 	if lr == nil {
 		return nil, fmt.Errorf("unknown resource type: %s", resType)
+	}
+	return lr, nil
+}
+
+// ListResources returns the list of resources based on the given request.
+func (p *Provider) ListResources(req *pb.ListResourcesRequest) (*pb.ListResourcesResponse, error) {
+	lr, err := p.listerForResourcePath(req.GetResourcePath())
+	if err != nil {
+		return nil, err
 	}
 
 	resources, err := lr.listResources(req)
@@ -159,7 +168,8 @@ func New(c *configpb.ProviderConfig, l *logger.Logger) (*Provider, error) {
 	}
 
 	p := &Provider{
-		listers: make(map[string]map[string]lister),
+		projects: projects,
+		listers:  make(map[string]map[string]lister),
 	}
 
 	for _, project := range projects {
