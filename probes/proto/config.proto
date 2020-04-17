@@ -25,7 +25,7 @@ message ProbeDef {
     EXTERNAL = 3;
     UDP = 4;
     UDP_LISTENER = 5;
-    GRPC = 6;  // Not implemented yet.
+    GRPC = 6;
 
     // One of the extension probe types. See "extensions" below for more
     // details.
@@ -122,8 +122,7 @@ message ProbeDef {
     external.ProbeConf external_probe = 23;
     udp.ProbeConf udp_probe = 24;
     udplistener.ProbeConf udp_listener_probe = 25;
-    grpc.ProbeConf grpc_probe = 26;  // Not implemented yet.
-
+    grpc.ProbeConf grpc_probe = 26;
     // This field's contents are passed on to the user defined probe, registered
     // for this probe's name through probes.RegisterUserDefined().
     string user_defined_probe = 99;

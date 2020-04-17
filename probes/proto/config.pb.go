@@ -45,7 +45,7 @@ const (
 	ProbeDef_EXTERNAL     ProbeDef_Type = 3
 	ProbeDef_UDP          ProbeDef_Type = 4
 	ProbeDef_UDP_LISTENER ProbeDef_Type = 5
-	ProbeDef_GRPC         ProbeDef_Type = 6 // Not implemented yet.
+	ProbeDef_GRPC         ProbeDef_Type = 6
 	// One of the extension probe types. See "extensions" below for more
 	// details.
 	ProbeDef_EXTENSION ProbeDef_Type = 98
@@ -528,7 +528,7 @@ type ProbeDef_UdpListenerProbe struct {
 }
 
 type ProbeDef_GrpcProbe struct {
-	GrpcProbe *proto10.ProbeConf `protobuf:"bytes,26,opt,name=grpc_probe,json=grpcProbe,oneof"` // Not implemented yet.
+	GrpcProbe *proto10.ProbeConf `protobuf:"bytes,26,opt,name=grpc_probe,json=grpcProbe,oneof"`
 }
 
 type ProbeDef_UserDefinedProbe struct {
