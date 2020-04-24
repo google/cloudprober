@@ -8,7 +8,6 @@ import "github.com/google/cloudprober/rds/server/proto/config.proto";
 import "github.com/google/cloudprober/servers/proto/config.proto";
 import "github.com/google/cloudprober/surfacers/proto/config.proto";
 import "github.com/google/cloudprober/targets/proto/targets.proto";
-import "github.com/google/cloudprober/targets/rtc/rtcreporter/proto/rtcreporter.proto";
 
 option go_package = "github.com/google/cloudprober/config/proto";
 
@@ -111,12 +110,6 @@ message ProberConfig {
   // tools/cloudprober_startup.sh in the cloudprober directory for an example on
   // how to use these variables.
   optional string sysvars_env_var = 98 [default = "SYSVARS"];
-
-  // Options for RTC reporter. RTC reporter reports information about the
-  // current instance to a Runtime Config (RTC). This is useful if you want your
-  // instance to be dynamically discoverable through RTC targets. This is
-  // disabled by default.
-  optional targets.rtcreporter.RtcReportOptions rtc_report_options = 99;
 
   // Global targets options. Per-probe options are specified within the probe
   // stanza.

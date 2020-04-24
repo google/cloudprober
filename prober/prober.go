@@ -44,21 +44,19 @@ import (
 	"github.com/google/cloudprober/sysvars"
 	"github.com/google/cloudprober/targets"
 	"github.com/google/cloudprober/targets/lameduck"
-	"github.com/google/cloudprober/targets/rtc/rtcreporter"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
 // Prober represents a collection of probes where each probe implements the Probe interface.
 type Prober struct {
-	Probes      map[string]*probes.ProbeInfo
-	Servers     []*servers.ServerInfo
-	c           *configpb.ProberConfig
-	l           *logger.Logger
-	mu          sync.Mutex
-	ldLister    lameduck.Lister
-	rtcReporter *rtcreporter.Reporter
-	Surfacers   []*surfacers.SurfacerInfo
+	Probes    map[string]*probes.ProbeInfo
+	Servers   []*servers.ServerInfo
+	c         *configpb.ProberConfig
+	l         *logger.Logger
+	mu        sync.Mutex
+	ldLister  lameduck.Lister
+	Surfacers []*surfacers.SurfacerInfo
 
 	// Probe channel to handle starting of the new probes.
 	grpcStartProbeCh chan string
@@ -197,16 +195,6 @@ func (pr *Prober) Init(ctx context.Context, cfg *configpb.ProberConfig, l *logge
 		return err
 	}
 
-	// Initialize RTC reporter, if configured.
-	if opts := pr.c.GetRtcReportOptions(); opts != nil {
-		l, err := logger.NewCloudproberLog("rtc-reporter")
-		if err != nil {
-			return err
-		}
-		if pr.rtcReporter, err = rtcreporter.New(opts, sysvars.Vars(), l); err != nil {
-			return err
-		}
-	}
 	return nil
 }
 
@@ -240,11 +228,6 @@ func (pr *Prober) Start(ctx context.Context) {
 	// Start servers, each in its own goroutine
 	for _, s := range pr.Servers {
 		go s.Start(ctx, pr.dataChan)
-	}
-
-	// Start RTC reporter if configured.
-	if pr.rtcReporter != nil {
-		go pr.rtcReporter.Start(ctx)
 	}
 
 	if pr.c.GetDisableJitter() {
