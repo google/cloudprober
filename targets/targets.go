@@ -30,7 +30,6 @@ import (
 	"strings"
 	"sync"
 
-	"cloud.google.com/go/compute/metadata"
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/config/runconfig"
 	"github.com/google/cloudprober/logger"
@@ -42,7 +41,6 @@ import (
 	"github.com/google/cloudprober/targets/lameduck"
 	targetspb "github.com/google/cloudprober/targets/proto"
 	dnsRes "github.com/google/cloudprober/targets/resolver"
-	"github.com/google/cloudprober/targets/rtc"
 )
 
 // globalResolver is a singleton DNS resolver that is used as the default
@@ -338,19 +336,6 @@ func New(targetsDef *targetspb.TargetsDef, ldLister lameduck.Lister, globalOpts 
 		}
 
 		t.lister, t.resolver = client, client
-
-	case *targetspb.TargetsDef_RtcTargets:
-		// TODO(izzycecil): we should really consolidate all these metadata calls
-		// to one place.
-		proj, err := metadata.ProjectID()
-		if err != nil {
-			return nil, fmt.Errorf("targets.New(): Error getting project ID: %v", err)
-		}
-		rt, err := rtc.New(targetsDef.GetRtcTargets(), proj, l)
-		if err != nil {
-			return nil, fmt.Errorf("targets.New(): Error building RTC resolver: %v", err)
-		}
-		t.lister, t.resolver = rt, rt
 
 	case *targetspb.TargetsDef_DummyTargets:
 		dummy := &dummy{}
