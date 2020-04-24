@@ -168,16 +168,13 @@ func TestGRPCSuccess(t *testing.T) {
 	}
 }
 
-// TestConnectFailures forces the use of GCE credentials resulting in connect
-// failures and stats exported once every connect timeout.
+// TestConnectFailures attempts to connect to localhost:9 (discard port) and
+// checks that stats are exported once every connect timeout.
 // 2 connections, 0.5 connect attempt/sec/conn, stats exported every 6 sec
 //  => 3 - 6 connect errors/sec. Test looks for minimum of 4 attempts.
 func TestConnectFailures(t *testing.T) {
-	addr, err := globalGRPCServer()
-	if err != nil {
-		t.Fatalf("Error initializing global config: %v", err)
-	}
-	cfg, err := probeCfg(addr, "alts_config: {}", 1000, 2)
+	addr := "localhost:9"
+	cfg, err := probeCfg(addr, "", 1000, 2)
 	if err != nil {
 		t.Fatalf("Error unmarshalling config: %v", err)
 	}
