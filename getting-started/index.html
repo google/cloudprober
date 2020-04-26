@@ -390,7 +390,7 @@ the URL http://localhost:9313/config (through cURL or in browser). It returns
 the config that cloudprober is using. You can also get a peek its current
 status at the URL (<em>replace localhost by the actual hostname if not running
 locally</em>): http://localhost:9313/status.</p>
-<p>You should be able to see the generated metrics at http://locahost:9313/metrics
+<p>You should be able to see the generated metrics at http://localhost:9313/metrics
 (prometheus format) and the stdout (cloudprober format):</p>
 <div class="highlight"><pre class="chroma"><code class="language-text" data-lang="text">cloudprober 1500590430132947313 1500590520 labels=ptype=http,probe=google-http,dst=www.google.com total=17 success=17 latency=1808357 timeouts=0 resp-code=map:code,200:17
 cloudprober 1500590430132947314 1500590530 labels=ptype=sysvars,probe=sysvars hostname=&#34;manugarg-workstation&#34; uptime=100
