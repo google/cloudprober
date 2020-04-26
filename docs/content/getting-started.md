@@ -85,7 +85,7 @@ the config that cloudprober is using. You can also get a peek its current
 status at the URL (_replace localhost by the actual hostname if not running
 locally_): http://localhost:9313/status.
 
-You should be able to see the generated metrics at http://locahost:9313/metrics
+You should be able to see the generated metrics at http://localhost:9313/metrics
 (prometheus format) and the stdout (cloudprober format):
 
 {{< highlight text >}}
@@ -143,7 +143,7 @@ richer interface and has excellent support for prometheus.
 ## Grafana
 
 [Grafana](https://grafana.com) is a popular tool for building monitoring
-dashboards. Grafana has native support for prometheus and thanks to the 
+dashboards. Grafana has native support for prometheus and thanks to the
 excellent support for prometheus in Cloudprober itself, it's a breeze to build
 Grafana dashboards from Cloudprober's probe results.
 
