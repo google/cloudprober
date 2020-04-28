@@ -164,7 +164,7 @@ func main() {
 
 	if *configTest {
 		sysvars.Init(nil, configTestVars)
-		_, err := config.Parse(configFileToString(*configFile), sysvars.Vars())
+		_, err := config.ParseForTest(configFileToString(*configFile), sysvars.Vars())
 		if err != nil {
 			glog.Exitf("Error parsing config file. Err: %v", err)
 		}
