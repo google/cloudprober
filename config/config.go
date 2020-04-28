@@ -55,7 +55,7 @@ Cloudprober configs support some macros to make configs construction easier:
 	  name: "http_lb"
 	  type: HTTP
 	  targets {
-	    host_names: "{{ gceCustomMetadata lb_ip }}"
+	    host_names: "{{gceCustomMetadata "lb_ip"}}"
 	  }
 	}
 
@@ -154,6 +154,18 @@ func DefaultConfig() string {
 
 // ParseTemplate processes a config file as a Go text template.
 func ParseTemplate(config string, sysVars map[string]string) (string, error) {
+	return parseTemplate(config, sysVars, false)
+}
+
+// parseTemplate processes a config file as a Go text template.
+func parseTemplate(config string, sysVars map[string]string, testMode bool) (string, error) {
+	gceCustomMetadataFunc := ReadFromGCEMetadata
+	if testMode {
+		gceCustomMetadataFunc = func(v string) (string, error) {
+			return v + "-test-value", nil
+		}
+	}
+
 	funcMap := map[string]interface{}{
 		// env allows a user to lookup the value of a environment variable in
 		// the configuration
@@ -165,10 +177,10 @@ func ParseTemplate(config string, sysVars map[string]string) (string, error) {
 			return value
 		},
 
-		"gceCustomMetadata": ReadFromGCEMetadata,
+		"gceCustomMetadata": gceCustomMetadataFunc,
 
-		// extractSubstring allows us to extract substring from a string using regex
-		// matching groups.
+		// extractSubstring allows us to extract substring from a string using
+		// regex matching groups.
 		"extractSubstring": func(re string, n int, s string) (string, error) {
 			r, err := regexp.Compile(re)
 			if err != nil {
@@ -212,9 +224,25 @@ func ParseTemplate(config string, sysVars map[string]string) (string, error) {
 	return b.String(), nil
 }
 
-// Parse processes a config file as a Go text template and parses it into a ProberConfig proto.
+// Parse processes a config file as a Go text template and parses it into a
+// ProberConfig proto.
 func Parse(config string, sysVars map[string]string) (*configpb.ProberConfig, error) {
 	textConfig, err := ParseTemplate(config, sysVars)
+	if err != nil {
+		return nil, err
+	}
+	cfg := &configpb.ProberConfig{}
+	if err = proto.UnmarshalText(textConfig, cfg); err != nil {
+		return nil, err
+	}
+	return cfg, nil
+}
+
+// ParseForTest processes a config file as a Go text template in test mode and
+// parses it into a ProberConfig proto. This function is useful for testing
+// configs.
+func ParseForTest(config string, sysVars map[string]string) (*configpb.ProberConfig, error) {
+	textConfig, err := parseTemplate(config, sysVars, true)
 	if err != nil {
 		return nil, err
 	}

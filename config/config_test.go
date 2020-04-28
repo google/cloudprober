@@ -76,3 +76,27 @@ probe {
 		t.Errorf("Incorrect probe name. Got: %s, Expected: %s", probeName, expectedName)
 	}
 }
+
+func TestParseForTest(t *testing.T) {
+	testConfig := `
+probe {
+  type: PING
+  name: "{{gceCustomMetadata "google-probe"}}"
+  targets {
+    host_names: "www.google.com"
+  }
+}
+`
+	c, err := ParseForTest(testConfig, map[string]string{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(c.GetProbe()) != 1 {
+		t.Errorf("Didn't get correct number of probes. Got: %d, Expected: %d", len(c.GetProbe()), 1)
+	}
+	probeName := c.GetProbe()[0].GetName()
+	expectedName := "google-probe-test-value"
+	if probeName != expectedName {
+		t.Errorf("Incorrect probe name. Got: %s, Expected: %s", probeName, expectedName)
+	}
+}
