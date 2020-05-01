@@ -12,6 +12,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
+	"github.com/google/cloudprober/metrics/testutils"
 	"github.com/google/cloudprober/probes/options"
 	probepb "github.com/google/cloudprober/probes/proto"
 	grpcpb "github.com/google/cloudprober/servers/grpc/proto"
@@ -300,14 +301,95 @@ func (t *testTargets) ListEndpoints() []endpoint.Endpoint {
 	return t.startTargets
 }
 
-func (t *testTargets) List() []string {
-	var targets []string
-	for _, ep := range t.ListEndpoints() {
-		targets = append(targets, ep.Name)
-	}
-	return targets
-}
-
 func (t *testTargets) Resolve(name string, ipVer int) (net.IP, error) {
 	return t.r.Resolve(name, ipVer)
+}
+
+func sumIntMetrics(inp []metrics.Value) int64 {
+	sum := metrics.NewInt(0)
+	for _, v := range inp {
+		sum.Add(v)
+	}
+	return sum.Int64()
+}
+
+func TestTargets(t *testing.T) {
+	addr, err := globalGRPCServer()
+	if err != nil {
+		t.Fatalf("Error initializing global config: %v", err)
+	}
+	cfg, err := probeCfg(addr, "", 1000, 2)
+	if err != nil {
+		t.Fatalf("Error unmarshalling config: %v", err)
+	}
+	l := &logger.Logger{}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	goodTargets := endpoint.EndpointsFromNames([]string{addr})
+	badTargets := endpoint.EndpointsFromNames([]string{"localhost:1", "localhost:2"})
+
+	// Target discovery changes from good to bad targets after 2 statsExports.
+	// And probe continues for 10 more stats exports.
+	statsExportInterval := 1 * time.Second
+	TargetsUpdateInterval = 2 * time.Second
+	probeRunTime := 12 * time.Second
+
+	probeOpts := &options.Options{
+		Targets:             newTargets(goodTargets, badTargets, TargetsUpdateInterval-time.Second),
+		Timeout:             time.Second,
+		Interval:            time.Second * 1,
+		ProbeConf:           cfg.GetGrpcProbe(),
+		Logger:              l,
+		LatencyUnit:         time.Millisecond,
+		StatsExportInterval: statsExportInterval,
+		LogMetrics:          func(em *metrics.EventMetrics) {},
+	}
+	p := &Probe{}
+	p.Init("grpc", probeOpts)
+	dataChan := make(chan *metrics.EventMetrics, 10)
+	go p.Start(ctx, dataChan)
+
+	ems, err := testutils.MetricsFromChannel(dataChan, 12, probeRunTime)
+	if err != nil {
+		t.Fatalf("Error retrieving metrics: %v", err)
+	}
+	mm := testutils.MetricsMap(ems)
+
+	connErrTargets := make(map[string]int64)
+	connErrIterCount := 0
+	for target, vals := range mm["connecterrors"] {
+		s := sumIntMetrics(vals)
+		if s > 0 {
+			connErrTargets[target] = s
+		}
+		if len(vals) > connErrIterCount {
+			connErrIterCount = len(vals)
+		}
+	}
+
+	successTargets := make(map[string]int64)
+	successIterCount := 0
+	for target, vals := range mm["success"] {
+		s := sumIntMetrics(vals)
+		if s > 0 {
+			successTargets[target] = s
+			if connErrTargets[target] > 0 {
+				t.Errorf("Target %s has both success and failures.", target)
+			}
+			if len(vals) > successIterCount {
+				successIterCount = len(vals)
+			}
+		}
+	}
+
+	if len(successTargets) == 0 {
+		t.Errorf("Got zero targets with success, want at least one.")
+	}
+	if len(connErrTargets) == 0 {
+		t.Errorf("Got zero targets with connection errors, want at least one.")
+	}
+	if successIterCount >= connErrIterCount {
+		t.Errorf("Got successIters(%d) >= connErrIters(%d), want '<'.", successIterCount, connErrIterCount)
+	}
 }
