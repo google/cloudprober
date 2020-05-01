@@ -50,6 +50,11 @@ import (
 
 const loadBalancingPolicy = `{"loadBalancingConfig":[{"grpclb":{"childPolicy":[{"pick_first":{}}]}}]}`
 
+// TargetsUpdateInterval controls frequency of target updates.
+var (
+	TargetsUpdateInterval = 1 * time.Minute
+)
+
 // Probe holds aggregate information about all probe runs, per-target.
 type Probe struct {
 	name     string
@@ -59,9 +64,10 @@ type Probe struct {
 	l        *logger.Logger
 	dialOpts []grpc.DialOption
 
-	// List of targets to probe.
-	targets   []endpoint.Endpoint
-	targetsMu sync.Mutex
+	// Targets and cancellation function for each target.
+	targets     []endpoint.Endpoint
+	cancelFuncs map[string]context.CancelFunc
+	targetsMu   sync.Mutex
 
 	// Results by target.
 	results map[string]*probeRunResult
@@ -118,6 +124,7 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		p.l = &logger.Logger{}
 	}
 	p.targets = p.opts.Targets.ListEndpoints()
+	p.cancelFuncs = make(map[string]context.CancelFunc)
 	p.src = sysvars.Vars()["hostname"]
 	if err := p.setupDialOpts(); err != nil {
 		return err
@@ -126,17 +133,52 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	return nil
 }
 
-func (p *Probe) startProbes(ctx context.Context) {
-	// TODO(ls692): add support for targets refresh.
+func (p *Probe) updateTargetsAndStartProbes(ctx context.Context) {
+	newTargets := p.opts.Targets.ListEndpoints()
+	numNewTargets := len(newTargets)
+
 	p.targetsMu.Lock()
 	defer p.targetsMu.Unlock()
-	for _, tgtEp := range p.targets {
-		tgt := tgtEp.Name
-		p.results[tgt] = p.newResult(tgt)
-		for i := 0; i < int(p.c.GetNumConns()); i++ {
-			go p.oneTargetLoop(ctx, tgt, i, p.results[tgt])
-		}
+	if numNewTargets == 0 || numNewTargets < (len(p.targets)/2) {
+		p.l.Errorf("Too few new targets, retaining old targets. New targets: %v, old count: %d", newTargets, len(p.targets))
+		return
 	}
+
+	updatedTargets := make(map[string]string)
+	defer func() {
+		if len(updatedTargets) > 0 {
+			p.l.Infof("Probe(%s) targets updated: %v", p.name, updatedTargets)
+		}
+	}()
+
+	activeTargets := make(map[string]bool)
+	// Create results structure and start probe loop for new targets.
+	for _, tgtEp := range newTargets {
+		tgt := tgtEp.Name
+		activeTargets[tgt] = true
+		if _, ok := p.results[tgt]; ok {
+			continue
+		}
+		updatedTargets[tgt] = "ADD"
+		p.results[tgt] = p.newResult(tgt)
+		probeCtx, probeCancelFunc := context.WithCancel(ctx)
+		for i := 0; i < int(p.c.GetNumConns()); i++ {
+			go p.oneTargetLoop(probeCtx, tgt, i, p.results[tgt])
+		}
+		p.cancelFuncs[tgt] = probeCancelFunc
+	}
+
+	// Stop probing for deleted targets by invoking cancelFunc.
+	for tgt := range p.results {
+		if activeTargets[tgt] {
+			continue
+		}
+		p.cancelFuncs[tgt]()
+		updatedTargets[tgt] = "DELETE"
+		delete(p.results, tgt)
+		delete(p.cancelFuncs, tgt)
+	}
+	p.targets = newTargets
 }
 
 // connectWithRetry attempts to connect to a target. On failure, it retries in
@@ -259,21 +301,24 @@ func (p *Probe) newResult(tgt string) *probeRunResult {
 // Start starts and runs the probe indefinitely.
 func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) {
 	p.results = make(map[string]*probeRunResult)
-	p.startProbes(ctx)
+	p.updateTargetsAndStartProbes(ctx)
 
 	ticker := time.NewTicker(p.opts.StatsExportInterval)
 	defer ticker.Stop()
 
+	targetsUpdateTicker := time.NewTicker(TargetsUpdateInterval)
+	defer targetsUpdateTicker.Stop()
+
 	for ts := range ticker.C {
-		// Stop further processing if context is canceled already.
+		// Stop further processing and exit if context is canceled.
+		// Same context is used by probe loops.
 		select {
 		case <-ctx.Done():
 			return
 		default:
 		}
 
-		// TODO(ls692): Add target refresh & start probes for new targets.
-
+		// Output results.
 		for targetName, result := range p.results {
 			result.Lock()
 			em := metrics.NewEventMetrics(ts).
@@ -290,6 +335,15 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 			}
 			p.opts.LogMetrics(em)
 			dataChan <- em
+		}
+
+		// Finally, update targets and start new probe loops if necessary.
+		// Executing this as the last step in the loop also ensures that new
+		// targets have at least one cycle of probes before next output cycle.
+		select {
+		case <-targetsUpdateTicker.C:
+			p.updateTargetsAndStartProbes(ctx)
+		default:
 		}
 	}
 }
