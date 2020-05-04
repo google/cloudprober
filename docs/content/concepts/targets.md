@@ -120,3 +120,47 @@ Filters are key-value strings that can be used to filter resources by various fi
 * Filters supported by GCP:
   * [GCE Instances](https://github.com/google/cloudprober/blob/e4a0321d38d75fb4655d85632b52039fa7279d1b/rds/gcp/gce_instances.go#L44)
   * [Pub/Sub Messages](https://github.com/google/cloudprober/blob/e4a0321d38d75fb4655d85632b52039fa7279d1b/rds/gcp/pubsub.go#L34)
+
+## Running RDS Server
+
+RDS server can either be run as an independent process or it can be part of the main prober process. Former mode is useful for large deployments where you may want to reduce the API upcall traffic (for example, to GCP). For example, if you run 1000+ prober processes, it will be much more economical, from the provider API quota usage point of view, to have a centralized RDS service with much fewer (2-3) instances instead of having each prober process make its own API upcalls.
+
+RDS server can be added to a cloudprober process using `rds_server` stanza. If you're running RDS server in an independent process, you'll have to enable gRPC server in that process so that other instances can access RDS server remotely. This is done using the field `grpc_port`.
+
+Here is an example RDS server configuration:
+
+```shell
+rds_server {
+  # GCP provider to discover GCP resources.
+  provider {
+    gcp_config {
+      # Projects to discover resources in.
+      project: "google.com:test-project-1"
+      project: "google.com:test-project-2"
+
+      # Discover GCE instances in us-central1.
+      gce_instances {
+        zone_filter: "name = us-central1-*"
+        re_eval_sec: 60  # How often to refresh, default is 300s.
+      }
+
+      # GCE forwarding rules.
+      forwarding_rules {}
+    }
+  }
+
+  # Kubernetes targets are further discussed at:
+  # https://cloudprober.org/how-to/run-on-kubernetes/#kubernetes-targets
+  provider {
+    kubernetes_config {
+      endpoints {}
+    }
+  }
+}
+
+# Enable gRPC server for RDS. Only required for remote access to RDS server.
+grpc_port: 9314
+```
+
+For the remote RDS server setup, you can also secure the communication using [TLS certificates](https://github.com/google/cloudprober/blob/master/config/proto/config.proto#L91).
+
