@@ -42,6 +42,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/alts"
 	grpcoauth "google.golang.org/grpc/credentials/oauth"
+	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/resolver"
 
 	// Import grpclb module so it can be used by name for DirectPath connections.
@@ -228,7 +229,6 @@ func (p *Probe) oneTargetLoop(ctx context.Context, tgt string, index int, result
 	defer conn.Close()
 
 	client := servicepb.NewProberClient(conn)
-	opts := []grpc.CallOption{grpc.WaitForReady(true)}
 	timeout := p.opts.Timeout
 	method := p.c.GetMethod()
 
@@ -250,6 +250,11 @@ func (p *Probe) oneTargetLoop(ctx context.Context, tgt string, index int, result
 		var delta time.Duration
 		start := time.Now()
 		var err error
+		var peer peer.Peer
+		opts := []grpc.CallOption{
+			grpc.WaitForReady(true),
+			grpc.Peer(&peer),
+		}
 		switch method {
 		case configpb.ProbeConf_ECHO:
 			req := &grpcprobepb.EchoMessage{
@@ -271,7 +276,11 @@ func (p *Probe) oneTargetLoop(ctx context.Context, tgt string, index int, result
 		}
 		cancelFunc()
 		if err != nil {
-			p.l.Warningf("ProbeId(%s) request failed: %v. ConnState: %v. Start: %v Now: %v", msgPattern, err, conn.GetState(), start, time.Now())
+			peerAddr := "unknown"
+			if peer.Addr == nil {
+				peerAddr = peer.Addr.String()
+			}
+			p.l.Warningf("ProbeId(%s) request failed: %v. ConnState: %v. Peer: %v", msgPattern, err, conn.GetState(), peerAddr)
 		} else {
 			success = 1
 			delta = time.Since(start)
