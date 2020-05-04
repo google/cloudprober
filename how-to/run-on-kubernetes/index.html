@@ -409,14 +409,15 @@ cloudprober   NodePort   10.31.249.108   &lt;none&gt;        9313:31367/TCP   94
 <pre><code>kubectl port-forward svc/cloudprober 9313:9313
 </code></pre><p>Once you've verified that everything is working as expected, you can go on setting up metrics collection through prometheus (or stackdriver) in usual ways.</p>
 <h2 id="kubernetes-targets">Kubernetes Targets</h2>
-<p>If you're running on Kuberenetes, it's likely that you want to monitor Kubernetes resources (e.g. pods, endpoints, etc). Good news is that cloudprober supports dynamic discovery for Kubernetes targets.</p>
-<p>Following config enables targets discovery for kubernetes resources:</p>
+<p>If you're running on Kuberenetes, you'd probably want to monitor Kubernetes resources (e.g. pods, endpoints, etc) as well. Good news is that cloudprober supports dynamic <a href="https://cloudprober.org/concepts/targets/">targets discovery</a> of Kubernetes resources.</p>
+<p>For example, following config adds HTTP probing of Kubernetes endpoints named &lsquo;cloudprober&rsquo; (equivalent to <em>kubectl get ep cloudprober</em>).</p>
 <div class="highlight"><pre class="chroma"><code class="language-bash" data-lang="bash">probe <span class="o">{</span>
   name: <span class="s2">&#34;pod-to-endpoints&#34;</span>
   type: HTTP
 
   targets <span class="o">{</span>
-    <span class="c1"># RDS (resource discovery service) targets</span> 
+    <span class="c1"># RDS (resource discovery service) targets</span>
+    <span class="c1"># Equivalent to kubectl get ep cloudprober</span>
     rds_targets <span class="o">{</span>
       resource_path: <span class="s2">&#34;k8s://endpoints/cloudprober&#34;</span>
     <span class="o">}</span>
@@ -431,17 +432,22 @@ cloudprober   NodePort   10.31.249.108   &lt;none&gt;        9313:31367/TCP   94
 <span class="c1"># Run an RDS gRPC server to discover Kubernetes targets.</span>
 rds_server <span class="o">{</span>
   provider <span class="o">{</span>
+    <span class="c1"># For all options, please take a look at:</span>
+    <span class="c1"># https://github.com/google/cloudprober/blob/master/rds/kubernetes/proto/config.proto#L38</span>
     kubernetes_config <span class="o">{</span>
       endpoints <span class="o">{</span><span class="o">}</span>
     <span class="o">}</span>
   <span class="o">}</span>
 <span class="o">}</span>
-</code></pre></div><p>This config adds a probe for endpoints named &lsquo;cloudprober&rsquo;. There are a few cloudprober features that we use here which have not been explained anywhere else.</p>
-<h3 id="rds-targets">RDS Targets</h3>
-<p>Cloudprober uses <a href="https://github.com/google/cloudprober/blob/master/rds/proto/rds.proto">RDS protocol</a> as an interface for dynamic targets discovery. This allows us to add new target types without modifying the rest of the code. In this config, we add an internal RDS server that provides expansion for kubernetes endpoints (other supported types are &ndash; pods, services).  Inside the probe, we specify targets of the type <code>rds_targets</code> (which by default talks to the internal RDS server but can be configured to talk to a remote RDS server as well) to discover targets. Here resource path, <code>k8s://endpoints/cloudprober</code> specifies endpoints named &lsquo;cloudprober&rsquo; (Hint: you could skip the name part of the resource path to discover all endpoints in the cluster).</p>
+</code></pre></div><p>This config adds a probe for endpoints named &lsquo;cloudprober&rsquo;. Kubernetes targets configuration is further explained in the section below.</p>
+<h3 id="kubernetes-rds-targets">Kubernetes RDS Targets</h3>
+<p>As explained <a href="https://cloudprober.org/concepts/targets/#resource-discovery-service">here</a>, cloudprober uses RDS for dynamic targets discovery. In the above config, we add an internal RDS server that provides expansion for kubernetes <code>endpoints</code> (other supported types are &ndash; <em>pods</em>, <em>services</em>).  Inside the probe, we specify targets of the type <a href="https://cloudprober.org/concepts/targets/#resource-discovery-service">rds_targets</a> with resource path, <code>k8s://endpoints/cloudprober</code>. This resource path specifies resource of the type &lsquo;endpoints&rsquo; and with the name &lsquo;cloudprober&rsquo; (Hint: you can skip the name part of the resource path to discover all endpoints in the cluster).</p>
 <h3 id="cluster-resources-access">Cluster Resources Access</h3>
 <p>RDS server that we added above discovers cluster resources using kubernetes APIs. It assumes that we are interested in the cluster we are running it in, and uses in-cluster config to talk to the kubernetes API server. For this set up to work, we need to give our container read-only access to kubernetes resources:</p>
-<div class="highlight"><pre class="chroma"><code class="language-yaml" data-lang="yaml">cat<span class="w"> </span>&lt;&lt;EOF<span class="w"> </span>|<span class="w"> </span>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>-<span class="w">
+<div class="highlight"><pre class="chroma"><code class="language-yaml" data-lang="yaml"><span class="c"># Define a ClusterRole (resource-reader) for read-only access to the cluster</span><span class="w">
+</span><span class="w"></span><span class="c"># resources and bind this ClusterRole to the default service account.</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span>cat<span class="w"> </span>&lt;&lt;EOF<span class="w"> </span>|<span class="w"> </span>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>-<span class="w">
 </span><span class="w"></span>apiVersion<span class="p">:</span><span class="w"> </span>rbac.authorization.k8s.io/v1<span class="w">
 </span><span class="w"></span>kind<span class="p">:</span><span class="w"> </span>ClusterRole<span class="w">
 </span><span class="w"></span>metadata<span class="p">:</span><span class="w">
@@ -490,7 +496,7 @@ curl localhost:9313/config
 
 <span class="c1"># Check metrics</span>
 curl localhost:9313/metrics
-</code></pre></div><p>If you're running on GKE and have not disabled cloud, you'll also see logs in <a href="https://pantheon.corp.google.com/logs/viewer?resource=gce_instance">Stackdriver Logging</a>.</p>
+</code></pre></div><p>If you're running on GKE and have not disabled cloud logging, you'll also see logs in <a href="https://pantheon.corp.google.com/logs/viewer?resource=gce_instance">Stackdriver Logging</a>.</p>
 
 
 			<aside class="copyright" role="note">

@@ -436,6 +436,41 @@ Cloudprober. This feature is specially critical for the dynamic environments tha
 </ul>
 </li>
 </ul>
+<h2 id="running-rds-server">Running RDS Server</h2>
+<p>RDS server can either be run as an independent process or it can be part of the main prober process. Former mode is useful for large deployments where you may want to reduce the API upcall traffic (for example, to GCP). For example, if you run 1000+ prober processes, it will be much more economical, from the provider API quota usage point of view, to have a centralized RDS service with much fewer (2-3) instances instead of having each prober process make its own API upcalls.</p>
+<p>RDS server can be added to a cloudprober process using <code>rds_server</code> stanza. If you're running RDS server in an independent process, you'll have to enable gRPC server in that process so that other instances can access RDS server remotely. This is done using the field <code>grpc_port</code>.</p>
+<p>Here is an example RDS server configuration:</p>
+<div class="highlight"><pre class="chroma"><code class="language-shell" data-lang="shell">rds_server <span class="o">{</span>
+  <span class="c1"># GCP provider to discover GCP resources.</span>
+  provider <span class="o">{</span>
+    gcp_config <span class="o">{</span>
+      <span class="c1"># Projects to discover resources in.</span>
+      project: <span class="s2">&#34;google.com:test-project-1&#34;</span>
+      project: <span class="s2">&#34;google.com:test-project-2&#34;</span>
+
+      <span class="c1"># Discover GCE instances in us-central1.</span>
+      gce_instances <span class="o">{</span>
+        zone_filter: <span class="s2">&#34;name = us-central1-*&#34;</span>
+        re_eval_sec: <span class="m">60</span>  <span class="c1"># How often to refresh, default is 300s.</span>
+      <span class="o">}</span>
+
+      <span class="c1"># GCE forwarding rules.</span>
+      forwarding_rules <span class="o">{</span><span class="o">}</span>
+    <span class="o">}</span>
+  <span class="o">}</span>
+
+  <span class="c1"># Kubernetes targets are further discussed at:</span>
+  <span class="c1"># https://cloudprober.org/how-to/run-on-kubernetes/#kubernetes-targets</span>
+  provider <span class="o">{</span>
+    kubernetes_config <span class="o">{</span>
+      endpoints <span class="o">{</span><span class="o">}</span>
+    <span class="o">}</span>
+  <span class="o">}</span>
+<span class="o">}</span>
+
+<span class="c1"># Enable gRPC server for RDS. Only required for remote access to RDS server.</span>
+grpc_port: <span class="m">9314</span>
+</code></pre></div><p>For the remote RDS server setup, you can also secure the communication using <a href="https://github.com/google/cloudprober/blob/master/config/proto/config.proto#L91">TLS certificates</a>.</p>
 
 
 			<aside class="copyright" role="note">
