@@ -470,7 +470,7 @@ Cloudprober. This feature is specially critical for the dynamic environments tha
 
 <span class="c1"># Enable gRPC server for RDS. Only required for remote access to RDS server.</span>
 grpc_port: <span class="m">9314</span>
-</code></pre></div><p>For the remote RDS server setup, if accessing over internet, you can secure the underlying gRPC communication using <a href="https://github.com/google/cloudprober/blob/master/config/proto/config.proto#L91">TLS certificates</a>.</p>
+</code></pre></div><p>For the remote RDS server setup, if accessing over external network, you can secure the underlying gRPC communication using <a href="https://github.com/google/cloudprober/blob/master/config/proto/config.proto#L91">TLS certificates</a>.</p>
 
 
 			<aside class="copyright" role="note">
