@@ -162,5 +162,5 @@ rds_server {
 grpc_port: 9314
 ```
 
-For the remote RDS server setup, if accessing over internet, you can secure the underlying gRPC communication using [TLS certificates](https://github.com/google/cloudprober/blob/master/config/proto/config.proto#L91).
+For the remote RDS server setup, if accessing over external network, you can secure the underlying gRPC communication using [TLS certificates](https://github.com/google/cloudprober/blob/master/config/proto/config.proto#L91).
 
