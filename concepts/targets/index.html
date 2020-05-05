@@ -437,16 +437,16 @@ Cloudprober. This feature is specially critical for the dynamic environments tha
 </li>
 </ul>
 <h2 id="running-rds-server">Running RDS Server</h2>
-<p>RDS server can either be run as an independent process or it can be part of the main prober process. Former mode is useful for large deployments where you may want to reduce the API upcall traffic (for example, to GCP). For example, if you run 1000+ prober processes, it will be much more economical, from the provider API quota usage point of view, to have a centralized RDS service with much fewer (2-3) instances instead of having each prober process make its own API upcalls.</p>
-<p>RDS server can be added to a cloudprober process using <code>rds_server</code> stanza. If you're running RDS server in an independent process, you'll have to enable gRPC server in that process so that other instances can access RDS server remotely. This is done using the field <code>grpc_port</code>.</p>
+<p>RDS server can either be run as an independent process or it can be part of the main prober process. Former mode is useful for large deployments where you may want to reduce the API upcall traffic (for example, to GCP). For example, if you run 1000+ prober processes, it will be much more economical, from the API quota usage point of view, to have a centralized RDS service with much fewer (2-3) instances instead of having each prober process make its own API calls.</p>
+<p>RDS server can be added to a cloudprober process using the <code>rds_server</code> stanza. If you're running RDS server in a remote process, you'll have to enable gRPC server in that process (using <code>grpc_port</code>) so that other instances can access it remotely.</p>
 <p>Here is an example RDS server configuration:</p>
 <div class="highlight"><pre class="chroma"><code class="language-shell" data-lang="shell">rds_server <span class="o">{</span>
   <span class="c1"># GCP provider to discover GCP resources.</span>
   provider <span class="o">{</span>
     gcp_config <span class="o">{</span>
       <span class="c1"># Projects to discover resources in.</span>
-      project: <span class="s2">&#34;google.com:test-project-1&#34;</span>
-      project: <span class="s2">&#34;google.com:test-project-2&#34;</span>
+      project: <span class="s2">&#34;test-project-1&#34;</span>
+      project: <span class="s2">&#34;test-project-2&#34;</span>
 
       <span class="c1"># Discover GCE instances in us-central1.</span>
       gce_instances <span class="o">{</span>
@@ -470,7 +470,7 @@ Cloudprober. This feature is specially critical for the dynamic environments tha
 
 <span class="c1"># Enable gRPC server for RDS. Only required for remote access to RDS server.</span>
 grpc_port: <span class="m">9314</span>
-</code></pre></div><p>For the remote RDS server setup, you can also secure the communication using <a href="https://github.com/google/cloudprober/blob/master/config/proto/config.proto#L91">TLS certificates</a>.</p>
+</code></pre></div><p>For the remote RDS server setup, if accessing over internet, you can secure the underlying gRPC communication using <a href="https://github.com/google/cloudprober/blob/master/config/proto/config.proto#L91">TLS certificates</a>.</p>
 
 
 			<aside class="copyright" role="note">
