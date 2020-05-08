@@ -277,7 +277,7 @@ func (p *Probe) oneTargetLoop(ctx context.Context, tgt string, index int, result
 		cancelFunc()
 		if err != nil {
 			peerAddr := "unknown"
-			if peer.Addr == nil {
+			if peer.Addr != nil {
 				peerAddr = peer.Addr.String()
 			}
 			p.l.Warningf("ProbeId(%s) request failed: %v. ConnState: %v. Peer: %v", msgPattern, err, conn.GetState(), peerAddr)
