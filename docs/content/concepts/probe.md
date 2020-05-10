@@ -13,21 +13,21 @@ A probe is defined as a set of the following fields:
 
  Field        | Description
 --------------|---------
-type          | Probe type, for example: HTTP, PING or UDP
-name          | Probe name. Each probe should have a unique name.
-interval_msec | How often to run the probe (in milliseconds).
-timeout_msec  | Probe timeout (in milliseconds).
-targets       | Targets to run probe against.
+`type`          | Probe type, for example: HTTP, PING or UDP
+`name`          | Probe name. Each probe should have a unique name.
+`interval_msec` | How often to run the probe (in milliseconds).
+`timeout_msec`  | Probe timeout (in milliseconds).
+`targets`       | Targets to run probe against.
+`validator`     | Probe validators, further explained [here](/how-to/validators). 
+`<type>_probe`  | Probe type specific configuration. 
 
-Each probe also has optional probe-type specific config, for example,
-relative_url for HTTP probes. All probe types export following metrics at a
-minimum:
+Please take a look at the [ProbeDef protobuf](https://github.com/google/cloudprober/blob/master/probes/proto/config.proto) for further details on various fields and options. All probe types export following metrics at a minimum:
 
 |Metric | Description|
 |-------|------------|
-|total  | Total number of probes. |
-|success| Number of successful probes. Deficit between _total_ and _success_ indicates failures.|
-|latency| Cumulative probe latency (by default in microseconds). Latency can also be configured to be a distribution (histogram) metric through a config option. By default it's just the sum of the latencies observed so far. Average latency can be computed using _rate(latency) / rate(success)_.|
+|`total`   | Total number of probes. |
+|`success` | Number of successful probes. Deficit between _total_ and _success_ indicates failures.|
+|`latency` | Cumulative probe latency (by default in microseconds). Latency can also be configured to be a distribution (histogram) metric through a config option (`latency_distribution`). By default it's just the sum of the latencies observed so far. Average latency can be computed using _rate(latency) / rate(success)_.|
 
 
 ## Probe Types
@@ -63,7 +63,7 @@ enable them by running the following command:
 options`](http://github.com/google/cloudprober/tree/master/probes/http/proto/config.proto)
 
 HTTP probe is be used to send HTTP(s) requests to a target and verify that a
-response is received. Apart from core probe metrics (total, success and
+response is received. Apart from the core probe metrics (total, success, and
 latency), HTTP probes also export a map of response code counts. Requests are
 marked as failed if there is a timeout.
 
