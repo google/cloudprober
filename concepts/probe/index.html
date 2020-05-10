@@ -339,30 +339,36 @@ against a set of targets, to verify that the systems are working as expected fro
 </thead>
 <tbody>
 <tr>
-<td>type</td>
+<td><code>type</code></td>
 <td>Probe type, for example: HTTP, PING or UDP</td>
 </tr>
 <tr>
-<td>name</td>
+<td><code>name</code></td>
 <td>Probe name. Each probe should have a unique name.</td>
 </tr>
 <tr>
-<td>interval_msec</td>
+<td><code>interval_msec</code></td>
 <td>How often to run the probe (in milliseconds).</td>
 </tr>
 <tr>
-<td>timeout_msec</td>
+<td><code>timeout_msec</code></td>
 <td>Probe timeout (in milliseconds).</td>
 </tr>
 <tr>
-<td>targets</td>
+<td><code>targets</code></td>
 <td>Targets to run probe against.</td>
+</tr>
+<tr>
+<td><code>validator</code></td>
+<td>Probe validators, further explained <a href="https://cloudprober.org/how-to/validators">here</a>.</td>
+</tr>
+<tr>
+<td><code>&lt;type&gt;_probe</code></td>
+<td>Probe type specific configuration.</td>
 </tr>
 </tbody>
 </table>
-<p>Each probe also has optional probe-type specific config, for example,
-relative_url for HTTP probes. All probe types export following metrics at a
-minimum:</p>
+<p>Please take a look at the <a href="https://github.com/google/cloudprober/blob/master/probes/proto/config.proto">ProbeDef protobuf</a> for further details on various fields and options. All probe types export following metrics at a minimum:</p>
 <table>
 <thead>
 <tr>
@@ -372,16 +378,16 @@ minimum:</p>
 </thead>
 <tbody>
 <tr>
-<td>total</td>
+<td><code>total</code></td>
 <td>Total number of probes.</td>
 </tr>
 <tr>
-<td>success</td>
+<td><code>success</code></td>
 <td>Number of successful probes. Deficit between <em>total</em> and <em>success</em> indicates failures.</td>
 </tr>
 <tr>
-<td>latency</td>
-<td>Cumulative probe latency (by default in microseconds). Latency can also be configured to be a distribution (histogram) metric through a config option. By default it's just the sum of the latencies observed so far. Average latency can be computed using <em>rate(latency) / rate(success)</em>.</td>
+<td><code>latency</code></td>
+<td>Cumulative probe latency (by default in microseconds). Latency can also be configured to be a distribution (histogram) metric through a config option (<code>latency_distribution</code>). By default it's just the sum of the latencies observed so far. Average latency can be computed using <em>rate(latency) / rate(success)</em>.</td>
 </tr>
 </tbody>
 </table>
@@ -408,7 +414,7 @@ enable them by running the following command:
 <h3 id="http">HTTP</h3>
 <p><a href="http://github.com/google/cloudprober/tree/master/probes/http"><code>Code</code></a> | <a href="http://github.com/google/cloudprober/tree/master/probes/http/proto/config.proto"><code>Config options</code></a></p>
 <p>HTTP probe is be used to send HTTP(s) requests to a target and verify that a
-response is received. Apart from core probe metrics (total, success and
+response is received. Apart from the core probe metrics (total, success, and
 latency), HTTP probes also export a map of response code counts. Requests are
 marked as failed if there is a timeout.</p>
 <h3 id="udp">UDP</h3>
