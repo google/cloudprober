@@ -51,7 +51,6 @@ func (s *Server) statsKeeper(name string) {
 				AddMetric("req", s.reqMetric).
 				AddLabel("module", name)
 			s.dataChan <- em
-			s.l.Info(em.String())
 		}
 	}
 }
