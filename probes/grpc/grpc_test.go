@@ -255,24 +255,33 @@ func TestProbeTimeouts(t *testing.T) {
 	p.Init("grpc-reqtimeout", probeOpts)
 	dataChan := make(chan *metrics.EventMetrics, 5)
 	go p.Start(ctx, dataChan)
-	time.Sleep(statsExportInterval * 2)
-	found := false
-	for i := 0; i < 2; i++ {
-		select {
-		case em := <-dataChan:
-			t.Logf("Probe results: %v", em.String())
-			total := em.Metric("total").(*metrics.Int)
-			success := em.Metric("success").(*metrics.Int)
-			expect := int64(iters) - 1
+	ems, err := testutils.MetricsFromChannel(dataChan, 2, statsExportInterval*3)
+	if err != nil {
+		t.Fatalf("Error retrieving metrics: %v", err)
+	}
+	mm := testutils.MetricsMap(ems)
+	for target, vals := range mm["success"] {
+		for _, v := range vals {
+			success := v.(*metrics.Int)
 			if success.Int64() > 0 {
-				t.Errorf("Got %d probe successes, want all failures", success.Int64())
+				t.Errorf("Tgt %s unexpectedly succeeds, got=%d, want=0.", target, success.Int64())
+				break
 			}
-			if total.Int64() < expect {
-				t.Errorf("Got total=%d, want at least %d", total.Int64(), expect)
+		}
+	}
+
+	found := false
+	for target, vals := range mm["total"] {
+		prevTotal := int64(0)
+		for _, v := range vals {
+			total := v.(*metrics.Int)
+			delta := total.Int64() - prevTotal
+			// Even a single probe in iter is treated as success.
+			if delta <= 0 {
+				t.Errorf("Tgt %s did not get enough probes, got=%d, want>=1", target, delta)
+				break
 			}
 			found = true
-		default:
-			time.Sleep(time.Second)
 		}
 	}
 	if !found {
