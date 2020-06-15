@@ -51,7 +51,7 @@ const defaultRDSPort = "9314"
 
 // Client represents an RDS based client instance.
 type Client struct {
-	mu            sync.Mutex
+	mu            sync.RWMutex
 	c             *configpb.ClientConf
 	serverOpts    *configpb.ClientConf_ServerOptions
 	dialOpts      []grpc.DialOption
@@ -100,8 +100,8 @@ func (client *Client) updateState(response *pb.ListResourcesResponse) {
 
 // ListEndpoints returns the list of resources.
 func (client *Client) ListEndpoints() []endpoint.Endpoint {
-	client.mu.Lock()
-	defer client.mu.Unlock()
+	client.mu.RLock()
+	defer client.mu.RUnlock()
 	result := make([]endpoint.Endpoint, len(client.names))
 	for i, name := range client.names {
 		result[i] = endpoint.Endpoint{Name: name, Port: client.cache[name].port, Labels: client.cache[name].labels}
@@ -112,8 +112,8 @@ func (client *Client) ListEndpoints() []endpoint.Endpoint {
 // Resolve returns the IP address for the given resource. If no IP address is
 // associated with the resource, an error is returned.
 func (client *Client) Resolve(name string, ipVer int) (net.IP, error) {
-	client.mu.Lock()
-	defer client.mu.Unlock()
+	client.mu.RLock()
+	defer client.mu.RUnlock()
 	cr, ok := client.cache[name]
 	if !ok || cr.ip == nil {
 		return nil, fmt.Errorf("no IP address for the resource: %s", name)
