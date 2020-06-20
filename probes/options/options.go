@@ -23,9 +23,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/cloudprober/common/iputils"
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
-	"github.com/google/cloudprober/probes/probeutils"
 	configpb "github.com/google/cloudprober/probes/proto"
 	"github.com/google/cloudprober/targets"
 	"github.com/google/cloudprober/targets/lameduck"
@@ -128,14 +128,14 @@ func getSourceIPFromConfig(p *configpb.ProbeDef, l *logger.Logger) (net.IP, erro
 		}
 
 		// If ip_version is configured, make sure source_ip matches it.
-		if ipv(p.IpVersion) != 0 && probeutils.IPVersion(sourceIP) != ipv(p.IpVersion) {
+		if ipv(p.IpVersion) != 0 && iputils.IPVersion(sourceIP) != ipv(p.IpVersion) {
 			return nil, fmt.Errorf("configured source_ip (%s) doesn't match the ip_version (%d)", p.GetSourceIp(), ipv(p.IpVersion))
 		}
 
 		return sourceIP, nil
 
 	case *configpb.ProbeDef_SourceInterface:
-		return probeutils.ResolveIntfAddr(p.GetSourceInterface(), ipv(p.IpVersion))
+		return iputils.ResolveIntfAddr(p.GetSourceInterface(), ipv(p.IpVersion))
 
 	default:
 		return nil, fmt.Errorf("unknown source type: %v", p.GetSourceIpConfig())
@@ -187,7 +187,7 @@ func BuildProbeOptions(p *configpb.ProbeDef, ldLister lameduck.Lister, globalTar
 		}
 		// Set IPVersion from SourceIP if not already set.
 		if opts.IPVersion == 0 {
-			opts.IPVersion = probeutils.IPVersion(opts.SourceIP)
+			opts.IPVersion = iputils.IPVersion(opts.SourceIP)
 		}
 	}
 
