@@ -169,7 +169,7 @@ func (ft *Targets) parseFileContent(b []byte) error {
 			return fmt.Errorf("file_targets(%s): error unmarshaling as JSON: %v", ft.path, err)
 		}
 	default:
-		return fmt.Errorf("file_targets(%s): unknown format - %v", ft.format)
+		return fmt.Errorf("file_targets(%s): unknown format - %v", ft.path, ft.format)
 	}
 
 	// Update state.
