@@ -37,6 +37,7 @@ import (
 	rdsclientpb "github.com/google/cloudprober/rds/client/proto"
 	rdspb "github.com/google/cloudprober/rds/proto"
 	"github.com/google/cloudprober/targets/endpoint"
+	"github.com/google/cloudprober/targets/file"
 	"github.com/google/cloudprober/targets/gce"
 	"github.com/google/cloudprober/targets/lameduck"
 	targetspb "github.com/google/cloudprober/targets/proto"
@@ -336,6 +337,13 @@ func New(targetsDef *targetspb.TargetsDef, ldLister lameduck.Lister, globalOpts 
 		}
 
 		t.lister, t.resolver = client, client
+
+	case *targetspb.TargetsDef_FileTargets:
+		ft, err := file.New(targetsDef.GetFileTargets(), globalResolver, l)
+		if err != nil {
+			return nil, fmt.Errorf("target.New(): %v", err)
+		}
+		t.lister, t.resolver = ft, ft
 
 	case *targetspb.TargetsDef_DummyTargets:
 		dummy := &dummy{}
