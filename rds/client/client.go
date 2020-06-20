@@ -28,6 +28,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/cloudprober/common/iputils"
 	"github.com/google/cloudprober/common/oauth"
 	"github.com/google/cloudprober/common/tlsconfig"
 	"github.com/google/cloudprober/logger"
@@ -120,23 +121,11 @@ func (client *Client) Resolve(name string, ipVer int) (net.IP, error) {
 	}
 	ip := cr.ip
 
-	// If we don't care about IP version, return whatever we've got.
-	if ipVer == 0 {
+	if ipVer == 0 || iputils.IPVersion(ip) == ipVer {
 		return ip, nil
 	}
 
-	// Verify that the IP matches the version we need.
-	ip4 := ip.To4()
-	if ipVer == 6 {
-		if ip4 == nil {
-			return ip, nil
-		}
-		return nil, fmt.Errorf("no IPv6 address (IP: %s) for %s", ip.String(), name)
-	}
-	if ip4 != nil {
-		return ip, nil
-	}
-	return nil, fmt.Errorf("no IPv4 address (IP: %s) for %s", ip.String(), name)
+	return nil, fmt.Errorf("no IPv%d address (IP: %s) for %s", ipVer, ip.String(), name)
 }
 
 func (client *Client) connect(serverAddr string) (*grpc.ClientConn, error) {

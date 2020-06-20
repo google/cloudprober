@@ -22,8 +22,8 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/google/cloudprober/common/iputils"
 	"github.com/google/cloudprober/logger"
-	"github.com/google/cloudprober/probes/probeutils"
 	configpb "github.com/google/cloudprober/probes/proto"
 	targetspb "github.com/google/cloudprober/targets/proto"
 )
@@ -42,7 +42,7 @@ func mockInterfaceByName(iname string, addrs []string) {
 		ips[i] = &net.IPAddr{IP: net.ParseIP(a)}
 	}
 	i := &intf{addrs: ips}
-	probeutils.InterfaceByName = func(name string) (probeutils.Addr, error) {
+	iputils.InterfaceByName = func(name string) (iputils.Addr, error) {
 		if name != iname {
 			return nil, errors.New("device not found")
 		}
