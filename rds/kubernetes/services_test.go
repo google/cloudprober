@@ -23,9 +23,19 @@ import (
 	pb "github.com/google/cloudprober/rds/proto"
 )
 
-func testServiceInfo(name, ns, ip, publicIP string, labels map[string]string) *serviceInfo {
+func testServiceInfo(name, ns, ip, publicIP string, labels map[string]string, ports []int) *serviceInfo {
 	si := &serviceInfo{Metadata: kMetadata{Name: name, Namespace: ns, Labels: labels}}
 	si.Spec.ClusterIP = ip
+
+	for _, port := range ports {
+		si.Spec.Ports = append(si.Spec.Ports, struct {
+			Name string
+			Port int
+		}{
+			Name: "",
+			Port: port,
+		})
+	}
 
 	if publicIP != "" {
 		si.Status.LoadBalancer.Ingress = []struct{ IP string }{
@@ -41,9 +51,9 @@ func TestListSvcResources(t *testing.T) {
 	sl := &servicesLister{}
 	sl.names = []string{"serviceA", "serviceB", "serviceC"}
 	sl.cache = map[string]*serviceInfo{
-		"serviceA": testServiceInfo("serviceA", "nsAB", "10.1.1.1", "", map[string]string{"app": "appA"}),
-		"serviceB": testServiceInfo("serviceB", "nsAB", "10.1.1.2", "192.16.16.199", map[string]string{"app": "appB"}),
-		"serviceC": testServiceInfo("serviceC", "nsC", "10.1.1.3", "192.16.16.200", map[string]string{"app": "appC", "func": "web"}),
+		"serviceA": testServiceInfo("serviceA", "nsAB", "10.1.1.1", "", map[string]string{"app": "appA"}, []int{9313, 9314}),
+		"serviceB": testServiceInfo("serviceB", "nsAB", "10.1.1.2", "192.16.16.199", map[string]string{"app": "appB"}, []int{443}),
+		"serviceC": testServiceInfo("serviceC", "nsC", "10.1.1.3", "192.16.16.200", map[string]string{"app": "appC", "func": "web"}, []int{3141}),
 	}
 
 	tests := []struct {
@@ -53,6 +63,7 @@ func TestListSvcResources(t *testing.T) {
 		labelsFilter  map[string]string
 		wantServices  []string
 		wantIPs       []string
+		wantPorts     []int32
 		wantPublicIPs []string
 		wantErr       bool
 	}{
@@ -66,23 +77,34 @@ func TestListSvcResources(t *testing.T) {
 			filters:      map[string]string{"name": "service(B|C)"},
 			wantServices: []string{"serviceB", "serviceC"},
 			wantIPs:      []string{"10.1.1.2", "10.1.1.3"},
+			wantPorts:    []int32{443, 3141},
+		},
+		{
+			desc:         "only port filter for serviceA and serviceB's ports 9314 and 3141",
+			filters:      map[string]string{"port": "314"},
+			wantServices: []string{"serviceA", "serviceC"},
+			wantIPs:      []string{"10.1.1.1", "10.1.1.3"},
+			wantPorts:    []int32{9314, 3141},
 		},
 		{
 			desc:         "name and namespace filter for serviceB",
 			filters:      map[string]string{"name": "service(B|C)", "namespace": "nsAB"},
 			wantServices: []string{"serviceB"},
 			wantIPs:      []string{"10.1.1.2"},
+			wantPorts:    []int32{443},
 		},
 		{
 			desc:         "only namespace filter for serviceA and serviceB",
 			filters:      map[string]string{"namespace": "nsAB"},
-			wantServices: []string{"serviceA", "serviceB"},
-			wantIPs:      []string{"10.1.1.1", "10.1.1.2"},
+			wantServices: []string{"serviceA_9313", "serviceA_9314", "serviceB"},
+			wantIPs:      []string{"10.1.1.1", "10.1.1.1", "10.1.1.2"},
+			wantPorts:    []int32{9313, 9314, 443},
 		},
 		{
 			desc:          "only services with public IPs",
 			wantServices:  []string{"serviceB", "serviceC"},
 			wantPublicIPs: []string{"192.16.16.199", "192.16.16.200"},
+			wantPorts:     []int32{443, 3141},
 		},
 	}
 
@@ -110,9 +132,11 @@ func TestListSvcResources(t *testing.T) {
 			}
 
 			var gotNames, gotIPs []string
+			var gotPorts []int32
 			for _, res := range results {
 				gotNames = append(gotNames, res.GetName())
 				gotIPs = append(gotIPs, res.GetIp())
+				gotPorts = append(gotPorts, res.GetPort())
 			}
 
 			if !reflect.DeepEqual(gotNames, test.wantServices) {
@@ -126,6 +150,10 @@ func TestListSvcResources(t *testing.T) {
 
 			if !reflect.DeepEqual(gotIPs, wantIPs) {
 				t.Errorf("services.listResources IPs: got=%v, expected=%v", gotIPs, wantIPs)
+			}
+
+			if !reflect.DeepEqual(gotPorts, test.wantPorts) {
+				t.Errorf("services.listResources Ports: got=%v, expected=%v", gotPorts, test.wantPorts)
 			}
 		})
 	}
@@ -147,23 +175,28 @@ func TestParseSvcResourceList(t *testing.T) {
 	services := map[string]struct {
 		ip       string
 		publicIP string
+		ports    []int
 		labels   map[string]string
 	}{
 		"cloudprober": {
 			ip:     "10.31.252.209",
+			ports:  []int{9313},
 			labels: map[string]string{"app": "cloudprober"},
 		},
 		"cloudprober-rds": {
 			ip:       "10.96.15.88",
 			publicIP: "192.88.99.199",
+			ports:    []int{9314, 9313},
 			labels:   map[string]string{"app": "cloudprober"},
 		},
 		"cloudprober-test": {
 			ip:     "10.31.246.77",
+			ports:  []int{9313},
 			labels: map[string]string{"app": "cloudprober"},
 		},
 		"kubernetes": {
 			ip:     "10.31.240.1",
+			ports:  []int{443},
 			labels: map[string]string{"component": "apiserver", "provider": "kubernetes"},
 		},
 	}
@@ -186,6 +219,14 @@ func TestParseSvcResourceList(t *testing.T) {
 			if servicesByName[name].Status.LoadBalancer.Ingress[0].IP != svc.publicIP {
 				t.Errorf("%s service load balancer ip: got=%s, want=%s", name, servicesByName[name].Status.LoadBalancer.Ingress[0].IP, svc.publicIP)
 			}
+		}
+
+		var gotPorts []int
+		for _, port := range servicesByName[name].Spec.Ports {
+			gotPorts = append(gotPorts, port.Port)
+		}
+		if !reflect.DeepEqual(gotPorts, svc.ports) {
+			t.Errorf("%s service ports: got=%v, want=%v", name, gotPorts, svc.ports)
 		}
 	}
 }
