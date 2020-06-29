@@ -105,6 +105,11 @@ func Init(ll *logger.Logger, userVars map[string]string) error {
 	}
 	sysVars["hostname"] = hostname
 
+	// If not running in the cloud, do not set any extra variables
+	if runconfig.NonCloud() {
+		return nil
+	}
+
 	// If on GCE, add GCE variables.
 	if metadata.OnGCE() {
 		if err := gceVars(sysVars); err != nil {

@@ -28,8 +28,9 @@ import (
 	"os/signal"
 	"runtime/pprof"
 
-	"cloud.google.com/go/compute/metadata"
 	"flag"
+
+	"cloud.google.com/go/compute/metadata"
 	"github.com/golang/glog"
 	"github.com/google/cloudprober"
 	"github.com/google/cloudprober/common/file"
@@ -47,6 +48,7 @@ var (
 	configTest       = flag.Bool("configtest", false, "Dry run to test config file")
 	dumpConfig       = flag.Bool("dumpconfig", false, "Dump processed config to stdout")
 	testInstanceName = flag.String("test_instance_name", "ig-us-central1-a-01-0000", "Instance name example to be used in tests")
+	nonCloud         = flag.Bool("non_cloud", false, "Disable cloud metadata collection")
 
 	// configTestVars provides a sane set of sysvars for config testing.
 	configTestVars = map[string]string(nil)
@@ -144,6 +146,7 @@ func main() {
 	flag.Parse()
 
 	runconfig.SetVersion(version)
+	runconfig.SetNonCloud(*nonCloud)
 
 	if *versionFlag {
 		fmt.Println(version)
