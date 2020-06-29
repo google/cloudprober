@@ -76,7 +76,7 @@ var SupportedFilters = struct {
 	RegexFilterKeys []string
 	LabelsFilter    bool
 }{
-	// Note: the port filter applies only to endpoints
+	// Note: the port filter applies only to endpoints and services.
 	[]string{"name", "namespace", "port"},
 	true,
 }
