@@ -18,6 +18,7 @@ package sysvars
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"os"
 	"sort"
@@ -33,10 +34,19 @@ import (
 )
 
 var (
-	sysVarsMu sync.RWMutex
-	sysVars   map[string]string
-	l         *logger.Logger
-	startTime time.Time
+	sysVarsMu        sync.RWMutex
+	sysVars          map[string]string
+	l                *logger.Logger
+	startTime        time.Time
+	skipEC2Meta      = false
+	skipGCEMeta      = false
+	disableCloudMeta = flag.String("disable_cloud_metadata", "none", "Disable cloud metadata collection [gce|ec2|all]")
+)
+
+const (
+	disableGCEMetaFlag = "gce"
+	disableEC2MetaFlag = "ec2"
+	disableAllMetaFlag = "all"
 )
 
 // Vars returns a copy of the system variables map, if already initialized.
@@ -105,17 +115,22 @@ func Init(ll *logger.Logger, userVars map[string]string) error {
 	}
 	sysVars["hostname"] = hostname
 
-	// If not running in the cloud, do not set any extra variables
-	if runconfig.NonCloud() {
+	switch *disableCloudMeta {
+	case disableAllMetaFlag:
+		// If not running in the cloud, do not set any extra variables
 		return nil
+	case disableGCEMetaFlag:
+		skipGCEMeta = true
+	case disableEC2MetaFlag:
+		skipEC2Meta = true
 	}
 
 	// If on GCE, add GCE variables.
-	if metadata.OnGCE() {
+	if !skipGCEMeta && metadata.OnGCE() {
 		if err := gceVars(sysVars); err != nil {
 			return err
 		}
-	} else {
+	} else if !skipEC2Meta {
 		// Note: ec2Vars doesn't return an error when not running on AWS. We still
 		// ignore errors as we don't want other platforms to be impacted if
 		// behavior of the underlying AWS libraries changes.

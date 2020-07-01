@@ -32,7 +32,6 @@ type runConfig struct {
 	sync.RWMutex
 	grpcSrv   *grpc.Server
 	version   string
-	nonCloud  bool
 	rdsServer *rdsserver.Server
 }
 
@@ -87,21 +86,4 @@ func LocalRDSServer() *rdsserver.Server {
 	rc.RLock()
 	defer rc.RUnlock()
 	return rc.rdsServer
-}
-
-// SetNonCloud sets the nonCloud flag to disable cloud metadata collection
-// It's useful for non-cloud environments, e.g. baremetal servers and
-// local development
-func SetNonCloud(flag bool) {
-	rc.Lock()
-	defer rc.Unlock()
-	rc.nonCloud = flag
-}
-
-// NonCloud returns the nonCloud flag, set through the
-// SetNonCloud() call.
-func NonCloud() bool {
-	rc.RLock()
-	defer rc.RUnlock()
-	return rc.nonCloud
 }
