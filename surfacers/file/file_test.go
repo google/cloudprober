@@ -137,13 +137,13 @@ func TestCompressionBufferFlush(t *testing.T) {
 	}
 
 	// Write a test line to the buffer.
-	c.writeLine("test string")
+	c.writeLineToBuffer("test string")
 
 	if c.buf.Len() == 0 || c.lines == 0 {
 		t.Errorf("compressionBuffer unexpected empty")
 	}
 
-	c.flush()
+	c.compressAndFlushToChan()
 
 	if c.buf.Len() != 0 && c.lines != 0 {
 		t.Errorf("flush() didn't empty the compressionBuffer")

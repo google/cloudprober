@@ -81,7 +81,7 @@ type SDSurfacer struct {
 // variables for call references (project and instances variables) as well
 // as provisioning it with clients for making the necessary API calls. New
 // requires you to pass in a valid stackdriver surfacer configuration.
-func New(config *configpb.SurfacerConf, l *logger.Logger) (*SDSurfacer, error) {
+func New(ctx context.Context, config *configpb.SurfacerConf, l *logger.Logger) (*SDSurfacer, error) {
 	// Create a cache, which is used for batching write requests together,
 	// and a channel for writing data.
 	s := SDSurfacer{
@@ -100,9 +100,6 @@ func New(config *configpb.SurfacerConf, l *logger.Logger) (*SDSurfacer, error) {
 		}
 		s.allowedMetricsRegex = r
 	}
-
-	// TODO(brrcrites): Validate that the config has all the necessary
-	// values
 
 	// Find all the necessary information for writing metrics to Stack
 	// Driver.
@@ -127,9 +124,7 @@ func New(config *configpb.SurfacerConf, l *logger.Logger) (*SDSurfacer, error) {
 	}
 
 	// Create monitoring client
-	// TODO(manugarg): Currently we don't make use of the context to timeout the
-	// requests, but we should.
-	httpClient, err := google.DefaultClient(context.TODO(), monitoring.CloudPlatformScope)
+	httpClient, err := google.DefaultClient(ctx, monitoring.CloudPlatformScope)
 	if err != nil {
 		return nil, err
 	}
@@ -140,14 +135,14 @@ func New(config *configpb.SurfacerConf, l *logger.Logger) (*SDSurfacer, error) {
 
 	// Start either the writeAsync or the writeBatch, depending on if we are
 	// batching or not.
-	go s.writeBatch()
+	go s.writeBatch(ctx)
 
 	s.l.Info("Created a new stackdriver surfacer")
 	return &s, nil
 }
 
 // Write queues a message to be written to stackdriver.
-func (s *SDSurfacer) Write(ctxIn context.Context, em *metrics.EventMetrics) {
+func (s *SDSurfacer) Write(_ context.Context, em *metrics.EventMetrics) {
 	// Write inserts the data to be written into channel. This channel is
 	// watched by writeBatch and will make the necessary calls to the Stackdriver
 	// API to write the data from the channel.
@@ -169,20 +164,24 @@ func (s *SDSurfacer) Write(ctxIn context.Context, em *metrics.EventMetrics) {
 //
 // writeBatch is set up to run as an infinite goroutine call in the New function
 // to allow it to write asynchronously to Stack Driver.
-func (s *SDSurfacer) writeBatch() {
+func (s *SDSurfacer) writeBatch(ctx context.Context) {
 	// Introduce a random delay before starting the loop.
 	rand.Seed(time.Now().UnixNano())
 	randomDelay := time.Duration(rand.Int63n(int64(s.c.GetBatchTimerSec()))) * time.Second
 	time.Sleep(randomDelay)
 
-	batchTicker := time.Tick(time.Duration(s.c.GetBatchTimerSec()) * time.Second)
+	batchTicker := time.NewTicker(time.Duration(s.c.GetBatchTimerSec()) * time.Second)
 	for {
 		select {
+		case <-ctx.Done():
+			s.l.Infof("Context canceled, stopping the input processing loop.")
+			batchTicker.Stop()
+			return
 		case em := <-s.writeChan:
 			// Process EventMetrics to build timeseries using them and cache the timeseries
 			// objects.
 			s.recordEventMetrics(em)
-		case <-batchTicker:
+		case <-batchTicker.C:
 			// Empty time series writes cause an error to be returned, so
 			// we skip any calls that write but wouldn't set any data.
 			if len(s.cache) == 0 {

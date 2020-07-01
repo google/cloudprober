@@ -190,7 +190,7 @@ func (pr *Prober) Init(ctx context.Context, cfg *configpb.ProberConfig, l *logge
 		return err
 	}
 
-	pr.Surfacers, err = surfacers.Init(pr.c.GetSurfacer())
+	pr.Surfacers, err = surfacers.Init(ctx, pr.c.GetSurfacer())
 	if err != nil {
 		return err
 	}
