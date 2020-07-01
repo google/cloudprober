@@ -114,7 +114,7 @@ func inferType(s *surfacerpb.SurfacerDef) surfacerspb.Type {
 }
 
 // initSurfacer initializes and returns a new surfacer based on the config.
-func initSurfacer(s *surfacerpb.SurfacerDef, sType surfacerspb.Type) (Surfacer, interface{}, error) {
+func initSurfacer(ctx context.Context, s *surfacerpb.SurfacerDef, sType surfacerspb.Type) (Surfacer, interface{}, error) {
 	// Create a new logger
 	logName := s.GetName()
 	if logName == "" {
@@ -131,16 +131,16 @@ func initSurfacer(s *surfacerpb.SurfacerDef, sType surfacerspb.Type) (Surfacer, 
 
 	switch sType {
 	case surfacerpb.Type_PROMETHEUS:
-		surfacer, err = prometheus.New(s.GetPrometheusSurfacer(), l)
+		surfacer, err = prometheus.New(ctx, s.GetPrometheusSurfacer(), l)
 		conf = s.GetPrometheusSurfacer()
 	case surfacerpb.Type_STACKDRIVER:
-		surfacer, err = stackdriver.New(s.GetStackdriverSurfacer(), l)
+		surfacer, err = stackdriver.New(ctx, s.GetStackdriverSurfacer(), l)
 		conf = s.GetStackdriverSurfacer()
 	case surfacerpb.Type_FILE:
-		surfacer, err = file.New(s.GetFileSurfacer(), l)
+		surfacer, err = file.New(ctx, s.GetFileSurfacer(), l)
 		conf = s.GetFileSurfacer()
 	case surfacerpb.Type_POSTGRES:
-		surfacer, err = postgres.New(s.GetPostgresSurfacer(), l)
+		surfacer, err = postgres.New(ctx, s.GetPostgresSurfacer(), l)
 		conf = s.GetPostgresSurfacer()
 	case surfacerpb.Type_USER_DEFINED:
 		userDefinedSurfacersMu.Lock()
@@ -158,7 +158,7 @@ func initSurfacer(s *surfacerpb.SurfacerDef, sType surfacerspb.Type) (Surfacer, 
 
 // Init initializes the surfacers from the config protobufs and returns them as
 // a list.
-func Init(sDefs []*surfacerpb.SurfacerDef) ([]*SurfacerInfo, error) {
+func Init(ctx context.Context, sDefs []*surfacerpb.SurfacerDef) ([]*SurfacerInfo, error) {
 	// If no surfacers are defined, return default surfacers. This behavior
 	// can be disabled by explicitly specifying "surfacer {}" in the config.
 	if len(sDefs) == 0 {
@@ -180,7 +180,7 @@ func Init(sDefs []*surfacerpb.SurfacerDef) ([]*SurfacerInfo, error) {
 			sType = inferType(sDef)
 		}
 
-		s, conf, err := initSurfacer(sDef, sType)
+		s, conf, err := initSurfacer(ctx, sDef, sType)
 		if err != nil {
 			return nil, err
 		}

@@ -15,6 +15,7 @@
 package surfacers
 
 import (
+	"context"
 	"io/ioutil"
 	"os"
 	"testing"
@@ -26,7 +27,7 @@ import (
 )
 
 func TestDefaultConfig(t *testing.T) {
-	s, err := Init([]*surfacerpb.SurfacerDef{})
+	s, err := Init(context.Background(), []*surfacerpb.SurfacerDef{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -36,7 +37,7 @@ func TestDefaultConfig(t *testing.T) {
 }
 
 func TestEmptyConfig(t *testing.T) {
-	s, err := Init([]*surfacerpb.SurfacerDef{&surfacerpb.SurfacerDef{}})
+	s, err := Init(context.Background(), []*surfacerpb.SurfacerDef{&surfacerpb.SurfacerDef{}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -53,7 +54,7 @@ func TestInferType(t *testing.T) {
 
 	defer os.Remove(tmpfile.Name()) // clean up
 
-	s, err := Init([]*surfacerpb.SurfacerDef{
+	s, err := Init(context.Background(), []*surfacerpb.SurfacerDef{
 		{
 			Surfacer: &surfacerpb.SurfacerDef_FileSurfacer{
 				&fileconfigpb.SurfacerConf{
