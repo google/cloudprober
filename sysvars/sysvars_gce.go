@@ -28,7 +28,12 @@ import (
 // maxNICs is the number of NICs allowed on a VM. Used by addGceNicInfo.
 var maxNICs = 8
 
-func gceVars(vars map[string]string) error {
+var gceVars = func(vars map[string]string) (bool, error) {
+	onGCE := metadata.OnGCE()
+	if !onGCE {
+		return false, nil
+	}
+
 	for _, k := range []string{
 		"zone",
 		"project",
@@ -70,10 +75,10 @@ func gceVars(vars map[string]string) error {
 				v = tokens[len(tokens)-1]
 			}
 		default:
-			return fmt.Errorf("utils.GCEVars: unknown variable key %q", k)
+			return onGCE, fmt.Errorf("sysvars_gce: unknown variable key %q", k)
 		}
 		if err != nil {
-			return fmt.Errorf("utils.GCEVars: error while getting %s from metadata: %v", k, err)
+			return onGCE, fmt.Errorf("sysvars_gce: error while getting %s from metadata: %v", k, err)
 		}
 		vars[k] = v
 	}
@@ -83,7 +88,7 @@ func gceVars(vars map[string]string) error {
 
 	labels, err := labelsFromGCE(vars["project"], vars["zone"], vars["instance"])
 	if err != nil {
-		return err
+		return onGCE, err
 	}
 
 	for k, v := range labels {
@@ -92,7 +97,7 @@ func gceVars(vars map[string]string) error {
 		vars["labels_"+k] = v
 
 	}
-	return nil
+	return onGCE, nil
 }
 
 func labelsFromGCE(project, zone, instance string) (map[string]string, error) {
@@ -106,7 +111,7 @@ func labelsFromGCE(project, zone, instance string) (map[string]string, error) {
 	// fail initialization if that happens.
 	i, err := computeService.Instances.Get(project, zone, instance).Context(ctx).Do()
 	if err != nil {
-		l.Warningf("sysvars: Error while fetching the instance resource using GCE API: %v. Continuing without labels info.", err)
+		l.Warningf("sysvars_gce: Error while fetching the instance resource using GCE API: %v. Continuing without labels info.", err)
 		return nil, nil
 	}
 

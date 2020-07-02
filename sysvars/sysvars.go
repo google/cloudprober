@@ -28,7 +28,6 @@ import (
 
 	"flag"
 
-	"cloud.google.com/go/compute/metadata"
 	"github.com/google/cloudprober/config/runconfig"
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
@@ -108,18 +107,16 @@ func initCloudMetadata(fv string) error {
 	for _, provider := range providersToCheck(fv) {
 		switch provider {
 		case cloudProviders.gce:
-			if metadata.OnGCE() {
-				// Once we know it's GCE, there is no point in checking for EC2.
-				return gceVars(sysVars)
+			onGCE, err := gceVars(sysVars)
+			// Once we know it's GCE, don't continue checking.
+			if onGCE {
+				return err
 			}
 		case cloudProviders.ec2:
-			// Note: ec2Vars doesn't return an error when not running on AWS. We still
-			// ignore errors as we don't want other platforms to be impacted if
-			// behavior of the underlying AWS libraries changes.
-			// TODO: Add a function to check if running on AWS, and then stop ignoring
-			// errors from ec2Vars.
-			if err := ec2Vars(sysVars); err != nil {
-				l.Warningf("sysvars.Init(): error getting ec2 metadata, ignoring: %v", err)
+			onEC2, err := ec2Vars(sysVars, l)
+			// Once we know it's EC2, don't continue checking.
+			if onEC2 {
+				return err
 			}
 		default:
 			return fmt.Errorf("unknown cloud provider: %v", provider)

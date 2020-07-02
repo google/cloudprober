@@ -20,26 +20,29 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/google/cloudprober/logger"
 )
 
-func ec2Vars(sysVars map[string]string) error {
+var ec2Vars = func(sysVars map[string]string, l *logger.Logger) (bool, error) {
 	s, err := session.NewSession(&aws.Config{
 		MaxRetries: aws.Int(0),
 	})
 	if err != nil {
-		return fmt.Errorf("ec2Vars: could not create session %v", err)
+		// We ignore session errors. It's not clear what can cause them.
+		l.Warningf("sysvars_ec2: could not create AWS session: %v", err)
+		return false, nil
 	}
 
 	md := ec2metadata.New(s)
 	// Doing the availability check in module since we need a session
 	if md.Available() == false {
-		return nil
+		return false, nil
 	}
 
 	id, err := md.GetInstanceIdentityDocument()
 	if err != nil {
 		sysVars["EC2_METADATA_Available"] = "false"
-		return fmt.Errorf("ec2Vars: could not get instance document %v", err)
+		return true, fmt.Errorf("sysvars_ec2: could not get instance identity document %v", err)
 	}
 
 	sysVars["EC2_METADATA_Available"] = "true"
@@ -52,5 +55,5 @@ func ec2Vars(sysVars map[string]string) error {
 	sysVars["EC2_KernelID"] = id.KernelID
 	sysVars["EC2_RamdiskID"] = id.RamdiskID
 	sysVars["EC2_Architecture"] = id.Architecture
-	return nil
+	return true, nil
 }
