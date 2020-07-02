@@ -104,7 +104,7 @@ func TestInitCloudMetadata(t *testing.T) {
 		t.Run(fmt.Sprintf("%v", test), func(t *testing.T) {
 			sysVars = map[string]string{}
 
-			gceVars = func(vars map[string]string) (bool, error) {
+			gceVars = func(vars map[string]string, l *logger.Logger) (bool, error) {
 				return testSetVars(vars, testGCEVars, test.onGCE)
 			}
 			ec2Vars = func(vars map[string]string, l *logger.Logger) (bool, error) {
