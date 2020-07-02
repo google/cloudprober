@@ -1,4 +1,4 @@
-// Copyright 2019 Google Inc.
+// Copyright 2019-2020 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,12 +17,15 @@ package sysvars
 import (
 	"fmt"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go/aws/session"
 )
 
 func ec2Vars(sysVars map[string]string) error {
-	s, err := session.NewSession()
+	s, err := session.NewSession(&aws.Config{
+		MaxRetries: aws.Int(0),
+	})
 	if err != nil {
 		return fmt.Errorf("ec2Vars: could not create session %v", err)
 	}
