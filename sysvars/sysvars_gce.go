@@ -17,18 +17,18 @@ package sysvars
 import (
 	"context"
 	"fmt"
-	"net"
 	"strings"
 
 	"cloud.google.com/go/compute/metadata"
 	"github.com/golang/glog"
+	"github.com/google/cloudprober/logger"
 	compute "google.golang.org/api/compute/v1"
 )
 
 // maxNICs is the number of NICs allowed on a VM. Used by addGceNicInfo.
 var maxNICs = 8
 
-var gceVars = func(vars map[string]string) (bool, error) {
+var gceVars = func(vars map[string]string, l *logger.Logger) (bool, error) {
 	onGCE := metadata.OnGCE()
 	if !onGCE {
 		return false, nil
@@ -84,7 +84,7 @@ var gceVars = func(vars map[string]string) (bool, error) {
 	}
 	zoneParts := strings.Split(vars["zone"], "-")
 	vars["region"] = strings.Join(zoneParts[0:len(zoneParts)-1], "-")
-	addGceNicInfo(vars)
+	addGceNicInfo(vars, l)
 
 	labels, err := labelsFromGCE(vars["project"], vars["zone"], vars["instance"])
 	if err != nil {
@@ -129,7 +129,7 @@ func labelsFromGCE(project, zone, instance string) (map[string]string, error) {
 //
 // See the following document for more information on metadata.
 // https://cloud.google.com/compute/docs/storing-retrieving-metadata
-func addGceNicInfo(vars map[string]string) {
+func addGceNicInfo(vars map[string]string, l *logger.Logger) {
 	for i := 0; i < maxNICs; i++ {
 		k := fmt.Sprintf("instance/network-interfaces/%v/ip", i)
 		v, err := metadata.Get(k)
@@ -137,12 +137,12 @@ func addGceNicInfo(vars map[string]string) {
 		if err != nil {
 			continue
 		}
-		vars[k] = v
+		vars[fmt.Sprintf("nic_%d_ip", i)] = v
 
 		k = fmt.Sprintf("instance/network-interfaces/%v/ipv6s", i)
 		v, err = metadata.Get(k)
 		if err != nil {
-			glog.Infof("VM does not have ipv6 ip on interface# %d", i)
+			l.Debugf("VM does not have ipv6 ip on interface# %d", i)
 		} else {
 			v = strings.TrimSpace(v)
 			vars[k] = v
@@ -150,23 +150,5 @@ func addGceNicInfo(vars map[string]string) {
 				vars["internal_ipv6_ip"] = v
 			}
 		}
-
-		k = fmt.Sprintf("instance/network-interfaces/%v/access-configs/%v/external-ip", i, i)
-		v, err = metadata.Get(k)
-		// NIC may exist but not have external IP.
-		if err != nil {
-			continue
-		}
-		vars[k] = v
-
-		k = fmt.Sprintf("instance/network-interfaces/%v/ip-aliases/0", i)
-		v, err = metadata.Get(k)
-		// NIC may not have any IP alias ranges.
-		if err != nil {
-			continue
-		}
-		// Extract a sample IP address from the IP range returned via above metadata query.
-		ip, _, _ := net.ParseCIDR(v)
-		vars[k+"-sample"] = ip.String()
 	}
 }

@@ -107,7 +107,7 @@ func initCloudMetadata(fv string) error {
 	for _, provider := range providersToCheck(fv) {
 		switch provider {
 		case cloudProviders.gce:
-			onGCE, err := gceVars(sysVars)
+			onGCE, err := gceVars(sysVars, l)
 			// Once we know it's GCE, don't continue checking.
 			if onGCE {
 				return err
@@ -175,21 +175,25 @@ func Start(ctx context.Context, dataChan chan *metrics.EventMetrics, interval ti
 	}
 	sort.Strings(varsKeys)
 
+	em := metrics.NewEventMetrics(time.Now()).
+		AddLabel("ptype", "sysvars").
+		AddLabel("probe", "sysvars")
+	em.Kind = metrics.GAUGE
+	for _, k := range varsKeys {
+		em.AddMetric(k, metrics.NewString(vars[k]))
+	}
+	l.Info(em.String())
+
 	for ts := range time.Tick(interval) {
-		// Don't run another probe if context is canceled already.
+		// Don't run another cycles if context is canceled already.
 		select {
 		case <-ctx.Done():
 			return
 		default:
 		}
 
-		em := metrics.NewEventMetrics(ts).
-			AddLabel("ptype", "sysvars").
-			AddLabel("probe", "sysvars")
-		em.Kind = metrics.GAUGE
-		for _, k := range varsKeys {
-			em.AddMetric(k, metrics.NewString(vars[k]))
-		}
+		// Update timestamp and publish static variables.
+		em.Timestamp = ts
 		dataChan <- em
 		l.Debug(em.String())
 
