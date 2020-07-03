@@ -194,7 +194,7 @@ func Start(ctx context.Context, dataChan chan *metrics.EventMetrics, interval ti
 
 		// Update timestamp and publish static variables.
 		em.Timestamp = ts
-		dataChan <- em
+		dataChan <- em.Clone()
 		l.Debug(em.String())
 
 		runtimeVars(dataChan, l)
