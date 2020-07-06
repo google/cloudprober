@@ -188,11 +188,17 @@ func (cr *cacheRecord) refreshIfRequired(name string, resolve func(string) ([]ne
 	}
 }
 
-// New returns a new Resolver.
-func New() *Resolver {
+// NewWithResolve returns a new Resolver with the given backend resolver.
+// This is useful for testing.
+func NewWithResolve(resolveFunc func(string) ([]net.IP, error)) *Resolver {
 	return &Resolver{
 		cache:         make(map[string]*cacheRecord),
-		resolve:       func(name string) ([]net.IP, error) { return net.LookupIP(name) },
+		resolve:       resolveFunc,
 		DefaultMaxAge: defaultMaxAge,
 	}
+}
+
+// New returns a new Resolver.
+func New() *Resolver {
+	return NewWithResolve(net.LookupIP)
 }

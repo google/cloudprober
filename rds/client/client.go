@@ -36,13 +36,21 @@ import (
 	pb "github.com/google/cloudprober/rds/proto"
 	spb "github.com/google/cloudprober/rds/proto"
 	"github.com/google/cloudprober/targets/endpoint"
+	dnsRes "github.com/google/cloudprober/targets/resolver"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	grpcoauth "google.golang.org/grpc/credentials/oauth"
 )
 
+// globalResolver is a singleton DNS resolver that is used as the default
+// resolver by targets. It is a singleton because dnsRes.Resolver provides a
+// cache layer that is best shared by all probes.
+var (
+	globalResolver *dnsRes.Resolver
+)
+
 type cacheRecord struct {
-	ip     net.IP
+	ip     string
 	port   int
 	labels map[string]string
 }
@@ -59,6 +67,7 @@ type Client struct {
 	cache         map[string]*cacheRecord
 	names         []string
 	listResources func(context.Context, *pb.ListResourcesRequest) (*pb.ListResourcesResponse, error)
+	resolver      *dnsRes.Resolver
 	l             *logger.Logger
 }
 
@@ -85,16 +94,7 @@ func (client *Client) updateState(response *pb.ListResourcesResponse) {
 
 	client.names = make([]string, len(response.GetResources()))
 	for i, res := range response.GetResources() {
-		var ip net.IP
-
-		if res.GetIp() != "" {
-			ip = net.ParseIP(res.GetIp())
-			if ip == nil {
-				client.l.Errorf("rds.client: errors parsing IP address for %s, IP string: %s", res.GetName(), res.GetIp())
-				continue
-			}
-		}
-		client.cache[res.GetName()] = &cacheRecord{ip, int(res.GetPort()), res.Labels}
+		client.cache[res.GetName()] = &cacheRecord{res.GetIp(), int(res.GetPort()), res.Labels}
 		client.names[i] = res.GetName()
 	}
 }
@@ -115,11 +115,17 @@ func (client *Client) ListEndpoints() []endpoint.Endpoint {
 func (client *Client) Resolve(name string, ipVer int) (net.IP, error) {
 	client.mu.RLock()
 	defer client.mu.RUnlock()
+
 	cr, ok := client.cache[name]
-	if !ok || cr.ip == nil {
+	if !ok || cr.ip == "" {
 		return nil, fmt.Errorf("no IP address for the resource: %s", name)
 	}
-	ip := cr.ip
+
+	ip := net.ParseIP(cr.ip)
+	// If not a valid IP, use DNS resolver to resolve it.
+	if ip == nil {
+		return client.resolver.Resolve(cr.ip, ipVer)
+	}
 
 	if ipVer == 0 || iputils.IPVersion(ip) == ipVer {
 		return ip, nil
@@ -189,6 +195,7 @@ func New(c *configpb.ClientConf, listResources ListResourcesFunc, l *logger.Logg
 		serverOpts:    c.GetServerOptions(),
 		cache:         make(map[string]*cacheRecord),
 		listResources: listResources,
+		resolver:      globalResolver,
 		l:             l,
 	}
 
@@ -212,4 +219,9 @@ func New(c *configpb.ClientConf, listResources ListResourcesFunc, l *logger.Logg
 	}()
 
 	return client, nil
+}
+
+// init initializes the package by creating a new global resolver.
+func init() {
+	globalResolver = dnsRes.New()
 }
