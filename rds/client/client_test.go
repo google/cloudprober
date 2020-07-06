@@ -16,6 +16,8 @@ package client
 
 import (
 	"context"
+	"fmt"
+	"net"
 	"reflect"
 	"testing"
 	"time"
@@ -26,6 +28,7 @@ import (
 	pb "github.com/google/cloudprober/rds/proto"
 	"github.com/google/cloudprober/rds/server"
 	serverpb "github.com/google/cloudprober/rds/server/proto"
+	dnsRes "github.com/google/cloudprober/targets/resolver"
 )
 
 type testProvider struct {
@@ -46,7 +49,46 @@ var testResourcesMap = map[string][]*pb.Resource{
 			Port:   proto.Int32(8080),
 			Labels: map[string]string{"zone": "us-central1-a"},
 		},
+		{
+			Name:   proto.String("testR22v6"),
+			Ip:     proto.String("::1"),
+			Port:   proto.Int32(8080),
+			Labels: map[string]string{"zone": "us-central1-a"},
+		},
+		{
+			Name:   proto.String("testR3"),
+			Ip:     proto.String("testR3.test.com"),
+			Port:   proto.Int32(80),
+			Labels: map[string]string{"zone": "us-central1-c"},
+		},
 	},
+}
+
+var expectedIPByVersion = map[string]map[int]string{
+	"testR21": map[int]string{
+		0: "10.0.2.1",
+		4: "10.0.2.1",
+		6: "err",
+	},
+	"testR22": map[int]string{
+		0: "10.0.2.2",
+		4: "10.0.2.2",
+		6: "err",
+	},
+	"testR22v6": map[int]string{
+		0: "::1",
+		4: "err",
+		6: "::1",
+	},
+	"testR3": map[int]string{
+		0: "10.1.1.2",
+		4: "10.1.1.2",
+		6: "::2",
+	},
+}
+
+var testNameToIP = map[string][]net.IP{
+	"testR3.test.com": []net.IP{net.ParseIP("10.1.1.2"), net.ParseIP("::2")},
 }
 
 func (tp *testProvider) ListResources(*pb.ListResourcesRequest) (*pb.ListResourcesResponse, error) {
@@ -88,6 +130,10 @@ func TestListAndResolve(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Got error initializing RDS client: %v", err)
 		}
+		client.resolver = dnsRes.NewWithResolve(func(name string) ([]net.IP, error) {
+			return testNameToIP[name], nil
+		})
+
 		client.refreshState(time.Second)
 
 		// Test ListEndpoint()
@@ -108,12 +154,23 @@ func TestListAndResolve(t *testing.T) {
 
 		// Test Resolve()
 		for _, res := range testResources {
-			ip, err := client.Resolve(res.GetName(), 4)
-			if err != nil {
-				t.Errorf("Error resolving %s, err: %v", res.GetName(), err)
-			}
-			if ip.String() != res.GetIp() {
-				t.Errorf("Didn't get expected IP for %s. Got: %s, Want: %s", res.GetName(), ip.String(), res.GetIp())
+			for _, ipVer := range []int{0, 4, 6} {
+				t.Run(fmt.Sprintf("resolve_%s_for_IPv%d", res.GetName(), ipVer), func(t *testing.T) {
+					expectedIP := expectedIPByVersion[res.GetName()][ipVer]
+
+					var gotIP string
+					ip, err := client.Resolve(res.GetName(), ipVer)
+					if err != nil {
+						t.Logf("Error resolving %s, err: %v", res.GetName(), err)
+						gotIP = "err"
+					} else {
+						gotIP = ip.String()
+					}
+
+					if gotIP != expectedIP {
+						t.Errorf("Didn't get expected IP for %s. Got: %s, Want: %s", res.GetName(), gotIP, expectedIP)
+					}
+				})
 			}
 		}
 	}
