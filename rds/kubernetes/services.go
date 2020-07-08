@@ -103,7 +103,8 @@ type serviceInfo struct {
 	Status struct {
 		LoadBalancer struct {
 			Ingress []struct {
-				IP string
+				IP       string
+				Hostname string
 			}
 		}
 	}
@@ -154,7 +155,12 @@ func (si *serviceInfo) resources(portFilter *filter.RegexFilter, reqIPType pb.IP
 			if len(si.Status.LoadBalancer.Ingress) == 0 {
 				continue
 			}
-			res.Ip = proto.String(si.Status.LoadBalancer.Ingress[0].IP)
+			ingress := si.Status.LoadBalancer.Ingress[0]
+
+			res.Ip = proto.String(ingress.IP)
+			if ingress.IP == "" && ingress.Hostname != "" {
+				res.Ip = proto.String(ingress.Hostname)
+			}
 		} else {
 			res.Ip = proto.String(si.Spec.ClusterIP)
 		}
