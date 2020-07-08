@@ -23,7 +23,7 @@ import (
 	pb "github.com/google/cloudprober/rds/proto"
 )
 
-func testServiceInfo(name, ns, ip, publicIP string, labels map[string]string, ports []int) *serviceInfo {
+func testServiceInfo(name, ns, ip, publicIP, hostname string, labels map[string]string, ports []int) *serviceInfo {
 	si := &serviceInfo{Metadata: kMetadata{Name: name, Namespace: ns, Labels: labels}}
 	si.Spec.ClusterIP = ip
 
@@ -37,10 +37,11 @@ func testServiceInfo(name, ns, ip, publicIP string, labels map[string]string, po
 		})
 	}
 
-	if publicIP != "" {
-		si.Status.LoadBalancer.Ingress = []struct{ IP string }{
+	if publicIP != "" || hostname != "" {
+		si.Status.LoadBalancer.Ingress = []struct{ IP, Hostname string }{
 			{
-				IP: publicIP,
+				IP:       publicIP,
+				Hostname: hostname,
 			},
 		}
 	}
@@ -49,11 +50,12 @@ func testServiceInfo(name, ns, ip, publicIP string, labels map[string]string, po
 
 func TestListSvcResources(t *testing.T) {
 	sl := &servicesLister{}
-	sl.names = []string{"serviceA", "serviceB", "serviceC"}
+	sl.names = []string{"serviceA", "serviceB", "serviceC", "serviceD"}
 	sl.cache = map[string]*serviceInfo{
-		"serviceA": testServiceInfo("serviceA", "nsAB", "10.1.1.1", "", map[string]string{"app": "appA"}, []int{9313, 9314}),
-		"serviceB": testServiceInfo("serviceB", "nsAB", "10.1.1.2", "192.16.16.199", map[string]string{"app": "appB"}, []int{443}),
-		"serviceC": testServiceInfo("serviceC", "nsC", "10.1.1.3", "192.16.16.200", map[string]string{"app": "appC", "func": "web"}, []int{3141}),
+		"serviceA": testServiceInfo("serviceA", "nsAB", "10.1.1.1", "", "", map[string]string{"app": "appA"}, []int{9313, 9314}),
+		"serviceB": testServiceInfo("serviceB", "nsAB", "10.1.1.2", "192.16.16.199", "", map[string]string{"app": "appB"}, []int{443}),
+		"serviceC": testServiceInfo("serviceC", "nsC", "10.1.1.3", "192.16.16.200", "serviceC.test.com", map[string]string{"app": "appC", "func": "web"}, []int{3141}),
+		"serviceD": testServiceInfo("serviceD", "nsD", "10.1.1.4", "", "serviceD.test.com", map[string]string{"app": "appD", "func": "web"}, []int{3141}),
 	}
 
 	tests := []struct {
@@ -80,11 +82,11 @@ func TestListSvcResources(t *testing.T) {
 			wantPorts:    []int32{443, 3141},
 		},
 		{
-			desc:         "only port filter for serviceA and serviceB's ports 9314 and 3141",
+			desc:         "only port filter for ports 9314 and 3141",
 			filters:      map[string]string{"port": "314"},
-			wantServices: []string{"serviceA", "serviceC"},
-			wantIPs:      []string{"10.1.1.1", "10.1.1.3"},
-			wantPorts:    []int32{9314, 3141},
+			wantServices: []string{"serviceA", "serviceC", "serviceD"},
+			wantIPs:      []string{"10.1.1.1", "10.1.1.3", "10.1.1.4"},
+			wantPorts:    []int32{9314, 3141, 3141},
 		},
 		{
 			desc:         "name and namespace filter for serviceB",
@@ -102,9 +104,9 @@ func TestListSvcResources(t *testing.T) {
 		},
 		{
 			desc:          "only services with public IPs",
-			wantServices:  []string{"serviceB", "serviceC"},
-			wantPublicIPs: []string{"192.16.16.199", "192.16.16.200"},
-			wantPorts:     []int32{443, 3141},
+			wantServices:  []string{"serviceB", "serviceC", "serviceD"},
+			wantPublicIPs: []string{"192.16.16.199", "192.16.16.200", "serviceD.test.com"},
+			wantPorts:     []int32{443, 3141, 3141},
 		},
 	}
 
