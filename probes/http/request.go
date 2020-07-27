@@ -15,7 +15,6 @@
 package http
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"net"
@@ -38,26 +37,6 @@ type requestBody struct {
 func (rb *requestBody) Read(p []byte) (int, error) {
 	return copy(p, rb.b), io.EOF
 }
-
-type largeRequestBody struct {
-	b []byte
-	r *bytes.Reader
-}
-
-func (rb *largeRequestBody) Read(p []byte) (int, error) {
-	if rb.r == nil {
-		rb.r = bytes.NewReader(rb.b)
-	}
-	return rb.r.Read(p)
-}
-
-func (rb *largeRequestBody) Close() error {
-	rb.r = nil
-
-	return nil
-}
-
-const largeBodyThreshold = 32768
 
 // resolveFunc resolves the given host for the IP version.
 // This type is mainly used for testing. For all other cases, a nil function
@@ -97,11 +76,7 @@ func (p *Probe) httpRequestForTarget(target endpoint.Endpoint, resolveF resolveF
 	// Prepare request body
 	var body io.Reader
 	if p.c.GetBody() != "" {
-		if len(p.c.GetBody()) < largeBodyThreshold {
-			body = &requestBody{[]byte(p.c.GetBody())}
-		} else {
-			body = &largeRequestBody{b: []byte(p.c.GetBody())}
-		}
+		body = &requestBody{[]byte(p.c.GetBody())}
 	}
 	req, err := http.NewRequest(p.method, url, body)
 	if err != nil {

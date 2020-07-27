@@ -16,9 +16,7 @@ package http
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net"
-	"strings"
 	"testing"
 
 	"github.com/golang/protobuf/proto"
@@ -28,12 +26,11 @@ import (
 	"github.com/google/cloudprober/targets/endpoint"
 )
 
-func newProbe(port int, resolveFirst bool, target, hostHeader string, body *string) *Probe {
+func newProbe(port int, resolveFirst bool, target, hostHeader string) *Probe {
 	p := &Probe{
 		protocol: "http",
 		c: &configpb.ProbeConf{
 			ResolveFirst: proto.Bool(resolveFirst),
-			Body:         body,
 		},
 		opts: &options.Options{Targets: targets.StaticTargets(target)},
 	}
@@ -89,7 +86,7 @@ func testRequestHostAndURL(t *testing.T, resolveFirst bool, target, urlHost, hos
 	}
 
 	// Probe has no port
-	p := newProbe(0, resolveFirst, target, hostHeader, nil)
+	p := newProbe(0, resolveFirst, target, hostHeader)
 	expectedPort := 0
 
 	// If hostHeader is set, change probe config and expectedHost.
@@ -99,7 +96,7 @@ func testRequestHostAndURL(t *testing.T, resolveFirst bool, target, urlHost, hos
 	testReq(t, p, ep, urlHost, hostHeader, expectedPort, resolveF)
 
 	// Probe and endpoint have port, probe's port wins.
-	p = newProbe(8080, resolveFirst, target, hostHeader, nil)
+	p = newProbe(8080, resolveFirst, target, hostHeader)
 	ep = endpoint.Endpoint{
 		Name: target,
 		Port: 9313,
@@ -108,7 +105,7 @@ func testRequestHostAndURL(t *testing.T, resolveFirst bool, target, urlHost, hos
 	testReq(t, p, ep, urlHost, hostHeader, expectedPort, resolveF)
 
 	// Only endpoint has port, endpoint's port is used.
-	p = newProbe(0, resolveFirst, target, hostHeader, nil)
+	p = newProbe(0, resolveFirst, target, hostHeader)
 	ep = endpoint.Endpoint{
 		Name: target,
 		Port: 9313,
@@ -133,24 +130,4 @@ func TestRequestHostAndURL(t *testing.T) {
 	t.Run("resolve_first,host_header", func(t *testing.T) {
 		testRequestHostAndURL(t, true, "localhost", "127.0.0.1", "test-host")
 	})
-}
-
-func TestRequestBodySize(t *testing.T) {
-	target := "localhost"
-	originalBody := strings.Repeat("a", largeBodyThreshold + 1)
-
-	p := newProbe(0, true, target, "", &originalBody)
-	req := p.httpRequestForTarget(endpoint.Endpoint{Name: target}, nil)
-
-	if req.Body == nil {
-		t.Fatalf("body is nil, expected not nil")
-	}
-
-	b, err := ioutil.ReadAll(req.Body)
-	if err != nil {
-		t.Fatalf("failed to read request body: %v", err)
-	}
-	if len(b) != len(originalBody) {
-		t.Fatalf("body size: %d, expected body size: %d", len(b), len(originalBody))
-	}
 }
