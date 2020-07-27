@@ -36,7 +36,8 @@ import (
 // The Transport is mocked instead of the Client because Client is not an
 // interface, but RoundTripper (which Transport implements) is.
 type testTransport struct {
-	noBody io.ReadCloser
+	noBody                   io.ReadCloser
+	lastProcessedRequestBody []byte
 }
 
 func newTestTransport() *testTransport {
@@ -70,6 +71,7 @@ func (tt *testTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		return nil, err
 	}
 	req.Body.Close()
+	tt.lastProcessedRequestBody = b
 
 	return &http.Response{
 		Body: &testReadCloser{
@@ -190,6 +192,45 @@ func TestProbeWithBody(t *testing.T) {
 	got = p.results[testTarget].respBodies.String()
 	if got != expected {
 		t.Errorf("response map: got=%s, expected=%s", got, expected)
+	}
+}
+
+func TestProbeWithLargeBody(t *testing.T) {
+
+	testBody := strings.Repeat("a", largeBodyThreshold)
+	testTarget := "test-large-body.com"
+
+	p := &Probe{}
+	err := p.Init("http_test", &options.Options{
+		Targets:  targets.StaticTargets(testTarget),
+		Interval: 2 * time.Second,
+		ProbeConf: &configpb.ProbeConf{
+			Body: &testBody,
+			// Can't use ExportResponseAsMetrics for large bodies,
+			// since maxResponseSizeForMetrics is small
+			ExportResponseAsMetrics: proto.Bool(false),
+		},
+	})
+
+	if err != nil {
+		t.Errorf("Error while initializing probe: %v", err)
+	}
+	testTransport := newTestTransport()
+	p.client.Transport = testTransport
+
+	// Probe 1st run
+	p.runProbe(context.Background())
+
+	got := string(testTransport.lastProcessedRequestBody)
+	if got != testBody {
+		t.Errorf("response body: got=%s, expected=%s", got, testBody)
+	}
+
+	// Probe 2nd run (we should get the same request body).
+	p.runProbe(context.Background())
+	got = string(testTransport.lastProcessedRequestBody)
+	if got != testBody {
+		t.Errorf("response body: got=%s, expected=%s", got, testBody)
 	}
 }
 

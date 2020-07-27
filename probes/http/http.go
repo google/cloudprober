@@ -16,6 +16,7 @@
 package http
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"fmt"
@@ -75,6 +76,8 @@ type Probe struct {
 	// statsExportInterval / p.opts.Interval. Metrics are exported when
 	// (runCnt % statsExportFrequency) == 0
 	statsExportFrequency int64
+
+	largeBodies map[*http.Request][]byte
 }
 
 type probeResult struct {
@@ -264,6 +267,10 @@ func (p *Probe) updateTargets() {
 		p.httpRequests = make(map[string]*http.Request, len(p.targets))
 	}
 
+	if p.largeBodies == nil {
+		p.largeBodies = make(map[*http.Request][]byte, len(p.targets))
+	}
+
 	if p.results == nil {
 		p.results = make(map[string]*probeResult, len(p.targets))
 	}
@@ -329,8 +336,18 @@ func (p *Probe) runProbe(ctx context.Context) {
 		for numReq := int32(0); numReq < p.c.GetRequestsPerProbe(); numReq++ {
 			wg.Add(1)
 
-			go func(req *http.Request, result *probeResult) {
+			go func(ireq *http.Request, result *probeResult) {
 				defer wg.Done()
+
+				req := ireq
+
+				// we have to check the map for request before we call
+				// req.WithContext, otherwise the pointer would be different
+				if body, ok := p.largeBodies[ireq]; ok {
+					req = req.Clone(context.Background())
+					req.Body = ioutil.NopCloser(bytes.NewReader(body))
+				}
+
 				p.doHTTPRequest(req.WithContext(reqCtx), result, &resultMu)
 			}(req, result)
 		}
