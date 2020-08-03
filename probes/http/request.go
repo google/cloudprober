@@ -43,8 +43,6 @@ func (rb *requestBody) Read(p []byte) (int, error) {
 // should be passed to the httpRequestForTarget function.
 type resolveFunc func(host string, ipVer int) (net.IP, error)
 
-const largeBodyThreshold = 32768
-
 func (p *Probe) httpRequestForTarget(target endpoint.Endpoint, resolveF resolveFunc) *http.Request {
 	// Prepare HTTP.Request for Client.Do
 	port := int(p.c.GetPort())
@@ -75,14 +73,12 @@ func (p *Probe) httpRequestForTarget(target endpoint.Endpoint, resolveF resolveF
 
 	url := fmt.Sprintf("%s://%s%s", p.protocol, urlHost, p.url)
 
-
-	// Prepare request bodyReader
-	var bodyReader io.Reader
-	body := []byte(p.c.GetBody())
-	if len(body) != 0 {
-		bodyReader = &requestBody{body}
+	// Prepare request body
+	var body io.Reader
+	if len(p.requestBody) > 0 {
+		body = &requestBody{p.requestBody}
 	}
-	req, err := http.NewRequest(p.method, url, bodyReader)
+	req, err := http.NewRequest(p.method, url, body)
 	if err != nil {
 		p.l.Error("target: ", target.Name, ", error creating HTTP request: ", err.Error())
 		return nil
@@ -103,10 +99,6 @@ func (p *Probe) httpRequestForTarget(target endpoint.Endpoint, resolveF resolveF
 
 	if p.bearerToken != "" {
 		req.Header.Set("Authorization", "Bearer "+p.bearerToken)
-	}
-
-	if len(body) >= largeBodyThreshold {
-		p.largeBodies[req] = body
 	}
 
 	return req

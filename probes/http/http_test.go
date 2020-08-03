@@ -223,14 +223,14 @@ func TestProbeWithLargeBody(t *testing.T) {
 
 	got := string(testTransport.lastProcessedRequestBody)
 	if got != testBody {
-		t.Errorf("response body: got=%s, expected=%s", got, testBody)
+		t.Errorf("response body length: got=%d, expected=%d", len(got), len(testBody))
 	}
 
 	// Probe 2nd run (we should get the same request body).
 	p.runProbe(context.Background())
 	got = string(testTransport.lastProcessedRequestBody)
 	if got != testBody {
-		t.Errorf("response body: got=%s, expected=%s", got, testBody)
+		t.Errorf("response body length: got=%d, expected=%d", len(got), len(testBody))
 	}
 }
 

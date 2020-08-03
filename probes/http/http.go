@@ -43,6 +43,7 @@ import (
 const (
 	maxResponseSizeForMetrics = 128
 	targetsUpdateInterval     = 1 * time.Minute
+	largeBodyThreshold        = 32768
 )
 
 // Probe holds aggregate information about all probe runs, per-target.
@@ -77,7 +78,7 @@ type Probe struct {
 	// (runCnt % statsExportFrequency) == 0
 	statsExportFrequency int64
 
-	largeBodies map[*http.Request][]byte
+	requestBody []byte
 }
 
 type probeResult struct {
@@ -108,6 +109,8 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	if len(p.url) > 0 && p.url[0] != '/' {
 		return fmt.Errorf("Invalid Relative URL: %s, must begin with '/'", p.url)
 	}
+
+	p.requestBody = []byte(p.c.GetBody())
 
 	// Create a transport for our use. This is mostly based on
 	// http.DefaultTransport with some timeouts changed.
@@ -206,7 +209,14 @@ func isClientTimeout(err error) bool {
 }
 
 // httpRequest executes an HTTP request and updates the provided result struct.
-func (p *Probe) doHTTPRequest(req *http.Request, result *probeResult, resultMu *sync.Mutex) {
+func (p *Probe) doHTTPRequest(ireq *http.Request, result *probeResult, resultMu *sync.Mutex) {
+	req := ireq
+
+	if len(p.requestBody) >= largeBodyThreshold {
+		req = req.Clone(context.Background())
+		req.Body = ioutil.NopCloser(bytes.NewReader(p.requestBody))
+	}
+
 	start := time.Now()
 
 	resp, err := p.client.Do(req)
@@ -265,10 +275,6 @@ func (p *Probe) updateTargets() {
 
 	if p.httpRequests == nil {
 		p.httpRequests = make(map[string]*http.Request, len(p.targets))
-	}
-
-	if p.largeBodies == nil {
-		p.largeBodies = make(map[*http.Request][]byte, len(p.targets))
 	}
 
 	if p.results == nil {
@@ -336,18 +342,8 @@ func (p *Probe) runProbe(ctx context.Context) {
 		for numReq := int32(0); numReq < p.c.GetRequestsPerProbe(); numReq++ {
 			wg.Add(1)
 
-			go func(ireq *http.Request, result *probeResult) {
+			go func(req *http.Request, result *probeResult) {
 				defer wg.Done()
-
-				req := ireq
-
-				// we have to check the map for request before we call
-				// req.WithContext, otherwise the pointer would be different
-				if body, ok := p.largeBodies[ireq]; ok {
-					req = req.Clone(context.Background())
-					req.Body = ioutil.NopCloser(bytes.NewReader(body))
-				}
-
 				p.doHTTPRequest(req.WithContext(reqCtx), result, &resultMu)
 			}(req, result)
 		}
