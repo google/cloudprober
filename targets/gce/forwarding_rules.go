@@ -24,6 +24,7 @@ import (
 
 	"cloud.google.com/go/compute/metadata"
 	"github.com/google/cloudprober/logger"
+	"github.com/google/cloudprober/targets/endpoint"
 	configpb "github.com/google/cloudprober/targets/gce/proto"
 	compute "google.golang.org/api/compute/v1"
 )
@@ -65,8 +66,8 @@ type forwardingRules struct {
 // List produces a list of all the forwarding rules. The list is similar to
 // "gcloud compute forwarding-rules list", but with a cache layer reducing the
 // number of actual API calls made.
-func (frp *forwardingRules) List() []string {
-	return frp.names
+func (frp *forwardingRules) ListEndpoints() []endpoint.Endpoint {
+	return endpoint.EndpointsFromNames(frp.names)
 }
 
 // Resolve returns the IP address associated with the forwarding
@@ -191,7 +192,7 @@ func newForwardingRules(project string, opts *configpb.GlobalOptions, frpb *conf
 
 		go func() {
 			globalForwardingRules.expand()
-			for _ = range time.Tick(reEvalInterval) {
+			for range time.Tick(reEvalInterval) {
 				globalForwardingRules.expand()
 			}
 		}()

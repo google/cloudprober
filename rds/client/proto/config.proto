@@ -13,6 +13,8 @@ import "github.com/google/cloudprober/common/oauth/proto/config.proto";
 import "github.com/google/cloudprober/common/tlsconfig/proto/config.proto";
 import "github.com/google/cloudprober/rds/proto/rds.proto";
 
+option go_package = "github.com/google/cloudprober/rds/client/proto";
+
 // ClientConf represents resource discovery service (RDS) based targets.
 // Next tag: 6
 message ClientConf {

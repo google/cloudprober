@@ -210,7 +210,7 @@ func substituteLabels(in string, labels map[string]string) (string, bool) {
 	return output, foundAll
 }
 
-func (p *Probe) startCmdIfNotRunning() error {
+func (p *Probe) startCmdIfNotRunning(startCtx context.Context) error {
 	// Start external probe command if it's not running already. Note that here we
 	// are trusting the cmdRunning to be set correctly. It can be false for 3 reasons:
 	// 1) This is the first call and the process has actually never been started.
@@ -223,7 +223,7 @@ func (p *Probe) startCmdIfNotRunning() error {
 		return nil
 	}
 	p.l.Infof("Starting external command: %s %s", p.cmdName, strings.Join(p.cmdArgs, " "))
-	cmd := exec.Command(p.cmdName, p.cmdArgs...)
+	cmd := exec.CommandContext(startCtx, p.cmdName, p.cmdArgs...)
 	var err error
 	if p.cmdStdin, err = cmd.StdinPipe(); err != nil {
 		return err
@@ -254,6 +254,13 @@ func (p *Probe) startCmdIfNotRunning() error {
 		err := cmd.Wait()
 		close(doneChan)
 		p.cmdRunning = false
+
+		// Spare logging error message if killed explicitly.
+		select {
+		case <-startCtx.Done():
+			return
+		}
+
 		if err != nil {
 			if exitErr, ok := err.(*exec.ExitError); ok {
 				p.l.Errorf("external probe process died with the status: %s. Stderr: %s", exitErr.Error(), string(exitErr.Stderr))
@@ -399,12 +406,12 @@ func (p *Probe) processProbeResult(ps *probeStatus, result *result) {
 	}
 }
 
-func (p *Probe) runServerProbe(ctx context.Context) {
+func (p *Probe) runServerProbe(ctx, startCtx context.Context) {
 	requests := make(map[int32]requestInfo)
 	var requestsMu sync.RWMutex
 	doneChan := make(chan struct{})
 
-	if err := p.startCmdIfNotRunning(); err != nil {
+	if err := p.startCmdIfNotRunning(startCtx); err != nil {
 		p.l.Error(err.Error())
 		return
 	}
@@ -552,21 +559,21 @@ func (p *Probe) updateTargets() {
 	}
 }
 
-func (p *Probe) runProbe(ctx context.Context) {
-	ctxTimeout, cancelFunc := context.WithTimeout(ctx, p.opts.Timeout)
+func (p *Probe) runProbe(startCtx context.Context) {
+	probeCtx, cancelFunc := context.WithTimeout(startCtx, p.opts.Timeout)
 	defer cancelFunc()
 
 	p.updateTargets()
 
 	if p.mode == "server" {
-		p.runServerProbe(ctxTimeout)
+		p.runServerProbe(probeCtx, startCtx)
 	} else {
-		p.runOnceProbe(ctxTimeout)
+		p.runOnceProbe(probeCtx)
 	}
 }
 
 // Start starts and runs the probe indefinitely.
-func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) {
+func (p *Probe) Start(startCtx context.Context, dataChan chan *metrics.EventMetrics) {
 	p.dataChan = dataChan
 
 	ticker := time.NewTicker(p.opts.Interval)
@@ -575,11 +582,11 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 	for range ticker.C {
 		// Don't run another probe if context is canceled already.
 		select {
-		case <-ctx.Done():
+		case <-startCtx.Done():
 			return
 		default:
 		}
 
-		p.runProbe(ctx)
+		p.runProbe(startCtx)
 	}
 }

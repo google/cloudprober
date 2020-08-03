@@ -2,6 +2,8 @@ syntax = "proto2";
 
 package cloudprober.probes.udp;
 
+option go_package = "github.com/google/cloudprober/probes/udp/proto";
+
 message ProbeConf {
   // Port to send UDP Ping to (UDP Echo).  If running with the UDP server that
   // comes with cloudprober, it should be same as

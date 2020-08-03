@@ -177,7 +177,10 @@ func testListAndResolve(t *testing.T, c *configpb.Instances, testIndex int, ipTy
 	}
 	sort.Strings(expectedList)
 
-	gotList := gr.List()
+	var gotList []string
+	for _, ep := range gr.ListEndpoints() {
+		gotList = append(gotList, ep.Name)
+	}
 	sort.Strings(gotList)
 
 	if !reflect.DeepEqual(gotList, expectedList) {
@@ -299,7 +302,10 @@ func TestIPListFilteringByLabels(t *testing.T) {
 			}
 			gr := testGCEResources(t, c)
 
-			gotList := gr.List()
+			var gotList []string
+			for _, ep := range gr.ListEndpoints() {
+				gotList = append(gotList, ep.Name)
+			}
 			sort.Strings(gotList)
 
 			if !reflect.DeepEqual(gotList, test.want) {

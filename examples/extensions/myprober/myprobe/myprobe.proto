@@ -1,9 +1,11 @@
 // This protobuf defines a new cloudprober probe type.
 syntax = "proto2";
 
-import "github.com/google/cloudprober/probes/proto/config.proto";
-
 package myprober;
+
+option go_package="github.com/google/cloudprober/examples/extensions/myprober/myprobe";
+
+import "github.com/google/cloudprober/probes/proto/config.proto";
 
 message ProbeConf {
   // Redis operation

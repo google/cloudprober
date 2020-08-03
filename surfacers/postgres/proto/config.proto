@@ -2,7 +2,9 @@ syntax = "proto2";
 
 package cloudprober.surfacer.postgres;
 
+option go_package = "github.com/google/cloudprober/surfacers/postgres/proto";
+
 message SurfacerConf {
-    required string connection_string = 1;
-    required string metrics_table_name = 2;
+  required string connection_string = 1;
+  required string metrics_table_name = 2;
 }

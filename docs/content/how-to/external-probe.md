@@ -46,7 +46,7 @@ as expected:
 
 {{< highlight bash >}}
 #!bash
-go build ./redis_probe.go
+CGO_ENABLED=0 go build -ldflags “-extldflags -static” ./redis_prober.go
 ./redis_probe
 set_latency_ms 22.656588
 2018/02/26 15:16:14 hello=world

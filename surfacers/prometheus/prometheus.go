@@ -120,7 +120,7 @@ type PromSurfacer struct {
 // New returns a prometheus surfacer based on the config provided. It sets up a
 // goroutine to process both the incoming EventMetrics and the web requests for
 // the URL handler /metrics.
-func New(config *configpb.SurfacerConf, l *logger.Logger) (*PromSurfacer, error) {
+func New(ctx context.Context, config *configpb.SurfacerConf, l *logger.Logger) (*PromSurfacer, error) {
 	if config == nil {
 		config = &configpb.SurfacerConf{}
 	}
@@ -151,6 +151,9 @@ func New(config *configpb.SurfacerConf, l *logger.Logger) (*PromSurfacer, error)
 	go func() {
 		for {
 			select {
+			case <-ctx.Done():
+				ps.l.Infof("Context canceled, stopping the input/output processing loop.")
+				return
 			case em := <-ps.emChan:
 				ps.record(em)
 			case hw := <-ps.queryChan:

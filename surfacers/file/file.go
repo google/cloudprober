@@ -88,6 +88,7 @@ func newCompressionBuffer(ctx context.Context, outf *os.File, l *logger.Logger) 
 					c.l.Errorf("Unable to write data to %s. Err: %v", outf.Name(), err)
 				}
 			case <-ctx.Done():
+				outf.Close()
 				return
 			}
 		}
@@ -99,8 +100,9 @@ func newCompressionBuffer(ctx context.Context, outf *os.File, l *logger.Logger) 
 		for {
 			select {
 			case <-ticker.C:
-				c.flush()
+				c.compressAndFlushToChan()
 			case <-ctx.Done():
+				ticker.Stop()
 				return
 			}
 		}
@@ -109,7 +111,7 @@ func newCompressionBuffer(ctx context.Context, outf *os.File, l *logger.Logger) 
 	return c
 }
 
-func (c *compressionBuffer) writeLine(line string) {
+func (c *compressionBuffer) writeLineToBuffer(line string) {
 	triggerFlush := false
 
 	c.Lock()
@@ -122,7 +124,7 @@ func (c *compressionBuffer) writeLine(line string) {
 
 	// triggerFlush is decided within the locked section.
 	if triggerFlush {
-		c.flush()
+		c.compressAndFlushToChan()
 	}
 }
 
@@ -139,8 +141,8 @@ func compressBytes(inBytes []byte) (string, error) {
 	return outBuf.String(), nil
 }
 
-// flush compresses the data in buffer and writes it to outChan.
-func (c *compressionBuffer) flush() {
+// compressAndFlushToChan compresses the data in buffer and writes it to outChan.
+func (c *compressionBuffer) compressAndFlushToChan() {
 	// Retrieve bytes from the buffer (c.buf) and get a new buffer for c.
 	c.Lock()
 	inBytes := c.buf.Bytes()
@@ -167,10 +169,7 @@ func (c *compressionBuffer) flush() {
 // as a GCE instance's serial port). This Surfacer does not utilize the Google
 // cloud logger because it is unlikely to fail reportably after the call to
 // New.
-func New(config *configpb.SurfacerConf, l *logger.Logger) (*FileSurfacer, error) {
-	// Create a context.
-	ctx := context.TODO()
-
+func New(ctx context.Context, config *configpb.SurfacerConf, l *logger.Logger) (*FileSurfacer, error) {
 	s := &FileSurfacer{
 		c: config,
 		l: l,
@@ -189,6 +188,9 @@ func New(config *configpb.SurfacerConf, l *logger.Logger) (*FileSurfacer, error)
 }
 
 func (s *FileSurfacer) processInput(ctx context.Context) {
+	if !s.c.GetCompressionEnabled() {
+		defer s.outf.Close()
+	}
 	for {
 		select {
 		// Write the EventMetrics to file as string.
@@ -209,7 +211,7 @@ func (s *FileSurfacer) processInput(ctx context.Context) {
 				}
 				continue
 			}
-			s.compressionBuffer.writeLine(emStr.String())
+			s.compressionBuffer.writeLineToBuffer(emStr.String())
 
 		case <-ctx.Done():
 			return

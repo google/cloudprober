@@ -2,6 +2,8 @@ syntax = "proto2";
 
 package cloudprober.servers.grpc;
 
+option go_package = "github.com/google/cloudprober/servers/grpc/proto";
+
 message EchoMessage {
   optional bytes blob = 1;
 }
@@ -32,15 +34,11 @@ message BlobWriteResponse {
 
 service Prober {
   // Echo echoes back incoming messages.
-  rpc Echo(EchoMessage) returns(EchoMessage) {
-  }
+  rpc Echo(EchoMessage) returns (EchoMessage) {}
   // BlobRead returns a blob of bytes to the prober.
-  rpc BlobRead(BlobReadRequest) returns(BlobReadResponse) {
-  }
+  rpc BlobRead(BlobReadRequest) returns (BlobReadResponse) {}
   // ServerStatus returns the current server status.
-  rpc ServerStatus(StatusRequest) returns(StatusResponse) {
-  }
+  rpc ServerStatus(StatusRequest) returns (StatusResponse) {}
   // BlobWrite allows client to write a blob to the server.
-  rpc BlobWrite(BlobWriteRequest) returns(BlobWriteResponse) {
-  }
+  rpc BlobWrite(BlobWriteRequest) returns (BlobWriteResponse) {}
 }

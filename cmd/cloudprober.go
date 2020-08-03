@@ -27,6 +27,8 @@ import (
 	"os"
 	"os/signal"
 	"runtime/pprof"
+	"syscall"
+	"time"
 
 	"cloud.google.com/go/compute/metadata"
 	"flag"
@@ -42,6 +44,7 @@ import (
 var (
 	configFile       = flag.String("config_file", "", "Config file")
 	versionFlag      = flag.Bool("version", false, "Print version and exit")
+	stopTime         = flag.Duration("stop_time", 5*time.Second, "How long to wait for cleanup before process exits on SIGINT and SIGTERM")
 	cpuprofile       = flag.String("cpuprof", "", "Write cpu profile to file")
 	memprofile       = flag.String("memprof", "", "Write heap profile to file")
 	configTest       = flag.Bool("configtest", false, "Dry run to test config file")
@@ -164,7 +167,7 @@ func main() {
 
 	if *configTest {
 		sysvars.Init(nil, configTestVars)
-		_, err := config.Parse(configFileToString(*configFile), sysvars.Vars())
+		_, err := config.ParseForTest(configFileToString(*configFile), sysvars.Vars())
 		if err != nil {
 			glog.Exitf("Error parsing config file. Err: %v", err)
 		}
@@ -181,7 +184,19 @@ func main() {
 	// web.Init sets up web UI for cloudprober.
 	web.Init()
 
-	cloudprober.Start(context.Background())
+	// Set up signal handling for the cancelation of the start context.
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	startCtx, cancelF := context.WithCancel(context.Background())
+
+	go func() {
+		sig := <-sigs
+		glog.Warningf("Received signal \"%v\", canceling the start context and waiting for %v before closing", sig, *stopTime)
+		cancelF()
+		time.Sleep(*stopTime)
+		os.Exit(0)
+	}()
+	cloudprober.Start(startCtx)
 
 	// Wait forever
 	select {}

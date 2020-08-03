@@ -15,28 +15,9 @@
 package probeutils
 
 import (
-	"net"
 	"reflect"
 	"testing"
 )
-
-func TestIPVersion(t *testing.T) {
-	rows := []struct {
-		ip    string
-		ipVer int
-	}{
-		{"1.1.1.1", 4},
-		{"::1", 6},
-	}
-
-	for _, r := range rows {
-		ipVer := IPVersion(net.ParseIP(r.ip))
-
-		if ipVer != r.ipVer {
-			t.Errorf("Unexpected IPVersion want=%d, got=%d", r.ipVer, ipVer)
-		}
-	}
-}
 
 func TestPayloadVerification(t *testing.T) {
 	testBytes := []byte("test bytes")

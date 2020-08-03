@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/rand"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -83,22 +84,7 @@ func (lister *servicesLister) listResources(req *pb.ListResourcesRequest) ([]*pb
 			continue
 		}
 
-		res := &pb.Resource{
-			Name:   proto.String(name),
-			Labels: svc.Metadata.Labels,
-		}
-
-		if req.GetIpConfig().GetIpType() == pb.IPConfig_PUBLIC {
-			// If there is no ingress IP, skip the resource.
-			if len(svc.Status.LoadBalancer.Ingress) == 0 {
-				continue
-			}
-			res.Ip = proto.String(svc.Status.LoadBalancer.Ingress[0].IP)
-		} else {
-			res.Ip = proto.String(svc.Spec.ClusterIP)
-		}
-
-		resources = append(resources, res)
+		resources = append(resources, svc.resources(allFilters.RegexFilters["port"], req.GetIpConfig().GetIpType(), lister.l)...)
 	}
 
 	lister.l.Infof("kubernetes.listResources: returning %d services", len(resources))
@@ -117,10 +103,71 @@ type serviceInfo struct {
 	Status struct {
 		LoadBalancer struct {
 			Ingress []struct {
-				IP string
+				IP       string
+				Hostname string
 			}
 		}
 	}
+}
+
+func (si *serviceInfo) matchPorts(portFilter *filter.RegexFilter, l *logger.Logger) ([]int, map[int]string) {
+	ports, portNameMap := []int{}, make(map[int]string)
+	for _, port := range si.Spec.Ports {
+		// For unnamed ports, use port number.
+		portName := port.Name
+		if portName == "" {
+			portName = strconv.FormatInt(int64(port.Port), 10)
+		}
+
+		if portFilter != nil && !portFilter.Match(portName, l) {
+			continue
+		}
+		ports = append(ports, port.Port)
+		portNameMap[port.Port] = portName
+	}
+	return ports, portNameMap
+}
+
+// resources returns RDS resources corresponding to a service resource. Each
+// service object can have multiple ports.
+//
+// a) If service has only 1 port or there is a port filter and only one port
+// matches the port filter, we return only one RDS resource with same name as
+// service name.
+// b) If there are multiple ports, we create one RDS resource for each port and
+// name each resource as: <service_name>_<port_name>
+func (si *serviceInfo) resources(portFilter *filter.RegexFilter, reqIPType pb.IPConfig_IPType, l *logger.Logger) (resources []*pb.Resource) {
+	ports, portNameMap := si.matchPorts(portFilter, l)
+	for _, port := range ports {
+		resName := si.Metadata.Name
+		if len(ports) != 1 {
+			resName = fmt.Sprintf("%s_%s", si.Metadata.Name, portNameMap[port])
+		}
+
+		res := &pb.Resource{
+			Name:   proto.String(resName),
+			Port:   proto.Int32(int32(port)),
+			Labels: si.Metadata.Labels,
+		}
+
+		if reqIPType == pb.IPConfig_PUBLIC {
+			// If there is no ingress IP, skip the resource.
+			if len(si.Status.LoadBalancer.Ingress) == 0 {
+				continue
+			}
+			ingress := si.Status.LoadBalancer.Ingress[0]
+
+			res.Ip = proto.String(ingress.IP)
+			if ingress.IP == "" && ingress.Hostname != "" {
+				res.Ip = proto.String(ingress.Hostname)
+			}
+		} else {
+			res.Ip = proto.String(si.Spec.ClusterIP)
+		}
+
+		resources = append(resources, res)
+	}
+	return
 }
 
 func parseServicesJSON(resp []byte) (names []string, services map[string]*serviceInfo, err error) {

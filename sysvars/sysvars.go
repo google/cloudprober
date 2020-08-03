@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 2017-2020 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,7 +26,8 @@ import (
 	"sync"
 	"time"
 
-	"cloud.google.com/go/compute/metadata"
+	"flag"
+
 	"github.com/google/cloudprober/config/runconfig"
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
@@ -38,6 +39,16 @@ var (
 	l         *logger.Logger
 	startTime time.Time
 )
+
+var cloudMetadataFlag = flag.String("cloud_metadata", "auto", "Collect cloud metadata for [auto|gce|ec2|none]")
+
+var cloudProviders = struct {
+	auto, gce, ec2 string
+}{
+	auto: "auto",
+	gce:  "gce",
+	ec2:  "ec2",
+}
 
 // Vars returns a copy of the system variables map, if already initialized.
 // Otherwise an empty map is returned.
@@ -81,6 +92,39 @@ func StartTime() time.Time {
 	return startTime
 }
 
+func providersToCheck(fv string) []string {
+	if fv == "" || fv == "none" {
+		return nil
+	}
+	// Update this list when we add new providers
+	if fv == cloudProviders.auto {
+		return []string{cloudProviders.gce, cloudProviders.ec2}
+	}
+	return []string{fv}
+}
+
+func initCloudMetadata(fv string) error {
+	for _, provider := range providersToCheck(fv) {
+		switch provider {
+		case cloudProviders.gce:
+			onGCE, err := gceVars(sysVars, l)
+			// Once we know it's GCE, don't continue checking.
+			if onGCE {
+				return err
+			}
+		case cloudProviders.ec2:
+			onEC2, err := ec2Vars(sysVars, l)
+			// Once we know it's EC2, don't continue checking.
+			if onEC2 {
+				return err
+			}
+		default:
+			return fmt.Errorf("unknown cloud provider: %v", provider)
+		}
+	}
+	return nil
+}
+
 // Init initializes the sysvars module's global data structure. Init makes sure
 // to initialize only once, further calls are a no-op. If needed, userVars
 // can be passed to Init to add custom variables to sysVars. This can be useful
@@ -105,20 +149,8 @@ func Init(ll *logger.Logger, userVars map[string]string) error {
 	}
 	sysVars["hostname"] = hostname
 
-	// If on GCE, add GCE variables.
-	if metadata.OnGCE() {
-		if err := gceVars(sysVars); err != nil {
-			return err
-		}
-	} else {
-		// Note: ec2Vars doesn't return an error when not running on AWS. We still
-		// ignore errors as we don't want other platforms to be impacted if
-		// behavior of the underlying AWS libraries changes.
-		// TODO: Add a function to check if running on AWS, and then stop ignoring
-		// errors from ec2Vars.
-		if err := ec2Vars(sysVars); err != nil {
-			l.Warningf("sysvars.Init(): error getting ec2 metadata, ignoring: %v", err)
-		}
+	if err := initCloudMetadata(*cloudMetadataFlag); err != nil {
+		return err
 	}
 
 	for k, v := range userVars {
@@ -143,22 +175,26 @@ func Start(ctx context.Context, dataChan chan *metrics.EventMetrics, interval ti
 	}
 	sort.Strings(varsKeys)
 
+	em := metrics.NewEventMetrics(time.Now()).
+		AddLabel("ptype", "sysvars").
+		AddLabel("probe", "sysvars")
+	em.Kind = metrics.GAUGE
+	for _, k := range varsKeys {
+		em.AddMetric(k, metrics.NewString(vars[k]))
+	}
+	l.Info(em.String())
+
 	for ts := range time.Tick(interval) {
-		// Don't run another probe if context is canceled already.
+		// Don't run another cycles if context is canceled already.
 		select {
 		case <-ctx.Done():
 			return
 		default:
 		}
 
-		em := metrics.NewEventMetrics(ts).
-			AddLabel("ptype", "sysvars").
-			AddLabel("probe", "sysvars")
-		em.Kind = metrics.GAUGE
-		for _, k := range varsKeys {
-			em.AddMetric(k, metrics.NewString(vars[k]))
-		}
-		dataChan <- em
+		// Update timestamp and publish static variables.
+		em.Timestamp = ts
+		dataChan <- em.Clone()
 		l.Debug(em.String())
 
 		runtimeVars(dataChan, l)

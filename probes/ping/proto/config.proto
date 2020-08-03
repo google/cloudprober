@@ -2,6 +2,8 @@ syntax = "proto2";
 
 package cloudprober.probes.ping;
 
+option go_package = "github.com/google/cloudprober/probes/ping/proto";
+
 // Next tag: 1
 message ProbeConf {
   // Packets per probe

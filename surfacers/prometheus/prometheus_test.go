@@ -88,8 +88,8 @@ func newPromSurfacer(t *testing.T, writeTimestamp bool) *PromSurfacer {
 		MetricsUrl:       proto.String(fmt.Sprintf("/metrics_%d", rand.Int())),
 		IncludeTimestamp: proto.Bool(writeTimestamp),
 	}
-	l, _ := logger.New(context.TODO(), "promtheus_test")
-	ps, err := New(c, l)
+	l, _ := logger.New(context.Background(), "promtheus_test")
+	ps, err := New(context.Background(), c, l)
 	if err != nil {
 		t.Fatal("Error while initializing prometheus surfacer", err)
 	}

@@ -5,9 +5,11 @@ package cloudprober.targets;
 
 import "github.com/google/cloudprober/rds/client/proto/config.proto";
 import "github.com/google/cloudprober/rds/proto/rds.proto";
+import "github.com/google/cloudprober/targets/file/proto/config.proto";
 import "github.com/google/cloudprober/targets/gce/proto/config.proto";
 import "github.com/google/cloudprober/targets/lameduck/proto/config.proto";
-import "github.com/google/cloudprober/targets/rtc/proto/config.proto";
+
+option go_package = "github.com/google/cloudprober/targets/proto";
 
 message RDSTargets {
   // RDS server options, for example:
@@ -76,10 +78,12 @@ message TargetsDef {
     // }
     RDSTargets rds_targets = 3;
 
-    // Targets stored in Runtime Config variables (Deprecated).
-    // RTC targets are now deprecated (as of v0.10.4). Please don't use them for
-    // new use cases.
-    rtc.TargetsConf rtc_targets = 4;
+    // File based targets.
+    // Example:
+    // file_targets {
+    //   file_path: "/var/run/cloudprober/vips.textpb"
+    // }
+    file.TargetsConf file_targets = 4;
 
     // Empty targets to meet the probe definition requirement where there are
     // actually no targets, for example in case of some external probes.

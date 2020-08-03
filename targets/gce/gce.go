@@ -77,8 +77,8 @@ var global struct {
 // Targets interface is redefined here (originally defined in targets.go) to
 // allow returning private gceResources.
 type Targets interface {
-	// List produces list of targets.
-	List() []string
+	// ListEndpoints produces list of targets.
+	ListEndpoints() []endpoint.Endpoint
 	// Resolve, given a target name and IP Version will return the IP address for
 	// that target.
 	Resolve(name string, ipVer int) (net.IP, error)
@@ -162,15 +162,6 @@ func (gr *gceResources) initClients(projects []string) error {
 	}
 
 	return nil
-}
-
-// List returns the list of target names.
-func (gr *gceResources) List() []string {
-	var names []string
-	for _, client := range gr.clients {
-		names = append(names, client.List()...)
-	}
-	return names
 }
 
 // ListEndpoints returns the list of GCE endpoints.

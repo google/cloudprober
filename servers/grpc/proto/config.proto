@@ -2,6 +2,8 @@ syntax = "proto2";
 
 package cloudprober.servers.grpc;
 
+option go_package = "github.com/google/cloudprober/servers/grpc/proto";
+
 message ServerConf {
   optional int32 port = 1 [default = 3142];
 

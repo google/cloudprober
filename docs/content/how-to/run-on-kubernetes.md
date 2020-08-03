@@ -123,9 +123,9 @@ Once you've verified that everything is working as expected, you can go on setti
 
 ## Kubernetes Targets
 
-If you're running on Kuberenetes, it's likely that you want to monitor Kubernetes resources (e.g. pods, endpoints, etc). Good news is that cloudprober supports dynamic discovery for Kubernetes targets.
+If you're running on Kuberenetes, you'd probably want to monitor Kubernetes resources (e.g. pods, endpoints, etc) as well. Good news is that cloudprober supports dynamic [targets discovery](/concepts/targets/) of Kubernetes resources.
 
-Following config enables targets discovery for kubernetes resources:
+For example, following config adds HTTP probing of Kubernetes endpoints named 'cloudprober' (equivalent to _kubectl get ep cloudprober_).
 
 ```bash
 probe {
@@ -133,7 +133,8 @@ probe {
   type: HTTP
 
   targets {
-    # RDS (resource discovery service) targets 
+    # RDS (resource discovery service) targets
+    # Equivalent to kubectl get ep cloudprober
     rds_targets {
       resource_path: "k8s://endpoints/cloudprober"
     }
@@ -148,6 +149,8 @@ probe {
 # Run an RDS gRPC server to discover Kubernetes targets.
 rds_server {
   provider {
+    # For all options, please take a look at:
+    # https://github.com/google/cloudprober/blob/master/rds/kubernetes/proto/config.proto#L38
     kubernetes_config {
       endpoints {}
     }
@@ -155,17 +158,20 @@ rds_server {
 }
 ```
 
-This config adds a probe for endpoints named 'cloudprober'. There are a few cloudprober features that we use here which have not been explained anywhere else.
+This config adds a probe for endpoints named 'cloudprober'. Kubernetes targets configuration is further explained in the section below.
 
-### RDS Targets
+### Kubernetes RDS Targets
 
-Cloudprober uses [RDS protocol](https://github.com/google/cloudprober/blob/master/rds/proto/rds.proto) as an interface for dynamic targets discovery. This allows us to add new target types without modifying the rest of the code. In this config, we add an internal RDS server that provides expansion for kubernetes endpoints (other supported types are -- pods, services).  Inside the probe, we specify targets of the type `rds_targets` (which by default talks to the internal RDS server but can be configured to talk to a remote RDS server as well) to discover targets. Here resource path, `k8s://endpoints/cloudprober` specifies endpoints named 'cloudprober' (Hint: you could skip the name part of the resource path to discover all endpoints in the cluster).
+As explained [here](/concepts/targets/#resource-discovery-service), cloudprober uses RDS for dynamic targets discovery. In the above config, we add an internal RDS server that provides expansion for kubernetes `endpoints` (other supported types are -- _pods_, _services_).  Inside the probe, we specify targets of the type [rds_targets](/concepts/targets/#resource-discovery-service) with resource path, `k8s://endpoints/cloudprober`. This resource path specifies resource of the type 'endpoints' and with the name 'cloudprober' (Hint: you can skip the name part of the resource path to discover all endpoints in the cluster).
 
 ### Cluster Resources Access
 
 RDS server that we added above discovers cluster resources using kubernetes APIs. It assumes that we are interested in the cluster we are running it in, and uses in-cluster config to talk to the kubernetes API server. For this set up to work, we need to give our container read-only access to kubernetes resources:
 
 ```yaml
+# Define a ClusterRole (resource-reader) for read-only access to the cluster
+# resources and bind this ClusterRole to the default service account.
+
 cat <<EOF | kubectl apply -f -
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -227,4 +233,4 @@ curl localhost:9313/config
 curl localhost:9313/metrics
 ```
 
-If you're running on GKE and have not disabled cloud, you'll also see logs in [Stackdriver Logging](https://pantheon.corp.google.com/logs/viewer?resource=gce_instance).
+If you're running on GKE and have not disabled cloud logging, you'll also see logs in [Stackdriver Logging](https://pantheon.corp.google.com/logs/viewer?resource=gce_instance).

@@ -18,6 +18,7 @@ import (
 	"reflect"
 	"testing"
 
+	pb "github.com/google/cloudprober/rds/proto"
 	serverconfigpb "github.com/google/cloudprober/rds/server/proto"
 )
 
@@ -110,4 +111,60 @@ func TestDefaultProviderConfig(t *testing.T) {
 	}
 	c = DefaultProviderConfig(projects, resTypes, 10, apiVersion)
 	testGCPConfig(t, c, projects, true, testRTCConfig, testPubsubTopic, apiVersion, 10)
+}
+
+type dummyLister struct {
+	name string
+}
+
+func (dl *dummyLister) listResources(req *pb.ListResourcesRequest) ([]*pb.Resource, error) {
+	return []*pb.Resource{}, nil
+}
+
+func TestListersForResourcePath(t *testing.T) {
+	projects := []string{"p1", "p2"}
+	p := &Provider{
+		projects: projects,
+		listers:  make(map[string]map[string]lister),
+	}
+
+	for _, project := range projects {
+		p.listers[project] = map[string]lister{
+			ResourceTypes.GCEInstances: &dummyLister{
+				name: project,
+			},
+		}
+	}
+
+	testCases := []struct {
+		rp, listerName string
+		wantErr        bool
+	}{
+		{"gce_instances", projects[0], false},
+		{"gce_instances/", projects[0], false},
+		{"gce_instances/p1", "p1", false},
+		{"gce_instances/p2", "p2", false},
+		{"gce_instances/p3", "", true}, // unknown project
+		{"instances/p3", "", true},     // unknown resource_type
+	}
+
+	for _, tc := range testCases {
+		t.Run("testing_for_resource_path:"+tc.rp, func(t *testing.T) {
+			lr, err := p.listerForResourcePath(tc.rp)
+
+			if (err != nil) != tc.wantErr {
+				t.Errorf("err=%v, wantErr=%v", err, tc.wantErr)
+			}
+
+			if err != nil {
+				return
+			}
+
+			dlr := lr.(*dummyLister)
+			if dlr.name != tc.listerName {
+				t.Errorf("got lister=%s, wanted=%s", dlr.name, tc.listerName)
+			}
+		})
+	}
+
 }

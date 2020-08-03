@@ -28,6 +28,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/cloudprober/common/iputils"
 	"github.com/google/cloudprober/common/oauth"
 	"github.com/google/cloudprober/common/tlsconfig"
 	"github.com/google/cloudprober/logger"
@@ -35,13 +36,21 @@ import (
 	pb "github.com/google/cloudprober/rds/proto"
 	spb "github.com/google/cloudprober/rds/proto"
 	"github.com/google/cloudprober/targets/endpoint"
+	dnsRes "github.com/google/cloudprober/targets/resolver"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	grpcoauth "google.golang.org/grpc/credentials/oauth"
 )
 
+// globalResolver is a singleton DNS resolver that is used as the default
+// resolver by targets. It is a singleton because dnsRes.Resolver provides a
+// cache layer that is best shared by all probes.
+var (
+	globalResolver *dnsRes.Resolver
+)
+
 type cacheRecord struct {
-	ip     net.IP
+	ip     string
 	port   int
 	labels map[string]string
 }
@@ -51,13 +60,14 @@ const defaultRDSPort = "9314"
 
 // Client represents an RDS based client instance.
 type Client struct {
-	mu            sync.Mutex
+	mu            sync.RWMutex
 	c             *configpb.ClientConf
 	serverOpts    *configpb.ClientConf_ServerOptions
 	dialOpts      []grpc.DialOption
 	cache         map[string]*cacheRecord
 	names         []string
 	listResources func(context.Context, *pb.ListResourcesRequest) (*pb.ListResourcesResponse, error)
+	resolver      *dnsRes.Resolver
 	l             *logger.Logger
 }
 
@@ -84,31 +94,15 @@ func (client *Client) updateState(response *pb.ListResourcesResponse) {
 
 	client.names = make([]string, len(response.GetResources()))
 	for i, res := range response.GetResources() {
-		var ip net.IP
-
-		if res.GetIp() != "" {
-			ip = net.ParseIP(res.GetIp())
-			if ip == nil {
-				client.l.Errorf("rds.client: errors parsing IP address for %s, IP string: %s", res.GetName(), res.GetIp())
-				continue
-			}
-		}
-		client.cache[res.GetName()] = &cacheRecord{ip, int(res.GetPort()), res.Labels}
+		client.cache[res.GetName()] = &cacheRecord{res.GetIp(), int(res.GetPort()), res.Labels}
 		client.names[i] = res.GetName()
 	}
 }
 
-// List returns the list of resource names.
-func (client *Client) List() []string {
-	client.mu.Lock()
-	defer client.mu.Unlock()
-	return append([]string{}, client.names...)
-}
-
 // ListEndpoints returns the list of resources.
 func (client *Client) ListEndpoints() []endpoint.Endpoint {
-	client.mu.Lock()
-	defer client.mu.Unlock()
+	client.mu.RLock()
+	defer client.mu.RUnlock()
 	result := make([]endpoint.Endpoint, len(client.names))
 	for i, name := range client.names {
 		result[i] = endpoint.Endpoint{Name: name, Port: client.cache[name].port, Labels: client.cache[name].labels}
@@ -119,31 +113,25 @@ func (client *Client) ListEndpoints() []endpoint.Endpoint {
 // Resolve returns the IP address for the given resource. If no IP address is
 // associated with the resource, an error is returned.
 func (client *Client) Resolve(name string, ipVer int) (net.IP, error) {
-	client.mu.Lock()
-	defer client.mu.Unlock()
+	client.mu.RLock()
+	defer client.mu.RUnlock()
+
 	cr, ok := client.cache[name]
-	if !ok || cr.ip == nil {
+	if !ok || cr.ip == "" {
 		return nil, fmt.Errorf("no IP address for the resource: %s", name)
 	}
-	ip := cr.ip
 
-	// If we don't care about IP version, return whatever we've got.
-	if ipVer == 0 {
+	ip := net.ParseIP(cr.ip)
+	// If not a valid IP, use DNS resolver to resolve it.
+	if ip == nil {
+		return client.resolver.Resolve(cr.ip, ipVer)
+	}
+
+	if ipVer == 0 || iputils.IPVersion(ip) == ipVer {
 		return ip, nil
 	}
 
-	// Verify that the IP matches the version we need.
-	ip4 := ip.To4()
-	if ipVer == 6 {
-		if ip4 == nil {
-			return ip, nil
-		}
-		return nil, fmt.Errorf("no IPv6 address (IP: %s) for %s", ip.String(), name)
-	}
-	if ip4 != nil {
-		return ip, nil
-	}
-	return nil, fmt.Errorf("no IPv4 address (IP: %s) for %s", ip.String(), name)
+	return nil, fmt.Errorf("no IPv%d address (IP: %s) for %s", ipVer, ip.String(), name)
 }
 
 func (client *Client) connect(serverAddr string) (*grpc.ClientConn, error) {
@@ -207,6 +195,7 @@ func New(c *configpb.ClientConf, listResources ListResourcesFunc, l *logger.Logg
 		serverOpts:    c.GetServerOptions(),
 		cache:         make(map[string]*cacheRecord),
 		listResources: listResources,
+		resolver:      globalResolver,
 		l:             l,
 	}
 
@@ -230,4 +219,9 @@ func New(c *configpb.ClientConf, listResources ListResourcesFunc, l *logger.Logg
 	}()
 
 	return client, nil
+}
+
+// init initializes the package by creating a new global resolver.
+func init() {
+	globalResolver = dnsRes.New()
 }

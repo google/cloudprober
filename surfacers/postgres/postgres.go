@@ -170,7 +170,7 @@ type Surfacer struct {
 
 // New initializes a Postgres surfacer. Postgres surfacer inserts probe results
 // into a postgres database.
-func New(config *configpb.SurfacerConf, l *logger.Logger) (*Surfacer, error) {
+func New(ctx context.Context, config *configpb.SurfacerConf, l *logger.Logger) (*Surfacer, error) {
 	s := &Surfacer{
 		c: config,
 		l: l,
@@ -178,7 +178,7 @@ func New(config *configpb.SurfacerConf, l *logger.Logger) (*Surfacer, error) {
 			return sql.Open("postgres", cs)
 		},
 	}
-	return s, s.init()
+	return s, s.init(ctx)
 }
 
 // writeMetrics parses events metrics into postgres rows, starts a transaction
@@ -217,7 +217,7 @@ func (s *Surfacer) writeMetrics(em *metrics.EventMetrics) error {
 }
 
 // init connects to postgres
-func (s *Surfacer) init() error {
+func (s *Surfacer) init(ctx context.Context) error {
 	var err error
 
 	if s.db, err = s.openDB(s.c.GetConnectionString()); err != nil {
@@ -234,14 +234,19 @@ func (s *Surfacer) init() error {
 		defer s.db.Close()
 
 		for {
-			em := <-s.writeChan
-			if em.Kind != metrics.CUMULATIVE && em.Kind != metrics.GAUGE {
-				continue
-			}
-			// Note: we may want to batch calls to writeMetrics, as each call results in
-			// a database transaction.
-			if err := s.writeMetrics(em); err != nil {
-				s.l.Warningf("Error while writing metrics: %v", err)
+			select {
+			case <-ctx.Done():
+				s.l.Infof("Context canceled, stopping the surfacer write loop")
+				return
+			case em := <-s.writeChan:
+				if em.Kind != metrics.CUMULATIVE && em.Kind != metrics.GAUGE {
+					continue
+				}
+				// Note: we may want to batch calls to writeMetrics, as each call results in
+				// a database transaction.
+				if err := s.writeMetrics(em); err != nil {
+					s.l.Warningf("Error while writing metrics: %v", err)
+				}
 			}
 		}
 	}()

@@ -1,11 +1,13 @@
 syntax = "proto2";
 
-import "github.com/google/cloudprober/surfacers/prometheus/proto/config.proto";
-import "github.com/google/cloudprober/surfacers/stackdriver/proto/config.proto";
+package cloudprober.surfacer;
+
 import "github.com/google/cloudprober/surfacers/file/proto/config.proto";
 import "github.com/google/cloudprober/surfacers/postgres/proto/config.proto";
+import "github.com/google/cloudprober/surfacers/prometheus/proto/config.proto";
+import "github.com/google/cloudprober/surfacers/stackdriver/proto/config.proto";
 
-package cloudprober.surfacer;
+option go_package = "github.com/google/cloudprober/surfacers/proto";
 
 // Enumeration for each type of surfacer we can parse and create
 enum Type {

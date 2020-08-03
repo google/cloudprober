@@ -4,6 +4,8 @@ package cloudprober.probes.grpc;
 
 import "github.com/google/cloudprober/common/oauth/proto/config.proto";
 
+option go_package = "github.com/google/cloudprober/probes/grpc/proto";
+
 message ProbeConf {
   // Optional oauth config. For GOOGLE_DEFAULT_CREDENTIALS, use:
   // oauth_config: { bearer_token { gce_service_account: "default" } }
@@ -36,9 +38,9 @@ message ProbeConf {
   }
   optional MethodType method = 3 [default = ECHO];
 
-  optional int32 blob_size = 4 [default=1024];
-  optional int32 num_conns = 5 [default=2];
-  optional bool keep_alive = 6 [default=true];
+  optional int32 blob_size = 4 [default = 1024];
+  optional int32 num_conns = 5 [default = 2];
+  optional bool keep_alive = 6 [default = true];
 
   // If connect_timeout is not specified, reuse probe timeout.
   optional int32 connect_timeout_msec = 7;

@@ -17,18 +17,23 @@ package sysvars
 import (
 	"context"
 	"fmt"
-	"net"
 	"strings"
 
 	"cloud.google.com/go/compute/metadata"
 	"github.com/golang/glog"
+	"github.com/google/cloudprober/logger"
 	compute "google.golang.org/api/compute/v1"
 )
 
 // maxNICs is the number of NICs allowed on a VM. Used by addGceNicInfo.
 var maxNICs = 8
 
-func gceVars(vars map[string]string) error {
+var gceVars = func(vars map[string]string, l *logger.Logger) (bool, error) {
+	onGCE := metadata.OnGCE()
+	if !onGCE {
+		return false, nil
+	}
+
 	for _, k := range []string{
 		"zone",
 		"project",
@@ -70,29 +75,29 @@ func gceVars(vars map[string]string) error {
 				v = tokens[len(tokens)-1]
 			}
 		default:
-			return fmt.Errorf("utils.GCEVars: unknown variable key %q", k)
+			return onGCE, fmt.Errorf("sysvars_gce: unknown variable key %q", k)
 		}
 		if err != nil {
-			return fmt.Errorf("utils.GCEVars: error while getting %s from metadata: %v", k, err)
+			return onGCE, fmt.Errorf("sysvars_gce: error while getting %s from metadata: %v", k, err)
 		}
 		vars[k] = v
 	}
 	zoneParts := strings.Split(vars["zone"], "-")
 	vars["region"] = strings.Join(zoneParts[0:len(zoneParts)-1], "-")
-	addGceNicInfo(vars)
+	addGceNicInfo(vars, l)
 
-	ls, err := labelsFromGCE(vars["project"], vars["zone"], vars["instance"])
+	labels, err := labelsFromGCE(vars["project"], vars["zone"], vars["instance"])
 	if err != nil {
-		return err
+		return onGCE, err
 	}
 
-	for k, v := range ls {
+	for k, v := range labels {
 		// Adds GCE labels to the dictionary with a 'labels_' prefix so they can be
 		// referenced in the cfg file.
 		vars["labels_"+k] = v
 
 	}
-	return nil
+	return onGCE, nil
 }
 
 func labelsFromGCE(project, zone, instance string) (map[string]string, error) {
@@ -101,22 +106,30 @@ func labelsFromGCE(project, zone, instance string) (map[string]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error creating compute service to get instance labels: %v", err)
 	}
+
+	// Following call requires read-only access to compute API. We don't want to
+	// fail initialization if that happens.
 	i, err := computeService.Instances.Get(project, zone, instance).Context(ctx).Do()
 	if err != nil {
-		return nil, fmt.Errorf("error while fetching the instance resource using GCE API: %v", err)
+		l.Warningf("sysvars_gce: Error while fetching the instance resource using GCE API: %v. Continuing without labels info.", err)
+		return nil, nil
 	}
+
 	return i.Labels, nil
 }
 
 // addGceNicInfo adds nic information to vars.
 // The following information is added for each nic.
 // - Primary IP, if one is assigned to nic.
+//	 If no primary IP is found, assume that NIC doesn't exist.
+// - IPv6 IP, if one is assigned to nic.
+//   If nic0 has IPv6 IP, then assign ip to key: "internal_ipv6_ip"
 // - External IP, if one is assigned to nic.
 // - An IP alias, if any IP alias ranges are assigned to nic.
 //
 // See the following document for more information on metadata.
 // https://cloud.google.com/compute/docs/storing-retrieving-metadata
-func addGceNicInfo(vars map[string]string) {
+func addGceNicInfo(vars map[string]string, l *logger.Logger) {
 	for i := 0; i < maxNICs; i++ {
 		k := fmt.Sprintf("instance/network-interfaces/%v/ip", i)
 		v, err := metadata.Get(k)
@@ -124,24 +137,18 @@ func addGceNicInfo(vars map[string]string) {
 		if err != nil {
 			continue
 		}
-		vars[k] = v
+		vars[fmt.Sprintf("nic_%d_ip", i)] = v
 
-		k = fmt.Sprintf("instance/network-interfaces/%v/access-configs/%v/external-ip", i, i)
+		k = fmt.Sprintf("instance/network-interfaces/%v/ipv6s", i)
 		v, err = metadata.Get(k)
-		// NIC may exist but not have external IP.
 		if err != nil {
-			continue
+			l.Debugf("VM does not have ipv6 ip on interface# %d", i)
+		} else {
+			v = strings.TrimSpace(v)
+			vars[k] = v
+			if i == 0 {
+				vars["internal_ipv6_ip"] = v
+			}
 		}
-		vars[k] = v
-
-		k = fmt.Sprintf("instance/network-interfaces/%v/ip-aliases/0", i)
-		v, err = metadata.Get(k)
-		// NIC may not have any IP alias ranges.
-		if err != nil {
-			continue
-		}
-		// Extract a sample IP address from the IP range returned via above metadata query.
-		ip, _, _ := net.ParseCIDR(v)
-		vars[k+"-sample"] = ip.String()
 	}
 }

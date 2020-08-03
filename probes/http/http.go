@@ -23,6 +23,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"net/http/httptrace"
 	"net/url"
 	"strconv"
 	"strings"
@@ -83,6 +84,7 @@ type Probe struct {
 
 type probeResult struct {
 	total, success, timeouts int64
+	connEvent                int64
 	latency                  metrics.Value
 	respCodes                *metrics.Map
 	respBodies               *metrics.Map
@@ -132,6 +134,14 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		DialContext:         dialer.DialContext,
 		MaxIdleConns:        256, // http.DefaultTransport.MaxIdleConns: 100.
 		TLSHandshakeTimeout: p.opts.Timeout,
+	}
+
+	if p.c.GetProxyUrl() != "" {
+		url, err := url.Parse(p.c.GetProxyUrl())
+		if err != nil {
+			return fmt.Errorf("error parsing proxy URL (%s): %v", p.c.GetProxyUrl(), err)
+		}
+		transport.Proxy = http.ProxyURL(url)
 	}
 
 	if p.c.GetDisableCertValidation() || p.c.GetTlsConfig() != nil {
@@ -219,6 +229,21 @@ func (p *Probe) doHTTPRequest(ireq *http.Request, result *probeResult, resultMu 
 
 	start := time.Now()
 
+	if p.c.GetKeepAlive() {
+		trace := &httptrace.ClientTrace{
+			ConnectDone: func(_, addr string, err error) {
+				result.connEvent++
+				if err != nil {
+					p.l.Warning("Error establishing a new connection to: ", addr, ". Err: ", err.Error())
+					return
+				}
+				p.l.Info("Established a new connection to: ", addr)
+			},
+		}
+		req = req.WithContext(httptrace.WithClientTrace(req.Context(), trace))
+	}
+
+	start := time.Now()
 	resp, err := p.client.Do(req)
 	latency := time.Since(start)
 
@@ -387,6 +412,10 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 					AddLabel("ptype", "http").
 					AddLabel("probe", p.name).
 					AddLabel("dst", target.Name)
+
+				if p.c.GetKeepAlive() {
+					em.AddMetric("connect_event", metrics.NewInt(result.connEvent))
+				}
 
 				for _, al := range p.opts.AdditionalLabels {
 					em.AddLabel(al.KeyValueForTarget(target.Name))
