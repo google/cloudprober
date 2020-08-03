@@ -227,8 +227,6 @@ func (p *Probe) doHTTPRequest(ireq *http.Request, result *probeResult, resultMu 
 		req.Body = ioutil.NopCloser(bytes.NewReader(p.requestBody))
 	}
 
-	start := time.Now()
-
 	if p.c.GetKeepAlive() {
 		trace := &httptrace.ClientTrace{
 			ConnectDone: func(_, addr string, err error) {
