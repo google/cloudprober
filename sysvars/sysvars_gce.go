@@ -92,9 +92,9 @@ var gceVars = func(vars map[string]string, l *logger.Logger) (bool, error) {
 	}
 
 	for k, v := range labels {
-		// Adds GCE labels to the dictionary with a 'labels_' prefix so they can be
+		// Adds GCE labels to the dictionary with a 'label_' prefix so they can be
 		// referenced in the cfg file.
-		vars["labels_"+k] = v
+		vars["label_"+k] = v
 
 	}
 	return onGCE, nil

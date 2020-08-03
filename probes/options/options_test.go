@@ -1,4 +1,4 @@
-// Copyright 2017-2019 Google Inc.
+// Copyright 2017-2020 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@ package options
 import (
 	"errors"
 	"net"
-	"reflect"
 	"testing"
 	"time"
 
@@ -276,74 +275,6 @@ func TestStatsExportInterval(t *testing.T) {
 		want := time.Duration(r.want) * time.Second
 		if opts.StatsExportInterval != want {
 			t.Errorf("Unexpected stats export interval (test case: %s): want=%s, got=%s", r.name, want, opts.StatsExportInterval)
-		}
-	}
-}
-
-var coonfigWithAdditionalLabels = &configpb.ProbeDef{
-	AdditionalLabel: []*configpb.AdditionalLabel{
-		{
-			Key:   proto.String("src_zone"),
-			Value: proto.String("zoneA"),
-		},
-		{
-			Key:   proto.String("dst_zone"),
-			Value: proto.String("target.labels.zone"),
-		},
-	},
-}
-
-func TestParseAdditionalLabel(t *testing.T) {
-	expectedAdditionalLabels := []*AdditionalLabel{
-		{
-			Key:   "src_zone",
-			Value: "zoneA",
-		},
-		{
-			Key:            "dst_zone",
-			TargetLabelKey: "zone",
-			LabelForTarget: make(map[string]string),
-		},
-	}
-
-	opts := &Options{}
-	opts.parseAdditionalLabels(coonfigWithAdditionalLabels)
-
-	// Verify that we got the correct additional lables and also update them while
-	// iterating over them.
-	for i, al := range opts.AdditionalLabels {
-		if !reflect.DeepEqual(al, expectedAdditionalLabels[i]) {
-			t.Errorf("Additional labels not parsed correctly. Got=%v, Wanted=%v", al, expectedAdditionalLabels[i])
-		}
-	}
-}
-
-func TestUpdateAdditionalLabel(t *testing.T) {
-	opts := &Options{}
-	opts.parseAdditionalLabels(coonfigWithAdditionalLabels)
-
-	// Verify that we got the correct additional lables and also update them while
-	// iterating over them.
-	for _, al := range opts.AdditionalLabels {
-		al.UpdateForTarget("target1", map[string]string{})
-		al.UpdateForTarget("target2", map[string]string{"zone": "zoneB"})
-	}
-
-	expectedLabels := map[string][][2]string{
-		"target1": {{"src_zone", "zoneA"}, {"dst_zone", ""}},
-		"target2": {{"src_zone", "zoneA"}, {"dst_zone", "zoneB"}},
-	}
-
-	for target, labels := range expectedLabels {
-		var gotLabels [][2]string
-
-		for _, al := range opts.AdditionalLabels {
-			k, v := al.KeyValueForTarget(target)
-			gotLabels = append(gotLabels, [2]string{k, v})
-		}
-
-		if !reflect.DeepEqual(gotLabels, labels) {
-			t.Errorf("Didn't get expected labels for the target: %s. Got=%v, Expected=%v", target, gotLabels, labels)
 		}
 	}
 }
