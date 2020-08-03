@@ -1,4 +1,4 @@
-// Copyright 2017-2019 Google Inc.
+// Copyright 2017-2020 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,7 +20,6 @@ package options
 import (
 	"fmt"
 	"net"
-	"strings"
 	"time"
 
 	"github.com/google/cloudprober/common/iputils"
@@ -32,38 +31,6 @@ import (
 	targetspb "github.com/google/cloudprober/targets/proto"
 	"github.com/google/cloudprober/validators"
 )
-
-// AdditionalLabel encapsulates additional labels to attach to probe results.
-type AdditionalLabel struct {
-	Key string
-
-	Value          string // static value
-	TargetLabelKey string // from target
-
-	// This map will allow for quick label lookup for a target. It will be
-	// updated by the probe while updating targets.
-	LabelForTarget map[string]string
-}
-
-// UpdateForTarget updates target-based label's value.
-func (al *AdditionalLabel) UpdateForTarget(targetName string, targetLabels map[string]string) {
-	if al.TargetLabelKey == "" {
-		return
-	}
-
-	if al.LabelForTarget == nil {
-		al.LabelForTarget = make(map[string]string)
-	}
-	al.LabelForTarget[targetName] = targetLabels[al.TargetLabelKey]
-}
-
-// KeyValueForTarget returns key, value pair for the given target.
-func (al *AdditionalLabel) KeyValueForTarget(targetName string) (key, val string) {
-	if al.Value != "" {
-		return al.Key, al.Value
-	}
-	return al.Key, al.LabelForTarget[targetName]
-}
 
 // Options encapsulates common probe options.
 type Options struct {
@@ -200,7 +167,7 @@ func BuildProbeOptions(p *configpb.ProbeDef, ldLister lameduck.Lister, globalTar
 		}
 	}
 
-	opts.parseAdditionalLabels(p)
+	opts.AdditionalLabels = parseAdditionalLabels(p)
 
 	if !p.GetDebugOptions().GetLogMetrics() {
 		opts.LogMetrics = func(em *metrics.EventMetrics) {}
@@ -213,24 +180,6 @@ func BuildProbeOptions(p *configpb.ProbeDef, ldLister lameduck.Lister, globalTar
 	}
 
 	return opts, nil
-}
-
-func (opts *Options) parseAdditionalLabels(p *configpb.ProbeDef) {
-	for _, pb := range p.GetAdditionalLabel() {
-		al := &AdditionalLabel{
-			Key: pb.GetKey(),
-		}
-
-		val := pb.GetValue()
-		if !strings.HasPrefix(val, "target.labels.") {
-			al.Value = val
-		} else {
-			al.TargetLabelKey = strings.TrimPrefix(val, "target.labels.")
-			al.LabelForTarget = make(map[string]string)
-		}
-
-		opts.AdditionalLabels = append(opts.AdditionalLabels, al)
-	}
 }
 
 // DefaultOptions returns default options, capturing default values for the
