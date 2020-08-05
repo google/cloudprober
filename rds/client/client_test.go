@@ -61,6 +61,13 @@ var testResourcesMap = map[string][]*pb.Resource{
 			Port:   proto.Int32(80),
 			Labels: map[string]string{"zone": "us-central1-c"},
 		},
+		// Duplicate resource, it should be removed from the result.
+		{
+			Name:   proto.String("testR3"),
+			Ip:     proto.String("testR3.test.com"),
+			Port:   proto.Int32(80),
+			Labels: map[string]string{"zone": "us-central1-c"},
+		},
 	},
 }
 
@@ -136,9 +143,11 @@ func TestListAndResolve(t *testing.T) {
 
 		client.refreshState(time.Second)
 
-		// Test ListEndpoint()
+		// Test ListEndpoint(), note that we remove the duplicate resource from the
+		// exepected output.
 		epList := client.ListEndpoints()
-		for i, res := range testResources {
+		expectedList := testResources[:len(testResources)-1]
+		for i, res := range expectedList {
 			if epList[i].Name != res.GetName() {
 				t.Errorf("Resource name: got=%s, want=%s", epList[i].Name, res.GetName())
 			}
@@ -153,7 +162,7 @@ func TestListAndResolve(t *testing.T) {
 		}
 
 		// Test Resolve()
-		for _, res := range testResources {
+		for _, res := range expectedList {
 			for _, ipVer := range []int{0, 4, 6} {
 				t.Run(fmt.Sprintf("resolve_%s_for_IPv%d", res.GetName(), ipVer), func(t *testing.T) {
 					expectedIP := expectedIPByVersion[res.GetName()][ipVer]
