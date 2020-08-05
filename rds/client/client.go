@@ -93,10 +93,23 @@ func (client *Client) updateState(response *pb.ListResourcesResponse) {
 	defer client.mu.Unlock()
 
 	client.names = make([]string, len(response.GetResources()))
-	for i, res := range response.GetResources() {
+	oldcache := client.cache
+	client.cache = make(map[string]*cacheRecord, len(response.GetResources()))
+
+	i := 0
+	for _, res := range response.GetResources() {
+		if oldRes, ok := client.cache[res.GetName()]; ok {
+			client.l.Warningf("Got resource (%s) again, ignoring this instance: {%v}. Previous record: %+v.", res.GetName(), res, *oldRes)
+			continue
+		}
+		if oldcache[res.GetName()] != nil && res.GetIp() != oldcache[res.GetName()].ip {
+			client.l.Infof("Resource (%s) ip has changed: %s -> %s.", res.GetName(), oldcache[res.GetName()].ip, res.GetIp())
+		}
 		client.cache[res.GetName()] = &cacheRecord{res.GetIp(), int(res.GetPort()), res.Labels}
 		client.names[i] = res.GetName()
+		i++
 	}
+	client.names = client.names[:i]
 }
 
 // ListEndpoints returns the list of resources.
