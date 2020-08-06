@@ -295,7 +295,7 @@ func (l *Logger) Critical(payload ...string) {
 
 // Debugf logs formatted text messages with logging level "Debug".
 func (l *Logger) Debugf(format string, args ...interface{}) {
-	if l.debugLog {
+	if l != nil && l.debugLog {
 		l.log(logging.Debug, fmt.Sprintf(format, args...))
 	}
 }
