@@ -24,18 +24,25 @@ import (
 )
 
 func testPodInfo(name, ns, ip string, labels map[string]string) *podInfo {
+	labels["namespace"] = ns
 	pi := &podInfo{Metadata: kMetadata{Name: name, Namespace: ns, Labels: labels}}
 	pi.Status.PodIP = ip
 	return pi
 }
 
 func TestListResources(t *testing.T) {
-	pl := &podsLister{}
-	pl.names = []string{"podA", "podB", "podC"}
-	pl.cache = map[string]*podInfo{
-		"podA": testPodInfo("podA", "nsAB", "10.1.1.1", map[string]string{"app": "appA"}),
-		"podB": testPodInfo("podB", "nsAB", "10.1.1.2", map[string]string{"app": "appB"}),
-		"podC": testPodInfo("podC", "nsC", "10.1.1.3", map[string]string{"app": "appC", "func": "web"}),
+	pl := &podsLister{
+		cache: make(map[resourceKey]*podInfo),
+	}
+	for _, pi := range []*podInfo{
+		testPodInfo("podA", "nsAB", "10.1.1.1", map[string]string{"app": "appA"}),
+		testPodInfo("podB", "nsAB", "10.1.1.2", map[string]string{"app": "appB"}),
+		testPodInfo("podC", "nsC", "10.1.1.3", map[string]string{"app": "appC", "func": "web"}),
+		testPodInfo("podC", "devC", "10.2.1.3", map[string]string{"app": "appC", "func": "web"}),
+	} {
+		key := resourceKey{pi.Metadata.Namespace, pi.Metadata.Name}
+		pl.keys = append(pl.keys, key)
+		pl.cache[key] = pi
 	}
 
 	tests := []struct {
@@ -43,7 +50,7 @@ func TestListResources(t *testing.T) {
 		nameFilter   string
 		filters      map[string]string
 		labelsFilter map[string]string
-		wantPods     []string
+		wantPods     []resourceKey
 		wantErr      bool
 	}{
 		{
@@ -54,17 +61,22 @@ func TestListResources(t *testing.T) {
 		{
 			desc:     "only name filter for podB and podC",
 			filters:  map[string]string{"name": "pod(B|C)"},
-			wantPods: []string{"podB", "podC"},
+			wantPods: []resourceKey{{"nsAB", "podB"}, {"nsC", "podC"}, {"devC", "podC"}},
+		},
+		{
+			desc:     "name filter for podB and podC, and namespace filter",
+			filters:  map[string]string{"name": "pod(B|C)", "namespace": "ns.*"},
+			wantPods: []resourceKey{{"nsAB", "podB"}, {"nsC", "podC"}},
 		},
 		{
 			desc:     "name and namespace filter for podB",
 			filters:  map[string]string{"name": "pod(B|C)", "namespace": "nsAB"},
-			wantPods: []string{"podB"},
+			wantPods: []resourceKey{{"nsAB", "podB"}},
 		},
 		{
 			desc:     "only namespace filter for podA and podB",
 			filters:  map[string]string{"namespace": "nsAB"},
-			wantPods: []string{"podA", "podB"},
+			wantPods: []resourceKey{{"nsAB", "podA"}, {"nsAB", "podB"}},
 		},
 	}
 
@@ -83,13 +95,13 @@ func TestListResources(t *testing.T) {
 				return
 			}
 
-			var gotNames []string
+			var gotPods []resourceKey
 			for _, res := range results {
-				gotNames = append(gotNames, res.GetName())
+				gotPods = append(gotPods, resourceKey{res.GetLabels()["namespace"], res.GetName()})
 			}
 
-			if !reflect.DeepEqual(gotNames, test.wantPods) {
-				t.Errorf("pods.listResources: got=%v, expected=%v", gotNames, test.wantPods)
+			if !reflect.DeepEqual(gotPods, test.wantPods) {
+				t.Errorf("pods.listResources: got=%v, expected=%v", gotPods, test.wantPods)
 			}
 		})
 	}
@@ -102,28 +114,31 @@ func TestParseResourceList(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error reading test data file: %s", podsListFile)
 	}
-	_, podsByName, err := parsePodsJSON(data)
+	_, podsByKey, err := parsePodsJSON(data)
 
 	if err != nil {
 		t.Fatalf("Error while parsing pods JSON data: %v", err)
 	}
 
-	cpPod := "cloudprober-54778d95f5-7hqtd"
-	if podsByName[cpPod] == nil {
-		t.Errorf("didn't get pod by the name: %s", cpPod)
+	for _, ns := range []string{"prod", "dev"} {
+		cpPodKey := resourceKey{ns, "cloudprober-54778d95f5-7hqtd"}
+		if podsByKey[cpPodKey] == nil {
+			t.Errorf("didn't get pod by the key: %+v", cpPodKey)
+			continue
+		}
+
+		if podsByKey[cpPodKey].Metadata.Labels["app"] != "cloudprober" {
+			t.Errorf("cloudprober pod app label: got=%s, want=cloudprober", podsByKey[cpPodKey].Metadata.Labels["app"])
+		}
+
+		cpPodIP := "10.28.0.3"
+		if podsByKey[cpPodKey].Status.PodIP != cpPodIP {
+			t.Errorf("cloudprober pod ip: got=%s, want=%s", podsByKey[cpPodKey].Status.PodIP, cpPodIP)
+		}
 	}
 
-	// Verify that we got the pending pod.
-	if podsByName["test"] != nil {
+	// Verify that we didn't the pending pod.
+	if podsByKey[resourceKey{"default", "test"}] != nil {
 		t.Error("got a non-running pod in the list: test")
-	}
-
-	if podsByName[cpPod].Metadata.Labels["app"] != "cloudprober" {
-		t.Errorf("cloudprober pod app label: got=%s, want=cloudprober", podsByName[cpPod].Metadata.Labels["app"])
-	}
-
-	cpPodIP := "10.28.0.3"
-	if podsByName[cpPod].Status.PodIP != cpPodIP {
-		t.Errorf("cloudprober pod ip: got=%s, want=%s", podsByName[cpPod].Status.PodIP, cpPodIP)
 	}
 }

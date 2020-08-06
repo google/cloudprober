@@ -98,6 +98,10 @@ type kMetadata struct {
 	Labels    map[string]string
 }
 
+type resourceKey struct {
+	namespace, name string
+}
+
 // ListResources returns the list of resources from the cache.
 func (p *Provider) ListResources(req *pb.ListResourcesRequest) (*pb.ListResourcesResponse, error) {
 	tok := strings.SplitN(req.GetResourcePath(), "/", 2)

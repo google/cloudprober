@@ -136,7 +136,7 @@
     {
       "metadata": {
         "name": "kubernetes",
-        "namespace": "default",
+        "namespace": "system",
         "selfLink": "/api/v1/namespaces/default/services/kubernetes",
         "uid": "ae448b87-9b4f-11e8-a95e-42010a8a0ff8",
         "resourceVersion": "30",

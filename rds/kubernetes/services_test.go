@@ -49,13 +49,19 @@ func testServiceInfo(name, ns, ip, publicIP, hostname string, labels map[string]
 }
 
 func TestListSvcResources(t *testing.T) {
-	sl := &servicesLister{}
-	sl.names = []string{"serviceA", "serviceB", "serviceC", "serviceD"}
-	sl.cache = map[string]*serviceInfo{
-		"serviceA": testServiceInfo("serviceA", "nsAB", "10.1.1.1", "", "", map[string]string{"app": "appA"}, []int{9313, 9314}),
-		"serviceB": testServiceInfo("serviceB", "nsAB", "10.1.1.2", "192.16.16.199", "", map[string]string{"app": "appB"}, []int{443}),
-		"serviceC": testServiceInfo("serviceC", "nsC", "10.1.1.3", "192.16.16.200", "serviceC.test.com", map[string]string{"app": "appC", "func": "web"}, []int{3141}),
-		"serviceD": testServiceInfo("serviceD", "nsD", "10.1.1.4", "", "serviceD.test.com", map[string]string{"app": "appD", "func": "web"}, []int{3141}),
+	sl := &servicesLister{
+		cache: make(map[resourceKey]*serviceInfo),
+	}
+	for _, svc := range []*serviceInfo{
+		testServiceInfo("serviceA", "nsAB", "10.1.1.1", "", "", map[string]string{"app": "appA"}, []int{9313, 9314}),
+		testServiceInfo("serviceB", "nsAB", "10.1.1.2", "192.16.16.199", "", map[string]string{"app": "appB"}, []int{443}),
+		testServiceInfo("serviceC", "nsC", "10.1.1.3", "192.16.16.200", "serviceC.test.com", map[string]string{"app": "appC", "func": "web"}, []int{3141}),
+		testServiceInfo("serviceD", "nsD", "10.1.1.4", "", "serviceD.test.com", map[string]string{"app": "appD", "func": "web"}, []int{3141}),
+		testServiceInfo("serviceD", "devD", "10.2.1.4", "", "", map[string]string{"app": "appD", "func": "web"}, []int{3141}),
+	} {
+		rkey := resourceKey{svc.Metadata.Namespace, svc.Metadata.Name}
+		sl.keys = append(sl.keys, rkey)
+		sl.cache[rkey] = svc
 	}
 
 	tests := []struct {
@@ -83,7 +89,7 @@ func TestListSvcResources(t *testing.T) {
 		},
 		{
 			desc:         "only port filter for ports 9314 and 3141",
-			filters:      map[string]string{"port": "314"},
+			filters:      map[string]string{"port": "314", "namespace": "ns.*"},
 			wantServices: []string{"serviceA", "serviceC", "serviceD"},
 			wantIPs:      []string{"10.1.1.1", "10.1.1.3", "10.1.1.4"},
 			wantPorts:    []int32{9314, 3141, 3141},
@@ -107,6 +113,13 @@ func TestListSvcResources(t *testing.T) {
 			wantServices:  []string{"serviceB", "serviceC", "serviceD"},
 			wantPublicIPs: []string{"192.16.16.199", "192.16.16.200", "serviceD.test.com"},
 			wantPorts:     []int32{443, 3141, 3141},
+		},
+		{
+			desc:         "only dev namespace",
+			filters:      map[string]string{"namespace": "dev.*"},
+			wantServices: []string{"serviceD"},
+			wantIPs:      []string{"10.2.1.4"},
+			wantPorts:    []int32{3141},
 		},
 	}
 
@@ -168,63 +181,69 @@ func TestParseSvcResourceList(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error reading test data file: %s", servicesListFile)
 	}
-	_, servicesByName, err := parseServicesJSON(data)
+	_, services, err := parseServicesJSON(data)
 
 	if err != nil {
 		t.Fatalf("Error while parsing services JSON data: %v", err)
 	}
 
-	services := map[string]struct {
-		ip       string
-		publicIP string
-		ports    []int
-		labels   map[string]string
+	expectedSvcs := map[string]struct {
+		namespace string
+		ip        string
+		publicIP  string
+		ports     []int
+		labels    map[string]string
 	}{
 		"cloudprober": {
-			ip:     "10.31.252.209",
-			ports:  []int{9313},
-			labels: map[string]string{"app": "cloudprober"},
+			namespace: "default",
+			ip:        "10.31.252.209",
+			ports:     []int{9313},
+			labels:    map[string]string{"app": "cloudprober"},
 		},
 		"cloudprober-rds": {
-			ip:       "10.96.15.88",
-			publicIP: "192.88.99.199",
-			ports:    []int{9314, 9313},
-			labels:   map[string]string{"app": "cloudprober"},
+			namespace: "default",
+			ip:        "10.96.15.88",
+			publicIP:  "192.88.99.199",
+			ports:     []int{9314, 9313},
+			labels:    map[string]string{"app": "cloudprober"},
 		},
 		"cloudprober-test": {
-			ip:     "10.31.246.77",
-			ports:  []int{9313},
-			labels: map[string]string{"app": "cloudprober"},
+			namespace: "default",
+			ip:        "10.31.246.77",
+			ports:     []int{9313},
+			labels:    map[string]string{"app": "cloudprober"},
 		},
 		"kubernetes": {
-			ip:     "10.31.240.1",
-			ports:  []int{443},
-			labels: map[string]string{"component": "apiserver", "provider": "kubernetes"},
+			namespace: "system",
+			ip:        "10.31.240.1",
+			ports:     []int{443},
+			labels:    map[string]string{"component": "apiserver", "provider": "kubernetes"},
 		},
 	}
 
-	for name, svc := range services {
-		if servicesByName[name] == nil {
+	for name, svc := range expectedSvcs {
+		rkey := resourceKey{svc.namespace, name}
+		if services[rkey] == nil {
 			t.Errorf("didn't get service by the name: %s", name)
 		}
 
-		gotLabels := servicesByName[name].Metadata.Labels
+		gotLabels := services[rkey].Metadata.Labels
 		if !reflect.DeepEqual(gotLabels, svc.labels) {
 			t.Errorf("%s service labels: got=%v, want=%v", name, gotLabels, svc.labels)
 		}
 
-		if servicesByName[name].Spec.ClusterIP != svc.ip {
-			t.Errorf("%s service ip: got=%s, want=%s", name, servicesByName[name].Spec.ClusterIP, svc.ip)
+		if services[rkey].Spec.ClusterIP != svc.ip {
+			t.Errorf("%s service ip: got=%s, want=%s", name, services[rkey].Spec.ClusterIP, svc.ip)
 		}
 
 		if svc.publicIP != "" {
-			if servicesByName[name].Status.LoadBalancer.Ingress[0].IP != svc.publicIP {
-				t.Errorf("%s service load balancer ip: got=%s, want=%s", name, servicesByName[name].Status.LoadBalancer.Ingress[0].IP, svc.publicIP)
+			if services[rkey].Status.LoadBalancer.Ingress[0].IP != svc.publicIP {
+				t.Errorf("%s service load balancer ip: got=%s, want=%s", name, services[rkey].Status.LoadBalancer.Ingress[0].IP, svc.publicIP)
 			}
 		}
 
 		var gotPorts []int
-		for _, port := range servicesByName[name].Spec.Ports {
+		for _, port := range services[rkey].Spec.Ports {
 			gotPorts = append(gotPorts, port.Port)
 		}
 		if !reflect.DeepEqual(gotPorts, svc.ports) {

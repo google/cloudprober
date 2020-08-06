@@ -36,8 +36,8 @@ type servicesLister struct {
 	kClient   *client
 
 	mu    sync.RWMutex // Mutex for names and cache
-	names []string
-	cache map[string]*serviceInfo
+	keys  []resourceKey
+	cache map[resourceKey]*serviceInfo
 	l     *logger.Logger
 }
 
@@ -67,16 +67,16 @@ func (lister *servicesLister) listResources(req *pb.ListResourcesRequest) ([]*pb
 	lister.mu.RLock()
 	defer lister.mu.RUnlock()
 
-	for _, name := range lister.names {
-		if svcName != "" && name != svcName {
+	for _, key := range lister.keys {
+		if svcName != "" && key.name != svcName {
 			continue
 		}
 
-		if nameFilter != nil && !nameFilter.Match(name, lister.l) {
+		if nameFilter != nil && !nameFilter.Match(key.name, lister.l) {
 			continue
 		}
 
-		svc := lister.cache[name]
+		svc := lister.cache[key]
 		if nsFilter != nil && !nsFilter.Match(svc.Metadata.Namespace, lister.l) {
 			continue
 		}
@@ -170,7 +170,7 @@ func (si *serviceInfo) resources(portFilter *filter.RegexFilter, reqIPType pb.IP
 	return
 }
 
-func parseServicesJSON(resp []byte) (names []string, services map[string]*serviceInfo, err error) {
+func parseServicesJSON(resp []byte) (keys []resourceKey, services map[resourceKey]*serviceInfo, err error) {
 	var itemList struct {
 		Items []*serviceInfo
 	}
@@ -179,11 +179,11 @@ func parseServicesJSON(resp []byte) (names []string, services map[string]*servic
 		return
 	}
 
-	names = make([]string, len(itemList.Items))
-	services = make(map[string]*serviceInfo)
+	keys = make([]resourceKey, len(itemList.Items))
+	services = make(map[resourceKey]*serviceInfo)
 	for i, item := range itemList.Items {
-		names[i] = item.Metadata.Name
-		services[item.Metadata.Name] = item
+		keys[i] = resourceKey{item.Metadata.Namespace, item.Metadata.Name}
+		services[keys[i]] = item
 	}
 
 	return
@@ -195,16 +195,16 @@ func (lister *servicesLister) expand() {
 		lister.l.Warningf("servicesLister.expand(): error while getting services list from API: %v", err)
 	}
 
-	names, services, err := parseServicesJSON(resp)
+	keys, services, err := parseServicesJSON(resp)
 	if err != nil {
 		lister.l.Warningf("servicesLister.expand(): error while parsing services API response (%s): %v", string(resp), err)
 	}
 
-	lister.l.Infof("servicesLister.expand(): got %d services", len(names))
+	lister.l.Infof("servicesLister.expand(): got %d services", len(keys))
 
 	lister.mu.Lock()
 	defer lister.mu.Unlock()
-	lister.names = names
+	lister.keys = keys
 	lister.cache = services
 }
 

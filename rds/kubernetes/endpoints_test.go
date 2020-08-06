@@ -15,20 +15,24 @@ func TestParseEndpoints(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error reading test data file: %s", epListFile)
 	}
-	_, epByName, err := parseEndpointsJSON(data)
+	_, epByKey, err := parseEndpointsJSON(data)
 	if err != nil {
 		t.Fatalf("error reading test data file: %s", epListFile)
 	}
 
-	testNames := []string{"cloudprober", "cloudprober-test", "kubernetes"}
-	for _, testP := range testNames {
-		if epByName[testP] == nil {
-			t.Errorf("didn't get endpoints by the name: %s", testP)
+	testKeys := []resourceKey{
+		{"default", "cloudprober"},
+		{"default", "cloudprober-test"},
+		{"system", "kubernetes"},
+	}
+	for _, key := range testKeys {
+		if epByKey[key] == nil {
+			t.Errorf("didn't get endpoints for %+v", key)
 		}
 	}
 
-	for _, name := range testNames[:1] {
-		epi := epByName[name]
+	for _, key := range testKeys[:1] {
+		epi := epByKey[key]
 		if epi.Metadata.Labels["app"] != "cloudprober" {
 			t.Errorf("cloudprober endpoints app label: got=%s, want=cloudprober", epi.Metadata.Labels["app"])
 		}
