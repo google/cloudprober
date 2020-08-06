@@ -1,4 +1,4 @@
-// Copyright 2019 Google Inc.
+// Copyright 2019-2020 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,108 +26,216 @@ import (
 	"github.com/google/cloudprober/targets/endpoint"
 )
 
-func newProbe(port int, resolveFirst bool, target, hostHeader string) *Probe {
+func TestHostWithPort(t *testing.T) {
+	for _, test := range []struct {
+		host         string
+		port         int
+		wantHostPort string
+	}{
+		{
+			host:         "target1.ns.cluster.local",
+			wantHostPort: "target1.ns.cluster.local",
+		},
+		{
+			host:         "target1.ns.cluster.local",
+			port:         8080,
+			wantHostPort: "target1.ns.cluster.local:8080",
+		},
+	} {
+		t.Run(fmt.Sprintf("host:%s,port:%d", test.host, test.port), func(t *testing.T) {
+			hostPort := hostWithPort(test.host, test.port)
+			if hostPort != test.wantHostPort {
+				t.Errorf("hostPort: %s, want: %s", hostPort, test.wantHostPort)
+			}
+		})
+	}
+}
+
+func TestHostHeaderForTarget(t *testing.T) {
+	for _, test := range []struct {
+		name            string
+		fqdn            string
+		probeHostHeader string
+		port            int
+		wantHostHeader  string
+	}{
+		{
+			name:            "target1",
+			fqdn:            "target1.ns.cluster.local",
+			probeHostHeader: "svc.target",
+			port:            8080,
+			wantHostHeader:  "svc.target",
+		},
+		{
+			name:            "target1",
+			fqdn:            "target1.ns.cluster.local",
+			probeHostHeader: "",
+			port:            8080,
+			wantHostHeader:  "target1.ns.cluster.local:8080",
+		},
+		{
+			name:            "target1",
+			fqdn:            "target1.ns.cluster.local",
+			probeHostHeader: "",
+			port:            0,
+			wantHostHeader:  "target1.ns.cluster.local",
+		},
+		{
+			name:            "target1",
+			fqdn:            "",
+			probeHostHeader: "",
+			port:            8080,
+			wantHostHeader:  "target1:8080",
+		},
+		{
+			name:            "target1",
+			fqdn:            "",
+			probeHostHeader: "",
+			port:            0,
+			wantHostHeader:  "target1",
+		},
+	} {
+		t.Run(fmt.Sprintf("test:%+v", test), func(t *testing.T) {
+			target := endpoint.Endpoint{
+				Name:   test.name,
+				Labels: map[string]string{"fqdn": test.fqdn},
+			}
+
+			hostHeader := hostHeaderForTarget(target, test.probeHostHeader, test.port)
+			if hostHeader != test.wantHostHeader {
+				t.Errorf("Got host header: %s, want header: %s", hostHeader, test.wantHostHeader)
+			}
+		})
+	}
+}
+
+// Following tests are more comprehensive tests for request URL and host header.
+type testData struct {
+	desc         string
+	targetName   string
+	targetFQDN   string
+	resolveFirst bool
+	probeHost    string
+	wantURLHost  string
+}
+
+func createRequestAndVerify(t *testing.T, td testData, probePort, targetPort, expectedPort int, resolveF resolveFunc) {
+	t.Helper()
+
 	p := &Probe{
 		protocol: "http",
 		c: &configpb.ProbeConf{
-			ResolveFirst: proto.Bool(resolveFirst),
+			ResolveFirst: proto.Bool(td.resolveFirst),
 		},
-		opts: &options.Options{Targets: targets.StaticTargets(target)},
+		opts: &options.Options{Targets: targets.StaticTargets(td.targetName)},
 	}
 
-	if port != 0 {
-		p.c.Port = proto.Int(port)
+	if probePort != 0 {
+		p.c.Port = proto.Int32(int32(probePort))
 	}
 
-	if hostHeader != "" {
+	if td.probeHost != "" {
 		p.c.Headers = append(p.c.Headers, &configpb.ProbeConf_Header{
 			Name:  proto.String("Host"),
-			Value: proto.String(hostHeader),
+			Value: proto.String(td.probeHost),
 		})
 	}
 
-	return p
-}
-
-func hostWithPort(host string, port int) string {
-	if port == 0 {
-		return host
+	target := endpoint.Endpoint{
+		Name: td.targetName,
+		Port: targetPort,
+		Labels: map[string]string{
+			"fqdn": td.targetFQDN,
+		},
 	}
-	return fmt.Sprintf("%s:%d", host, port)
-}
+	req := p.httpRequestForTarget(target, resolveF)
 
-func testReq(t *testing.T, p *Probe, ep endpoint.Endpoint, wantURLHost, hostHeader string, port int, resolveF resolveFunc) {
-	t.Helper()
-
-	wantURL := fmt.Sprintf("http://%s", hostWithPort(wantURLHost, port))
-	wantHost := hostHeader
-	if wantHost == "" {
-		wantHost = hostWithPort(ep.Name, port)
-	}
-
-	req := p.httpRequestForTarget(ep, resolveF)
+	wantURL := fmt.Sprintf("http://%s", hostWithPort(td.wantURLHost, expectedPort))
 	if req.URL.String() != wantURL {
 		t.Errorf("HTTP req URL: %s, wanted: %s", req.URL.String(), wantURL)
 	}
 
-	if req.Host != wantHost {
-		t.Errorf("HTTP req.Host: %s, wanted: %s", req.Host, wantHost)
+	// Note that we test hostHeaderForTarget independently.
+	wantHostHeader := hostHeaderForTarget(target, td.probeHost, expectedPort)
+	if req.Host != wantHostHeader {
+		t.Errorf("HTTP req.Host: %s, wanted: %s", req.Host, wantHostHeader)
 	}
 }
 
-func testRequestHostAndURL(t *testing.T, resolveFirst bool, target, urlHost, hostHeader string) {
+func testRequestHostAndURLWithDifferentPorts(t *testing.T, td testData) {
 	t.Helper()
 
 	var resolveF resolveFunc
-	if resolveFirst {
+	if td.resolveFirst {
 		resolveF = func(target string, ipVer int) (net.IP, error) {
-			return net.ParseIP(urlHost), nil
+			return net.ParseIP(td.wantURLHost), nil
 		}
 	}
 
-	// Probe has no port
-	p := newProbe(0, resolveFirst, target, hostHeader)
-	expectedPort := 0
-
-	// If hostHeader is set, change probe config and expectedHost.
-	ep := endpoint.Endpoint{
-		Name: target,
+	for _, ports := range []struct {
+		probePort    int
+		targetPort   int
+		expectedPort int
+	}{
+		{
+			probePort:    0,
+			targetPort:   0,
+			expectedPort: 0,
+		},
+		{
+			probePort:    8080,
+			targetPort:   9313,
+			expectedPort: 8080, // probe port wins
+		},
+		{
+			probePort:    0,
+			targetPort:   9313,
+			expectedPort: 9313, // target port wins
+		},
+	} {
+		t.Run(fmt.Sprintf("%s_probe_port_%d_endpoint_port_%d", td.desc, ports.probePort, ports.targetPort), func(t *testing.T) {
+			createRequestAndVerify(t, td, ports.probePort, ports.targetPort, ports.expectedPort, resolveF)
+		})
 	}
-	testReq(t, p, ep, urlHost, hostHeader, expectedPort, resolveF)
-
-	// Probe and endpoint have port, probe's port wins.
-	p = newProbe(8080, resolveFirst, target, hostHeader)
-	ep = endpoint.Endpoint{
-		Name: target,
-		Port: 9313,
-	}
-	expectedPort = 8080
-	testReq(t, p, ep, urlHost, hostHeader, expectedPort, resolveF)
-
-	// Only endpoint has port, endpoint's port is used.
-	p = newProbe(0, resolveFirst, target, hostHeader)
-	ep = endpoint.Endpoint{
-		Name: target,
-		Port: 9313,
-	}
-	expectedPort = 9313
-	testReq(t, p, ep, urlHost, hostHeader, expectedPort, resolveF)
 }
 
 func TestRequestHostAndURL(t *testing.T) {
-	t.Run("no_resolve_first,no_host_header", func(t *testing.T) {
-		testRequestHostAndURL(t, false, "test-target.com", "test-target.com", "")
-	})
+	tests := []testData{
+		{
+			desc:        "no_resolve_first,no_probe_host_header",
+			targetName:  "test-target.com",
+			wantURLHost: "test-target.com",
+		},
+		{
+			desc:        "no_resolve_first,fqdn,no_probe_host_header",
+			targetName:  "test-target.com",
+			targetFQDN:  "test.svc.cluster.local",
+			wantURLHost: "test-target.com",
+		},
+		{
+			desc:        "no_resolve_first,host_header",
+			targetName:  "test-target.com",
+			probeHost:   "test-host",
+			wantURLHost: "test-target.com",
+		},
+		{
+			desc:         "resolve_first,no_probe_host_header",
+			targetName:   "localhost",
+			resolveFirst: true,
+			wantURLHost:  "127.0.0.1",
+		},
+		{
+			desc:         "resolve_first,probe_host_header",
+			targetName:   "localhost",
+			resolveFirst: true,
+			probeHost:    "test-host",
+			wantURLHost:  "127.0.0.1",
+		},
+	}
 
-	t.Run("no_resolve_first,host_header", func(t *testing.T) {
-		testRequestHostAndURL(t, false, "test-target.com", "test-target.com", "test-host")
-	})
-
-	t.Run("resolve_first,no_host_header", func(t *testing.T) {
-		testRequestHostAndURL(t, true, "localhost", "127.0.0.1", "")
-	})
-
-	t.Run("resolve_first,host_header", func(t *testing.T) {
-		testRequestHostAndURL(t, true, "localhost", "127.0.0.1", "test-host")
-	})
+	for _, td := range tests {
+		t.Run(td.desc, func(t *testing.T) {
+			testRequestHostAndURLWithDifferentPorts(t, td)
+		})
+	}
 }

@@ -1,4 +1,4 @@
-// Copyright 2019 Google Inc.
+// Copyright 2019-2020 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -43,6 +43,29 @@ func (rb *requestBody) Read(p []byte) (int, error) {
 // should be passed to the httpRequestForTarget function.
 type resolveFunc func(host string, ipVer int) (net.IP, error)
 
+func hostWithPort(host string, port int) string {
+	if port == 0 {
+		return host
+	}
+	return fmt.Sprintf("%s:%d", host, port)
+}
+
+// hostHeaderForTarget computes request's Host header for a target.
+//  - If host header is set in the probe, it overrides everything else.
+//  - If target's fqdn is provided in its labels, use that along with the port.
+//  - Finally, use target's name with port.
+func hostHeaderForTarget(target endpoint.Endpoint, probeHostHeader string, port int) string {
+	if probeHostHeader != "" {
+		return probeHostHeader
+	}
+
+	if target.Labels["fqdn"] != "" {
+		return hostWithPort(target.Labels["fqdn"], port)
+	}
+
+	return hostWithPort(target.Name, port)
+}
+
 func (p *Probe) httpRequestForTarget(target endpoint.Endpoint, resolveF resolveFunc) *http.Request {
 	// Prepare HTTP.Request for Client.Do
 	port := int(p.c.GetPort())
@@ -51,7 +74,7 @@ func (p *Probe) httpRequestForTarget(target endpoint.Endpoint, resolveF resolveF
 		port = target.Port
 	}
 
-	urlHost, hostHeader := target.Name, target.Name
+	urlHost := target.Name
 
 	if p.c.GetResolveFirst() {
 		if resolveF == nil {
@@ -68,7 +91,6 @@ func (p *Probe) httpRequestForTarget(target endpoint.Endpoint, resolveF resolveF
 
 	if port != 0 {
 		urlHost = fmt.Sprintf("%s:%d", urlHost, port)
-		hostHeader = fmt.Sprintf("%s:%d", hostHeader, port)
 	}
 
 	url := fmt.Sprintf("%s://%s%s", p.protocol, urlHost, p.url)
@@ -84,18 +106,18 @@ func (p *Probe) httpRequestForTarget(target endpoint.Endpoint, resolveF resolveF
 		return nil
 	}
 
-	// If resolving early, URL contains IP for the hostname (see above). Update
-	// req.Host after request creation, so that correct Host header is sent to
-	// the web server.
-	req.Host = hostHeader
-
+	var probeHostHeader string
 	for _, header := range p.c.GetHeaders() {
 		if header.GetName() == "Host" {
-			req.Host = header.GetValue()
+			probeHostHeader = header.GetValue()
 			continue
 		}
 		req.Header.Set(header.GetName(), header.GetValue())
 	}
+
+	// Host header is set by http.NewRequest based on the URL, update it based
+	// on various conditions.
+	req.Host = hostHeaderForTarget(target, probeHostHeader, port)
 
 	if p.bearerToken != "" {
 		req.Header.Set("Authorization", "Bearer "+p.bearerToken)
