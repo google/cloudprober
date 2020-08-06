@@ -36,8 +36,8 @@ type epLister struct {
 	kClient   *client
 
 	mu    sync.RWMutex // Mutex for names and cache
-	names []string
-	cache map[string]*epInfo
+	keys  []resourceKey
+	cache map[resourceKey]*epInfo
 	l     *logger.Logger
 }
 
@@ -67,16 +67,16 @@ func (lister *epLister) listResources(req *pb.ListResourcesRequest) ([]*pb.Resou
 	lister.mu.RLock()
 	defer lister.mu.RUnlock()
 
-	for _, name := range lister.names {
-		if epName != "" && name != epName {
+	for _, key := range lister.keys {
+		if epName != "" && key.name != epName {
 			continue
 		}
 
-		if nameFilter != nil && !nameFilter.Match(name, lister.l) {
+		if nameFilter != nil && !nameFilter.Match(key.name, lister.l) {
 			continue
 		}
 
-		epi := lister.cache[name]
+		epi := lister.cache[key]
 		if nsFilter != nil && !nsFilter.Match(epi.Metadata.Namespace, lister.l) {
 			continue
 		}
@@ -141,7 +141,7 @@ func (epi *epInfo) resources(portFilter *filter.RegexFilter, l *logger.Logger) (
 	return
 }
 
-func parseEndpointsJSON(resp []byte) (names []string, endpoints map[string]*epInfo, err error) {
+func parseEndpointsJSON(resp []byte) (keys []resourceKey, endpoints map[resourceKey]*epInfo, err error) {
 	var itemList struct {
 		Items []*epInfo
 	}
@@ -150,11 +150,11 @@ func parseEndpointsJSON(resp []byte) (names []string, endpoints map[string]*epIn
 		return
 	}
 
-	names = make([]string, len(itemList.Items))
-	endpoints = make(map[string]*epInfo)
+	keys = make([]resourceKey, len(itemList.Items))
+	endpoints = make(map[resourceKey]*epInfo)
 	for i, item := range itemList.Items {
-		names[i] = item.Metadata.Name
-		endpoints[item.Metadata.Name] = item
+		keys[i] = resourceKey{item.Metadata.Namespace, item.Metadata.Name}
+		endpoints[keys[i]] = item
 	}
 
 	return
@@ -166,16 +166,16 @@ func (lister *epLister) expand() {
 		lister.l.Warningf("epLister.expand(): error while getting endpoints list from API: %v", err)
 	}
 
-	names, endpoints, err := parseEndpointsJSON(resp)
+	keys, endpoints, err := parseEndpointsJSON(resp)
 	if err != nil {
 		lister.l.Warningf("epLister.expand(): error while parsing endpoints API response (%s): %v", string(resp), err)
 	}
 
-	lister.l.Infof("epLister.expand(): got %d endpoints", len(names))
+	lister.l.Infof("epLister.expand(): got %d endpoints", len(keys))
 
 	lister.mu.Lock()
 	defer lister.mu.Unlock()
-	lister.names = names
+	lister.keys = keys
 	lister.cache = endpoints
 }
 

@@ -34,8 +34,8 @@ type podsLister struct {
 	kClient   *client
 
 	mu    sync.RWMutex // Mutex for names and cache
-	names []string
-	cache map[string]*podInfo
+	keys  []resourceKey
+	cache map[resourceKey]*podInfo
 	l     *logger.Logger
 }
 
@@ -59,12 +59,12 @@ func (pl *podsLister) listResources(req *pb.ListResourcesRequest) ([]*pb.Resourc
 	pl.mu.RLock()
 	defer pl.mu.RUnlock()
 
-	for _, name := range pl.names {
-		if nameFilter != nil && !nameFilter.Match(name, pl.l) {
+	for _, key := range pl.keys {
+		if nameFilter != nil && !nameFilter.Match(key.name, pl.l) {
 			continue
 		}
 
-		pod := pl.cache[name]
+		pod := pl.cache[key]
 		if nsFilter != nil && !nsFilter.Match(pod.Metadata.Namespace, pl.l) {
 			continue
 		}
@@ -73,7 +73,7 @@ func (pl *podsLister) listResources(req *pb.ListResourcesRequest) ([]*pb.Resourc
 		}
 
 		resources = append(resources, &pb.Resource{
-			Name:   proto.String(name),
+			Name:   proto.String(key.name),
 			Ip:     proto.String(pod.Status.PodIP),
 			Labels: pod.Metadata.Labels,
 		})
@@ -91,7 +91,7 @@ type podInfo struct {
 	}
 }
 
-func parsePodsJSON(resp []byte) (names []string, pods map[string]*podInfo, err error) {
+func parsePodsJSON(resp []byte) (keys []resourceKey, pods map[resourceKey]*podInfo, err error) {
 	var itemList struct {
 		Items []*podInfo
 	}
@@ -100,14 +100,14 @@ func parsePodsJSON(resp []byte) (names []string, pods map[string]*podInfo, err e
 		return
 	}
 
-	names = make([]string, len(itemList.Items))
-	pods = make(map[string]*podInfo)
+	keys = make([]resourceKey, len(itemList.Items))
+	pods = make(map[resourceKey]*podInfo)
 	for i, item := range itemList.Items {
 		if item.Status.Phase != "Running" {
 			continue
 		}
-		names[i] = item.Metadata.Name
-		pods[item.Metadata.Name] = item
+		keys[i] = resourceKey{item.Metadata.Namespace, item.Metadata.Name}
+		pods[keys[i]] = item
 	}
 
 	return
@@ -119,16 +119,16 @@ func (pl *podsLister) expand() {
 		pl.l.Warningf("podsLister.expand(): error while getting pods list from API: %v", err)
 	}
 
-	names, pods, err := parsePodsJSON(resp)
+	keys, pods, err := parsePodsJSON(resp)
 	if err != nil {
 		pl.l.Warningf("podsLister.expand(): error while parsing pods API response (%s): %v", string(resp), err)
 	}
 
-	pl.l.Infof("podsLister.expand(): got %d pods", len(names))
+	pl.l.Infof("podsLister.expand(): got %d pods", len(keys))
 
 	pl.mu.Lock()
 	defer pl.mu.Unlock()
-	pl.names = names
+	pl.keys = keys
 	pl.cache = pods
 }
 
