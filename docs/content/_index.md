@@ -27,8 +27,8 @@ what's broken in your system.
 
 ## Features
 
-*   Automated target discovery for Cloud targets. GCE and Kubernetes are
-    supported out-of-the-box; other Cloud providers can be added easily.
+*   Automated target discovery for Cloud targets. __GCE__ and __Kubernetes__
+    are supported out-of-the-box, other Cloud providers can be added easily.
 *   Integration with open source monitoring stack of
     [Prometheus](http://prometheus.io) and [Grafana](http://grafana.com).
     Cloudprober exports probe results as counter based metrics that work well
