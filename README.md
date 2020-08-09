@@ -26,8 +26,8 @@ Case](https://cloudprober.org/diagrams/cloudprober_use_case.svg)
     [Prometheus](http://prometheus.io) and [Grafana](http://grafana.com).
     Cloudprober exports probe results as counter based metrics that work well
     with Prometheus and Grafana.
-*   Automated target discovery for Cloud targets. GCE and Kubernetes are supported
-    out-of-the-box; other Cloud providers can be added easily.
+*   Automated target discovery for Cloud targets. __GCE__ and __Kubernetes__ are
+    supported out-of-the-box; other Cloud providers can be added easily.
 *   Integration with [StackDriver](https://cloud.google.com/stackdriver/). If
     configured, Cloudprober exports probe results to StackDriver as custom
     metrics.
