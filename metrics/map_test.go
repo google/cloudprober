@@ -96,3 +96,19 @@ func TestMapString(t *testing.T) {
 		t.Errorf("ParseMapFromString(%s).String() = %s, expected = %s", s, s1, s)
 	}
 }
+
+func TestMapAllocsPerRun(t *testing.T) {
+	var v *Map
+	mapNewAvg := testing.AllocsPerRun(100, func() {
+		v = NewMap("code", NewInt(0))
+		v.IncKeyBy("200", NewInt(22))
+		v.IncKeyBy("404", NewInt(4500))
+		v.IncKeyBy("403", NewInt(4500))
+	})
+
+	mapStringAvg := testing.AllocsPerRun(100, func() {
+		_ = v.String()
+	})
+
+	t.Logf("Average allocations per run: ForMapNew=%v, ForMapString=%v", mapNewAvg, mapStringAvg)
+}
