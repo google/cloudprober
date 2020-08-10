@@ -223,7 +223,7 @@ func (p *Probe) doHTTPRequest(ireq *http.Request, result *probeResult, resultMu 
 	req := ireq
 
 	if len(p.requestBody) >= largeBodyThreshold {
-		req = req.Clone(context.Background())
+		req = req.Clone(req.Context())
 		req.Body = ioutil.NopCloser(bytes.NewReader(p.requestBody))
 	}
 
