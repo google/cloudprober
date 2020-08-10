@@ -16,6 +16,7 @@
 package http
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"fmt"
@@ -43,6 +44,7 @@ import (
 const (
 	maxResponseSizeForMetrics = 128
 	targetsUpdateInterval     = 1 * time.Minute
+	largeBodyThreshold        = bytes.MinRead // 512.
 )
 
 // Probe holds aggregate information about all probe runs, per-target.
@@ -76,6 +78,8 @@ type Probe struct {
 	// statsExportInterval / p.opts.Interval. Metrics are exported when
 	// (runCnt % statsExportFrequency) == 0
 	statsExportFrequency int64
+
+	requestBody []byte
 }
 
 type probeResult struct {
@@ -107,6 +111,8 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	if len(p.url) > 0 && p.url[0] != '/' {
 		return fmt.Errorf("Invalid Relative URL: %s, must begin with '/'", p.url)
 	}
+
+	p.requestBody = []byte(p.c.GetBody())
 
 	// Create a transport for our use. This is mostly based on
 	// http.DefaultTransport with some timeouts changed.
@@ -214,6 +220,11 @@ func isClientTimeout(err error) bool {
 
 // httpRequest executes an HTTP request and updates the provided result struct.
 func (p *Probe) doHTTPRequest(req *http.Request, result *probeResult, resultMu *sync.Mutex) {
+
+	if len(p.requestBody) >= largeBodyThreshold {
+		req = req.Clone(req.Context())
+		req.Body = ioutil.NopCloser(bytes.NewReader(p.requestBody))
+	}
 
 	if p.c.GetKeepAlive() {
 		trace := &httptrace.ClientTrace{

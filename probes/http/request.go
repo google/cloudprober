@@ -97,8 +97,8 @@ func (p *Probe) httpRequestForTarget(target endpoint.Endpoint, resolveF resolveF
 
 	// Prepare request body
 	var body io.Reader
-	if p.c.GetBody() != "" {
-		body = &requestBody{[]byte(p.c.GetBody())}
+	if len(p.requestBody) > 0 {
+		body = &requestBody{p.requestBody}
 	}
 	req, err := http.NewRequest(p.method, url, body)
 	if err != nil {
