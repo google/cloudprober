@@ -124,3 +124,29 @@ func BenchmarkEventMetricsStringer(b *testing.B) {
 		em.String()
 	}
 }
+
+func TestAllocsPerRun(t *testing.T) {
+	respCodesVal := NewMap("code", NewInt(0))
+	for k, v := range map[string]int64{
+		"200": 22,
+		"404": 4500,
+		"403": 4500,
+	} {
+		respCodesVal.IncKeyBy(k, NewInt(v))
+	}
+
+	var em *EventMetrics
+	newAvg := testing.AllocsPerRun(100, func() {
+		em = NewEventMetrics(time.Now()).
+			AddMetric("sent", NewInt(32)).
+			AddMetric("rcvd", NewInt(22)).
+			AddMetric("rtt", NewInt(220100)).
+			AddMetric("resp-code", respCodesVal)
+	})
+
+	stringAvg := testing.AllocsPerRun(100, func() {
+		_ = em.String()
+	})
+
+	t.Logf("Average allocations per run: ForNew=%v, ForString=%v", newAvg, stringAvg)
+}

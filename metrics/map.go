@@ -155,6 +155,8 @@ func (m *Map) String() string {
 	defer m.mu.RUnlock()
 
 	var b strings.Builder
+	b.Grow(64)
+
 	b.WriteString("map:")
 	b.WriteString(m.MapName)
 

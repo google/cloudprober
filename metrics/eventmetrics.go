@@ -193,6 +193,7 @@ func (em *EventMetrics) String() string {
 	defer em.mu.RUnlock()
 
 	var b strings.Builder
+	b.Grow(128)
 
 	b.WriteString(strconv.FormatInt(em.Timestamp.Unix(), 10))
 	// Labels section: labels=ptype=http,probe=homepage
