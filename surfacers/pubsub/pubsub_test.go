@@ -90,7 +90,7 @@ func TestSurfacer(t *testing.T) {
 		t.Run(fmt.Sprintf("with_compression=%v", compression), func(t *testing.T) {
 			l, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", 0))
 			if err != nil {
-				t.Fatalf("Error creating listener: %v")
+				t.Fatalf("Error creating listener: %v", err)
 			}
 			defer l.Close()
 
@@ -104,7 +104,7 @@ func TestSurfacer(t *testing.T) {
 
 			go func() {
 				if err := gSrv.Serve(l); err != nil {
-					t.Fatalf("gRPC server start: %v", err)
+					t.Errorf("gRPC server start: %v", err)
 				}
 			}()
 			defer gSrv.Stop()
