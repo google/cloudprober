@@ -1,0 +1,18 @@
+syntax = "proto2";
+
+package cloudprober.surfacer.pubsub;
+
+option go_package = "github.com/google/cloudprober/surfacers/pubsub/proto";
+
+message SurfacerConf {
+  // GCP project name for pubsub. If not specified and running on GCP,
+  // project is used.
+  optional string project = 1;
+
+  // Pubsub topic name.
+  // Default is cloudprober-{hostname}
+  optional string topic_name = 2;
+
+  // Compress data before writing to pubsub.
+  optional bool compression_enabled = 4 [default = false];
+}

@@ -21,7 +21,6 @@ lead to flakiness in the future.
 */
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io/ioutil"
@@ -32,8 +31,8 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/kylelemons/godebug/pretty"
 
-	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
+	"github.com/google/cloudprober/surfacers/common/compress"
 	configpb "github.com/google/cloudprober/surfacers/file/proto"
 )
 
@@ -72,7 +71,7 @@ func testWrite(t *testing.T, compressionEnabled bool) {
 		}
 		defer os.Remove(f.Name())
 
-		s := &FileSurfacer{
+		s := &Surfacer{
 			c: &configpb.SurfacerConf{
 				FilePath:           proto.String(f.Name()),
 				CompressionEnabled: proto.Bool(compressionEnabled),
@@ -85,13 +84,7 @@ func testWrite(t *testing.T, compressionEnabled bool) {
 		}
 
 		s.Write(context.Background(), tt.em)
-
-		// Sleep for 100 milliseconds to allow the go thread that is
-		// performing the write to finish writing to the file before
-		// we read (otherwise we will read too early and the file will
-		// be blank)
-		// time.Sleep(100 * time.Millisecond)
-		time.Sleep(compressionBufferFlushInterval + time.Second)
+		s.close()
 
 		dat, err := ioutil.ReadFile(f.Name())
 		if err != nil {
@@ -100,52 +93,15 @@ func testWrite(t *testing.T, compressionEnabled bool) {
 
 		expectedStr := fmt.Sprintf("%s %d %s\n", s.c.GetPrefix(), id, tt.em.String())
 		if compressionEnabled {
-			compressed, err := compressBytes([]byte(expectedStr))
+			compressed, err := compress.Compress([]byte(expectedStr))
 			if err != nil {
 				t.Errorf("Unexpected error while compressing bytes: %v, Input: %s", err, expectedStr)
 			}
-			expectedStr = compressed + "\n"
+			expectedStr = string(compressed) + "\n"
 		}
 
 		if diff := pretty.Compare(expectedStr, string(dat)); diff != "" {
 			t.Errorf("Message written does not match expected output (-want +got):\n%s\ntest description: %s", diff, tt.description)
 		}
-	}
-}
-
-// Test that compress bytes is compressing bytes appropriately.
-func TestCompressBytes(t *testing.T) {
-	testString := "string that is about to be compressed"
-	compressed, err := compressBytes([]byte(testString))
-	if err != nil {
-		t.Errorf("Got error while compressing the test string (%s): %v", testString, err)
-	}
-	// Verified that following is a good string using:
-	// in="H4sIAAAAAAAA/youKcrMS1coyUgsUcgsVkhMyi8tUSjJV0hKVUjOzy0oSi0uTk0BBAAA//+2oNy3JQAAAA=="
-	// echo -n $in | base64 -d | gunzip -c
-	expectedCompressed := "H4sIAAAAAAAA/youKcrMS1coyUgsUcgsVkhMyi8tUSjJV0hKVUjOzy0oSi0uTk0BBAAA//+2oNy3JQAAAA=="
-	if compressed != expectedCompressed {
-		t.Errorf("compressBytes(), got=%s, expected=%s", compressed, expectedCompressed)
-	}
-}
-
-func TestCompressionBufferFlush(t *testing.T) {
-	c := &compressionBuffer{
-		buf:     new(bytes.Buffer),
-		outChan: make(chan string, 1000),
-		l:       &logger.Logger{},
-	}
-
-	// Write a test line to the buffer.
-	c.writeLineToBuffer("test string")
-
-	if c.buf.Len() == 0 || c.lines == 0 {
-		t.Errorf("compressionBuffer unexpected empty")
-	}
-
-	c.compressAndFlushToChan()
-
-	if c.buf.Len() != 0 && c.lines != 0 {
-		t.Errorf("flush() didn't empty the compressionBuffer")
 	}
 }

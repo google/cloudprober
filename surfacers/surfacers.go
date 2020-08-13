@@ -35,6 +35,7 @@ import (
 	"github.com/google/cloudprober/surfacers/file"
 	"github.com/google/cloudprober/surfacers/postgres"
 	"github.com/google/cloudprober/surfacers/prometheus"
+	"github.com/google/cloudprober/surfacers/pubsub"
 	"github.com/google/cloudprober/surfacers/stackdriver"
 	"github.com/google/cloudprober/web/formatutils"
 
@@ -108,6 +109,8 @@ func inferType(s *surfacerpb.SurfacerDef) surfacerspb.Type {
 		return surfacerspb.Type_FILE
 	case *surfacerpb.SurfacerDef_PostgresSurfacer:
 		return surfacerspb.Type_POSTGRES
+	case *surfacerpb.SurfacerDef_PubsubSurfacer:
+		return surfacerspb.Type_PUBSUB
 	}
 
 	return surfacerspb.Type_NONE
@@ -142,6 +145,9 @@ func initSurfacer(ctx context.Context, s *surfacerpb.SurfacerDef, sType surfacer
 	case surfacerpb.Type_POSTGRES:
 		surfacer, err = postgres.New(ctx, s.GetPostgresSurfacer(), l)
 		conf = s.GetPostgresSurfacer()
+	case surfacerpb.Type_PUBSUB:
+		surfacer, err = pubsub.New(ctx, s.GetPubsubSurfacer(), l)
+		conf = s.GetPubsubSurfacer()
 	case surfacerpb.Type_USER_DEFINED:
 		userDefinedSurfacersMu.Lock()
 		defer userDefinedSurfacersMu.Unlock()
