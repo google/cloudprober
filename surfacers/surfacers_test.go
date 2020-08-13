@@ -70,7 +70,7 @@ func TestInferType(t *testing.T) {
 	if len(s) != 1 {
 		t.Errorf("len(s)=%d, expected=1", len(s))
 	}
-	if _, ok := s[0].Surfacer.(*file.FileSurfacer); !ok {
+	if _, ok := s[0].Surfacer.(*file.Surfacer); !ok {
 		t.Errorf("Got surfacers for zero config: %v", s)
 	}
 }
