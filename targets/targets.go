@@ -361,30 +361,24 @@ func New(targetsDef *targetspb.TargetsDef, ldLister lameduck.Lister, globalOpts 
 }
 
 func getExtensionTargets(pb *targetspb.TargetsDef, l *logger.Logger) (Targets, error) {
-	extensions := proto.RegisteredExtensions(pb)
-	if len(extensions) > 1 {
-		return nil, fmt.Errorf("only one extension is allowed per targets definition, got %d extensions", len(extensions))
+	extensions, err := proto.ExtensionDescs(pb)
+	if err != nil {
+		return nil, fmt.Errorf("error getting extensions from the target config (%s): %v", pb.String(), err)
 	}
-	var field int
-	var desc *proto.ExtensionDesc
-	// There should be only one extension in one protobuf message.
-	for f, d := range extensions {
-		field = int(f)
-		desc = d
+	if len(extensions) != 1 {
+		return nil, fmt.Errorf("there should be exactly one extension in the targets config (%s), got %d extensions", pb.String(), len(extensions))
 	}
-	if desc == nil {
-		return nil, errors.New("unrecognized target type")
-	}
+	desc := extensions[0]
 	value, err := proto.GetExtension(pb, desc)
 	if err != nil {
 		return nil, err
 	}
-	l.Infof("Extension field: %d, value: %v", field, value)
+	l.Infof("Extension field: %d, value: %v", desc.Field, value)
 	extensionMapMu.Lock()
 	defer extensionMapMu.Unlock()
-	newTargetsFunc, ok := extensionMap[field]
+	newTargetsFunc, ok := extensionMap[int(desc.Field)]
 	if !ok {
-		return nil, fmt.Errorf("no targets type registered for the extension: %d", field)
+		return nil, fmt.Errorf("no targets type registered for the extension: %d", desc.Field)
 	}
 	return newTargetsFunc(value, l)
 }

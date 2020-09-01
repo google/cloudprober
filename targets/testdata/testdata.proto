@@ -7,9 +7,14 @@ import "github.com/google/cloudprober/targets/proto/targets.proto";
 option go_package = "github.com/google/cloudprober/targets/testdata";
 
 message FancyTargets {
-  required string name = 1;
+  optional string name = 1;
+}
+
+message AnotherFancyTargets {
+  optional string name = 1;
 }
 
 extend targets.TargetsDef {
   optional FancyTargets fancy_targets = 200;
+  optional AnotherFancyTargets another_fancy_targets = 201;
 }

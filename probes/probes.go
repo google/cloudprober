@@ -19,7 +19,6 @@ package probes
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"regexp"
 	"sync"
@@ -87,29 +86,23 @@ type ProbeInfo struct {
 }
 
 func getExtensionProbe(p *configpb.ProbeDef) (Probe, interface{}, error) {
-	extensions := proto.RegisteredExtensions(p)
-	if len(extensions) > 1 {
-		return nil, nil, fmt.Errorf("only one probe extension is allowed per probe, got %d extensions", len(extensions))
+	extensions, err := proto.ExtensionDescs(p)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error getting extensions from the probe config (%s): %v", p.String(), err)
 	}
-	var field int
-	var desc *proto.ExtensionDesc
-	// There should be only one extension.
-	for f, d := range extensions {
-		field = int(f)
-		desc = d
+	if len(extensions) != 1 {
+		return nil, nil, fmt.Errorf("there should be exactly one extension in the probe config (%s), got %d extensions", p.String(), len(extensions))
 	}
-	if desc == nil {
-		return nil, nil, errors.New("no probe extension in probe config")
-	}
+	desc := extensions[0]
 	value, err := proto.GetExtension(p, desc)
 	if err != nil {
 		return nil, nil, err
 	}
 	extensionMapMu.Lock()
 	defer extensionMapMu.Unlock()
-	newProbeFunc, ok := extensionMap[field]
+	newProbeFunc, ok := extensionMap[int(desc.Field)]
 	if !ok {
-		return nil, nil, fmt.Errorf("no probes registered for the extension: %d", field)
+		return nil, nil, fmt.Errorf("no probes registered for the extension: %d", desc.Field)
 	}
 	return newProbeFunc(), value, nil
 }

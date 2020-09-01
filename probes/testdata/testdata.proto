@@ -7,9 +7,14 @@ import "github.com/google/cloudprober/probes/proto/config.proto";
 option go_package = "github.com/google/cloudprober/probes/testdata";
 
 message FancyProbe {
-  required string name = 1;
+  optional string name = 1;
+}
+
+message AnotherFancyProbe {
+  optional string name = 1;
 }
 
 extend probes.ProbeDef {
   optional FancyProbe fancy_probe = 200;
+  optional AnotherFancyProbe another_fancy_probe = 201;
 }
