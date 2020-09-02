@@ -33,6 +33,8 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -62,6 +64,7 @@ var (
 	// TODO(manugarg): Make sure that the last target in the list has an impact of
 	// less than 1% on its timeout.
 	TimeBetweenRequests = 10 * time.Microsecond
+	validLabelRe        = regexp.MustCompile(`@(target|address|port|probe|target\.label\.[^@]+)@`)
 )
 
 type result struct {
@@ -98,6 +101,27 @@ type Probe struct {
 	payloadParser *payload.Parser
 }
 
+func (p *Probe) updateLabelKeys() {
+	p.labelKeys = make(map[string]bool)
+
+	updateLabelKeysFn := func(s string) {
+		matches := validLabelRe.FindAllStringSubmatch(s, -1)
+		for _, m := range matches {
+			if len(m) >= 2 {
+				// Pick the match within outer parentheses.
+				p.labelKeys[m[1]] = true
+			}
+		}
+	}
+
+	for _, opt := range p.c.GetOptions() {
+		updateLabelKeysFn(opt.GetValue())
+	}
+	for _, arg := range p.cmdArgs {
+		updateLabelKeysFn(arg)
+	}
+}
+
 // Init initializes the probe with the given params.
 func (p *Probe) Init(name string, opts *options.Options) error {
 	c, ok := opts.ProbeConf.(*configpb.ProbeConf)
@@ -117,20 +141,7 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	p.cmdArgs = cmdParts[1:len(cmdParts)]
 
 	// Figure out labels we are interested in
-	p.labelKeys = make(map[string]bool)
-	validLabels := []string{"@target@", "@address@", "@probe@"}
-	for _, l := range validLabels {
-		for _, opt := range p.c.GetOptions() {
-			if strings.Contains(opt.GetValue(), l) {
-				p.labelKeys[l] = true
-			}
-		}
-		for _, arg := range p.cmdArgs {
-			if strings.Contains(arg, l) {
-				p.labelKeys[l] = true
-			}
-		}
-	}
+	p.updateLabelKeys()
 
 	switch p.c.GetMode() {
 	case configpb.ProbeConf_ONCE:
@@ -323,33 +334,42 @@ func (p *Probe) defaultMetrics(target string, result *result) *metrics.EventMetr
 	return em
 }
 
-func (p *Probe) labels(target string) map[string]string {
+func (p *Probe) labels(ep endpoint.Endpoint) map[string]string {
 	labels := make(map[string]string)
-	if p.labelKeys["@probe@"] {
+	if p.labelKeys["probe"] {
 		labels["probe"] = p.name
 	}
-	if p.labelKeys["@target@"] {
-		labels["target"] = target
+	if p.labelKeys["target"] {
+		labels["target"] = ep.Name
 	}
-	if p.labelKeys["@address@"] {
-		addr, err := p.opts.Targets.Resolve(target, p.opts.IPVersion)
+	if p.labelKeys["port"] {
+		labels["port"] = strconv.Itoa(ep.Port)
+	}
+	if p.labelKeys["address"] {
+		addr, err := p.opts.Targets.Resolve(ep.Name, p.opts.IPVersion)
 		if err != nil {
-			p.l.Warningf("Targets.Resolve(%v, %v) failed: %v ", target, p.opts.IPVersion, err)
+			p.l.Warningf("Targets.Resolve(%v, %v) failed: %v ", ep.Name, p.opts.IPVersion, err)
 		} else if !addr.IsUnspecified() {
 			labels["address"] = addr.String()
+		}
+	}
+	for lk, lv := range ep.Labels {
+		k := "target.label." + lk
+		if p.labelKeys[k] {
+			labels[k] = lv
 		}
 	}
 	return labels
 }
 
-func (p *Probe) sendRequest(requestID int32, target string) error {
+func (p *Probe) sendRequest(requestID int32, ep endpoint.Endpoint) error {
 	req := &serverpb.ProbeRequest{
 		RequestId: proto.Int32(requestID),
 		TimeLimit: proto.Int32(int32(p.opts.Timeout / time.Millisecond)),
 		Options:   []*serverpb.ProbeRequest_Option{},
 	}
 	for _, opt := range p.c.GetOptions() {
-		value, found := substituteLabels(opt.GetValue(), p.labels(target))
+		value, found := substituteLabels(opt.GetValue(), p.labels(ep))
 		if !found {
 			p.l.Warningf("Missing substitution in option %q", value)
 		}
@@ -359,7 +379,7 @@ func (p *Probe) sendRequest(requestID int32, target string) error {
 		})
 	}
 
-	p.l.Debugf("Sending a probe request %v to the external probe server for target %v", requestID, target)
+	p.l.Debugf("Sending a probe request %v to the external probe server for target %v", requestID, ep.Name)
 	return serverutils.WriteMessage(req, p.cmdStdin)
 }
 
@@ -474,7 +494,7 @@ func (p *Probe) runServerProbe(ctx, startCtx context.Context) {
 			timestamp: time.Now(),
 		}
 		requestsMu.Unlock()
-		p.sendRequest(p.requestID, target.Name)
+		p.sendRequest(p.requestID, target)
 		time.Sleep(TimeBetweenRequests)
 	}
 
@@ -500,7 +520,7 @@ func (p *Probe) runOnceProbe(ctx context.Context) {
 			defer wg.Done()
 			args := make([]string, len(p.cmdArgs))
 			for i, arg := range p.cmdArgs {
-				res, found := substituteLabels(arg, p.labels(target.Name))
+				res, found := substituteLabels(arg, p.labels(target))
 				if !found {
 					p.l.Warningf("Substitution not found in %q", arg)
 				}

@@ -35,6 +35,7 @@ import (
 	"github.com/google/cloudprober/probes/external/serverutils"
 	"github.com/google/cloudprober/probes/options"
 	"github.com/google/cloudprober/targets"
+	"github.com/google/cloudprober/targets/endpoint"
 )
 
 func isDone(doneChan chan struct{}) bool {
@@ -372,6 +373,56 @@ func TestProbeOnceMode(t *testing.T) {
 	}
 }
 
+func TestUpdateLabelKeys(t *testing.T) {
+	c := &configpb.ProbeConf{
+		Options: []*configpb.ProbeConf_Option{
+			{
+				Name:  proto.String("target"),
+				Value: proto.String("@target@"),
+			},
+			{
+				Name:  proto.String("probe"),
+				Value: proto.String("@probe@"),
+			},
+		},
+	}
+	p := &Probe{
+		name:    "probeP",
+		c:       c,
+		cmdArgs: []string{"--server", "@target.label.fqdn@:@port@"},
+	}
+
+	p.updateLabelKeys()
+
+	expected := map[string]bool{
+		"target":            true,
+		"port":              true,
+		"probe":             true,
+		"target.label.fqdn": true,
+	}
+
+	if !reflect.DeepEqual(p.labelKeys, expected) {
+		t.Errorf("p.labelKeys got: %v, want: %v", p.labelKeys, expected)
+	}
+
+	gotLabels := p.labels(endpoint.Endpoint{
+		Name: "targetA",
+		Port: 8080,
+		Labels: map[string]string{
+			"fqdn": "targetA.svc.local",
+		},
+	})
+	wantLabels := map[string]string{
+		"target.label.fqdn": "targetA.svc.local",
+		"port":              "8080",
+		"probe":             "probeP",
+		"target":            "targetA",
+	}
+	if !reflect.DeepEqual(gotLabels, wantLabels) {
+		t.Errorf("p.labels got: %v, want: %v", gotLabels, wantLabels)
+	}
+}
+
 func TestSubstituteLabels(t *testing.T) {
 	tests := []struct {
 		desc   string
@@ -499,7 +550,7 @@ func TestSendRequest(t *testing.T) {
 	requestID := int32(1234)
 	target := "localhost"
 
-	err := p.sendRequest(requestID, target)
+	err := p.sendRequest(requestID, endpoint.Endpoint{Name: target})
 	if err != nil {
 		t.Errorf("Failed to sendRequest: %v", err)
 	}
