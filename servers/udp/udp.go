@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 2017-2020 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,15 +20,11 @@ package udp
 
 import (
 	"context"
-	"fmt"
-	"io"
 	"net"
 
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
 	configpb "github.com/google/cloudprober/servers/udp/proto"
-	"golang.org/x/net/ipv4"
-	"golang.org/x/net/ipv6"
 )
 
 const (
@@ -42,8 +38,6 @@ const (
 type Server struct {
 	c    *configpb.ServerConf
 	conn *net.UDPConn
-	p6   *ipv6.PacketConn
-	p4   *ipv4.PacketConn
 	l    *logger.Logger
 }
 
@@ -58,20 +52,9 @@ func New(initCtx context.Context, c *configpb.ServerConf, l *logger.Logger) (*Se
 		conn.Close()
 	}()
 
-	// Set up PacketConn wrappers around the connection, to receive packet
-	// destination IPs (FlagDst) and to specify source IPs with control messages.
-	// See readAndEcho() for usage.
-	p6 := ipv6.NewPacketConn(conn)
-	p4 := ipv4.NewPacketConn(conn)
-	if err := p6.SetControlMessage(ipv6.FlagDst, true); err != nil {
-		return nil, fmt.Errorf("SetControlMessage(FlagDst): %v", err)
-	}
-
 	return &Server{
 		c:    c,
 		conn: conn,
-		p4:   p4,
-		p6:   p6,
 		l:    l,
 	}, nil
 }
@@ -104,7 +87,7 @@ func (s *Server) Start(ctx context.Context, dataChan chan<- *metrics.EventMetric
 				return s.conn.Close()
 			default:
 			}
-			readAndEcho(s.p6, s.p4, s.l)
+			readAndEcho(s.conn, s.l)
 		}
 	case configpb.ServerConf_DISCARD:
 		s.l.Infof("Starting UDP DISCARD server on port %d", int(s.c.GetPort()))
@@ -118,46 +101,6 @@ func (s *Server) Start(ctx context.Context, dataChan chan<- *metrics.EventMetric
 		}
 	}
 	return nil
-}
-
-func readAndEcho(p6 *ipv6.PacketConn, p4 *ipv4.PacketConn, l *logger.Logger) {
-	// TODO(manugarg): We read and echo back only 4098 bytes. We should look at raising this
-	// limit or making it configurable. Also of note, ReadFromUDP reads a single UDP datagram
-	// (up to the max size of 64K-sizeof(UDPHdr)) and discards the rest.
-	buf := make([]byte, 4098)
-
-	// ipv6.PacketConn also receives IPv4 packets.
-	len, cm, addr, err := p6.ReadFrom(buf)
-	if err != nil {
-		l.Errorf("ReadFrom(): %v", err)
-		return
-	}
-
-	var n int
-	if cm.Dst.To4() != nil {
-		// We have a v4 packet, but need to use an ipv4.PacketConn for sending.
-		wcm := &ipv4.ControlMessage{
-			Src: cm.Dst.To4(),
-		}
-		n, err = p4.WriteTo(buf[:len], wcm, addr)
-	} else {
-		// We have a v6 packet.
-		wcm := &ipv6.ControlMessage{
-			Src: cm.Dst.To16(),
-		}
-		n, err = p6.WriteTo(buf[:len], wcm, addr)
-	}
-
-	if err == io.EOF {
-		return
-	}
-	if err != nil {
-		l.Errorf("WriteTo(): %v", err)
-		return
-	}
-	if n < len {
-		l.Warningf("Reply truncated! Got %v bytes but only sent %v bytes", len, n)
-	}
 }
 
 // listenAndServeDiscard launches an UDP discard server listening on port.
