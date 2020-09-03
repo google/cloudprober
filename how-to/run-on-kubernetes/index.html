@@ -345,12 +345,15 @@
 </span><span class="se"></span>  --from-file<span class="o">=</span>cloudprober.cfg<span class="o">=</span>cloudprober.cfg
 </code></pre></div><h2 id="deployment-map">Deployment Map</h2>
 <p>Now let's add a <code>deployment.yaml</code> to add the config volume and cloudprober container:</p>
-<div class="highlight"><pre class="chroma"><code class="language-yaml" data-lang="yaml">apiVersion<span class="p">:</span><span class="w"> </span>apps/v1beta1<span class="w">
+<div class="highlight"><pre class="chroma"><code class="language-yaml" data-lang="yaml">apiVersion<span class="p">:</span><span class="w"> </span>apps/v1<span class="w">
 </span><span class="w"></span>kind<span class="p">:</span><span class="w"> </span>Deployment<span class="w">
 </span><span class="w"></span>metadata<span class="p">:</span><span class="w">
 </span><span class="w">  </span>name<span class="p">:</span><span class="w"> </span>cloudprober<span class="w">
 </span><span class="w"></span>spec<span class="p">:</span><span class="w">
 </span><span class="w">  </span>replicas<span class="p">:</span><span class="w"> </span><span class="m">1</span><span class="w">
+</span><span class="w">  </span>selector<span class="p">:</span><span class="w">
+</span><span class="w">    </span>matchLabels<span class="p">:</span><span class="w">
+</span><span class="w">      </span>app<span class="p">:</span><span class="w"> </span>cloudprober<span class="w">
 </span><span class="w">  </span>template<span class="p">:</span><span class="w">
 </span><span class="w">    </span>metadata<span class="p">:</span><span class="w">
 </span><span class="w">      </span>annotations<span class="p">:</span><span class="w">
