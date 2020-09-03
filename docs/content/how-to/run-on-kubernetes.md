@@ -40,12 +40,15 @@ kubectl create configmap cloudprober-config \
 Now let's add a `deployment.yaml` to add the config volume and cloudprober container:
 
 ```yaml
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: cloudprober
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: cloudprober
   template:
     metadata:
       annotations:
