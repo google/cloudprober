@@ -69,10 +69,16 @@ func (pr *Prober) ListProbes(ctx context.Context, req *pb.ListProbesRequest) (*p
 	defer pr.mu.Unlock()
 
 	resp := &pb.ListProbesResponse{}
-	for name, p := range pr.Probes {
+
+	keys := make([]string, 0)
+	for k, _ := range pr.Probes {
+		keys = append(keys, k)
+	}
+
+	for i := 0; i < len(keys); i++ {
 		resp.Probe = append(resp.Probe, &pb.Probe{
-			Name:   &name,
-			Config: p.ProbeDef,
+			Name:   &keys[i],
+			Config: pr.Probes[keys[i]].ProbeDef,
 		})
 	}
 

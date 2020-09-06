@@ -182,7 +182,7 @@ func TestListProbes(t *testing.T) {
 		respProbeNames = append(respProbeNames, p.GetName())
 	}
 	sort.Strings(respProbeNames)
-	if reflect.DeepEqual(respProbeNames, testProbes) {
+	if !reflect.DeepEqual(respProbeNames, testProbes) {
 		t.Errorf("Probes in ListProbes() response: %v, expected: %s", respProbeNames, testProbes)
 	}
 }
