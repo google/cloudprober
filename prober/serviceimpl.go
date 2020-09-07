@@ -17,6 +17,7 @@ package prober
 import (
 	"context"
 
+	"github.com/golang/protobuf/proto"
 	pb "github.com/google/cloudprober/prober/proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -70,15 +71,10 @@ func (pr *Prober) ListProbes(ctx context.Context, req *pb.ListProbesRequest) (*p
 
 	resp := &pb.ListProbesResponse{}
 
-	keys := make([]string, 0)
-	for k, _ := range pr.Probes {
-		keys = append(keys, k)
-	}
-
-	for i := 0; i < len(keys); i++ {
+	for name, _ := range pr.Probes {
 		resp.Probe = append(resp.Probe, &pb.Probe{
-			Name:   &keys[i],
-			Config: pr.Probes[keys[i]].ProbeDef,
+			Name:   proto.String(name),
+			Config: pr.Probes[name].ProbeDef,
 		})
 	}
 
