@@ -20,6 +20,7 @@ import (
 	pb "github.com/google/cloudprober/prober/proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 )
 
 // AddProbe adds the given probe to cloudprober.
@@ -69,9 +70,10 @@ func (pr *Prober) ListProbes(ctx context.Context, req *pb.ListProbesRequest) (*p
 	defer pr.mu.Unlock()
 
 	resp := &pb.ListProbesResponse{}
+
 	for name, p := range pr.Probes {
 		resp.Probe = append(resp.Probe, &pb.Probe{
-			Name:   &name,
+			Name:   proto.String(name),
 			Config: p.ProbeDef,
 		})
 	}
