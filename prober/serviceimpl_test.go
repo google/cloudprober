@@ -21,7 +21,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/metrics"
 	pb "github.com/google/cloudprober/prober/proto"
 	"github.com/google/cloudprober/probes"
@@ -29,6 +28,7 @@ import (
 	probes_configpb "github.com/google/cloudprober/probes/proto"
 	testdatapb "github.com/google/cloudprober/probes/testdata"
 	targetspb "github.com/google/cloudprober/targets/proto"
+	"google.golang.org/protobuf/proto"
 )
 
 func testProber() *Prober {
@@ -96,7 +96,7 @@ func testProbeDef(name string) *probes_configpb.ProbeDef {
 			Type: &targetspb.TargetsDef_DummyTargets{},
 		},
 	}
-	proto.SetExtension(probeDef, testdatapb.E_FancyProbe, &testdatapb.FancyProbe{Name: proto.String("fancy")})
+	proto.SetExtension(probeDef, testdatapb.E_FancyProbe, &testdatapb.FancyProbe{Name: proto.String("fancy-" + name)})
 	return probeDef
 }
 
@@ -180,9 +180,10 @@ func TestListProbes(t *testing.T) {
 	var respProbeNames []string
 	for _, p := range respProbes {
 		respProbeNames = append(respProbeNames, p.GetName())
+		t.Logf("Probe Config: %+v", p.GetConfig())
 	}
 	sort.Strings(respProbeNames)
-	if reflect.DeepEqual(respProbeNames, testProbes) {
+	if !reflect.DeepEqual(respProbeNames, testProbes) {
 		t.Errorf("Probes in ListProbes() response: %v, expected: %s", respProbeNames, testProbes)
 	}
 }
