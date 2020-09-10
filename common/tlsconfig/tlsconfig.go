@@ -33,7 +33,7 @@ func UpdateTLSConfig(tlsConfig *tls.Config, c *configpb.TLSConfig, addClientCACe
 	if c.GetCaCertFile() != "" {
 		caCert, err := file.ReadFile(c.GetCaCertFile())
 		if err != nil {
-			return err
+			return fmt.Errorf("common/tlsconfig: error reading CA cert file (%s): %v", c.GetCaCertFile(), err)
 		}
 		caCertPool := x509.NewCertPool()
 		if !caCertPool.AppendCertsFromPEM(caCert) {
@@ -50,16 +50,16 @@ func UpdateTLSConfig(tlsConfig *tls.Config, c *configpb.TLSConfig, addClientCACe
 	if c.GetTlsCertFile() != "" {
 		certPEMBlock, err := file.ReadFile(c.GetTlsCertFile())
 		if err != nil {
-			return err
+			return fmt.Errorf("common/tlsconfig: error reading TLS cert file (%s): %v", c.GetTlsCertFile(), err)
 		}
 		keyPEMBlock, err := file.ReadFile(c.GetTlsKeyFile())
 		if err != nil {
-			return err
+			return fmt.Errorf("common/tlsconfig: error reading TLS key file (%s): %v", c.GetTlsKeyFile(), err)
 		}
 
 		cert, err := tls.X509KeyPair(certPEMBlock, keyPEMBlock)
 		if err != nil {
-			return err
+			return fmt.Errorf("common/tlsconfig: error initializing cert from cert key pair: %v", err)
 		}
 		tlsConfig.Certificates = append(tlsConfig.Certificates, cert)
 	}
