@@ -32,12 +32,13 @@ import (
 )
 
 var (
-	rdsServer     = flag.String("rds_server", "", "gRPC server address")
-	rdsServerCert = flag.String("rds_server_cert", "", "gRPC server cert to use.")
-	provider      = flag.String("provider", "gcp", "Resource provider")
-	resType       = flag.String("resource_type", "gce_instances", "Resource type")
-	project       = flag.String("project", "", "GCP project")
-	filtersF      = flag.String("filters", "", "Comma separated list of filters, e.g. name=ig-us-central1-a-.*")
+	rdsServer      = flag.String("rds_server", "", "gRPC server address")
+	rdsServerCert  = flag.String("rds_server_cert", "", "gRPC server cert to use.")
+	certServerName = flag.String("cert_server_name", "", "Server name for the cert, defaults to project name.")
+	provider       = flag.String("provider", "gcp", "Resource provider")
+	resType        = flag.String("resource_type", "gce_instances", "Resource type")
+	project        = flag.String("project", "", "GCP project")
+	filtersF       = flag.String("filters", "", "Comma separated list of filters, e.g. name=ig-us-central1-a-.*")
 )
 
 func main() {
@@ -45,6 +46,10 @@ func main() {
 
 	if *project == "" {
 		glog.Exit("--project is a required paramater")
+	}
+
+	if *certServerName == "" {
+		*certServerName = *project
 	}
 
 	c := &configpb.ClientConf{
@@ -56,6 +61,7 @@ func main() {
 	if *rdsServerCert != "" {
 		c.ServerOptions.TlsConfig = &tlsconfigpb.TLSConfig{
 			CaCertFile: rdsServerCert,
+			ServerName: certServerName,
 		}
 	}
 

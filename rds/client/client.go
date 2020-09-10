@@ -172,7 +172,7 @@ func (client *Client) initListResourcesFunc() error {
 	if client.serverOpts.GetTlsConfig() != nil {
 		tlsConfig := &tls.Config{}
 		if err := tlsconfig.UpdateTLSConfig(tlsConfig, client.serverOpts.GetTlsConfig(), false); err != nil {
-			return err
+			return fmt.Errorf("rds/client: error initializing TLS config (%+v): %v", client.serverOpts.GetTlsConfig(), err)
 		}
 		client.dialOpts = append(client.dialOpts, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
 	} else {
@@ -183,14 +183,14 @@ func (client *Client) initListResourcesFunc() error {
 	if client.serverOpts.GetOauthConfig() != nil {
 		oauthTS, err := oauth.TokenSourceFromConfig(client.serverOpts.GetOauthConfig(), client.l)
 		if err != nil {
-			return err
+			return fmt.Errorf("rds/client: error getting token source from OAuth config (%+v): %v", client.serverOpts.GetOauthConfig(), err)
 		}
 		client.dialOpts = append(client.dialOpts, grpc.WithPerRPCCredentials(grpcoauth.TokenSource{oauthTS}))
 	}
 
 	conn, err := client.connect(client.serverOpts.GetServerAddress())
 	if err != nil {
-		return err
+		return fmt.Errorf("rds/client: error connecting to server (%v): %v", client.serverOpts.GetServerAddress(), err)
 	}
 
 	client.listResources = func(ctx context.Context, in *pb.ListResourcesRequest) (*pb.ListResourcesResponse, error) {
@@ -213,7 +213,7 @@ func New(c *configpb.ClientConf, listResources ListResourcesFunc, l *logger.Logg
 	}
 
 	if err := client.initListResourcesFunc(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("rds/client: error initializing listListResource function: %v", err)
 	}
 
 	reEvalInterval := time.Duration(client.c.GetReEvalSec()) * time.Second
