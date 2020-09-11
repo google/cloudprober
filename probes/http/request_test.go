@@ -51,13 +51,14 @@ func TestHostWithPort(t *testing.T) {
 	}
 }
 
-func TestHostHeaderForTarget(t *testing.T) {
+func TestURLHostAndHeaderForTarget(t *testing.T) {
 	for _, test := range []struct {
 		name            string
 		fqdn            string
 		probeHostHeader string
 		port            int
 		wantHostHeader  string
+		wantURLHost     string
 	}{
 		{
 			name:            "target1",
@@ -65,6 +66,7 @@ func TestHostHeaderForTarget(t *testing.T) {
 			probeHostHeader: "svc.target",
 			port:            8080,
 			wantHostHeader:  "svc.target",
+			wantURLHost:     "target1.ns.cluster.local",
 		},
 		{
 			name:            "target1",
@@ -72,6 +74,7 @@ func TestHostHeaderForTarget(t *testing.T) {
 			probeHostHeader: "",
 			port:            8080,
 			wantHostHeader:  "target1.ns.cluster.local:8080",
+			wantURLHost:     "target1.ns.cluster.local",
 		},
 		{
 			name:            "target1",
@@ -79,6 +82,7 @@ func TestHostHeaderForTarget(t *testing.T) {
 			probeHostHeader: "",
 			port:            0,
 			wantHostHeader:  "target1.ns.cluster.local",
+			wantURLHost:     "target1.ns.cluster.local",
 		},
 		{
 			name:            "target1",
@@ -86,6 +90,7 @@ func TestHostHeaderForTarget(t *testing.T) {
 			probeHostHeader: "",
 			port:            8080,
 			wantHostHeader:  "target1:8080",
+			wantURLHost:     "target1",
 		},
 		{
 			name:            "target1",
@@ -93,6 +98,7 @@ func TestHostHeaderForTarget(t *testing.T) {
 			probeHostHeader: "",
 			port:            0,
 			wantHostHeader:  "target1",
+			wantURLHost:     "target1",
 		},
 	} {
 		t.Run(fmt.Sprintf("test:%+v", test), func(t *testing.T) {
@@ -104,6 +110,42 @@ func TestHostHeaderForTarget(t *testing.T) {
 			hostHeader := hostHeaderForTarget(target, test.probeHostHeader, test.port)
 			if hostHeader != test.wantHostHeader {
 				t.Errorf("Got host header: %s, want header: %s", hostHeader, test.wantHostHeader)
+			}
+
+			urlHost := urlHostForTarget(target)
+			if urlHost != test.wantURLHost {
+				t.Errorf("Got URL host: %s, want URL host: %s", urlHost, test.wantURLHost)
+			}
+		})
+	}
+}
+
+func TestRelURLforTarget(t *testing.T) {
+	for _, test := range []struct {
+		url        string
+		probeURL   string
+		wantRelURL string
+	}{
+		{
+			url:        "/mymetrics",
+			probeURL:   "/metrics",
+			wantRelURL: "/mymetrics",
+		},
+		{
+			url:        "",
+			probeURL:   "/metrics",
+			wantRelURL: "/metrics",
+		},
+	} {
+		t.Run(fmt.Sprintf("test:%+v", test), func(t *testing.T) {
+			target := endpoint.Endpoint{
+				Name:   "test-target",
+				Labels: map[string]string{"url": test.url},
+			}
+
+			relURL := relURLForTarget(target, test.probeURL)
+			if relURL != test.wantRelURL {
+				t.Errorf("Got URL: %s, want: %s", relURL, test.wantRelURL)
 			}
 		})
 	}
@@ -210,7 +252,7 @@ func TestRequestHostAndURL(t *testing.T) {
 			desc:        "no_resolve_first,fqdn,no_probe_host_header",
 			targetName:  "test-target.com",
 			targetFQDN:  "test.svc.cluster.local",
-			wantURLHost: "test-target.com",
+			wantURLHost: "test.svc.cluster.local",
 		},
 		{
 			desc:        "no_resolve_first,host_header",

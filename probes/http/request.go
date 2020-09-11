@@ -66,6 +66,22 @@ func hostHeaderForTarget(target endpoint.Endpoint, probeHostHeader string, port 
 	return hostWithPort(target.Name, port)
 }
 
+func urlHostForTarget(target endpoint.Endpoint) string {
+	if target.Labels["fqdn"] != "" {
+		return target.Labels["fqdn"]
+	}
+
+	return target.Name
+}
+
+func relURLForTarget(target endpoint.Endpoint, probeURL string) string {
+	if target.Labels["url"] != "" {
+		return target.Labels["url"]
+	}
+
+	return probeURL
+}
+
 func (p *Probe) httpRequestForTarget(target endpoint.Endpoint, resolveF resolveFunc) *http.Request {
 	// Prepare HTTP.Request for Client.Do
 	port := int(p.c.GetPort())
@@ -74,7 +90,7 @@ func (p *Probe) httpRequestForTarget(target endpoint.Endpoint, resolveF resolveF
 		port = target.Port
 	}
 
-	urlHost := target.Name
+	urlHost := urlHostForTarget(target)
 
 	if p.c.GetResolveFirst() {
 		if resolveF == nil {
@@ -93,7 +109,7 @@ func (p *Probe) httpRequestForTarget(target endpoint.Endpoint, resolveF resolveF
 		urlHost = fmt.Sprintf("%s:%d", urlHost, port)
 	}
 
-	url := fmt.Sprintf("%s://%s%s", p.protocol, urlHost, p.url)
+	url := fmt.Sprintf("%s://%s%s", p.protocol, urlHost, relURLForTarget(target, p.url))
 
 	// Prepare request body
 	var body io.Reader
