@@ -122,25 +122,33 @@ func TestURLHostAndHeaderForTarget(t *testing.T) {
 
 func TestRelURLforTarget(t *testing.T) {
 	for _, test := range []struct {
-		url        string
-		probeURL   string
-		wantRelURL string
+		targetURLLabel string
+		probeURL       string
+		wantRelURL     string
 	}{
 		{
-			url:        "/mymetrics",
-			probeURL:   "/metrics",
-			wantRelURL: "/mymetrics",
+			// Both set, probe URL wins.
+			targetURLLabel: "/target-url",
+			probeURL:       "/metrics",
+			wantRelURL:     "/metrics",
 		},
 		{
-			url:        "",
-			probeURL:   "/metrics",
-			wantRelURL: "/metrics",
+			// Only target label set.
+			targetURLLabel: "/target-url",
+			probeURL:       "",
+			wantRelURL:     "/target-url",
+		},
+		{
+			// Nothing set, we get nothing.
+			targetURLLabel: "",
+			probeURL:       "",
+			wantRelURL:     "",
 		},
 	} {
 		t.Run(fmt.Sprintf("test:%+v", test), func(t *testing.T) {
 			target := endpoint.Endpoint{
 				Name:   "test-target",
-				Labels: map[string]string{"url": test.url},
+				Labels: map[string]string{relURLLabel: test.targetURLLabel},
 			}
 
 			relURL := relURLForTarget(target, test.probeURL)
