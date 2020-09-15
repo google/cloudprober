@@ -23,6 +23,8 @@ import (
 	"github.com/google/cloudprober/targets/endpoint"
 )
 
+const relURLLabel = "relative_url"
+
 // requestBody encapsulates the request body and implements the io.Reader()
 // interface.
 type requestBody struct {
@@ -75,11 +77,15 @@ func urlHostForTarget(target endpoint.Endpoint) string {
 }
 
 func relURLForTarget(target endpoint.Endpoint, probeURL string) string {
-	if target.Labels["url"] != "" {
-		return target.Labels["url"]
+	if probeURL != "" {
+		return probeURL
 	}
 
-	return probeURL
+	if target.Labels[relURLLabel] != "" {
+		return target.Labels[relURLLabel]
+	}
+
+	return ""
 }
 
 func (p *Probe) httpRequestForTarget(target endpoint.Endpoint, resolveF resolveFunc) *http.Request {
