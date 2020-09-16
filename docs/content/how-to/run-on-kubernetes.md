@@ -33,6 +33,13 @@ kubectl create configmap cloudprober-config \
   --from-file=cloudprober.cfg=cloudprober.cfg
 ```
 
+If you change the config, you can update the config map using the following command:
+
+```bash
+kubectl create configmap cloudprober-config \
+  --from-file=cloudprober.cfg=cloudprober.cfg  -o yaml --dry-run | \
+  kubectl replace -f -
+```
 
 
 ## Deployment Map
@@ -96,7 +103,7 @@ Note that we added an annotation to the deployment spec; this annotation allows 
 ```bash
 # Update the config checksum annotation in deployment.yaml before running
 # kubectl apply.
-CONFIG_CHECKSUM=$(kubectl get cm/cloudprober-config -o yaml | sha256sum) && \
+export CONFIG_CHECKSUM=$(kubectl get cm/cloudprober-config -o yaml | sha256sum) && \
 cat deployment.yaml | envsubst | kubectl apply -f -
 ```
 
@@ -188,6 +195,13 @@ rules:
 - apiGroups: [""]
   resources: ["*"]
   verbs: ["get", "list"]
+- apiGroups:
+  - extensions
+  - "networking.k8s.io" # k8s 1.14+
+  resources:
+  - ingresses
+  - ingresses/status
+  verbs: ["get", "list"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -218,7 +232,7 @@ kubectl create configmap cloudprober-config \
   kubectl replace -f -
 
 # Update deployment
-CONFIG_CHECKSUM=$(kubectl get cm/cloudprober-config -o yaml | sha256sum) && \
+export CONFIG_CHECKSUM=$(kubectl get cm/cloudprober-config -o yaml | sha256sum) && \
 cat deployment.yaml | envsubst | kubectl apply -f -
 ```
 
