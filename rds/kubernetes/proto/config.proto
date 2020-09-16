@@ -35,6 +35,8 @@ message Endpoints {}
 
 message Services {}
 
+message Ingresses {}
+
 // Kubernetes provider config.
 message ProviderConfig {
   // Namespace to list resources for. If not specified, we default to all
@@ -52,6 +54,11 @@ message ProviderConfig {
   // Services discovery options. This field should be declared for the
   // services discovery to be enabled.
   optional Services services = 4;
+
+  // Ingresses discovery options. This field should be declared for the
+  // ingresses discovery to be enabled.
+  // Note: Ingress support is experimental and may change in future.
+  optional Ingresses ingresses = 5;
 
   // Kubernetes API server address. If not specified, we assume in-cluster mode
   // and get it from the local environment variables.

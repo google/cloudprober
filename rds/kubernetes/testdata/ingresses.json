@@ -1,0 +1,86 @@
+{
+  "kind": "IngressList",
+  "apiVersion": "networking.k8s.io/v1beta1",
+  "metadata": {
+    "selfLink": "/apis/networking.k8s.io/v1beta1/namespaces/default/ingresses",
+    "resourceVersion": "23189581"
+  },
+  "items": [
+    {
+      "metadata": {
+        "name": "rds-ingress",
+        "namespace": "default",
+        "selfLink": "/apis/networking.k8s.io/v1beta1/namespaces/default/ingresses/rds-ingress",
+        "uid": "edff7c95-cc29-4b39-a99d-b9f5435125f1",
+        "resourceVersion": "23051471",
+        "generation": 4,
+        "creationTimestamp": "2020-09-10T01:21:55Z",
+        "annotations": {
+          "ingress.kubernetes.io/backends": "{\"k8s-be-30608--69e25e1d9eaff894\":\"UNHEALTHY\",\"k8s-be-31825--69e25e1d9eaff894\":\"HEALTHY\"}",
+          "ingress.kubernetes.io/forwarding-rule": "k8s-fw-default-rds-ingress--69e25e1d9eaff894",
+          "ingress.kubernetes.io/target-proxy": "k8s-tp-default-rds-ingress--69e25e1d9eaff894",
+          "ingress.kubernetes.io/url-map": "k8s-um-default-rds-ingress--69e25e1d9eaff894",
+          "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"networking.k8s.io/v1beta1\",\"kind\":\"Ingress\",\"metadata\":{\"annotations\":{},\"name\":\"rds-ingress\",\"namespace\":\"default\"},\"spec\":{\"backend\":{\"serviceName\":\"cloudprober-rds\",\"servicePort\":9314},\"rules\":[{\"host\":\"foo.bar.com\",\"http\":{\"paths\":[{\"backend\":{\"serviceName\":\"cloudprober-rds\",\"servicePort\":9313},\"path\":\"/health\"},{\"backend\":{\"serviceName\":\"cloudprober-rds\",\"servicePort\":9314},\"path\":\"/rds\"}]}},{\"host\":\"prometheus.bar.com\",\"http\":{\"paths\":[{\"backend\":{\"serviceName\":\"cloudprober-rds\",\"servicePort\":9313},\"path\":\"/\"}]}}]}}\n"
+        },
+        "finalizers": [
+          "networking.gke.io/ingress-finalizer"
+        ]
+      },
+      "spec": {
+        "backend": {
+          "serviceName": "cloudprober-rds",
+          "servicePort": 9314
+        },
+        "rules": [
+          {
+            "host": "foo.bar.com",
+            "http": {
+              "paths": [
+                {
+                  "path": "/health",
+                  "pathType": "ImplementationSpecific",
+                  "backend": {
+                    "serviceName": "cloudprober-rds",
+                    "servicePort": 9313
+                  }
+                },
+                {
+                  "path": "/rds",
+                  "pathType": "ImplementationSpecific",
+                  "backend": {
+                    "serviceName": "cloudprober-rds",
+                    "servicePort": 9314
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "host": "prometheus.bar.com",
+            "http": {
+              "paths": [
+                {
+                  "path": "/",
+                  "pathType": "ImplementationSpecific",
+                  "backend": {
+                    "serviceName": "cloudprober-rds",
+                    "servicePort": 9313
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": {
+        "loadBalancer": {
+          "ingress": [
+            {
+              "ip": "241.120.51.35"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
