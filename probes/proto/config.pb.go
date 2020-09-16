@@ -243,8 +243,8 @@ type ProbeDef struct {
 	//     value: "{{.zone}}"
 	//   }
 	//   additional_label {
-	//     key: "src_zone"
-	//     value: "target.labels.zone"
+	//     key: "app"
+	//     value: "@target.label.app@"
 	//   }
 	AdditionalLabel []*AdditionalLabel `protobuf:"bytes,14,rep,name=additional_label,json=additionalLabel" json:"additional_label,omitempty"`
 	// Types that are assignable to Probe:
