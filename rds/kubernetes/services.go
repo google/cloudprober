@@ -91,6 +91,13 @@ func (lister *servicesLister) listResources(req *pb.ListResourcesRequest) ([]*pb
 	return resources, nil
 }
 
+type loadBalancerStatus struct {
+	Ingress []struct {
+		IP       string
+		Hostname string
+	}
+}
+
 type serviceInfo struct {
 	Metadata kMetadata
 	Spec     struct {
@@ -101,12 +108,7 @@ type serviceInfo struct {
 		}
 	}
 	Status struct {
-		LoadBalancer struct {
-			Ingress []struct {
-				IP       string
-				Hostname string
-			}
-		}
+		LoadBalancer loadBalancerStatus
 	}
 }
 

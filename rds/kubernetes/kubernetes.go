@@ -45,11 +45,12 @@ const DefaultProviderID = "k8s"
 
 // ResourceTypes declares resource types supported by the Kubernetes provider.
 var ResourceTypes = struct {
-	Pods, Endpoints, Services string
+	Pods, Endpoints, Services, Ingresses string
 }{
 	"pods",
 	"endpoints",
 	"services",
+	"ingresses",
 }
 
 /*
@@ -148,13 +149,22 @@ func New(c *configpb.ProviderConfig, l *logger.Logger) (*Provider, error) {
 		p.listers[ResourceTypes.Endpoints] = lr
 	}
 
-	// Enable Endpoints lister if configured.
+	// Enable Services lister if configured.
 	if c.GetServices() != nil {
 		lr, err := newServicesLister(c.GetServices(), c.GetNamespace(), reEvalInterval, client, l)
 		if err != nil {
 			return nil, err
 		}
 		p.listers[ResourceTypes.Services] = lr
+	}
+
+	// Enable Ingresses lister if configured.
+	if c.GetIngresses() != nil {
+		lr, err := newIngressesLister(c.GetIngresses(), c.GetNamespace(), reEvalInterval, client, l)
+		if err != nil {
+			return nil, err
+		}
+		p.listers[ResourceTypes.Ingresses] = lr
 	}
 
 	return p, nil
