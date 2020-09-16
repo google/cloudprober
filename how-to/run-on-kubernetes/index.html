@@ -343,6 +343,10 @@
 </code></pre></div><p>Save this config in <code>cloudprober.cfg</code>, create a config map using the following command:</p>
 <div class="highlight"><pre class="chroma"><code class="language-bash" data-lang="bash">kubectl create configmap cloudprober-config <span class="se">\
 </span><span class="se"></span>  --from-file<span class="o">=</span>cloudprober.cfg<span class="o">=</span>cloudprober.cfg
+</code></pre></div><p>If you change the config, you can update the config map using the following command:</p>
+<div class="highlight"><pre class="chroma"><code class="language-bash" data-lang="bash">kubectl create configmap cloudprober-config <span class="se">\
+</span><span class="se"></span>  --from-file<span class="o">=</span>cloudprober.cfg<span class="o">=</span>cloudprober.cfg  -o yaml --dry-run <span class="p">|</span> <span class="se">\
+</span><span class="se"></span>  kubectl replace -f -
 </code></pre></div><h2 id="deployment-map">Deployment Map</h2>
 <p>Now let's add a <code>deployment.yaml</code> to add the config volume and cloudprober container:</p>
 <div class="highlight"><pre class="chroma"><code class="language-yaml" data-lang="yaml">apiVersion<span class="p">:</span><span class="w"> </span>apps/v1<span class="w">
@@ -397,7 +401,7 @@
 </span></code></pre></div><p>Note that we added an annotation to the deployment spec; this annotation allows us to update the deployment whenever cloudprober config changes. We can update this annotation based on the local cloudprober config content, and update the deployment using the following one-liner:</p>
 <div class="highlight"><pre class="chroma"><code class="language-bash" data-lang="bash"><span class="c1"># Update the config checksum annotation in deployment.yaml before running</span>
 <span class="c1"># kubectl apply.</span>
-<span class="nv">CONFIG_CHECKSUM</span><span class="o">=</span><span class="k">$(</span>kubectl get cm/cloudprober-config -o yaml <span class="p">|</span> sha256sum<span class="k">)</span> <span class="o">&amp;&amp;</span> <span class="se">\
+<span class="nb">export</span> <span class="nv">CONFIG_CHECKSUM</span><span class="o">=</span><span class="k">$(</span>kubectl get cm/cloudprober-config -o yaml <span class="p">|</span> sha256sum<span class="k">)</span> <span class="o">&amp;&amp;</span> <span class="se">\
 </span><span class="se"></span>cat deployment.yaml <span class="p">|</span> envsubst <span class="p">|</span> kubectl apply -f -
 </code></pre></div><p>(Note: If you use Helm for Kubernetes deployments, Helm provides <a href="https://helm.sh/docs/howto/charts_tips_and_tricks/#automatically-roll-deployments">a more native way</a> to include config checksums in deployments.)</p>
 <p>Applying the above yaml file, should create a deployment with a service at port 9313:</p>
@@ -463,6 +467,13 @@ rds_server <span class="o">{</span>
 </span><span class="w"></span>-<span class="w"> </span>apiGroups<span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&#34;&#34;</span><span class="p">]</span><span class="w">
 </span><span class="w">  </span>resources<span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&#34;*&#34;</span><span class="p">]</span><span class="w">
 </span><span class="w">  </span>verbs<span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&#34;get&#34;</span><span class="p">,</span><span class="w"> </span><span class="s2">&#34;list&#34;</span><span class="p">]</span><span class="w">
+</span><span class="w"></span>-<span class="w"> </span>apiGroups<span class="p">:</span><span class="w">
+</span><span class="w">  </span>-<span class="w"> </span>extensions<span class="w">
+</span><span class="w">  </span>-<span class="w"> </span><span class="s2">&#34;networking.k8s.io&#34;</span><span class="w"> </span><span class="c"># k8s 1.14+</span><span class="w">
+</span><span class="w">  </span>resources<span class="p">:</span><span class="w">
+</span><span class="w">  </span>-<span class="w"> </span>ingresses<span class="w">
+</span><span class="w">  </span>-<span class="w"> </span>ingresses/status<span class="w">
+</span><span class="w">  </span>verbs<span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&#34;get&#34;</span><span class="p">,</span><span class="w"> </span><span class="s2">&#34;list&#34;</span><span class="p">]</span><span class="w">
 </span><span class="w"></span>---<span class="w">
 </span><span class="w"></span>apiVersion<span class="p">:</span><span class="w"> </span>rbac.authorization.k8s.io/v1<span class="w">
 </span><span class="w"></span>kind<span class="p">:</span><span class="w"> </span>ClusterRoleBinding<span class="w">
@@ -487,7 +498,7 @@ kubectl create configmap cloudprober-config <span class="se">\
 </span><span class="se"></span>  kubectl replace -f -
 
 <span class="c1"># Update deployment</span>
-<span class="nv">CONFIG_CHECKSUM</span><span class="o">=</span><span class="k">$(</span>kubectl get cm/cloudprober-config -o yaml <span class="p">|</span> sha256sum<span class="k">)</span> <span class="o">&amp;&amp;</span> <span class="se">\
+<span class="nb">export</span> <span class="nv">CONFIG_CHECKSUM</span><span class="o">=</span><span class="k">$(</span>kubectl get cm/cloudprober-config -o yaml <span class="p">|</span> sha256sum<span class="k">)</span> <span class="o">&amp;&amp;</span> <span class="se">\
 </span><span class="se"></span>cat deployment.yaml <span class="p">|</span> envsubst <span class="p">|</span> kubectl apply -f -
 </code></pre></div><p>Cloudprober should now start monitoring cloudprober endpoints. To verify:</p>
 <div class="highlight"><pre class="chroma"><code class="language-bash" data-lang="bash"><span class="c1"># Set up port fowarding such that you can access cloudprober:9313 through</span>
