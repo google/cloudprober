@@ -110,8 +110,8 @@ message ProbeDef {
   //     value: "{{.zone}}"
   //   }
   //   additional_label {
-  //     key: "src_zone"
-  //     value: "target.labels.zone"
+  //     key: "app"
+  //     value: "@target.label.app@"
   //   }
   repeated AdditionalLabel additional_label = 14;
 
