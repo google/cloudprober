@@ -219,7 +219,7 @@ func isClientTimeout(err error) bool {
 }
 
 // httpRequest executes an HTTP request and updates the provided result struct.
-func (p *Probe) doHTTPRequest(req *http.Request, result *probeResult, resultMu *sync.Mutex) {
+func (p *Probe) doHTTPRequest(req *http.Request, targetName string, result *probeResult, resultMu *sync.Mutex) {
 
 	if len(p.requestBody) >= largeBodyThreshold {
 		req = req.Clone(req.Context())
@@ -252,21 +252,21 @@ func (p *Probe) doHTTPRequest(req *http.Request, result *probeResult, resultMu *
 
 	if err != nil {
 		if isClientTimeout(err) {
-			p.l.Warning("Target:", req.Host, ", URL:", req.URL.String(), ", http.doHTTPRequest: timeout error: ", err.Error())
+			p.l.Warning("Target:", targetName, ", URL:", req.URL.String(), ", http.doHTTPRequest: timeout error: ", err.Error())
 			result.timeouts++
 			return
 		}
-		p.l.Warning("Target:", req.Host, ", URL:", req.URL.String(), ", http.doHTTPRequest: ", err.Error())
+		p.l.Warning("Target:", targetName, ", URL:", req.URL.String(), ", http.doHTTPRequest: ", err.Error())
 		return
 	}
 
 	respBody, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		p.l.Warning("Target:", req.Host, ", URL:", req.URL.String(), ", http.doHTTPRequest: ", err.Error())
+		p.l.Warning("Target:", targetName, ", URL:", req.URL.String(), ", http.doHTTPRequest: ", err.Error())
 		return
 	}
 
-	p.l.Debug("Target:", req.Host, ", URL:", req.URL.String(), ", response: ", string(respBody))
+	p.l.Debug("Target:", targetName, ", URL:", req.URL.String(), ", response: ", string(respBody))
 
 	// Calling Body.Close() allows the TCP connection to be reused.
 	resp.Body.Close()
@@ -278,7 +278,7 @@ func (p *Probe) doHTTPRequest(req *http.Request, result *probeResult, resultMu *
 		// If any validation failed, return now, leaving the success and latency
 		// counters unchanged.
 		if len(failedValidations) > 0 {
-			p.l.Debug("Target:", req.Host, ", URL:", req.URL.String(), ", http.doHTTPRequest: failed validations: ", strings.Join(failedValidations, ","))
+			p.l.Debug("Target:", targetName, ", URL:", req.URL.String(), ", http.doHTTPRequest: failed validations: ", strings.Join(failedValidations, ","))
 			return
 		}
 	}
@@ -364,10 +364,10 @@ func (p *Probe) runProbe(ctx context.Context) {
 		for numReq := int32(0); numReq < p.c.GetRequestsPerProbe(); numReq++ {
 			wg.Add(1)
 
-			go func(req *http.Request, result *probeResult) {
+			go func(req *http.Request, targetName string, result *probeResult) {
 				defer wg.Done()
-				p.doHTTPRequest(req.WithContext(reqCtx), result, &resultMu)
-			}(req, result)
+				p.doHTTPRequest(req.WithContext(reqCtx), targetName, result, &resultMu)
+			}(req, target.Name, result)
 		}
 	}
 
