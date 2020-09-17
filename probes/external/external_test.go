@@ -1,4 +1,4 @@
-// Copyright 2017-2019 Google Inc.
+// Copyright 2017-2020 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -186,7 +186,7 @@ func testProbeServerSetup(t *testing.T, readErrorCh chan error) (*Probe, string,
 	doneChan := make(chan struct{})
 	go startProbeServer(t, testPayload, r1, w2, doneChan)
 
-	p := createTestProbe("")
+	p := createTestProbe("./testCommand")
 	p.cmdRunning = true // don't try to start the probe server
 	p.cmdStdin = w1
 	p.cmdStdout = r2
@@ -541,6 +541,7 @@ func TestSendRequest(t *testing.T) {
 					Value: proto.String("@target@"),
 				},
 			},
+			Command: proto.String("./testCommand"),
 		},
 		Targets: targets.StaticTargets("localhost"),
 	})
@@ -582,8 +583,10 @@ func TestSendRequest(t *testing.T) {
 func TestUpdateTargets(t *testing.T) {
 	p := &Probe{}
 	err := p.Init("testprobe", &options.Options{
-		ProbeConf: &configpb.ProbeConf{},
-		Targets:   targets.StaticTargets("2.2.2.2"),
+		ProbeConf: &configpb.ProbeConf{
+			Command: proto.String("./testCommand"),
+		},
+		Targets: targets.StaticTargets("2.2.2.2"),
 	})
 	if err != nil {
 		t.Fatalf("Got error while initializing the probe: %v", err)
@@ -645,6 +648,7 @@ func TestProcessProbeResult(t *testing.T) {
 				OutputMetricsOptions: &payloadconfigpb.OutputMetricsOptions{
 					AggregateInCloudprober: proto.Bool(agg),
 				},
+				Command: proto.String("./testCommand"),
 			}
 			err := p.Init("testprobe", opts)
 			if err != nil {
@@ -681,5 +685,19 @@ func TestProcessProbeResult(t *testing.T) {
 				verifyProcessedResult(t, r, 2, "p-failures", 11)
 			}
 		})
+	}
+}
+
+func TestCommandParsing(t *testing.T) {
+	p := createTestProbe("./test-command --flag1 one --flag23 \"two three\"")
+
+	wantCmdName := "./test-command"
+	if p.cmdName != wantCmdName {
+		t.Errorf("Got command name=%s, want command name=%s", p.cmdName, wantCmdName)
+	}
+
+	wantArgs := []string{"--flag1", "one", "--flag23", "two three"}
+	if !reflect.DeepEqual(p.cmdArgs, wantArgs) {
+		t.Errorf("Got command args=%v, want command args=%v", p.cmdArgs, wantArgs)
 	}
 }

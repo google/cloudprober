@@ -1,4 +1,4 @@
-// Copyright 2017-2019 Google Inc.
+// Copyright 2017-2020 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -49,6 +49,7 @@ import (
 	"github.com/google/cloudprober/probes/options"
 	"github.com/google/cloudprober/targets/endpoint"
 	"github.com/google/cloudprober/validators"
+	"github.com/google/shlex"
 )
 
 var (
@@ -136,7 +137,10 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	p.c = c
 	p.replyChan = make(chan *serverpb.ProbeReply)
 
-	cmdParts := strings.Split(p.c.GetCommand(), " ")
+	cmdParts, err := shlex.Split(p.c.GetCommand())
+	if err != nil {
+		return fmt.Errorf("error parsing command line (%s): %v", p.c.GetCommand(), err)
+	}
 	p.cmdName = cmdParts[0]
 	p.cmdArgs = cmdParts[1:len(cmdParts)]
 
@@ -163,7 +167,6 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		defaultKind = metrics.GAUGE
 	}
 
-	var err error
 	p.payloadParser, err = payload.NewParser(p.c.GetOutputMetricsOptions(), "external", p.name, metrics.Kind(defaultKind), p.l)
 	if err != nil {
 		return fmt.Errorf("error initializing payload metrics: %v", err)
