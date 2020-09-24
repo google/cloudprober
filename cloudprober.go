@@ -27,7 +27,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -83,37 +82,37 @@ func getServerHost(c *configpb.ProberConfig) string {
 	return serverHost
 }
 
-func parsePort(portStr string) (int64, error) {
-	if strings.HasPrefix(portStr, "tcp://") {
-		u, err := url.Parse(portStr)
-		if err != nil {
-			return 0, err
-		}
-		if u.Port() == "" {
-			return 0, fmt.Errorf("no port specified in URL %s", portStr)
-		}
-		// u.Port() returns port as a string, thus it
-		// will be converted to int64 at the end.
-		portStr = u.Port()
+func getDefaultServerPort(c *configpb.ProberConfig, l *logger.Logger) (int, error) {
+	if c.GetPort() != 0 {
+		return int(c.GetPort()), nil
 	}
-	return strconv.ParseInt(portStr, 10, 32)
+
+	// If ServerPortEnvVar is defined, it will override the default
+	// server port.
+	portStr := os.Getenv(ServerPortEnvVar)
+	if portStr == "" {
+		return DefaultServerPort, nil
+	}
+
+	if strings.HasPrefix(portStr, "tcp://") {
+		l.Warningf("%s environment variable likely set by Kubernetes (to %s), ignoring it", ServerPortEnvVar, portStr)
+		return DefaultServerPort, nil
+	}
+
+	port, err := strconv.ParseInt(portStr, 10, 32)
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse default port from the env var: %s=%s", ServerPortEnvVar, portStr)
+	}
+
+	return int(port), nil
 }
 
-func initDefaultServer(c *configpb.ProberConfig) (net.Listener, error) {
+func initDefaultServer(c *configpb.ProberConfig, l *logger.Logger) (net.Listener, error) {
 	serverHost := getServerHost(c)
-	serverPort := int(c.GetPort())
-	if serverPort == 0 {
-		serverPort = DefaultServerPort
+	serverPort, err := getDefaultServerPort(c, l)
 
-		// If ServerPortEnvVar is defined, it will override the default
-		// server port.
-		if portStr := os.Getenv(ServerPortEnvVar); portStr != "" {
-			port, err := parsePort(portStr)
-			if err != nil {
-				return nil, fmt.Errorf("failed to parse default port from the env var: %s=%s", ServerPortEnvVar, portStr)
-			}
-			serverPort = int(port)
-		}
+	if err != nil {
+		return nil, err
 	}
 
 	ln, err := net.Listen("tcp", fmt.Sprintf("%s:%d", serverHost, serverPort))
@@ -161,7 +160,7 @@ func InitFromConfig(configFile string) error {
 
 	// Start default HTTP server. It's used for profile handlers and
 	// prometheus exporter.
-	ln, err := initDefaultServer(cfg)
+	ln, err := initDefaultServer(cfg, l)
 	if err != nil {
 		return err
 	}

@@ -1,4 +1,4 @@
-// Copyright 2019 Google Inc.
+// Copyright 2019-2020 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,33 +15,72 @@
 package cloudprober
 
 import (
-	"strings"
+	"os"
 	"testing"
+
+	configpb "github.com/google/cloudprober/config/proto"
+	"google.golang.org/protobuf/proto"
 )
 
-func TestParsePort(t *testing.T) {
-	// test if it parses just a number in string format
-	port, _ := parsePort("1234")
-	expectedPort := int64(1234)
-	if port != expectedPort {
-		t.Errorf("parsePort(\"%d\") = %d; want %d", expectedPort, port, expectedPort)
+func TestGetDefaultServerPort(t *testing.T) {
+	tests := []struct {
+		desc       string
+		configPort int32
+		envVar     string
+		wantPort   int
+		wantErr    bool
+	}{
+		{
+			desc:       "use port from config",
+			configPort: 9316,
+			envVar:     "3141",
+			wantPort:   9316,
+		},
+		{
+			desc:       "use default port",
+			configPort: 0,
+			envVar:     "",
+			wantPort:   DefaultServerPort,
+		},
+		{
+			desc:       "use port from env",
+			configPort: 0,
+			envVar:     "3141",
+			wantPort:   3141,
+		},
+		{
+			desc:       "ignore kubernetes port",
+			configPort: 0,
+			envVar:     "tcp://100.101.102.103:3141",
+			wantPort:   9313,
+		},
+		{
+			desc:       "error due to bad env var",
+			configPort: 0,
+			envVar:     "a3141",
+			wantErr:    true,
+		},
 	}
 
-	// test if it parses full URL
-	testStr := "tcp://10.1.1.4:9313"
-	port, _ = parsePort(testStr)
-	expectedPort = int64(9313)
-	if port != expectedPort {
-		t.Errorf("parsePort(\"%s\") = %d; want %d", testStr, port, expectedPort)
+	for _, test := range tests {
+		t.Run(test.desc, func(t *testing.T) {
+			os.Setenv(ServerPortEnvVar, test.envVar)
+			port, err := getDefaultServerPort(&configpb.ProberConfig{
+				Port: proto.Int32(test.configPort),
+			}, nil)
+
+			if err != nil {
+				if !test.wantErr {
+					t.Errorf("Got unexpected error: %v", err)
+				} else {
+					return
+				}
+			}
+
+			if port != test.wantPort {
+				t.Errorf("got port: %d, want port: %d", port, test.wantPort)
+			}
+		})
 	}
 
-	// test if it detects absent port in URL
-	testStr = "tcp://10.1.1.4"
-	_, err := parsePort(testStr)
-	errStr := "no port specified in URL"
-	if err != nil && !strings.Contains(err.Error(), errStr) {
-		t.Errorf("parsePort(\"%s\") doesn't return \"%s\" error, however found error: %s", testStr, "no port specified in URL", err.Error())
-	} else if err == nil {
-		t.Errorf("parsePort(\"%s\") should return \"%s\" error, however no errors found", testStr, "no port specified in URL")
-	}
 }
