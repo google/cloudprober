@@ -64,10 +64,10 @@ type forwardingRulesLister struct {
 	thisInstance string
 	l            *logger.Logger
 
-	mu         sync.RWMutex // Mutex for names and cache
-	names      []string
-	cache      map[string]*frData
-	computeSvc *compute.Service
+	mu            sync.RWMutex
+	namesPerScope map[string][]string           // "us-central1": ["fr1", "fr2"]
+	cachePerScope map[string]map[string]*frData // "us-central1": {"fr1": data}
+	computeSvc    *compute.Service
 }
 
 // listResources returns the list of resource records, where each record
@@ -86,29 +86,61 @@ func (frl *forwardingRulesLister) listResources(req *pb.ListResourcesRequest) ([
 	frl.mu.RLock()
 	defer frl.mu.RUnlock()
 
-	for _, name := range frl.names {
-		if nameFilter != nil && !nameFilter.Match(name, frl.l) {
-			continue
-		}
+	for region, names := range frl.namesPerScope {
+		cache := frl.cachePerScope[region]
 
-		if regionFilter != nil && !regionFilter.Match(frl.cache[name].region, frl.l) {
-			continue
-		}
+		for _, name := range names {
+			fr := cache[name]
 
-		resources = append(resources, &pb.Resource{
-			Name: proto.String(name),
-			Ip:   proto.String(frl.cache[name].ip),
-		})
+			if fr == nil {
+				frl.l.Errorf("forwarding_rules: cached info missing for %s", name)
+				continue
+			}
+
+			if nameFilter != nil && !nameFilter.Match(name, frl.l) {
+				continue
+			}
+
+			if regionFilter != nil && !regionFilter.Match(cache[name].region, frl.l) {
+				continue
+			}
+
+			resources = append(resources, &pb.Resource{
+				Name: proto.String(name),
+				Ip:   proto.String(cache[name].ip),
+			})
+		}
 	}
 
 	frl.l.Infof("forwarding_rules.listResources: returning %d forwarding rules", len(resources))
 	return resources, nil
 }
 
+func (frl *forwardingRulesLister) expandForRegion(region string) ([]string, map[string]*frData, error) {
+	var (
+		names []string
+		cache = make(map[string]*frData)
+	)
+
+	frList, err := frl.computeSvc.ForwardingRules.List(frl.project, region).Do()
+	if err != nil {
+		return nil, nil, err
+	}
+	for _, item := range frList.Items {
+		cache[item.Name] = &frData{
+			ip:     item.IPAddress,
+			region: region,
+		}
+		names = append(names, item.Name)
+	}
+
+	return names, cache, nil
+}
+
 // expand runs equivalent API calls as "gcloud compute instances list",
 // and is what is used to populate the cache.
 func (frl *forwardingRulesLister) expand(reEvalInterval time.Duration) {
-	frl.l.Debugf("forwarding_rules.expand: running for project: %s", frl.project)
+	frl.l.Debugf("forwarding_rules.expand: running for the project: %s", frl.project)
 
 	regionList, err := frl.computeSvc.Regions.List(frl.project).Filter(frl.c.GetRegionFilter()).Do()
 	if err != nil {
@@ -116,37 +148,33 @@ func (frl *forwardingRulesLister) expand(reEvalInterval time.Duration) {
 		return
 	}
 
-	// Temporary cache and names list.
-	var (
-		names []string
-		cache = make(map[string]*frData)
-	)
+	// Shuffle the regions list to change the order in each cycle.
+	rl := regionList.Items
+	rand.Seed(time.Now().UnixNano())
+	rand.Shuffle(len(rl), func(i, j int) { rl[i], rl[j] = rl[j], rl[i] })
 
-	sleepBetweenRegions := reEvalInterval / (2 * time.Duration(len(regionList.Items)+1))
-	for _, region := range regionList.Items {
-		frList, err := frl.computeSvc.ForwardingRules.List(frl.project, region.Name).Do()
+	frl.l.Infof("forwarding_rules.expand: expanding GCE targets for %d regions", len(rl))
+
+	var numItems int
+
+	sleepBetweenRegions := reEvalInterval / (2 * time.Duration(len(rl)+1))
+	for _, region := range rl {
+		names, cache, err := frl.expandForRegion(region.Name)
 		if err != nil {
-			frl.l.Errorf("forwarding_rules.expand: error while getting list of forwarding rules for region (%s): %v", region.Name, err)
-			return
+			frl.l.Errorf("forwarding_rules.expand: error while listing forwarding rules in region (%s): %v", region.Name, err)
+			continue
 		}
-		for _, item := range frList.Items {
-			cache[item.Name] = &frData{
-				ip:     item.IPAddress,
-				region: region.Name,
-			}
-			names = append(names, item.Name)
-		}
+
+		frl.mu.Lock()
+		frl.cachePerScope[region.Name] = cache
+		frl.namesPerScope[region.Name] = names
+		frl.mu.Unlock()
+
+		numItems += len(names)
 		time.Sleep(sleepBetweenRegions)
 	}
 
-	// Note that we update the list of names only if after all regions have been
-	// expanded successfully. This is to avoid replacing current list with a
-	// partial expansion of targets.
-	frl.l.Infof("forwarding_rules.expand: got %d forwarding rules", len(names))
-	frl.mu.Lock()
-	frl.cache = cache
-	frl.names = names
-	frl.mu.Unlock()
+	frl.l.Infof("forwarding_rules.expand: got %d forwarding rules", numItems)
 }
 
 func newForwardingRulesLister(project, apiVersion string, c *configpb.ForwardingRules, l *logger.Logger) (*forwardingRulesLister, error) {
@@ -156,11 +184,12 @@ func newForwardingRulesLister(project, apiVersion string, c *configpb.Forwarding
 	}
 
 	frl := &forwardingRulesLister{
-		project:    project,
-		c:          c,
-		cache:      make(map[string]*frData),
-		computeSvc: cs,
-		l:          l,
+		project:       project,
+		c:             c,
+		cachePerScope: make(map[string]map[string]*frData),
+		namesPerScope: make(map[string][]string),
+		computeSvc:    cs,
+		l:             l,
 	}
 
 	reEvalInterval := time.Duration(c.GetReEvalSec()) * time.Second

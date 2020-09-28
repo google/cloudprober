@@ -1,4 +1,4 @@
-// Copyright 2017-2018 Google Inc.
+// Copyright 2017-2020 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -32,6 +32,7 @@ type testNetIf struct {
 
 type testInstance struct {
 	name   string
+	zone   string
 	netIf  []*testNetIf
 	labels map[string]string
 }
@@ -63,8 +64,9 @@ func (ti *testInstance) data() *instanceData {
 }
 
 var testInstancesData = []*testInstance{
-	&testInstance{
+	{
 		name: "ins1",
+		zone: "z-1",
 		netIf: []*testNetIf{
 			&testNetIf{"10.216.0.1", "104.100.143.1", "192.168.1.0/24"},
 			&testNetIf{"10.216.1.1", "", ""},
@@ -74,11 +76,24 @@ var testInstancesData = []*testInstance{
 			"func": "rds",
 		},
 	},
-	&testInstance{
+	{
 		name: "ins2",
+		zone: "z-2",
 		netIf: []*testNetIf{
 			&testNetIf{"10.216.0.2", "104.100.143.2", "192.168.2.0"},
 			&testNetIf{"10.216.1.2", "104.100.143.3", ""},
+		},
+		labels: map[string]string{
+			"env":  "prod",
+			"func": "rds",
+		},
+	},
+	{
+		name: "ins3",
+		zone: "z-2",
+		netIf: []*testNetIf{
+			&testNetIf{"10.216.0.3", "104.100.143.4", "192.168.3.0"},
+			&testNetIf{"10.216.1.3", "104.100.143.5", ""},
 		},
 		labels: map[string]string{
 			"env":  "prod",
@@ -92,12 +107,17 @@ func testLister() *gceInstancesLister {
 	// testInstances data. Default initialization invokes GCE APIs which we want
 	// to avoid.
 	lister := &gceInstancesLister{
-		cache: make(map[string]*instanceData),
-		l:     &logger.Logger{},
+		cachePerScope: make(map[string]map[string]*instanceData),
+		namesPerScope: make(map[string][]string),
+		l:             &logger.Logger{},
 	}
+
 	for _, ti := range testInstancesData {
-		lister.cache[ti.name] = ti.data()
-		lister.names = append(lister.names, ti.name)
+		if lister.cachePerScope[ti.zone] == nil {
+			lister.cachePerScope[ti.zone] = make(map[string]*instanceData)
+		}
+		lister.cachePerScope[ti.zone][ti.name] = ti.data()
+		lister.namesPerScope[ti.zone] = append(lister.namesPerScope[ti.zone], ti.name)
 	}
 
 	return lister
@@ -258,6 +278,7 @@ func testListResources(t *testing.T, f []*pb.Filter, ipConfig *pb.IPConfig, gil 
 	for _, res := range resources {
 		instances[res.GetName()] = res.GetIp()
 	}
+
 	for _, ti := range expectedInstances {
 		ip := instances[ti.name]
 

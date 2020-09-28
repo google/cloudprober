@@ -1,4 +1,4 @@
-// Copyright 2017-2018 Google Inc.
+// Copyright 2017-2020 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -70,10 +70,10 @@ type gceInstancesLister struct {
 	thisInstance string
 	l            *logger.Logger
 
-	mu         sync.RWMutex // Mutex for names and cache
-	names      []string
-	cache      map[string]*instanceData
-	computeSvc *compute.Service
+	mu            sync.RWMutex
+	namesPerScope map[string][]string                 // "us-e1-b": ["i1", i2"]
+	cachePerScope map[string]map[string]*instanceData // "us-e1-b": {"i1: data}
+	computeSvc    *compute.Service
 }
 
 func instanceIP(nis []*compute.NetworkInterface, ipConfig *pb.IPConfig) (string, error) {
@@ -135,31 +135,41 @@ func (il *gceInstancesLister) listResources(req *pb.ListResourcesRequest) ([]*pb
 	il.mu.RLock()
 	defer il.mu.RUnlock()
 
-	for _, name := range il.names {
-		if nameFilter != nil && !nameFilter.Match(name, il.l) {
-			continue
-		}
-		if labelsFilter != nil && !labelsFilter.Match(il.cache[name].labels, il.l) {
-			continue
-		}
+	for zone, names := range il.namesPerScope {
+		cache := il.cachePerScope[zone]
 
-		nis := il.cache[name].nis
-		ip, err := instanceIP(nis, req.GetIpConfig())
-		if err != nil {
-			return nil, fmt.Errorf("gce_instances (instance %s): error while getting IP - %v", name, err)
-		}
+		for _, name := range names {
+			ins := cache[name]
+			if ins == nil {
+				il.l.Errorf("gce_instances: cached info missing for %s", name)
+				continue
+			}
 
-		resources = append(resources, &pb.Resource{
-			Name:   proto.String(name),
-			Ip:     proto.String(ip),
-			Labels: il.cache[name].labels,
-			// TODO(manugarg): Add support for returning instance id as well. I want to
-			// implement feature parity with the current targets first and then add
-			// more features.
-		})
+			if nameFilter != nil && !nameFilter.Match(name, il.l) {
+				continue
+			}
+			if labelsFilter != nil && !labelsFilter.Match(ins.labels, il.l) {
+				continue
+			}
+
+			nis := ins.nis
+			ip, err := instanceIP(nis, req.GetIpConfig())
+			if err != nil {
+				return nil, fmt.Errorf("gce_instances (instance %s): error while getting IP - %v", name, err)
+			}
+
+			resources = append(resources, &pb.Resource{
+				Name:   proto.String(name),
+				Ip:     proto.String(ip),
+				Labels: ins.labels,
+				// TODO(manugarg): Add support for returning instance id as well. I want to
+				// implement feature parity with the current targets first and then add
+				// more features.
+			})
+		}
 	}
 
-	il.l.Infof("gce_instances.listResources: returning %d instance", len(resources))
+	il.l.Infof("gce_instances.listResources: returning %d instances", len(resources))
 	return resources, nil
 }
 
@@ -179,10 +189,32 @@ func defaultComputeService(apiVersion string) (*compute.Service, error) {
 	return cs, nil
 }
 
+func (il *gceInstancesLister) expandForZone(zone string) ([]string, map[string]*instanceData, error) {
+	var (
+		names []string
+		cache = make(map[string]*instanceData)
+	)
+
+	instanceList, err := il.computeSvc.Instances.List(il.project, zone).
+		Filter("status eq \"RUNNING\"").Do()
+	if err != nil {
+		return nil, nil, err
+	}
+	for _, item := range instanceList.Items {
+		if item.Name == il.thisInstance {
+			continue
+		}
+		cache[item.Name] = &instanceData{item.NetworkInterfaces, item.Labels}
+		names = append(names, item.Name)
+	}
+
+	return names, cache, nil
+}
+
 // expand runs equivalent API calls as "gcloud compute instances list",
 // and is what is used to populate the cache.
 func (il *gceInstancesLister) expand(reEvalInterval time.Duration) {
-	il.l.Infof("gce_instances.expand: expanding GCE targets for project: %s", il.project)
+	il.l.Infof("gce_instances.expand: running for the project: %s", il.project)
 
 	zonesList, err := il.computeSvc.Zones.List(il.project).Filter(il.c.GetZoneFilter()).Do()
 	if err != nil {
@@ -190,37 +222,34 @@ func (il *gceInstancesLister) expand(reEvalInterval time.Duration) {
 		return
 	}
 
-	// Temporary cache and names list.
-	var (
-		names []string
-		cache = make(map[string]*instanceData)
-	)
-	sleepBetweenZones := reEvalInterval / (2 * time.Duration(len(zonesList.Items)+1))
-	for _, zone := range zonesList.Items {
-		instanceList, err := il.computeSvc.Instances.List(il.project, zone.Name).Filter("status eq \"RUNNING\"").Do()
+	// Shuffle the zones list to change the order in each cycle.
+	zl := zonesList.Items
+	rand.Seed(time.Now().UnixNano())
+	rand.Shuffle(len(zl), func(i, j int) { zl[i], zl[j] = zl[j], zl[i] })
+
+	il.l.Infof("gce_instances.expand: expanding GCE targets for %d zones", len(zl))
+
+	var numItems int
+
+	sleepBetweenZones := reEvalInterval / (2 * time.Duration(len(zl)+1))
+
+	for _, zone := range zl {
+		names, cache, err := il.expandForZone(zone.Name)
 		if err != nil {
-			il.l.Errorf("gce_instances.expand: error while getting list of all instances: %v", err)
-			return
+			il.l.Errorf("gce_instances.expand: error while listing instances in zone %s: %v", zone.Name, err)
+			continue
 		}
-		for _, item := range instanceList.Items {
-			if item.Name == il.thisInstance {
-				continue
-			}
-			cache[item.Name] = &instanceData{item.NetworkInterfaces, item.Labels}
-			names = append(names, item.Name)
-		}
+
+		il.mu.Lock()
+		il.namesPerScope[zone.Name] = names
+		il.cachePerScope[zone.Name] = cache
+		il.mu.Unlock()
+
+		numItems += len(names)
 		time.Sleep(sleepBetweenZones)
 	}
 
-	// Note that we update the list of names only if after all zones have been
-	// expanded successfully. This is to avoid replacing current list with a
-	// partial expansion of targets. This is in contrast with instance-toNetInf
-	// cache, which is updated as we go through the instance list.
-	il.l.Infof("gce_instances.expand: got %d instances", len(names))
-	il.mu.Lock()
-	il.cache = cache
-	il.names = names
-	il.mu.Unlock()
+	il.l.Infof("gce_instances.expand: got %d instances", numItems)
 }
 
 func newGCEInstancesLister(project, apiVersion string, c *configpb.GCEInstances, l *logger.Logger) (*gceInstancesLister, error) {
@@ -240,12 +269,13 @@ func newGCEInstancesLister(project, apiVersion string, c *configpb.GCEInstances,
 	}
 
 	il := &gceInstancesLister{
-		project:      project,
-		c:            c,
-		thisInstance: thisInstance,
-		cache:        make(map[string]*instanceData),
-		computeSvc:   cs,
-		l:            l,
+		project:       project,
+		c:             c,
+		thisInstance:  thisInstance,
+		cachePerScope: make(map[string]map[string]*instanceData),
+		namesPerScope: make(map[string][]string),
+		computeSvc:    cs,
+		l:             l,
 	}
 
 	reEvalInterval := time.Duration(c.GetReEvalSec()) * time.Second
