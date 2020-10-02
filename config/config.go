@@ -130,18 +130,18 @@ import (
 	configpb "github.com/google/cloudprober/config/proto"
 )
 
-// ReadFromGCEMetadata reads the config from the GCE metadata. To allow for
-// instance level as well as project-wide config, we look for the config in
-// metadata in the following manner:
+// ReadFromGCEMetadata returns the value of GCE custom metadata variables. To
+// allow for instance level as project level variables, it looks for metadata
+// variable in the following order:
 // a. If the given key is set in the instance's custom metadata, its value is
 //    returned.
 // b. If (and only if), the key is not found in the step above, we look for
 //    the same key in the project's custom metadata.
-func ReadFromGCEMetadata(metadataKeyName string) (string, error) {
-	config, err := metadata.InstanceAttributeValue(metadataKeyName)
+var ReadFromGCEMetadata = func(metadataKeyName string) (string, error) {
+	val, err := metadata.InstanceAttributeValue(metadataKeyName)
 	// If instance level config found, return
 	if _, notFound := err.(metadata.NotDefinedError); !notFound {
-		return config, err
+		return val, err
 	}
 	// Check project level config next
 	return metadata.ProjectAttributeValue(metadataKeyName)
@@ -159,11 +159,20 @@ func ParseTemplate(config string, sysVars map[string]string) (string, error) {
 
 // parseTemplate processes a config file as a Go text template.
 func parseTemplate(config string, sysVars map[string]string, testMode bool) (string, error) {
-	gceCustomMetadataFunc := ReadFromGCEMetadata
-	if testMode {
-		gceCustomMetadataFunc = func(v string) (string, error) {
+	gceCustomMetadataFunc := func(v string) (string, error) {
+		if testMode {
 			return v + "-test-value", nil
 		}
+
+		// We return "undefined" if metadata variable is not defined.
+		val, err := ReadFromGCEMetadata(v)
+		if err != nil {
+			if _, notFound := err.(metadata.NotDefinedError); notFound {
+				return "undefined", nil
+			}
+			return "", err
+		}
+		return val, nil
 	}
 
 	funcMap := map[string]interface{}{
