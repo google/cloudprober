@@ -309,8 +309,12 @@ func (p *Probe) updateTargets() {
 		if err != nil {
 			p.l.Error("Error getting OAuth token: ", err.Error(), ". Skipping updating the token.")
 		} else {
-			p.l.Debug("Got OAuth token, len: ", strconv.FormatInt(int64(len(tok.AccessToken)), 10), ", expirationTime: ", tok.Expiry.String())
-			p.bearerToken = tok.AccessToken
+			if tok.AccessToken != "" {
+				p.bearerToken = tok.AccessToken
+			} else {
+				p.bearerToken = tok.Extra("id_token").(string)
+			}
+			p.l.Debug("Got OAuth token, len: ", strconv.FormatInt(int64(len(p.bearerToken)), 10), ", expirationTime: ", tok.Expiry.String())
 		}
 	}
 
