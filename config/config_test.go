@@ -14,7 +14,12 @@
 
 package config
 
-import "testing"
+import (
+	"fmt"
+	"testing"
+
+	"cloud.google.com/go/compute/metadata"
+)
 
 func TestParse(t *testing.T) {
 	testConfig := `
@@ -81,13 +86,23 @@ func TestParseForTest(t *testing.T) {
 	testConfig := `
 probe {
   type: PING
-  name: "{{gceCustomMetadata "google-probe"}}"
+  name: "{{gceCustomMetadata "google-probe-name"}}-{{gceCustomMetadata "cluster"}}"
   targets {
     host_names: "www.google.com"
   }
 }
 `
-	c, err := ParseForTest(testConfig, map[string]string{})
+	ReadFromGCEMetadata = func(key string) (string, error) {
+		if key == "google-probe-name" {
+			return "google_dot_com_from", nil
+		}
+		if key == "cluster" {
+			return "", metadata.NotDefinedError("not defined")
+		}
+		return "", fmt.Errorf("not-implemented")
+	}
+
+	c, err := Parse(testConfig, map[string]string{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -95,7 +110,7 @@ probe {
 		t.Errorf("Didn't get correct number of probes. Got: %d, Expected: %d", len(c.GetProbe()), 1)
 	}
 	probeName := c.GetProbe()[0].GetName()
-	expectedName := "google-probe-test-value"
+	expectedName := "google_dot_com_from-undefined"
 	if probeName != expectedName {
 		t.Errorf("Incorrect probe name. Got: %s, Expected: %s", probeName, expectedName)
 	}
