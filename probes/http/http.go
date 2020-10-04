@@ -312,7 +312,10 @@ func (p *Probe) updateTargets() {
 			if tok.AccessToken != "" {
 				p.bearerToken = tok.AccessToken
 			} else {
-				p.bearerToken = tok.Extra("id_token").(string)
+				idToken, ok := tok.Extra("id_token").(string)
+				if ok {
+					p.bearerToken = idToken
+				}
 			}
 			p.l.Debug("Got OAuth token, len: ", strconv.FormatInt(int64(len(p.bearerToken)), 10), ", expirationTime: ", tok.Expiry.String())
 		}
