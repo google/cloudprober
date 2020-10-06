@@ -44,6 +44,7 @@ import (
 	"github.com/google/cloudprober/surfacers"
 	"github.com/google/cloudprober/sysvars"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/channelz/service"
 	"google.golang.org/grpc/credentials"
 )
 
@@ -186,7 +187,10 @@ func InitFromConfig(configFile string) error {
 			serverOpts = append(serverOpts, grpc.Creds(credentials.NewTLS(tlsConfig)))
 		}
 
-		runconfig.SetDefaultGRPCServer(grpc.NewServer(serverOpts...))
+		s := grpc.NewServer(serverOpts...)
+		// register channelz service to the default grpc server port
+		service.RegisterChannelzServiceToServer(s)
+		runconfig.SetDefaultGRPCServer(s)
 	}
 
 	pr := &prober.Prober{}
