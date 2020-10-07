@@ -91,7 +91,7 @@ func (s *Surfacer) processInput(ctx context.Context) {
 }
 
 func (s *Surfacer) init(ctx context.Context, id int64) error {
-	s.inChan = make(chan *metrics.EventMetrics, 1000)
+	s.inChan = make(chan *metrics.EventMetrics, 10000)
 	s.id = id
 
 	// File handle for the output file
