@@ -262,7 +262,7 @@ func TestProbeTimeouts(t *testing.T) {
 	mm := testutils.MetricsMap(ems)
 	for target, vals := range mm["success"] {
 		for _, v := range vals {
-			success := v.(*metrics.Int)
+			success := v.Metric("success").(*metrics.Int)
 			if success.Int64() > 0 {
 				t.Errorf("Tgt %s unexpectedly succeeds, got=%d, want=0.", target, success.Int64())
 				break
@@ -274,7 +274,7 @@ func TestProbeTimeouts(t *testing.T) {
 	for target, vals := range mm["total"] {
 		prevTotal := int64(0)
 		for _, v := range vals {
-			total := v.(*metrics.Int)
+			total := v.Metric("total").(*metrics.Int)
 			delta := total.Int64() - prevTotal
 			// Even a single probe in iter is treated as success.
 			if delta <= 0 {
@@ -314,10 +314,10 @@ func (t *testTargets) Resolve(name string, ipVer int) (net.IP, error) {
 	return t.r.Resolve(name, ipVer)
 }
 
-func sumIntMetrics(inp []metrics.Value) int64 {
+func sumIntMetrics(inp []*metrics.EventMetrics, metricName string) int64 {
 	sum := metrics.NewInt(0)
-	for _, v := range inp {
-		sum.Add(v)
+	for _, em := range inp {
+		sum.Add(em.Metric(metricName))
 	}
 	return sum.Int64()
 }
@@ -368,7 +368,7 @@ func TestTargets(t *testing.T) {
 	connErrTargets := make(map[string]int64)
 	connErrIterCount := 0
 	for target, vals := range mm["connecterrors"] {
-		s := sumIntMetrics(vals)
+		s := sumIntMetrics(vals, "connecterrors")
 		if s > 0 {
 			connErrTargets[target] = s
 		}
@@ -380,7 +380,7 @@ func TestTargets(t *testing.T) {
 	successTargets := make(map[string]int64)
 	successIterCount := 0
 	for target, vals := range mm["success"] {
-		s := sumIntMetrics(vals)
+		s := sumIntMetrics(vals, "success")
 		if s > 0 {
 			successTargets[target] = s
 			if connErrTargets[target] > 0 {

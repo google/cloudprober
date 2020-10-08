@@ -423,9 +423,16 @@ func (p *Probe) processProbeResult(ps *probeStatus, result *result) {
 	// If probe is configured to use the external process output (or reply payload
 	// in case of server probe) as metrics.
 	if p.c.GetOutputAsMetrics() {
-		result.payloadMetrics = p.payloadParser.PayloadMetrics(result.payloadMetrics, ps.payload, ps.target)
-		p.opts.LogMetrics(result.payloadMetrics)
-		p.dataChan <- result.payloadMetrics
+		if p.c.GetOutputMetricsOptions().GetAggregateInCloudprober() {
+			result.payloadMetrics = p.payloadParser.AggregatedPayloadMetrics(result.payloadMetrics, ps.payload, ps.target)
+			p.opts.LogMetrics(result.payloadMetrics)
+			p.dataChan <- result.payloadMetrics
+		} else {
+			for _, em := range p.payloadParser.PayloadMetrics(ps.payload, ps.target) {
+				p.opts.LogMetrics(em)
+				p.dataChan <- em
+			}
+		}
 	}
 }
 

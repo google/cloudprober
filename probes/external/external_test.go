@@ -359,13 +359,13 @@ func TestProbeOnceMode(t *testing.T) {
 			}
 		}
 
-		tgtNumArgs := metricsMap["num-args"][tgt][0].(metrics.NumValue).Int64()
+		tgtNumArgs := metricsMap["num-args"][tgt][0].Metric("num-args").(metrics.NumValue).Int64()
 		expectedNumArgs := int64(len(strings.Split(testCmd, " ")) - 1)
 		if tgtNumArgs != expectedNumArgs {
 			t.Errorf("Wrong metric value for target (%s) from the command output. Got=%d, Expected=%d", tgt, tgtNumArgs, expectedNumArgs)
 		}
 
-		tgtCmd := metricsMap["cmd"][tgt][0].String()
+		tgtCmd := metricsMap["cmd"][tgt][0].Metric("cmd").String()
 		expectedCmd := fmt.Sprintf("\"%s\"", strings.Split(testCmd, " ")[0])
 		if tgtCmd != expectedCmd {
 			t.Errorf("Wrong metric value for target (%s) from the command output. got=%s, expected=%s", tgt, tgtCmd, expectedCmd)
@@ -608,30 +608,37 @@ func TestUpdateTargets(t *testing.T) {
 	}
 }
 
-func verifyProcessedResult(t *testing.T, r *result, success int64, name string, val int64) {
+func verifyProcessedResult(t *testing.T, p *Probe, r *result, success int64, name string, val int64, payloadLabels [][2]string) {
 	t.Helper()
 
+	testTarget := "test-target"
 	if r.success != success {
 		t.Errorf("r.success=%d, expected=%d", r.success, success)
 	}
 
-	if r.payloadMetrics == nil {
-		t.Fatalf("r.payloadMetrics is nil")
+	m, err := testutils.MetricsFromChannel(p.dataChan, 2, time.Second)
+	if err != nil {
+		t.Fatal(err.Error())
 	}
 
-	gotNames := r.payloadMetrics.MetricsKeys()
-	if !reflect.DeepEqual(gotNames, []string{name}) {
-		t.Errorf("r.payloadMetrics.MetricKeys()=%v, expected=%v", gotNames, []string{name})
+	metricsMap := testutils.MetricsMap(m)
+
+	if metricsMap[name] == nil || len(metricsMap[name][testTarget]) < 1 {
+		t.Fatalf("Payload metric %s is missing in %+v", name, metricsMap)
 	}
 
-	gotValue := r.payloadMetrics.Metric(name).(metrics.NumValue).Int64()
+	em := metricsMap[name][testTarget][0]
+	gotValue := em.Metric(name).(metrics.NumValue).Int64()
 	if gotValue != val {
-		t.Errorf("r.payloadMetrics.Metric(%s)=%d, expected=%d", name, gotValue, val)
+		t.Errorf("%s=%d, expected=%d", name, gotValue, val)
 	}
 
 	expectedLabels := map[string]string{"ptype": "external", "probe": "testprobe", "dst": "test-target"}
+	for _, kv := range payloadLabels {
+		expectedLabels[kv[0]] = kv[1]
+	}
 	for key, val := range expectedLabels {
-		if r.payloadMetrics.Label(key) != val {
+		if em.Label(key) != val {
 			t.Errorf("r.payloadMetrics.Label(%s)=%s, expected=%s", key, r.payloadMetrics.Label(key), val)
 		}
 	}
@@ -661,28 +668,39 @@ func TestProcessProbeResult(t *testing.T) {
 				latency: metrics.NewFloat(0),
 			}
 
+			payloadMetricName := map[bool]string{
+				false: "p-failures{service=serviceA,db=dbA}",
+				true:  "p-failures",
+			}
+			payloadLabels := map[bool][][2]string{
+				false: [][2]string{
+					[2]string{"service", "serviceA"},
+					[2]string{"db", "dbA"},
+				},
+			}
+
 			// First run
 			p.processProbeResult(&probeStatus{
 				target:  "test-target",
 				success: true,
 				latency: time.Millisecond,
-				payload: "p-failures 14",
+				payload: fmt.Sprintf("%s 14", payloadMetricName[agg]),
 			}, r)
 
-			verifyProcessedResult(t, r, 1, "p-failures", 14)
+			verifyProcessedResult(t, p, r, 1, "p-failures", 14, payloadLabels[agg])
 
 			// Second run
 			p.processProbeResult(&probeStatus{
 				target:  "test-target",
 				success: true,
 				latency: time.Millisecond,
-				payload: "p-failures 11",
+				payload: fmt.Sprintf("%s 11", payloadMetricName[agg]),
 			}, r)
 
 			if agg {
-				verifyProcessedResult(t, r, 2, "p-failures", 25)
+				verifyProcessedResult(t, p, r, 2, "p-failures", 25, payloadLabels[agg])
 			} else {
-				verifyProcessedResult(t, r, 2, "p-failures", 11)
+				verifyProcessedResult(t, p, r, 2, "p-failures", 11, payloadLabels[agg])
 			}
 		})
 	}

@@ -89,7 +89,7 @@ func TestMetricsMap(t *testing.T) {
 			if len(metricsMap[m][tgt]) != 1 {
 				t.Errorf("Wrong number of values for metric (%s) for target (%s) from the command output. Got=%d, Expected=1", m, tgt, len(metricsMap[m][tgt]))
 			}
-			val := metricsMap[m][tgt][0].(metrics.NumValue).Int64()
+			val := metricsMap[m][tgt][0].Metric(m).(metrics.NumValue).Int64()
 			if val != expectedValues[m][i] {
 				t.Errorf("Wrong metric value for target (%s) from the command output. Got=%d, Expected=%d", m, val, expectedValues[m][i])
 			}
