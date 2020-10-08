@@ -57,10 +57,11 @@ func parserForTest(t *testing.T, agg bool) *Parser {
 type testData struct {
 	varA, varB float64
 	lat        []float64
+	labels     [3][2]string
 }
 
-// testEM returns an EventMetrics struct corresponding to the provided testData.
-func testEM(ts time.Time, td *testData) *metrics.EventMetrics {
+// aggregatedEM returns an EventMetrics struct corresponding to the provided testData.
+func (td *testData) aggregatedEM(ts time.Time) *metrics.EventMetrics {
 	d := metrics.NewDistribution([]float64{1, 10, 100})
 	for _, sample := range td.lat {
 		d.AddSample(sample)
@@ -74,25 +75,83 @@ func testEM(ts time.Time, td *testData) *metrics.EventMetrics {
 		AddLabel("dst", testTarget)
 }
 
-func testPayload(td *testData) string {
+// aggregatedEM returns an EventMetrics struct corresponding to the provided testData.
+func (td *testData) multiEM(ts time.Time) []*metrics.EventMetrics {
+	var results []*metrics.EventMetrics
+
+	d := metrics.NewDistribution([]float64{1, 10, 100})
+	for _, sample := range td.lat {
+		d.AddSample(sample)
+	}
+
+	results = append(results, []*metrics.EventMetrics{
+		metrics.NewEventMetrics(ts).AddMetric("op_latency", d),
+		metrics.NewEventMetrics(ts).AddMetric("time_to_running", metrics.NewFloat(td.varA)),
+		metrics.NewEventMetrics(ts).AddMetric("time_to_ssh", metrics.NewFloat(td.varB)),
+	}...)
+
+	for i, em := range results {
+		em.AddLabel("ptype", testPtype).
+			AddLabel("probe", testProbe).
+			AddLabel("dst", testTarget).
+			AddLabel(td.labels[i][0], td.labels[i][1])
+	}
+
+	return results
+}
+
+func (td *testData) testPayload(quoteLabelValues bool) string {
+	var labelStrs [3]string
+	for i, kv := range td.labels {
+		if kv[0] == "" {
+			continue
+		}
+		if quoteLabelValues {
+			labelStrs[i] = fmt.Sprintf("{%s=\"%s\"}", kv[0], kv[1])
+		} else {
+			labelStrs[i] = fmt.Sprintf("{%s=%s}", kv[0], kv[1])
+		}
+	}
+
 	var latencyStrs []string
 	for _, f := range td.lat {
 		latencyStrs = append(latencyStrs, fmt.Sprintf("%f", f))
 	}
 	payloadLines := []string{
-		fmt.Sprintf("time_to_running %f", td.varA),
-		fmt.Sprintf("time_to_ssh %f", td.varB),
-		fmt.Sprintf("op_latency %s", strings.Join(latencyStrs, ",")),
+		fmt.Sprintf("op_latency%s %s", labelStrs[0], strings.Join(latencyStrs, ",")),
+		fmt.Sprintf("time_to_running%s %f", labelStrs[1], td.varA),
+		fmt.Sprintf("time_to_ssh%s %f", labelStrs[2], td.varB),
 	}
 	return strings.Join(payloadLines, "\n")
 }
 
-func testPayloadMetrics(t *testing.T, em *metrics.EventMetrics, td, etd *testData) {
+func testAggregatedPayloadMetrics(t *testing.T, em *metrics.EventMetrics, td, etd *testData) {
 	t.Helper()
 
-	expectedEM := testEM(em.Timestamp, etd)
+	expectedEM := etd.aggregatedEM(em.Timestamp)
 	if em.String() != expectedEM.String() {
 		t.Errorf("Output metrics not aggregated correctly:\nGot:      %s\nExpected: %s", em.String(), expectedEM.String())
+	}
+}
+
+func testPayloadMetrics(t *testing.T, p *Parser, etd *testData) {
+	t.Helper()
+
+	ems := p.PayloadMetrics(etd.testPayload(false), testTarget)
+	expectedMetrics := etd.multiEM(ems[0].Timestamp)
+	for i, em := range ems {
+		if em.String() != expectedMetrics[i].String() {
+			t.Errorf("Output metrics not aggregated correctly:\nGot:      %s\nExpected: %s", em.String(), expectedMetrics[i].String())
+		}
+	}
+
+	// Test with quoted label values
+	ems = p.PayloadMetrics(etd.testPayload(true), testTarget)
+	expectedMetrics = etd.multiEM(ems[0].Timestamp)
+	for i, em := range ems {
+		if em.String() != expectedMetrics[i].String() {
+			t.Errorf("Output metrics not aggregated correctly:\nGot:      %s\nExpected: %s", em.String(), expectedMetrics[i].String())
+		}
 	}
 }
 
@@ -100,10 +159,10 @@ func TestAggreagateInCloudprober(t *testing.T) {
 	p := parserForTest(t, true)
 
 	// First payload
-	td := &testData{10, 30, []float64{3.1, 4.0, 13}}
-	em := p.PayloadMetrics(nil, testPayload(td), testTarget)
+	td := &testData{10, 30, []float64{3.1, 4.0, 13}, [3][2]string{}}
+	em := p.AggregatedPayloadMetrics(nil, td.testPayload(false), testTarget)
 
-	testPayloadMetrics(t, em, td, td)
+	testAggregatedPayloadMetrics(t, em, td, td)
 
 	// Send another payload, cloudprober should aggregate the metrics.
 	oldtd := td
@@ -118,24 +177,36 @@ func TestAggreagateInCloudprober(t *testing.T) {
 		lat:  append(oldtd.lat, td.lat...),
 	}
 
-	em = p.PayloadMetrics(em, testPayload(td), testTarget)
-	testPayloadMetrics(t, em, td, etd)
+	em = p.AggregatedPayloadMetrics(em, td.testPayload(false), testTarget)
+	testAggregatedPayloadMetrics(t, em, td, etd)
 }
 
 func TestNoAggregation(t *testing.T) {
 	p := parserForTest(t, false)
 
 	// First payload
-	td := &testData{10, 30, []float64{3.1, 4.0, 13}}
-	em := p.PayloadMetrics(nil, testPayload(td), testTarget)
-	testPayloadMetrics(t, em, td, td)
+	td := &testData{
+		varA: 10,
+		varB: 30,
+		lat:  []float64{3.1, 4.0, 13},
+		labels: [3][2]string{
+			[2]string{"l1", "v1"},
+			[2]string{"l2", "v2"},
+			[2]string{"l3", "v3"},
+		},
+	}
+	testPayloadMetrics(t, p, td)
 
 	// Send another payload, cloudprober should not aggregate the metrics.
 	td = &testData{
 		varA: 8,
 		varB: 45,
 		lat:  []float64{6, 14.1, 2.1},
+		labels: [3][2]string{
+			[2]string{"l1", "v1"},
+			[2]string{"l2", "v2"},
+			[2]string{"l3", "v3"},
+		},
 	}
-	em = p.PayloadMetrics(em, testPayload(td), testTarget)
-	testPayloadMetrics(t, em, td, td)
+	testPayloadMetrics(t, p, td)
 }

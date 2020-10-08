@@ -57,15 +57,15 @@ func MetricsFromChannel(dataChan chan *metrics.EventMetrics, num int, timeout ti
 //       ...
 //   }
 // }
-func MetricsMap(ems []*metrics.EventMetrics) map[string]map[string][]metrics.Value {
-	results := make(map[string]map[string][]metrics.Value)
+func MetricsMap(ems []*metrics.EventMetrics) map[string]map[string][]*metrics.EventMetrics {
+	results := make(map[string]map[string][]*metrics.EventMetrics)
 	for _, em := range ems {
 		target := em.Label("dst")
 		for _, m := range em.MetricsKeys() {
 			if results[m] == nil {
-				results[m] = make(map[string][]metrics.Value)
+				results[m] = make(map[string][]*metrics.EventMetrics)
 			}
-			results[m][target] = append(results[m][target], em.Metric(m))
+			results[m][target] = append(results[m][target], em)
 		}
 	}
 	return results
