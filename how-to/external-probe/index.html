@@ -355,7 +355,7 @@ redis server is running locally, at its default port. For the sake of demonstrat
 <p>Let's compile our probe program (redis_probe.go) and verify that it's working
 as expected:</p>
 <div class="highlight"><pre class="chroma"><code class="language-bash" data-lang="bash"><span class="cp">#!bash
-</span><span class="cp"></span><span class="nv">CGO_ENABLED</span><span class="o">=</span><span class="m">0</span> go build -ldflags “-extldflags -static” ./redis_prober.go
+</span><span class="cp"></span><span class="nv">CGO_ENABLED</span><span class="o">=</span><span class="m">0</span> go build -ldflags “-extldflags<span class="o">=</span>-static” ./redis_probe.go
 ./redis_probe
 set_latency_ms 22.656588
 2018/02/26 15:16:14 <span class="nv">hello</span><span class="o">=</span>world
