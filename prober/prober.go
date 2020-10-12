@@ -43,6 +43,7 @@ import (
 	"github.com/google/cloudprober/surfacers"
 	"github.com/google/cloudprober/sysvars"
 	"github.com/google/cloudprober/targets"
+	"github.com/google/cloudprober/targets/endpoint"
 	"github.com/google/cloudprober/targets/lameduck"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -55,7 +56,7 @@ type Prober struct {
 	c         *configpb.ProberConfig
 	l         *logger.Logger
 	mu        sync.Mutex
-	ldLister  lameduck.Lister
+	ldLister  endpoint.Lister
 	Surfacers []*surfacers.SurfacerInfo
 
 	// Probe channel to handle starting of the new probes.

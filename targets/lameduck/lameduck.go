@@ -41,11 +41,6 @@ import (
 	"github.com/google/cloudprober/targets/rtc/rtcservice"
 )
 
-// Lister is an interface for getting current lameducks.
-type Lister interface {
-	List() []string
-}
-
 // Lameducker provides an interface to Lameduck/Unlameduck an instance.
 //
 // Cloudprober doesn't currently (as of July, 2018) use this interface by
@@ -62,7 +57,7 @@ type Lameducker interface {
 // increasing load on the upstream service.
 var global struct {
 	mu     sync.RWMutex
-	lister Lister
+	lister endpoint.Lister
 }
 
 // service provides methods to do lameduck operations on VMs.
@@ -203,10 +198,10 @@ func (li *lister) initClients() error {
 	return nil
 }
 
-func (li *lister) List() []string {
-	var result []string
+func (li *lister) ListEndpoints() []endpoint.Endpoint {
+	var result []endpoint.Endpoint
 	for _, cl := range li.clients {
-		result = append(result, endpoint.NamesFromEndpoints(cl.ListEndpoints())...)
+		result = append(result, cl.ListEndpoints()...)
 	}
 
 	if len(result) != 0 {
@@ -270,7 +265,7 @@ func newLister(globalOpts *targetspb.GlobalTargetsOptions, l *logger.Logger) (*l
 // new lameduck service is created using the config options, and global.lister
 // is set to that service. Initiating the package from a given lister is useful
 // for testing pacakges that depend on this package.
-func InitDefaultLister(globalOpts *targetspb.GlobalTargetsOptions, lister Lister, l *logger.Logger) error {
+func InitDefaultLister(globalOpts *targetspb.GlobalTargetsOptions, lister endpoint.Lister, l *logger.Logger) error {
 	global.mu.Lock()
 	defer global.mu.Unlock()
 
@@ -300,7 +295,7 @@ func InitDefaultLister(globalOpts *targetspb.GlobalTargetsOptions, lister Lister
 
 // GetDefaultLister returns the global Lister. If global lister is
 // uninitialized, it returns an error.
-func GetDefaultLister() (Lister, error) {
+func GetDefaultLister() (endpoint.Lister, error) {
 	global.mu.RLock()
 	defer global.mu.RUnlock()
 	if global.lister == nil {

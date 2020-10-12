@@ -36,8 +36,9 @@ import (
 const defaultAPICallInterval = 250 * time.Microsecond
 
 type instanceData struct {
-	nis    []*compute.NetworkInterface
-	labels map[string]string
+	nis         []*compute.NetworkInterface
+	labels      map[string]string
+	lastUpdated int64
 }
 
 /*
@@ -159,9 +160,10 @@ func (il *gceInstancesLister) listResources(req *pb.ListResourcesRequest) ([]*pb
 			}
 
 			resources = append(resources, &pb.Resource{
-				Name:   proto.String(name),
-				Ip:     proto.String(ip),
-				Labels: ins.labels,
+				Name:        proto.String(name),
+				Ip:          proto.String(ip),
+				Labels:      ins.labels,
+				LastUpdated: proto.Int64(ins.lastUpdated),
 				// TODO(manugarg): Add support for returning instance id as well. I want to
 				// implement feature parity with the current targets first and then add
 				// more features.
@@ -200,11 +202,12 @@ func (il *gceInstancesLister) expandForZone(zone string) ([]string, map[string]*
 	if err != nil {
 		return nil, nil, err
 	}
+	ts := time.Now().Unix()
 	for _, item := range instanceList.Items {
 		if item.Name == il.thisInstance {
 			continue
 		}
-		cache[item.Name] = &instanceData{item.NetworkInterfaces, item.Labels}
+		cache[item.Name] = &instanceData{item.NetworkInterfaces, item.Labels, ts}
 		names = append(names, item.Name)
 	}
 

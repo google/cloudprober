@@ -27,7 +27,7 @@ import (
 
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
-	"github.com/google/cloudprober/targets/lameduck"
+	"github.com/google/cloudprober/targets/endpoint"
 )
 
 const testExportInterval = 2 * time.Second
@@ -37,15 +37,15 @@ type fakeLameduckLister struct {
 	err        error
 }
 
-func (f *fakeLameduckLister) List() []string {
-	return f.lameducked
+func (f *fakeLameduckLister) ListEndpoints() []endpoint.Endpoint {
+	return endpoint.EndpointsFromNames(f.lameducked)
 }
 
 func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func testServer(ctx context.Context, t *testing.T, insName string, ldLister lameduck.Lister) (*Server, chan *metrics.EventMetrics) {
+func testServer(ctx context.Context, t *testing.T, insName string, ldLister endpoint.Lister) (*Server, chan *metrics.EventMetrics) {
 	ln, err := net.Listen("tcp", ":0")
 	if err != nil {
 		t.Fatalf("Listen error: %v.", err)

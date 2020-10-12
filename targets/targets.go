@@ -39,7 +39,6 @@ import (
 	"github.com/google/cloudprober/targets/endpoint"
 	"github.com/google/cloudprober/targets/file"
 	"github.com/google/cloudprober/targets/gce"
-	"github.com/google/cloudprober/targets/lameduck"
 	targetspb "github.com/google/cloudprober/targets/proto"
 	dnsRes "github.com/google/cloudprober/targets/resolver"
 )
@@ -69,13 +68,8 @@ var (
 // --- if multiple sets of resources need to be listed/resolved, a separate
 // instance of Targets will be needed.
 type Targets interface {
-	lister
+	endpoint.Lister
 	resolver
-}
-
-type lister interface {
-	// ListEndpoints returns list of endpoints (name, port tupples).
-	ListEndpoints() []endpoint.Endpoint
 }
 
 type resolver interface {
@@ -119,10 +113,10 @@ func (d *dummy) Resolve(name string, ipVer int) (net.IP, error) {
 // providing various filtering options. Currently filtering by regex and lameduck
 // is supported.
 type targets struct {
-	lister   lister
+	lister   endpoint.Lister
 	resolver resolver
 	re       *regexp.Regexp
-	ldLister lameduck.Lister
+	ldLister endpoint.Lister
 	l        *logger.Logger
 }
 
@@ -136,30 +130,40 @@ func (t *targets) Resolve(name string, ipVer int) (net.IP, error) {
 	return t.resolver.Resolve(name, ipVer)
 }
 
-func (t *targets) lameduckMap() map[string]bool {
-	lameDuckMap := make(map[string]bool)
+func (t *targets) lameduckMap() map[string]endpoint.Endpoint {
+	lameDuckMap := make(map[string]endpoint.Endpoint)
 	if t.ldLister != nil {
-		lameDucksList := t.ldLister.List()
+		lameDucksList := t.ldLister.ListEndpoints()
 		for _, i := range lameDucksList {
-			lameDuckMap[i] = true
+			lameDuckMap[i.Name] = i
 		}
 	}
 	return lameDuckMap
 }
 
-func (t *targets) includeInResult(name string, ldMap map[string]bool) bool {
-	include := true
-
+func (t *targets) includeInResult(ep endpoint.Endpoint, ldMap map[string]endpoint.Endpoint) bool {
 	// Filter by regexp
-	if t.re != nil && !t.re.MatchString(name) {
-		include = false
+	if t.re != nil && !t.re.MatchString(ep.Name) {
+		return false
 	}
 
-	if len(ldMap) != 0 && ldMap[name] {
-		include = false
+	if len(ldMap) == 0 {
+		return true
 	}
 
-	return include
+	// If there is a lameduck entry and it was updated after the target entry,
+	// don't include it in result.
+	ldEP, ok := ldMap[ep.Name]
+	if ok {
+		// If lameduck endpoint or target endpoint don't have last-updated set,
+		// skip checking which one is newer.
+		if ldEP.LastUpdated.IsZero() || ep.LastUpdated.IsZero() {
+			return false
+		}
+		return ep.LastUpdated.After(ldEP.LastUpdated)
+	}
+
+	return true
 }
 
 // ListEndpoints returns the list of target endpoints, where each endpoint
@@ -188,9 +192,9 @@ func (t *targets) ListEndpoints() []endpoint.Endpoint {
 	ldMap := t.lameduckMap()
 	if t.re != nil || len(ldMap) != 0 {
 		var result []endpoint.Endpoint
-		for _, i := range list {
-			if t.includeInResult(i.Name, ldMap) {
-				result = append(result, i)
+		for _, ep := range list {
+			if t.includeInResult(ep, ldMap) {
+				result = append(result, ep)
 			}
 		}
 		list = result
@@ -201,7 +205,7 @@ func (t *targets) ListEndpoints() []endpoint.Endpoint {
 
 // baseTargets constructs a targets instance with no lister or resolver. It
 // provides essentially everything that the targets type wraps over its lister.
-func baseTargets(targetsDef *targetspb.TargetsDef, ldLister lameduck.Lister, l *logger.Logger) (*targets, error) {
+func baseTargets(targetsDef *targetspb.TargetsDef, ldLister endpoint.Lister, l *logger.Logger) (*targets, error) {
 	if l == nil {
 		l = &logger.Logger{}
 	}
@@ -297,7 +301,7 @@ func RDSClientConf(pb *targetspb.RDSTargets, globalOpts *targetspb.GlobalTargets
 //
 // See cloudprober/targets/targets.proto for more information on the possible
 // configurations of Targets.
-func New(targetsDef *targetspb.TargetsDef, ldLister lameduck.Lister, globalOpts *targetspb.GlobalTargetsOptions, globalLogger, l *logger.Logger) (Targets, error) {
+func New(targetsDef *targetspb.TargetsDef, ldLister endpoint.Lister, globalOpts *targetspb.GlobalTargetsOptions, globalLogger, l *logger.Logger) (Targets, error) {
 	t, err := baseTargets(targetsDef, ldLister, l)
 	if err != nil {
 		globalLogger.Error("Unable to produce the base target lister")

@@ -50,9 +50,10 @@ var (
 )
 
 type cacheRecord struct {
-	ip     string
-	port   int
-	labels map[string]string
+	ip          string
+	port        int
+	labels      map[string]string
+	lastUpdated time.Time
 }
 
 // Default RDS port
@@ -105,7 +106,7 @@ func (client *Client) updateState(response *pb.ListResourcesResponse) {
 		if oldcache[res.GetName()] != nil && res.GetIp() != oldcache[res.GetName()].ip {
 			client.l.Infof("Resource (%s) ip has changed: %s -> %s.", res.GetName(), oldcache[res.GetName()].ip, res.GetIp())
 		}
-		client.cache[res.GetName()] = &cacheRecord{res.GetIp(), int(res.GetPort()), res.Labels}
+		client.cache[res.GetName()] = &cacheRecord{res.GetIp(), int(res.GetPort()), res.Labels, time.Unix(res.GetLastUpdated(), 0)}
 		client.names[i] = res.GetName()
 		i++
 	}
@@ -118,7 +119,7 @@ func (client *Client) ListEndpoints() []endpoint.Endpoint {
 	defer client.mu.RUnlock()
 	result := make([]endpoint.Endpoint, len(client.names))
 	for i, name := range client.names {
-		result[i] = endpoint.Endpoint{Name: name, Port: client.cache[name].port, Labels: client.cache[name].labels}
+		result[i] = endpoint.Endpoint{Name: name, Port: client.cache[name].port, Labels: client.cache[name].labels, LastUpdated: client.cache[name].lastUpdated}
 	}
 	return result
 }

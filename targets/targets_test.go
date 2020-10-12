@@ -12,20 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package targets_test
+package targets
 
 import (
 	"errors"
 	"fmt"
 	"net"
 	"reflect"
+	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/logger"
 	rdsclientpb "github.com/google/cloudprober/rds/client/proto"
-	"github.com/google/cloudprober/targets"
 	"github.com/google/cloudprober/targets/endpoint"
 	targetspb "github.com/google/cloudprober/targets/proto"
 	testdatapb "github.com/google/cloudprober/targets/testdata"
@@ -48,28 +49,28 @@ func getMissing(elems []string, from []string) []string {
 	return missing
 }
 
-type mockLDLister struct {
-	list []string
+type mockLister struct {
+	list []endpoint.Endpoint
 }
 
-func (mldl *mockLDLister) List() []string {
+func (mldl *mockLister) ListEndpoints() []endpoint.Endpoint {
 	return mldl.list
 }
 
-// TestList does not test the targets.New function, and is specifically testing
-// the implementation of targets.targets directly
+// TestList does not test the New function, and is specifically testing
+// the implementation of targets directly
 func TestList(t *testing.T) {
 	var rows = []struct {
 		desc   string
 		hosts  []string
 		re     string
-		ldList []string
+		ldList []endpoint.Endpoint
 		expect []string
 	}{
 		{
 			desc:   "hostB is lameduck",
 			hosts:  []string{"www.google.com", "127.0.0.1", "hostA", "hostB", "hostC"},
-			ldList: []string{"hostB"}, // hostB is lameduck.
+			ldList: endpoint.EndpointsFromNames([]string{"hostB"}), // hostB is lameduck.
 			expect: []string{"www.google.com", "127.0.0.1", "hostA", "hostC"},
 		},
 		{
@@ -82,8 +83,15 @@ func TestList(t *testing.T) {
 			desc:   "only hosts starting with host and hostC is lameduck",
 			hosts:  []string{"www.google.com", "127.0.0.1", "hostA", "hostB", "hostC"},
 			re:     "host.*",
-			ldList: []string{"hostC"}, // hostC is lameduck.
+			ldList: endpoint.EndpointsFromNames([]string{"hostC"}), // hostC is lameduck.
 			expect: []string{"hostA", "hostB"},
+		},
+		{
+			desc:   "only hosts starting with host and hostC was lameducked before hostC was updated",
+			hosts:  []string{"www.google.com", "127.0.0.1", "hostA", "hostB", "hostC"},
+			re:     "host.*",
+			ldList: []endpoint.Endpoint{{Name: "hostC", LastUpdated: time.Now().Add(-time.Hour)}}, // hostC is lameduck.
+			expect: []string{"hostA", "hostB", "hostC"},
 		},
 		{
 			desc:  "empty as no hosts match the regex",
@@ -93,19 +101,24 @@ func TestList(t *testing.T) {
 	}
 
 	for _, r := range rows {
-		targetsDef := &targetspb.TargetsDef{
-			Regex: proto.String(r.re),
-			Type: &targetspb.TargetsDef_HostNames{
-				HostNames: strings.Join(r.hosts, ","),
-			},
+		baseTime := time.Now()
+
+		var targetEP []endpoint.Endpoint
+		for _, host := range r.hosts {
+			targetEP = append(targetEP, endpoint.Endpoint{
+				Name:        host,
+				LastUpdated: baseTime,
+			})
 		}
 
 		t.Run(r.desc, func(t *testing.T) {
-			bt, err := targets.New(targetsDef, &mockLDLister{r.ldList}, nil, nil, nil)
+			bt, err := baseTargets(nil, &mockLister{r.ldList}, nil)
 			if err != nil {
 				t.Errorf("Unexpected error building targets: %v", err)
 				return
 			}
+			bt.re = regexp.MustCompile(r.re)
+			bt.lister = &mockLister{targetEP}
 
 			got := endpoint.NamesFromEndpoints(bt.ListEndpoints())
 			if !reflect.DeepEqual(got, r.expect) {
@@ -116,13 +129,12 @@ func TestList(t *testing.T) {
 				}
 			}
 
-			gotEndpoints := bt.ListEndpoints()
-			wantEndpoints := endpoint.EndpointsFromNames(r.expect)
-			if !reflect.DeepEqual(gotEndpoints, wantEndpoints) {
+			gotEndpoints := endpoint.NamesFromEndpoints(bt.ListEndpoints())
+			if !reflect.DeepEqual(gotEndpoints, r.expect) {
 				// Ignore the case when both slices are zero length, DeepEqual doesn't
 				// handle initialized but zero and non-initialized comparison very well.
 				if !(len(got) == 0 && len(r.expect) == 0) {
-					t.Errorf("tgts.ListEndpoints(): got=%v, want=%v", gotEndpoints, wantEndpoints)
+					t.Errorf("tgts.ListEndpoints(): got=%v, want=%v", gotEndpoints, r.expect)
 				}
 			}
 
@@ -137,9 +149,9 @@ func TestDummyTargets(t *testing.T) {
 		},
 	}
 	l := &logger.Logger{}
-	tgts, err := targets.New(targetsDef, nil, nil, nil, l)
+	tgts, err := New(targetsDef, nil, nil, nil, l)
 	if err != nil {
-		t.Fatalf("targets.New(...) Unexpected errors %v", err)
+		t.Fatalf("New(...) Unexpected errors %v", err)
 	}
 	got := endpoint.NamesFromEndpoints(tgts.ListEndpoints())
 	want := []string{""}
@@ -162,7 +174,7 @@ func TestDummyTargets(t *testing.T) {
 
 func TestStaticTargets(t *testing.T) {
 	testHosts := "host1,host2"
-	got := endpoint.NamesFromEndpoints(targets.StaticTargets(testHosts).ListEndpoints())
+	got := endpoint.NamesFromEndpoints(StaticTargets(testHosts).ListEndpoints())
 	if !reflect.DeepEqual(got, strings.Split(testHosts, ",")) {
 		t.Errorf("StaticTargets not working as expected. Got list: %q, Expected: %s", got, strings.Split(testHosts, ","))
 	}
@@ -189,7 +201,7 @@ func TestGetExtensionTargets(t *testing.T) {
 
 	// This has the same effect as using the following in your config:
 	// targets {
-	//    [cloudprober.targets.testdata.fancy_targets] {
+	//    [cloudprober.testdata.fancy_targets] {
 	//      name: "fancy"
 	//    }
 	// }
@@ -197,15 +209,15 @@ func TestGetExtensionTargets(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error setting up extension in test targets proto: %v", err)
 	}
-	tgts, err := targets.New(targetsDef, nil, nil, nil, nil)
+	tgts, err := New(targetsDef, nil, nil, nil, nil)
 	if err == nil {
 		t.Errorf("Expected error in building targets from extensions, got nil. targets: %v", tgts)
 	}
 	testTargets := []string{"a", "b"}
-	targets.RegisterTargetsType(200, func(conf interface{}, l *logger.Logger) (targets.Targets, error) {
+	RegisterTargetsType(200, func(conf interface{}, l *logger.Logger) (Targets, error) {
 		return &testTargetsType{names: testTargets}, nil
 	})
-	tgts, err = targets.New(targetsDef, nil, nil, nil, nil)
+	tgts, err = New(targetsDef, nil, nil, nil, nil)
 	if err != nil {
 		t.Errorf("Got error in building targets from extensions: %v.", err)
 	}
@@ -219,9 +231,9 @@ func TestSharedTargets(t *testing.T) {
 	testHosts := []string{"host1", "host2"}
 
 	// Create shared targets and re-use them.
-	targets.SetSharedTargets("shared_test_targets", targets.StaticTargets(strings.Join(testHosts, ",")))
+	SetSharedTargets("shared_test_targets", StaticTargets(strings.Join(testHosts, ",")))
 
-	var tgts [2]targets.Targets
+	var tgts [2]Targets
 
 	for i := range tgts {
 		targetsDef := &targetspb.TargetsDef{
@@ -229,7 +241,7 @@ func TestSharedTargets(t *testing.T) {
 		}
 
 		var err error
-		tgts[i], err = targets.New(targetsDef, nil, nil, nil, nil)
+		tgts[i], err = New(targetsDef, nil, nil, nil, nil)
 
 		if err != nil {
 			t.Errorf("got error while creating targets from shared targets: %v", err)
@@ -299,7 +311,7 @@ func TestRDSClientConf(t *testing.T) {
 				}
 			}
 
-			_, cc, err := targets.RDSClientConf(pb, globalOpts, nil)
+			_, cc, err := RDSClientConf(pb, globalOpts, nil)
 			if (err != nil) != r.wantErr {
 				t.Errorf("wantErr: %v, got err: %v", r.wantErr, err)
 			}
