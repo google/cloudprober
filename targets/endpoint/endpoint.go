@@ -16,11 +16,22 @@
 // targets.Targets interface.
 package endpoint
 
+import (
+	"time"
+)
+
 // Endpoint represents a targets and associated parameters.
 type Endpoint struct {
-	Name   string
-	Labels map[string]string
-	Port   int
+	Name        string
+	Labels      map[string]string
+	LastUpdated time.Time
+	Port        int
+}
+
+// Lister should implement the ListEndpoints method.
+type Lister interface {
+	// ListEndpoints returns list of endpoints (name, port tupples).
+	ListEndpoints() []Endpoint
 }
 
 // EndpointsFromNames is convenience function to build a list of endpoints

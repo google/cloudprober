@@ -24,14 +24,15 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	rdspb "github.com/google/cloudprober/rds/proto"
+	"github.com/google/cloudprober/targets/endpoint"
 )
 
 type mockLDLister struct {
 	list []string
 }
 
-func (mldl *mockLDLister) List() []string {
-	return mldl.list
+func (mldl *mockLDLister) ListEndpoints() []endpoint.Endpoint {
+	return endpoint.EndpointsFromNames(mldl.list)
 }
 
 func TestDefaultLister(t *testing.T) {
@@ -43,7 +44,7 @@ func TestDefaultLister(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	gotList := lister.List()
+	gotList := endpoint.NamesFromEndpoints(lister.ListEndpoints())
 	if !reflect.DeepEqual(gotList, list1) {
 		t.Errorf("Default lister retured: %v, expected: %v", gotList, list1)
 	}
@@ -56,7 +57,7 @@ func TestDefaultLister(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	gotList = lister.List()
+	gotList = endpoint.NamesFromEndpoints(lister.ListEndpoints())
 	if !reflect.DeepEqual(gotList, list1) {
 		t.Errorf("Default lister retured: %v, expected: %v", gotList, list1)
 	}
@@ -73,7 +74,7 @@ func TestList(t *testing.T) {
 		t.Errorf("lister.initClients(): %v", err)
 	}
 
-	names := li.List()
+	names := endpoint.NamesFromEndpoints(li.ListEndpoints())
 	wantNames := []string{"v1", "v2", "m1", "m2"}
 
 	if !reflect.DeepEqual(names, wantNames) {

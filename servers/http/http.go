@@ -32,6 +32,7 @@ import (
 	"github.com/google/cloudprober/probes/probeutils"
 	configpb "github.com/google/cloudprober/servers/http/proto"
 	"github.com/google/cloudprober/sysvars"
+	"github.com/google/cloudprober/targets/endpoint"
 	"github.com/google/cloudprober/targets/lameduck"
 )
 
@@ -64,9 +65,9 @@ func (s *Server) lameduckStatus() (bool, error) {
 		return false, errors.New("lameduck lister not initialized")
 	}
 
-	lameducksList := s.ldLister.List()
-	for _, lameduckName := range lameducksList {
-		if s.instanceName == lameduckName {
+	lameducksList := s.ldLister.ListEndpoints()
+	for _, ep := range lameducksList {
+		if s.instanceName == ep.Name {
 			return true, nil
 		}
 	}
@@ -119,7 +120,7 @@ type Server struct {
 	reqMetric         *metrics.Map
 	dataChan          chan<- *metrics.EventMetrics
 	statsInterval     time.Duration
-	ldLister          lameduck.Lister // Lameduck lister
+	ldLister          endpoint.Lister // Lameduck lister
 	l                 *logger.Logger
 }
 

@@ -27,7 +27,7 @@ import (
 	"github.com/google/cloudprober/metrics"
 	configpb "github.com/google/cloudprober/probes/proto"
 	"github.com/google/cloudprober/targets"
-	"github.com/google/cloudprober/targets/lameduck"
+	"github.com/google/cloudprober/targets/endpoint"
 	targetspb "github.com/google/cloudprober/targets/proto"
 	"github.com/google/cloudprober/validators"
 )
@@ -111,7 +111,7 @@ func getSourceIPFromConfig(p *configpb.ProbeDef, l *logger.Logger) (net.IP, erro
 
 // BuildProbeOptions builds probe's options using the provided config and some
 // global params.
-func BuildProbeOptions(p *configpb.ProbeDef, ldLister lameduck.Lister, globalTargetsOpts *targetspb.GlobalTargetsOptions, l *logger.Logger) (*Options, error) {
+func BuildProbeOptions(p *configpb.ProbeDef, ldLister endpoint.Lister, globalTargetsOpts *targetspb.GlobalTargetsOptions, l *logger.Logger) (*Options, error) {
 	opts := &Options{
 		Interval:  time.Duration(p.GetIntervalMsec()) * time.Millisecond,
 		Timeout:   time.Duration(p.GetTimeoutMsec()) * time.Millisecond,

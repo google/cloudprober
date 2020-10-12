@@ -80,6 +80,9 @@ message Resource {
   // Resource's labels, if any.
   map<string, string> labels = 6;
 
+  // Last updated (in unix epoch).
+  optional int64 last_updated = 7;
+
   // Id associated with the resource, if any.
   optional string id = 3;
 

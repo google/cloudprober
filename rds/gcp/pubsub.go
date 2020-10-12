@@ -79,7 +79,11 @@ func (lister *pubsubMsgsLister) listResources(req *pb.ListResourcesRequest) ([]*
 	lister.mu.RLock()
 	defer lister.mu.RUnlock()
 
-	var result []string
+	type msg struct {
+		name      string
+		timestamp int64
+	}
+	var result []msg
 	for subName, msgs := range lister.cache {
 		if subFilter != nil && !subFilter.Match(subName, lister.l) {
 			continue
@@ -89,15 +93,16 @@ func (lister *pubsubMsgsLister) listResources(req *pb.ListResourcesRequest) ([]*
 			if freshnessFilter != nil && !freshnessFilter.Match(publishTime, lister.l) {
 				continue
 			}
-			result = append(result, name)
+			result = append(result, msg{name, publishTime.Unix()})
 		}
 	}
 
-	sort.Strings(result)
+	sort.Slice(result, func(i, j int) bool { return result[i].name < result[j].name })
 	resources := make([]*pb.Resource, len(result))
-	for i, name := range result {
+	for i, msg := range result {
 		resources[i] = &pb.Resource{
-			Name: proto.String(name),
+			Name:        proto.String(msg.name),
+			LastUpdated: proto.Int64(msg.timestamp),
 		}
 	}
 	return resources, nil
