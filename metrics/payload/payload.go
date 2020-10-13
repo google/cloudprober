@@ -101,27 +101,14 @@ func updateMetricValue(mv metrics.Value, val string) error {
 	return mv.Add(v)
 }
 
-func parseMetricNameAndLabels(s string) (string, [][2]string) {
-	// Check for no labels first.
-	if s == "" || s[len(s)-1] != '}' {
-		return s, nil
-	}
-	s = s[:len(s)-1]
-
-	// Split at "{"
-	parts := strings.SplitN(s, "{", 2)
-	if len(parts) != 2 {
-		return s, nil
-	}
-	metricName, labelStr := parts[0], parts[1]
-
+func parseLabels(labelStr string) [][2]string {
 	var labels [][2]string
 	for _, l := range strings.Split(labelStr, ",") {
-		parts := strings.SplitN(l, "=", 2)
+		parts := strings.SplitN(strings.TrimSpace(l), "=", 2)
 		if len(parts) != 2 {
 			continue
 		}
-		key, val := parts[0], parts[1]
+		key, val := strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1])
 		// Unquote val if it is a quoted string. strconv returns an error if string
 		// is not quoted at all or is unproperly quoted. We use raw string in that
 		// case.
@@ -131,7 +118,37 @@ func parseMetricNameAndLabels(s string) (string, [][2]string) {
 		}
 		labels = append(labels, [2]string{key, val})
 	}
-	return metricName, labels
+	return labels
+}
+
+func parseLine(line string) (string, string, string, error) {
+	ob := strings.Index(line, "{")
+	// If "{" was not found or was the last element, assume label-less metric.
+
+	if ob == -1 || ob == len(line)-1 {
+		// Parse line as metric has no labels.
+		varKV := strings.SplitN(line, " ", 2)
+		if len(varKV) < 2 {
+			return "", "", "", fmt.Errorf("wrong var key-value format: %s", line)
+		}
+		return varKV[0], "", strings.TrimSpace(varKV[1]), nil
+	}
+
+	// Capture metric name and move line-beginning forward.
+	metricName := line[:ob]
+	line = line[ob+1:]
+
+	eb := strings.Index(line, "}")
+	// If "}" was not found or was the last element, invalid line.
+	if eb == -1 || eb == len(line)-1 {
+		return "", "", "", fmt.Errorf("invalid line (%s), only opening brace found", line)
+	}
+
+	// Capture label string and move line-beginning forward.
+	labelStr := line[:eb]
+	line = line[eb+1:]
+
+	return metricName, labelStr, strings.TrimSpace(line), nil
 }
 
 func (p *Parser) metricValueLabels(line string) (metricName, val string, labels [][2]string) {
@@ -140,19 +157,18 @@ func (p *Parser) metricValueLabels(line string) (metricName, val string, labels 
 		return
 	}
 
-	varKV := strings.Fields(line)
-	if len(varKV) != 2 {
-		p.l.Warning("Wrong var key-value format: ", line)
+	metricName, labelStr, value, err := parseLine(line)
+	if err != nil {
+		p.l.Warningf("Error while parsing line (%s): %v", line, err)
 		return
 	}
 
-	m, l := parseMetricNameAndLabels(varKV[0])
-	if p.aggregate && len(l) != 0 {
+	if p.aggregate && labelStr != "" {
 		p.l.Warning("Payload labels are not supported in aggregate_in_cloudprober mode, bad line: ", line)
 		return
 	}
 
-	return m, varKV[1], l
+	return metricName, value, parseLabels(labelStr)
 }
 
 func addNewMetric(em *metrics.EventMetrics, metricName, val string) error {
