@@ -16,6 +16,7 @@ package payload
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -209,4 +210,106 @@ func TestNoAggregation(t *testing.T) {
 		},
 	}
 	testPayloadMetrics(t, p, td)
+}
+
+func TestMetricValueLabels(t *testing.T) {
+	tests := []struct {
+		desc    string
+		line    string
+		metric  string
+		labels  [][2]string
+		value   string
+		wantErr bool
+	}{
+		{
+			desc:   "metric with no labels",
+			line:   "total 56",
+			metric: "total",
+			value:  "56",
+		},
+		{
+			desc:   "metric with no labels, but more spaces",
+			line:   "total   56",
+			metric: "total",
+			value:  "56",
+		},
+		{
+			desc:   "standard metric with labels",
+			line:   "total{service=serviceA,dc=xx} 56",
+			metric: "total",
+			labels: [][2]string{
+				[2]string{"service", "serviceA"},
+				[2]string{"dc", "xx"},
+			},
+			value: "56",
+		},
+		{
+			desc:   "quoted labels, same result",
+			line:   "total{service=\"serviceA\",dc=\"xx\"} 56",
+			metric: "total",
+			labels: [][2]string{
+				[2]string{"service", "serviceA"},
+				[2]string{"dc", "xx"},
+			},
+			value: "56",
+		},
+		{
+			desc:   "a label value has space and more spaces",
+			line:   "total{service=\"service A\", dc= \"xx\"} 56",
+			metric: "total",
+			labels: [][2]string{
+				[2]string{"service", "service A"},
+				[2]string{"dc", "xx"},
+			},
+			value: "56",
+		},
+		{
+			desc:   "label and value have a space",
+			line:   "version{service=\"service A\",dc=xx} \"version 1.5\"",
+			metric: "version",
+			labels: [][2]string{
+				[2]string{"service", "service A"},
+				[2]string{"dc", "xx"},
+			},
+			value: "\"version 1.5\"",
+		},
+		{
+			desc: "only one brace, invalid line",
+			line: "total{service=\"service A\",dc=\"xx\" 56",
+		},
+	}
+
+	p := &Parser{}
+
+	for _, test := range tests {
+		t.Run(test.desc, func(t *testing.T) {
+			m, v, l := p.metricValueLabels(test.line)
+			if m != test.metric {
+				t.Errorf("Metric name: got=%s, wanted=%s", m, test.metric)
+			}
+			if v != test.value {
+				t.Errorf("Metric value: got=%s, wanted=%s", v, test.value)
+			}
+			if !reflect.DeepEqual(l, test.labels) {
+				t.Errorf("Metric labels: got=%v, wanted=%v", l, test.labels)
+			}
+		})
+	}
+}
+
+func BenchmarkMetricValueLabels(b *testing.B) {
+	payload := []string{
+		"total 50",
+		"total   56",
+		"total{service=serviceA,dc=xx} 56",
+		"total{service=\"serviceA\",dc=\"xx\"} 56",
+		"version{service=\"service A\",dc=xx} \"version 1.5\"",
+	}
+	// run the em.String() function b.N times
+	for n := 0; n < b.N; n++ {
+		p := &Parser{}
+		for _, s := range payload {
+			p.metricValueLabels(s)
+		}
+	}
 }
