@@ -421,6 +421,8 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 					em.AddMetric("connect_event", metrics.NewInt(result.connEvent))
 				}
 
+				em.LatencyUnit = p.opts.LatencyUnit
+
 				for _, al := range p.opts.AdditionalLabels {
 					em.AddLabel(al.KeyValueForTarget(target.Name))
 				}

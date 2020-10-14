@@ -471,6 +471,7 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 		case <-statsExportTicker.C:
 			for f, result := range p.res {
 				em := result.eventMetrics(p.name, p.opts, f, p.c)
+				em.LatencyUnit = p.opts.LatencyUnit
 				p.opts.LogMetrics(em)
 				dataChan <- em
 			}

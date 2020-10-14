@@ -50,6 +50,8 @@ type EventMetrics struct {
 	// e.g. ptype=ping, dst=google.com, etc.
 	labels     map[string]string
 	labelsKeys []string
+
+	LatencyUnit time.Duration
 }
 
 // NewEventMetrics return a new EventMetrics object with internals maps initialized.
