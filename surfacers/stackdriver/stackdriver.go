@@ -54,7 +54,8 @@ type SDSurfacer struct {
 	allowedMetricsRegex *regexp.Regexp
 
 	// Internal cache for saving metric data until a batch is sent
-	cache map[string]*monitoring.TimeSeries
+	cache        map[string]*monitoring.TimeSeries
+	knownMetrics map[string]bool
 
 	// Channel for writing the data without blocking
 	writeChan chan *metrics.EventMetrics
@@ -85,12 +86,13 @@ func New(ctx context.Context, config *configpb.SurfacerConf, l *logger.Logger) (
 	// Create a cache, which is used for batching write requests together,
 	// and a channel for writing data.
 	s := SDSurfacer{
-		cache:       make(map[string]*monitoring.TimeSeries),
-		writeChan:   make(chan *metrics.EventMetrics, 1000),
-		c:           config,
-		projectName: config.GetProject(),
-		startTime:   time.Now(),
-		l:           l,
+		cache:        make(map[string]*monitoring.TimeSeries),
+		knownMetrics: make(map[string]bool),
+		writeChan:    make(chan *metrics.EventMetrics, 1000),
+		c:            config,
+		projectName:  config.GetProject(),
+		startTime:    time.Now(),
+		l:            l,
 	}
 
 	if s.c.GetAllowedMetricsRegex() != "" {
@@ -153,6 +155,31 @@ func (s *SDSurfacer) Write(_ context.Context, em *metrics.EventMetrics) {
 	}
 }
 
+// createMetricDescriptor creates metric descriptor for the given timeseries.
+// We create metric descriptors explicitly, instead of relying on auto-
+// creation by creating timeseries, because auto-creation doesn't add units to
+// the metric.
+func (s *SDSurfacer) createMetricDescriptor(ts *monitoring.TimeSeries) error {
+	var labels []*monitoring.LabelDescriptor
+	for k := range ts.Metric.Labels {
+		labels = append(labels, &monitoring.LabelDescriptor{
+			Key:       k,
+			ValueType: "STRING",
+		})
+	}
+
+	_, err := s.client.Projects.MetricDescriptors.Create("projects/"+s.projectName, &monitoring.MetricDescriptor{
+		Name:       "projects/" + s.projectName + "/metricDescriptors/" + ts.Metric.Type,
+		Type:       ts.Metric.Type,
+		MetricKind: ts.MetricKind,
+		Labels:     labels,
+		Unit:       ts.Unit,
+		ValueType:  ts.ValueType,
+	}).Do()
+
+	return err
+}
+
 // writeBatch polls the writeChan and the sendChan waiting for either a new
 // write packet or a new context. If data comes in on the writeChan, then
 // the data is pulled off and put into the cache (if there is already an
@@ -190,6 +217,13 @@ func (s *SDSurfacer) writeBatch(ctx context.Context) {
 
 			var ts []*monitoring.TimeSeries
 			for _, v := range s.cache {
+				if !s.knownMetrics[v.Metric.Type] && v.Unit != "" {
+					if err := s.createMetricDescriptor(v); err != nil {
+						s.l.Warningf("Error creating metric descriptor for: %s, err: %v", v.Metric.Type, err)
+						continue
+					}
+					s.knownMetrics[v.Metric.Type] = true
+				}
 				ts = append(ts, v)
 			}
 
@@ -233,11 +267,12 @@ func (s *SDSurfacer) writeBatch(ctx context.Context) {
 //
 // More information on the object and specific fields can be found here:
 //	https://cloud.google.com/monitoring/api/ref_v3/rest/v3/TimeSeries
-func (s *SDSurfacer) recordTimeSeries(metricKind, metricName, msgType string, labels map[string]string, timestamp time.Time, tv *monitoring.TypedValue, cacheKey string) *monitoring.TimeSeries {
+func (s *SDSurfacer) recordTimeSeries(metricKind, metricName, msgType string, labels map[string]string, timestamp time.Time, tv *monitoring.TypedValue, unit, cacheKey string) *monitoring.TimeSeries {
 	startTime := s.startTime.Format(time.RFC3339Nano)
 	if metricKind == "GAUGE" {
 		startTime = timestamp.Format(time.RFC3339Nano)
 	}
+
 	ts := &monitoring.TimeSeries{
 		// The URL address for our custom metric, must match the
 		// name we used in the MetricDescriptor.
@@ -249,6 +284,7 @@ func (s *SDSurfacer) recordTimeSeries(metricKind, metricName, msgType string, la
 		// Must match the MetricKind and ValueType of the MetricDescriptor.
 		MetricKind: metricKind,
 		ValueType:  msgType,
+		Unit:       unit,
 
 		// Create a single data point, this could be utilized to create
 		// a batch of points instead of a single point if the write
@@ -366,10 +402,20 @@ func (s *SDSurfacer) recordEventMetrics(em *metrics.EventMetrics) (ts []*monitor
 		// Create the correct TimeSeries object based on the incoming data
 		val := em.Metric(k)
 
+		unit := "1" // "1" is the default unit for numbers.
+		if k == "latency" {
+			unit = map[time.Duration]string{
+				time.Second:      "s",
+				time.Millisecond: "ms",
+				time.Microsecond: "us",
+				time.Nanosecond:  "ns",
+			}[em.LatencyUnit]
+		}
+
 		// If metric value is of type numerical value.
 		if v, ok := val.(metrics.NumValue); ok {
 			f := float64(v.Int64())
-			ts = append(ts, s.recordTimeSeries(metricKind, name, "DOUBLE", mLabels, em.Timestamp, &monitoring.TypedValue{DoubleValue: &f}, cacheKey))
+			ts = append(ts, s.recordTimeSeries(metricKind, name, "DOUBLE", mLabels, em.Timestamp, &monitoring.TypedValue{DoubleValue: &f}, unit, cacheKey))
 			continue
 		}
 
@@ -383,7 +429,7 @@ func (s *SDSurfacer) recordEventMetrics(em *metrics.EventMetrics) (ts []*monitor
 			// for stackdriver.
 			mLabels["val"] = strings.Trim(v.String(), "\"")
 			f := float64(1)
-			ts = append(ts, s.recordTimeSeries(metricKind, name, "DOUBLE", mLabels, em.Timestamp, &monitoring.TypedValue{DoubleValue: &f}, cacheKey))
+			ts = append(ts, s.recordTimeSeries(metricKind, name, "DOUBLE", mLabels, em.Timestamp, &monitoring.TypedValue{DoubleValue: &f}, unit, cacheKey))
 			continue
 		}
 
@@ -398,14 +444,14 @@ func (s *SDSurfacer) recordEventMetrics(em *metrics.EventMetrics) (ts []*monitor
 				}
 				mmLabels[mapValue.MapName] = mapKey
 				f := float64(mapValue.GetKey(mapKey).Int64())
-				ts = append(ts, s.recordTimeSeries(metricKind, name, "DOUBLE", mmLabels, em.Timestamp, &monitoring.TypedValue{DoubleValue: &f}, cacheKey))
+				ts = append(ts, s.recordTimeSeries(metricKind, name, "DOUBLE", mmLabels, em.Timestamp, &monitoring.TypedValue{DoubleValue: &f}, unit, cacheKey))
 			}
 			continue
 		}
 
 		// If metric value is of type Distribution.
 		if distValue, ok := val.(*metrics.Distribution); ok {
-			ts = append(ts, s.recordTimeSeries(metricKind, name, "DISTRIBUTION", mLabels, em.Timestamp, distValue.StackdriverTypedValue(), cacheKey))
+			ts = append(ts, s.recordTimeSeries(metricKind, name, "DISTRIBUTION", mLabels, em.Timestamp, distValue.StackdriverTypedValue(), unit, cacheKey))
 			continue
 		}
 

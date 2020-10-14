@@ -326,6 +326,8 @@ func (p *Probe) defaultMetrics(target string, result *result) *metrics.EventMetr
 		AddLabel("probe", p.name).
 		AddLabel("dst", target)
 
+	em.LatencyUnit = p.opts.LatencyUnit
+
 	for _, al := range p.opts.AdditionalLabels {
 		em.AddLabel(al.KeyValueForTarget(target))
 	}

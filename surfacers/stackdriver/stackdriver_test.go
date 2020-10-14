@@ -80,6 +80,7 @@ func TestTimeSeries(t *testing.T) {
 					},
 					MetricKind: "CUMULATIVE",
 					ValueType:  "DOUBLE",
+					Unit:       "1",
 					Points: []*monitoring.Point{
 						{
 							Interval: &monitoring.TimeInterval{
@@ -120,6 +121,7 @@ func TestTimeSeries(t *testing.T) {
 					},
 					MetricKind: "CUMULATIVE",
 					ValueType:  "DOUBLE",
+					Unit:       "1",
 					Points: []*monitoring.Point{
 						{
 							Interval: &monitoring.TimeInterval{
@@ -160,6 +162,7 @@ func TestTimeSeries(t *testing.T) {
 					},
 					MetricKind: "CUMULATIVE",
 					ValueType:  "DOUBLE",
+					Unit:       "1",
 					Points: []*monitoring.Point{
 						{
 							Interval: &monitoring.TimeInterval{
@@ -190,6 +193,7 @@ func TestTimeSeries(t *testing.T) {
 					},
 					MetricKind: "CUMULATIVE",
 					ValueType:  "DOUBLE",
+					Unit:       "1",
 					Points: []*monitoring.Point{
 						{
 							Interval: &monitoring.TimeInterval{

@@ -339,6 +339,7 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 				AddLabel("probe", p.name).
 				AddLabel("dst", targetName)
 			result.Unlock()
+			em.LatencyUnit = p.opts.LatencyUnit
 			for _, al := range p.opts.AdditionalLabels {
 				em.AddLabel(al.KeyValueForTarget(targetName))
 			}
