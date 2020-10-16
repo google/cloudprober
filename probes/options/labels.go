@@ -17,6 +17,7 @@ package options
 import (
 	"regexp"
 	"strings"
+	"sync"
 
 	configpb "github.com/google/cloudprober/probes/proto"
 )
@@ -35,6 +36,7 @@ var targetLabelRegex = regexp.MustCompile(`@target.label.(.*)@`)
 
 // AdditionalLabel encapsulates additional labels to attach to probe results.
 type AdditionalLabel struct {
+	mu  sync.RWMutex
 	Key string
 
 	Value           string // static value
@@ -48,6 +50,9 @@ type AdditionalLabel struct {
 
 // UpdateForTarget updates target-based label's value.
 func (al *AdditionalLabel) UpdateForTarget(tname string, tLabels map[string]string) {
+	al.mu.Lock()
+	defer al.mu.Unlock()
+
 	if al.TargetLabelType == NotTargetLabel {
 		return
 	}
@@ -66,6 +71,9 @@ func (al *AdditionalLabel) UpdateForTarget(tname string, tLabels map[string]stri
 
 // KeyValueForTarget returns key, value pair for the given target.
 func (al *AdditionalLabel) KeyValueForTarget(targetName string) (key, val string) {
+	al.mu.RLock()
+	defer al.mu.RUnlock()
+
 	if al.Value != "" {
 		return al.Key, al.Value
 	}
