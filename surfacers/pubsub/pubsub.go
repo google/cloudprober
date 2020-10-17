@@ -36,7 +36,21 @@ import (
 const (
 	inChanCapacity = 1000
 	publishTimeout = 10 * time.Second
+	compressedAttr = "compressed"
+	starttimeAttr  = "starttime"
 )
+
+// IsCompressed takes message attribute map and returns true if compressed
+// attribute is set to true.
+func IsCompressed(attr map[string]string) bool {
+	return attr[compressedAttr] == "true"
+}
+
+// StartTime takes message attributes map and returns the value of the
+// starttime attribute.
+func StartTime(attr map[string]string) string {
+	return attr[starttimeAttr]
+}
 
 var newPubsubClient = func(ctx context.Context, project string) (*pubsub.Client, error) {
 	return pubsub.NewClient(ctx, project)
@@ -68,8 +82,8 @@ func (s *Surfacer) publishMessage(globalCtx context.Context, data []byte) {
 	}
 	msg := &pubsub.Message{
 		Attributes: map[string]string{
-			"compressed": boolToString[s.c.GetCompressionEnabled()],
-			"starttime":  s.starttime,
+			compressedAttr: boolToString[s.c.GetCompressionEnabled()],
+			starttimeAttr:  s.starttime,
 		},
 		Data: data,
 	}
