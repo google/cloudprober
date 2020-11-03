@@ -365,6 +365,45 @@ func processLabels(em *metrics.EventMetrics) (labels map[string]string, labelsKe
 	return
 }
 
+func (s *SDSurfacer) ignoreMetric(name string) bool {
+	if s.allowedMetricsRegex != nil {
+		if !s.allowedMetricsRegex.MatchString(name) {
+			return true
+		}
+	}
+
+	if !validMetricLength(name, s.c.GetMonitoringUrl()) {
+		s.l.Warningf("Message name %q is greater than the 100 character limit, skipping write", name)
+		return true
+	}
+
+	return false
+}
+
+// failureCountForDefaultMetrics computes failure count from success and total
+// metrics, if available.
+func (s *SDSurfacer) failureCountForDefaultMetrics(em *metrics.EventMetrics, name string) (bool, float64) {
+	if s.ignoreMetric(name) {
+		return false, 0
+	}
+
+	tv, sv, fv := em.Metric("total"), em.Metric("success"), em.Metric("failure")
+	// If there is already a failure metric, or if "total" and "success" metrics
+	// are not available, don't compute failure metric.
+	if fv != nil || tv == nil || sv == nil {
+		return false, 0
+	}
+
+	total, totalOk := tv.(metrics.NumValue)
+	success, successOk := sv.(metrics.NumValue)
+	if !totalOk || !successOk {
+		s.l.Errorf("total (%v) and success (%v) values are not numeric, this should never happen", tv, sv)
+		return false, 0
+	}
+
+	return true, total.Float64() - success.Float64()
+}
+
 // recordEventMetrics processes the incoming EventMetrics objects and builds
 // TimeSeries from it.
 //
@@ -380,6 +419,13 @@ func (s *SDSurfacer) recordEventMetrics(em *metrics.EventMetrics) (ts []*monitor
 
 	emLabels, cacheKey, metricPrefix := processLabels(em)
 
+	// Compute failure count for default metrics.
+	fName := metricPrefix + "failure"
+	creatFailureMetric, fVal := s.failureCountForDefaultMetrics(em, fName)
+	if creatFailureMetric {
+		ts = append(ts, s.recordTimeSeries(metricKind, fName, "DOUBLE", emLabels, em.Timestamp, &monitoring.TypedValue{DoubleValue: &fVal}, "1", cacheKey))
+	}
+
 	for _, k := range em.MetricsKeys() {
 		// Create a copy of emLabels for use in timeseries object.
 		mLabels := make(map[string]string)
@@ -388,14 +434,7 @@ func (s *SDSurfacer) recordEventMetrics(em *metrics.EventMetrics) (ts []*monitor
 		}
 		name := metricPrefix + k
 
-		if s.allowedMetricsRegex != nil {
-			if !s.allowedMetricsRegex.MatchString(name) {
-				continue
-			}
-		}
-
-		if !validMetricLength(name, s.c.GetMonitoringUrl()) {
-			s.l.Warningf("Message name %q is greater than the 100 character limit, skipping write", name)
+		if s.ignoreMetric(name) {
 			continue
 		}
 
