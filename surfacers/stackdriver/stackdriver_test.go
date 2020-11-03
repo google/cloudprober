@@ -257,7 +257,7 @@ func TestFailureCountForDefaultMetrics(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		t.Run(fmt.Sprint("%+v", test), func(t *testing.T) {
+		t.Run(fmt.Sprintf("%+v", test), func(t *testing.T) {
 			em := metrics.NewEventMetrics(time.Now()).
 				AddMetric("total", test.total).
 				AddMetric("success", test.success)
