@@ -9,14 +9,14 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,user-scalable=no,initial-scale=1,maximum-scale=1">
     <meta http-equiv="X-UA-Compatible" content="IE=10" />
-    <title>Validators - Cloudprober</title>
+    <title>Surfacers - Cloudprober</title>
     <meta name="generator" content="Hugo 0.61.0" />
 
     
-    <link rel="canonical" href="https://cloudprober.org/how-to/validators/">
+    <link rel="canonical" href="https://cloudprober.org/surfacers/overview/">
     
 
-    <meta property="og:url" content="https://cloudprober.org/how-to/validators/">
+    <meta property="og:url" content="https://cloudprober.org/surfacers/overview/">
     <meta property="og:title" content="Cloudprober">
     
     <meta name="apple-mobile-web-app-title" content="Cloudprober">
@@ -93,7 +93,7 @@
     </div>
     <div class="stretch">
       <div class="title">
-        Validators
+        Surfacers
       </div>
     </div>
 
@@ -244,11 +244,14 @@
 
 
 
-<a  title="Surfacers" href="https://cloudprober.org/surfacers/overview/">
+<a class="current" title="Surfacers" href="https://cloudprober.org/surfacers/overview/">
 	
 	Surfacers
 </a>
 
+
+<ul id="scrollspy">
+</ul>
 
 
       
@@ -307,14 +310,11 @@
 
 
 
-<a class="current" title="Validators" href="https://cloudprober.org/how-to/validators/">
+<a  title="Validators" href="https://cloudprober.org/how-to/validators/">
 	
 	Validators
 </a>
 
-
-<ul id="scrollspy">
-</ul>
 
 
       
@@ -362,72 +362,42 @@
 
 	<article class="article">
 		<div class="wrapper">
-			<h1>Validators </h1>
+			<h1>Surfacers </h1>
 
-			<p>Validators allow you to run checks on the probe request output (if any). For
-example, you can specify if you expect the probe output to match a certain
-regex or return a certain status code (for HTTP). You can configure more than
-one validators and all validators should succeed for the probe to be marked as
-success.</p>
-<div class="highlight"><pre class="chroma"><code class="language-bash" data-lang="bash">probe <span class="o">{</span>
-    name: <span class="s2">&#34;google_homepage&#34;</span>
-    type: HTTP
-    targets <span class="o">{</span>
-        host_names: <span class="s2">&#34;www.google.com&#34;</span>
-    <span class="o">}</span>
-    interval_msec: <span class="m">10000</span>    <span class="c1"># Probe every 10s</span>
-
-    <span class="c1"># This validator should succeed.</span>
-    validator <span class="o">{</span>
-        name: <span class="s2">&#34;status_code_2xx&#34;</span>
-        http_validator <span class="o">{</span>
-            success_status_codes: <span class="s2">&#34;200-299&#34;</span>
-        <span class="o">}</span>
-    <span class="o">}</span>
-
-    <span class="c1"># This validator will fail, notice missing &#39;o&#39; in our regex.</span>
-    validator <span class="o">{</span>
-        name: <span class="s2">&#34;gogle_re&#34;</span>
-        regex: <span class="s2">&#34;gogle&#34;</span>
-    <span class="o">}</span>
-<span class="o">}</span></code></pre></div>
-<p>(Full listing: <a href="https://github.com/google/cloudprober/blob/master/examples/validators/cloudprober_validator.cfg">https://github.com/google/cloudprober/blob/master/examples/validators/cloudprober_validator.cfg</a>)</p>
-<p>To make the debugging easier, validation failures are logged and exported as an
-independent map counter &ndash; <em>validation_failure</em>, with <em>validator</em> key. For
-example, the above example will result in the following counters being
-exported after 5 runs:</p>
-<div class="highlight"><pre class="chroma"><code class="language-bash" data-lang="bash">total<span class="o">{</span><span class="nv">probe</span><span class="o">=</span><span class="s2">&#34;google_homepage&#34;</span>,dst<span class="o">=</span><span class="s2">&#34;www.google.com&#34;</span><span class="o">}</span> <span class="m">5</span>
-success<span class="o">{</span><span class="nv">probe</span><span class="o">=</span><span class="s2">&#34;google_homepage&#34;</span>,dst<span class="o">=</span><span class="s2">&#34;www.google.com&#34;</span><span class="o">}</span> <span class="m">0</span>
-validation_failure<span class="o">{</span><span class="nv">validator</span><span class="o">=</span><span class="s2">&#34;status_code_2xx&#34;</span>,probe<span class="o">=</span><span class="s2">&#34;google_homepage&#34;</span>,dst<span class="o">=</span><span class="s2">&#34;www.google.com&#34;</span><span class="o">}</span> <span class="m">0</span>
-validation_failure<span class="o">{</span><span class="nv">validator</span><span class="o">=</span><span class="s2">&#34;gogle_re&#34;</span>,probe<span class="o">=</span><span class="s2">&#34;google_homepage&#34;</span>,dst<span class="o">=</span><span class="s2">&#34;www.google.com&#34;</span><span class="o">}</span> <span class="m">5</span></code></pre></div>
-<p>Note that validator counter will <strong>not</strong> go up if probe fails for other
-reasons, for example web server timing out. That's why you typically don't want
-to alert only on validation failures. That said, in some cases, validation
-failures could be the only thing you're interested in, for example, if you're
-trying to make sure that a certain copyright is always present in your web
-pages or you want to catch data integrity issues in your network.</p>
-<p>Let's take a look at the types of validators you can configure.</p>
-<h2 id="regex-validator">Regex Validator</h2>
-<p>Regex validator simply checks for a regex in the probe request output. It works
-for all probe types except for UDP and UDP_LISTENER - these probe types don't
-support any validators at the moment.</p>
-<h2 id="http-validator">HTTP Validator</h2>
-<p>HTTP response validator works only for the HTTP probe type. You can currently
-use HTTP  validator to define success and failure status codes (represented by
-success_status_codes and failure_stauts_codes in the config):</p>
+			<p>One of the biggest strengths of cloudprober is that it can export data to multiple monitoring systems, even simultaneously, just based on simple configuration. Cloudprober does that using a built-in mechanism, called surfacers. Each surfacer type implements interface for a specific monitoring system, for example, <a href="https://github.com/google/cloudprober/blob/master/surfacers/prometheus/proto/config.proto"><em>pubsub</em></a> surfacer publishes data to Google Pub/Sub. You can configure multiple surfacers at the same time. If you don't specify any surfacer, <a href="https://github.com/google/cloudprober/blob/master/surfacers/prometheus/proto/config.proto"><em>prometheus</em></a> and <a href="https://github.com/google/cloudprober/blob/master/surfacers/file/proto/config.proto"><em>file</em></a> surfacers are enabled automatically.</p>
+<p>Why other monitoring systems? Cloudprober's main purpose is to run probes and build standard, usable metrics based on the results of those probes. It doesn't take any action on the generated data. Instead, it provides an easy interface to make that probe data available to systems that provide ways to consume monitoring data, for example for graphing and alerting.</p>
+<p>Cloudprober currently supports following surfacer types:</p>
 <ul>
-<li>If <em>failure_status_codes</em> is defined and response status code falls within
-that range, validator is considered to have failed.</li>
-<li>If <em>success_status_codes</em> is defined and response status code <em>does not</em>
-fall within that range, validator is considered to have failed.</li>
+<li>Prometheus (<a href="https://github.com/google/cloudprober/blob/master/surfacers/prometheus/proto/config.proto">config</a>)</li>
+<li><a href="https://cloudprober.org/surfacers/stackdriver">Stackdriver (Google Cloud Monitoring)</a></li>
+<li>Google Pub/Sub (<a href="https://github.com/google/cloudprober/blob/master/surfacers/pubsub/proto/config.proto">config</a>)</li>
+<li>Postgres (<a href="https://github.com/google/cloudprober/blob/master/surfacers/postgres/proto/config.proto">config</a>)</li>
+<li>File (<a href="https://github.com/google/cloudprober/blob/master/surfacers/file/proto/config.proto">config</a>)</li>
 </ul>
-<p>We can possibly add more checks to HTTP validator in the future, for example to
-verify headers.</p>
-<h2 id="data-integrity-validator">Data Integrity Validator</h2>
-<p>Data integrity validator is designed to catch the packet corruption issues in
-the network. We have a basic check that verifies that the probe output is made
-up purely of a pattern repeated many times over.</p>
+<p>Source: <a href="https://github.com/google/cloudprober/blob/7bc30b62e42f3fe4e8a2fb8cd0e87ea18b73aeb8/surfacers/proto/config.proto#L14">surfacers config</a>.</p>
+<p>It's easy to add more surfacers without having to understand the internals of cloudprober. You only need to implement the <a href="https://github.com/google/cloudprober/blob/7bc30b62e42f3fe4e8a2fb8cd0e87ea18b73aeb8/surfacers/surfacers.go#L87">Surfacer interface</a>.</p>
+<h2 id="configuration">Configuration</h2>
+<p>Adding surfacers to cloudprober is as easy as adding &ldquo;surfacer&rdquo; config stanzas to your config, like the following:</p>
+<div class="highlight"><pre class="chroma"><code class="language-shell" data-lang="shell"><span class="c1"># Enable prometheus and stackdriver surfacers.</span>
 
+<span class="c1"># Make probe metrics available at the URL :&lt;cloudprober_port&gt;/metrics, for</span>
+<span class="c1"># scraping by prometheus.</span>
+surfacer <span class="o">{</span>
+  type: PROMETHEUS
+  
+  promethues_surfacer <span class="o">{</span>
+    <span class="c1"># Following option adds a prefix to exported metrics, for example,</span>
+    <span class="c1"># &#34;total&#34; metric is exported as &#34;cloudprober_total&#34;.</span>
+    metrics_prefix: <span class="s2">&#34;cloudprober&#34;</span>
+  <span class="o">}</span>
+<span class="o">}</span>
+
+<span class="c1"># Stackdriver (Google Cloud Monitoring) surfacer. No other configuration</span>
+<span class="c1"># is necessary if running on GCP.</span>
+surfacer <span class="o">{</span>
+  type: STACKDRIVER
+<span class="o">}</span>
+</code></pre></div>
 
 			<aside class="copyright" role="note">
 				

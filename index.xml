@@ -6,10 +6,29 @@
     <description>Recent content on Cloudprober</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
-    <lastBuildDate>Fri, 25 Oct 2019 17:24:32 -0700</lastBuildDate>
+    <lastBuildDate>Sun, 01 Nov 2020 17:24:32 -0700</lastBuildDate>
     
 	<atom:link href="https://cloudprober.org/index.xml" rel="self" type="application/rss+xml" />
     
+    
+    <item>
+      <title>Stackdriver (Google Cloud Monitoring)</title>
+      <link>https://cloudprober.org/surfacers/stackdriver/</link>
+      <pubDate>Sun, 01 Nov 2020 17:24:32 -0700</pubDate>
+      
+      <guid>https://cloudprober.org/surfacers/stackdriver/</guid>
+      <description>Cloudprober can natively export metrics to Google Cloud Monitoring (formerly, Stackdriver) using stackdriver surfacer. Adding stackdriver surfacer to cloudprober is as simple as adding the following stanza to the config:
+surfacer { type: STACKDRIVER } This config will work if you&#39;re running on GCP and your VM (or GKE pod) has access to Cloud Monitoring (Stackdriver). If running on any other platform, you&#39;ll have to specify the GCP project where you want to send the metrics, and you&#39;ll have to configure your environment for Google Application Default Credentials.</description>
+    </item>
+    
+    <item>
+      <title>Surfacers</title>
+      <link>https://cloudprober.org/surfacers/overview/</link>
+      <pubDate>Sun, 01 Nov 2020 17:24:32 -0700</pubDate>
+      
+      <guid>https://cloudprober.org/surfacers/overview/</guid>
+      <description>One of the biggest strengths of cloudprober is that it can export data to multiple monitoring systems, even simultaneously, just based on simple configuration. Cloudprober does that using a built-in mechanism, called surfacers. Each surfacer type implements interface for a specific monitoring system, for example, pubsub surfacer publishes data to Google Pub/Sub. You can configure multiple surfacers at the same time. If you don&#39;t specify any surfacer, prometheus and file surfacers are enabled automatically.</description>
+    </item>
     
     <item>
       <title>Targets Discovery</title>

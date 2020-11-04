@@ -9,14 +9,14 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,user-scalable=no,initial-scale=1,maximum-scale=1">
     <meta http-equiv="X-UA-Compatible" content="IE=10" />
-    <title>Validators - Cloudprober</title>
+    <title>Stackdriver (Google Cloud Monitoring) - Cloudprober</title>
     <meta name="generator" content="Hugo 0.61.0" />
 
     
-    <link rel="canonical" href="https://cloudprober.org/how-to/validators/">
+    <link rel="canonical" href="https://cloudprober.org/surfacers/stackdriver/">
     
 
-    <meta property="og:url" content="https://cloudprober.org/how-to/validators/">
+    <meta property="og:url" content="https://cloudprober.org/surfacers/stackdriver/">
     <meta property="og:title" content="Cloudprober">
     
     <meta name="apple-mobile-web-app-title" content="Cloudprober">
@@ -93,7 +93,7 @@
     </div>
     <div class="stretch">
       <div class="title">
-        Validators
+        Stackdriver (Google Cloud Monitoring)
       </div>
     </div>
 
@@ -257,11 +257,14 @@
 
 
 
-<a  title="Stackdriver (Google Cloud Monitoring)" href="https://cloudprober.org/surfacers/stackdriver/">
+<a class="current" title="Stackdriver (Google Cloud Monitoring)" href="https://cloudprober.org/surfacers/stackdriver/">
 	
 	Stackdriver (Google Cloud Monitoring)
 </a>
 
+
+<ul id="scrollspy">
+</ul>
 
 
       
@@ -307,14 +310,11 @@
 
 
 
-<a class="current" title="Validators" href="https://cloudprober.org/how-to/validators/">
+<a  title="Validators" href="https://cloudprober.org/how-to/validators/">
 	
 	Validators
 </a>
 
-
-<ul id="scrollspy">
-</ul>
 
 
       
@@ -362,71 +362,63 @@
 
 	<article class="article">
 		<div class="wrapper">
-			<h1>Validators </h1>
+			<h1>Stackdriver (Google Cloud Monitoring) </h1>
 
-			<p>Validators allow you to run checks on the probe request output (if any). For
-example, you can specify if you expect the probe output to match a certain
-regex or return a certain status code (for HTTP). You can configure more than
-one validators and all validators should succeed for the probe to be marked as
-success.</p>
-<div class="highlight"><pre class="chroma"><code class="language-bash" data-lang="bash">probe <span class="o">{</span>
-    name: <span class="s2">&#34;google_homepage&#34;</span>
-    type: HTTP
-    targets <span class="o">{</span>
-        host_names: <span class="s2">&#34;www.google.com&#34;</span>
-    <span class="o">}</span>
-    interval_msec: <span class="m">10000</span>    <span class="c1"># Probe every 10s</span>
-
-    <span class="c1"># This validator should succeed.</span>
-    validator <span class="o">{</span>
-        name: <span class="s2">&#34;status_code_2xx&#34;</span>
-        http_validator <span class="o">{</span>
-            success_status_codes: <span class="s2">&#34;200-299&#34;</span>
-        <span class="o">}</span>
-    <span class="o">}</span>
-
-    <span class="c1"># This validator will fail, notice missing &#39;o&#39; in our regex.</span>
-    validator <span class="o">{</span>
-        name: <span class="s2">&#34;gogle_re&#34;</span>
-        regex: <span class="s2">&#34;gogle&#34;</span>
-    <span class="o">}</span>
-<span class="o">}</span></code></pre></div>
-<p>(Full listing: <a href="https://github.com/google/cloudprober/blob/master/examples/validators/cloudprober_validator.cfg">https://github.com/google/cloudprober/blob/master/examples/validators/cloudprober_validator.cfg</a>)</p>
-<p>To make the debugging easier, validation failures are logged and exported as an
-independent map counter &ndash; <em>validation_failure</em>, with <em>validator</em> key. For
-example, the above example will result in the following counters being
-exported after 5 runs:</p>
-<div class="highlight"><pre class="chroma"><code class="language-bash" data-lang="bash">total<span class="o">{</span><span class="nv">probe</span><span class="o">=</span><span class="s2">&#34;google_homepage&#34;</span>,dst<span class="o">=</span><span class="s2">&#34;www.google.com&#34;</span><span class="o">}</span> <span class="m">5</span>
-success<span class="o">{</span><span class="nv">probe</span><span class="o">=</span><span class="s2">&#34;google_homepage&#34;</span>,dst<span class="o">=</span><span class="s2">&#34;www.google.com&#34;</span><span class="o">}</span> <span class="m">0</span>
-validation_failure<span class="o">{</span><span class="nv">validator</span><span class="o">=</span><span class="s2">&#34;status_code_2xx&#34;</span>,probe<span class="o">=</span><span class="s2">&#34;google_homepage&#34;</span>,dst<span class="o">=</span><span class="s2">&#34;www.google.com&#34;</span><span class="o">}</span> <span class="m">0</span>
-validation_failure<span class="o">{</span><span class="nv">validator</span><span class="o">=</span><span class="s2">&#34;gogle_re&#34;</span>,probe<span class="o">=</span><span class="s2">&#34;google_homepage&#34;</span>,dst<span class="o">=</span><span class="s2">&#34;www.google.com&#34;</span><span class="o">}</span> <span class="m">5</span></code></pre></div>
-<p>Note that validator counter will <strong>not</strong> go up if probe fails for other
-reasons, for example web server timing out. That's why you typically don't want
-to alert only on validation failures. That said, in some cases, validation
-failures could be the only thing you're interested in, for example, if you're
-trying to make sure that a certain copyright is always present in your web
-pages or you want to catch data integrity issues in your network.</p>
-<p>Let's take a look at the types of validators you can configure.</p>
-<h2 id="regex-validator">Regex Validator</h2>
-<p>Regex validator simply checks for a regex in the probe request output. It works
-for all probe types except for UDP and UDP_LISTENER - these probe types don't
-support any validators at the moment.</p>
-<h2 id="http-validator">HTTP Validator</h2>
-<p>HTTP response validator works only for the HTTP probe type. You can currently
-use HTTP  validator to define success and failure status codes (represented by
-success_status_codes and failure_stauts_codes in the config):</p>
-<ul>
-<li>If <em>failure_status_codes</em> is defined and response status code falls within
-that range, validator is considered to have failed.</li>
-<li>If <em>success_status_codes</em> is defined and response status code <em>does not</em>
-fall within that range, validator is considered to have failed.</li>
-</ul>
-<p>We can possibly add more checks to HTTP validator in the future, for example to
-verify headers.</p>
-<h2 id="data-integrity-validator">Data Integrity Validator</h2>
-<p>Data integrity validator is designed to catch the packet corruption issues in
-the network. We have a basic check that verifies that the probe output is made
-up purely of a pattern repeated many times over.</p>
+			<p>Cloudprober can natively export metrics to Google Cloud Monitoring (formerly, Stackdriver) using stackdriver <a href="https://cloudprober.org/surfacers/overview">surfacer</a>.  Adding stackdriver surfacer to cloudprober is as simple as adding the following stanza to the config:</p>
+<pre><code>surfacer {
+  type: STACKDRIVER
+}
+</code></pre><p>This config will work if you're running on GCP and your VM (or GKE pod) has access to Cloud Monitoring (Stackdriver). If running on any other platform, you'll  have to specify the GCP project where you want to send the metrics, and you'll have to configure your environment for <a href="https://cloud.google.com/docs/authentication/production#automatically">Google Application Default Credentials</a>.</p>
+<p>By default, stackdriver surfacer exports metrics with the following prefix: <code>custom.googleapis.com/cloudprober/&lt;probe-type&gt;/&lt;probe&gt;</code>. For example, for HTTP probe named <code>google_com</code>, standard metrics will be exported as:</p>
+<pre><code>custom.googleapis.com/cloudprober/http/google_com/total
+custom.googleapis.com/cloudprober/http/google_com/success
+custom.googleapis.com/cloudprober/http/google_com/failure
+custom.googleapis.com/cloudprober/http/google_com/latency
+</code></pre><p>Here are all the config options for stackdriver surfacer:</p>
+<div class="highlight"><pre class="chroma"><code class="language-protobuf" data-lang="protobuf">  <span class="c1">// GCP project name for stackdriver. If not specified and running on GCP,
+</span><span class="c1"></span>  <span class="c1">// local project is used.
+</span><span class="c1"></span>  <span class="k">optional</span> <span class="kt">string</span> <span class="n">project</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span><span class="err">
+</span><span class="err"></span><span class="err">
+</span><span class="err"></span>  <span class="c1">// If allowed_metrics_regex is specified, only metrics matching the given
+</span><span class="c1"></span>  <span class="c1">// regular expression will be exported to stackdriver. Since probe type and
+</span><span class="c1"></span>  <span class="c1">// probe name are part of the metric name, you can use this field to restrict
+</span><span class="c1"></span>  <span class="c1">// stackdriver metrics to a particular probe.
+</span><span class="c1"></span>  <span class="c1">// Example:
+</span><span class="c1"></span>  <span class="c1">// allowed_metrics_regex: &#34;.*(http|ping).*(success|validation_failure).*&#34;
+</span><span class="c1"></span>  <span class="k">optional</span> <span class="kt">string</span> <span class="n">allowed_metrics_regex</span> <span class="o">=</span> <span class="mi">3</span><span class="p">;</span><span class="err">
+</span><span class="err"></span><span class="err">
+</span><span class="err"></span>  <span class="c1">// Monitoring URL base. Full metric URL looks like the following:
+</span><span class="c1"></span>  <span class="c1">// &lt;monitoring_url&gt;/&lt;ptype&gt;/&lt;probe&gt;/&lt;metric&gt;
+</span><span class="c1"></span>  <span class="c1">// Example:
+</span><span class="c1"></span>  <span class="c1">// custom.googleapis.com/cloudprober/http/google-homepage/latency
+</span><span class="c1"></span>  <span class="k">optional</span> <span class="kt">string</span> <span class="n">monitoring_url</span> <span class="o">=</span> <span class="mi">4</span><span class="err">
+</span><span class="err"></span>      <span class="p">[</span><span class="k">default</span> <span class="o">=</span> <span class="s">&#34;custom.googleapis.com/cloudprober/&#34;</span><span class="p">]</span><span class="p">;</span><span class="err">
+</span></code></pre></div><p>(Source: <a href="https://github.com/google/cloudprober/blob/master/surfacers/stackdriver/proto/config.proto">https://github.com/google/cloudprober/blob/master/surfacers/stackdriver/proto/config.proto</a>)</p>
+<p>For example, you can configure stackdriver surfacer to export only metrics that match a specific regex:</p>
+<div class="highlight"><pre class="chroma"><code class="language-protobuf" data-lang="protobuf"><span class="n">surfacer</span> <span class="p">{</span><span class="err">
+</span><span class="err"></span>  <span class="n">stackdriver_surfacer</span> <span class="p">{</span><span class="err">
+</span><span class="err"></span>    <span class="err">#</span> <span class="n">Export</span> <span class="n">only</span> <span class="s">&#34;http&#34;</span> <span class="n">probe</span> <span class="n">metrics.</span><span class="err">
+</span><span class="err"></span>    <span class="n">allowed_metrics_regex</span><span class="o">:</span> <span class="s">&#34;.*\/http\/.*&#34;</span><span class="err">
+</span><span class="err"></span>  <span class="p">}</span><span class="err">
+</span><span class="err"></span><span class="p">}</span><span class="err">
+</span></code></pre></div><h2 id="accessing-the-data">Accessing the data</h2>
+<p>Cloudprober exports metrics to stackdriver as <a href="https://cloud.google.com/monitoring/custom-metrics">custom metrics</a>. Since all cloudprober metrics are counters (total number of probes, success, latency), you'll see rates of these metrics in stackdriver <a href="https://cloud.google.com/monitoring/charts/metrics-explorer">metrics explorer</a> by default. This data may not be very useful as it is (unless you're using distributions in cludprober, more on that later).</p>
+<p>However, stackdriver now provides a powerful monitoring query language,<a href="https://cloud.google.com/monitoring/mql">MQL</a>, using which we can get more useful metrics.</p>
+<p>MQL to get failure ratio:</p>
+<div class="highlight"><pre class="chroma"><code class="language-shell" data-lang="shell">fetch global
+<span class="p">|</span> <span class="o">{</span> metric <span class="s1">&#39;custom.googleapis.com/cloudprober/http/google_com/failure&#39;</span>
+  <span class="p">;</span> metric <span class="s1">&#39;custom.googleapis.com/cloudprober/http/google_com/total&#39;</span> <span class="o">}</span>
+<span class="p">|</span> align delta<span class="o">(</span>1m<span class="o">)</span>
+<span class="p">|</span> join
+<span class="p">|</span> div
+</code></pre></div><p>MQL to get average latency for a probe:</p>
+<div class="highlight"><pre class="chroma"><code class="language-shell" data-lang="shell">fetch global
+<span class="p">|</span> <span class="o">{</span> metric <span class="s1">&#39;custom.googleapis.com/cloudprober/http/google_com/latency&#39;</span>
+  <span class="p">;</span> metric <span class="s1">&#39;custom.googleapis.com/cloudprober/http/google_com/success&#39;</span> <span class="o">}</span>
+<span class="p">|</span> align delta<span class="o">(</span>1m<span class="o">)</span>
+<span class="p">|</span> join
+<span class="p">|</span> div
+</code></pre></div><p>You can use MQL to create graphs and generate alerts. Note that in the examples here we are fetching from the &ldquo;global&rdquo; source (<em>fetch global</em>); if you're running on GCP, you can improve performance of your queries by specifying the &ldquo;gce_instance&rdquo; resource type: <em>fetch gce_instance</em>.</p>
 
 
 			<aside class="copyright" role="note">
