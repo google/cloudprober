@@ -25,6 +25,7 @@ jobs:
       run: |
         echo "GIT_TAG=$(git describe --tags)" >> $GITHUB_ENV
         echo "ARCH=$(uname -m)" >> $GITHUB_ENV
+        echo "OS=$(echo ${{ matrix.os }} | sed 's/-latest//')" >> $GITHUB_ENV
       
     - name: Get dependencies
       run: |
@@ -42,7 +43,7 @@ jobs:
     - name: Upload cloudprober binary
       uses: actions/upload-artifact@v1
       with:
-        name: cloudprober-${{ env.GIT_TAG }}-${{ matrix.os }}-${{ env.ARCH }}
+        name: cloudprober-${{ env.GIT_TAG }}-${{ env.OS }}-${{ env.ARCH }}
         path: cloudprober
 
   build_macos:
