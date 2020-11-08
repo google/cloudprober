@@ -40,7 +40,7 @@ jobs:
       run: go build -v .
 
     - name: Test
-      run: go test -v -race -covermode=atomic ./...
+      run: go test ${{ env.EXTRA_TEST_FLAGS }} -v -race -covermode=atomic ./...
 
     - name: Build cloudprober Binary
       run: make cloudprober
