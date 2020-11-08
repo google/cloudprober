@@ -26,7 +26,7 @@ jobs:
 
     - name: Override BIN_DIR env variable on windows
       if: ${{ matrix.os == 'windows-latest' }}
-      run: echo "BIN_DIR=cloudprober-$(shell git describe --tags)-windows-x86_64" >> $GITHUB_ENV
+      run: echo "BIN_DIR=cloudprober-$(git describe --tags)-windows-x86_64" >> $GITHUB_ENV
 
     - name: Set environment varible to skip UDP test on MAC OS
       if:  ${{ matrix.os == 'macos-latest' }}
