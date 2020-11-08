@@ -42,7 +42,7 @@ jobs:
     - name: Upload cloudprober binary
       uses: actions/upload-artifact@v1
       with:
-        name: cloudprober-${GIT_TAG}-${{ matrix.os }}-${ARCH}
+        name: cloudprober-${{ env.GIT_TAG }}-${{ matrix.os }}-${{ env.ARCH }}
         path: cloudprober
 
   build_macos:
