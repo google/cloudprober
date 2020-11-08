@@ -44,15 +44,17 @@ jobs:
     - name: Build cloudprober Binary
       run: |
         make cloudprober
-        mkdir cloudprober-${{ env.GIT_TAG }}-${{ env.OS }}-${{ env.ARCH }}
-        cp cloudprober cloudprober-${{ env.GIT_TAG }}-${{ env.OS }}-${{ env.ARCH }}/
       
-      
+    - run: |
+        echo "BIN_DIR=cloudprober-${{ env.GIT_TAG }}-${{ env.OS }}-${{ env.ARCH }}" >> $GITHUB_ENV
+        mkdir ${{ env.BIN_DIR }}
+        cp cloudprober ${{ env.BIN_DIR }}/
+        
     - name: Upload cloudprober binary
-      uses: actions/upload-artifact@v1
+      uses: actions/upload-artifact@v2
       with:
-        name: cloudprober-${{ env.GIT_TAG }}-${{ env.OS }}-${{ env.ARCH }}
-        path: cloudprober-${{ env.GIT_TAG }}-${{ env.OS }}-${{ env.ARCH }}/
+        name: ${{ env.BIN_DIR }}
+        path: ${{ env.BIN_DIR }}/
       
   build_and_push_docker:
     name: Build and push docker image
