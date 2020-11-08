@@ -26,6 +26,7 @@ jobs:
         echo "GIT_TAG=$(git describe --tags)" >> $GITHUB_ENV
         echo "ARCH=$(uname -m)" >> $GITHUB_ENV
         echo "OS=$(echo ${{ matrix.os }} | sed 's/-latest//')" >> $GITHUB_ENV
+        echo "BIN_DIR=cloudprober-${{ env.GIT_TAG }}-${{ env.OS }}-${{ env.ARCH }}" >> $GITHUB_ENV
 
     - name: Set environment varible to skip UDP test on MAC OS
       if:  ${{ matrix.os == 'macos-latest' }}
@@ -46,8 +47,7 @@ jobs:
         make cloudprober
       
     - run: |
-        echo "BIN_DIR=cloudprober-${{ env.GIT_TAG }}-${{ env.OS }}-${{ env.ARCH }}" >> $GITHUB_ENV
-        mkdir ${{ env.BIN_DIR }}
+        mkdir -p ${{ env.BIN_DIR }}
         cp cloudprober ${{ env.BIN_DIR }}/
         
     - name: Upload cloudprober binary
