@@ -46,15 +46,16 @@ jobs:
       run: make cloudprober
       
     - run: |
-        mkdir -p upload/${{ env.BIN_DIR }}
+        mkdir -p ${{ env.BIN_DIR }}
         chmod a+rx cloudprober
-        cp cloudprober upload/${{ env.BIN_DIR }}/
+        cp cloudprober ${{ env.BIN_DIR }}/
+        zip -r ${{ env.BIN_DIR }}.zip ${{ env.BIN_DIR }}/
         
     - name: Upload cloudprober binary
       uses: actions/upload-artifact@v2
       with:
         name: ${{ env.BIN_DIR }}
-        path: upload/
+        path: ${{ env.BIN_DIR }}.zip
       
   build_and_push_docker:
     name: Build and push docker image
