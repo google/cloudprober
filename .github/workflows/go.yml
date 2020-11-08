@@ -12,7 +12,11 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest]
     steps:
-
+    - name: Set environment variables
+      run: |
+        echo "GIT_TAG=$(git describe --tags)" >> $GITHUB_ENV
+        echo "ARCH=$(uname -m)" >> $GITHUB_ENV
+      
     - name: Set up Go 1.15
       uses: actions/setup-go@v1
       with:
@@ -38,7 +42,7 @@ jobs:
     - name: Upload cloudprober binary
       uses: actions/upload-artifact@v1
       with:
-        name: cloudprober-binary-${{ matrix.os }}
+        name: cloudprober-${GIT_TAG}-${{ matrix.os }}-${ARCH}
         path: cloudprober
 
   build_macos:
