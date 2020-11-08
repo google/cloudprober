@@ -24,14 +24,16 @@ jobs:
     - name: Set BIN_DIR and ZIP env variable
       run: |
         echo "BIN_DIR=cloudprober-$(git describe --tags)-$(echo ${{ matrix.os }} | sed 's/-latest//')-$(uname -m)" >> $GITHUB_ENV
-        echo "ZIP=zip -r ${{ env.BIN_DIR }}.zip ${{ env.BIN_DIR }}/" >> $GITHUB_ENV
+        echo "ZIP=zip" >> $GITHUB_ENV
+        echo "ZIP_FLAG=-r" >> $GITHUB_ENV
       
 
     - name: Override BIN_DIR env variable on windows
       if: ${{ matrix.os == 'windows-latest' }}
       run: |
         echo "BIN_DIR=cloudprober-$(git describe --tags)-windows-x86_64" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-        echo "ZIP=7z a ${{ env.BIN_DIR }}.zip ${{ env.BIN_DIR }}/" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        echo "ZIP=7z" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        echo "ZIP_FLAG=a" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
     - name: Set environment varible to skip UDP test on MAC OS
       if:  ${{ matrix.os == 'macos-latest' }}
@@ -54,12 +56,12 @@ jobs:
         mkdir -p ${{ env.BIN_DIR }}
         chmod a+rx cloudprober
         cp cloudprober ${{ env.BIN_DIR }}/
-        ${{ env.ZIP }}
+        ${{ env.ZIP }} ${{ env.ZIP_FLAG }} ${{ env.BIN_DIR }}.zip ${{ env.BIN_DIR }}/
         
     - name: Upload cloudprober binary
       uses: actions/upload-artifact@v2
       with:
-        name: cloudprober-${{ matrix.os }}
+        name: cloudprober-${{ matrix.os }}-zipped
         path: ${{ env.BIN_DIR }}.zip
       
   build_and_push_docker:
