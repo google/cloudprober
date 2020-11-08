@@ -43,18 +43,18 @@ jobs:
       run: go test -v -race -covermode=atomic ./...
 
     - name: Build cloudprober Binary
-      run: |
-        make cloudprober
+      run: make cloudprober
       
     - run: |
-        mkdir -p ${{ env.BIN_DIR }}
-        cp cloudprober ${{ env.BIN_DIR }}/
+        mkdir -p upload/${{ env.BIN_DIR }}
+        chmod a+rx cloudprober
+        cp cloudprober upload/${{ env.BIN_DIR }}/
         
     - name: Upload cloudprober binary
       uses: actions/upload-artifact@v2
       with:
         name: ${{ env.BIN_DIR }}
-        path: ${{ env.BIN_DIR }}/
+        path: upload/
       
   build_and_push_docker:
     name: Build and push docker image
