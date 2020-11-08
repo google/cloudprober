@@ -21,12 +21,12 @@ jobs:
     - name: Check out code into the Go module directory
       uses: actions/checkout@v1
 
-    - name: Set environment variables
-      run: |
-        echo "GIT_TAG=$(git describe --tags)" >> $GITHUB_ENV
-        echo "ARCH=$(uname -m)" >> $GITHUB_ENV
-        echo "OS=$(echo ${{ matrix.os }} | sed 's/-latest//')" >> $GITHUB_ENV
-        echo "BIN_DIR=cloudprober-${{ env.GIT_TAG }}-${{ env.OS }}-${{ env.ARCH }}" >> $GITHUB_ENV
+    - name: Set BIN_DIR env variable
+      run: echo "BIN_DIR=cloudprober-$(git describe --tags)-$(echo ${{ matrix.os }} | sed 's/-latest//')-$(uname -m)" >> $GITHUB_ENV
+
+    - name: Override BIN_DIR env variable on windows
+      if: ${{ matrix.os == 'windows-latest' }}
+      run: echo "BIN_DIR=cloudprober-$(shell git describe --tags)-windows-x86_64" >> $GITHUB_ENV
 
     - name: Set environment varible to skip UDP test on MAC OS
       if:  ${{ matrix.os == 'macos-latest' }}
