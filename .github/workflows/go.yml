@@ -27,7 +27,7 @@ jobs:
         echo "ARCH=$(uname -m)" >> $GITHUB_ENV
         echo "OS=$(echo ${{ matrix.os }} | sed 's/-latest//')" >> $GITHUB_ENV
 
-    - name: Set environment varible to disable test on MAC OS
+    - name: Set environment varible to skip UDP test on MAC OS
       if:  ${{ matrix.os == 'macos-latest' }}
       run: echo "EXTRA_TEST_FLAGS=\"-tags skip_udp_probe_test\"" >> $GITHUB_ENV
       
