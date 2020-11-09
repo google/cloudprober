@@ -19,6 +19,7 @@ package logger
 import (
 	"context"
 	"fmt"
+	"go.uber.org/zap"
 	"net/url"
 	"os"
 	"regexp"
@@ -40,7 +41,7 @@ var (
 
 	// Enable/Disable cloud logging
 	disableCloudLogging = flag.Bool("disable_cloud_logging", false, "Disable cloud logging.")
-
+	enabeJsonLogging     = flag.Bool("enable_json_logging", false, "Whether to output json logs or not")
 	// LogPrefixEnvVar environment variable is used to determine the stackdriver
 	// log name prefix. Default prefix is "cloudprober".
 	LogPrefixEnvVar = "CLOUDPROBER_LOG_PREFIX"
@@ -49,10 +50,11 @@ var (
 // EnvVars defines environment variables that can be used to modify the logging
 // behavior.
 var EnvVars = struct {
-	DisableCloudLogging, DebugLog string
+	DisableCloudLogging, DebugLog, EnableJsonLogging string
 }{
 	"CLOUDPROBER_DISABLE_CLOUD_LOGGING",
 	"CLOUDPROBER_DEBUG_LOG",
+	"CLOUDPROBER_ENABLE_JSON_LOGGING",
 }
 
 const (
@@ -119,6 +121,8 @@ type Logger struct {
 	logger              *logging.Logger
 	debugLog            bool
 	disableCloudLogging bool
+	enableJsonLogging 	bool
+	JsonLogger          *zap.Logger
 	// TODO(manugarg): Logger should eventually embed the probe id and each probe
 	// should get a different Logger object (embedding that probe's probe id) but
 	// sharing the same logging client. We could then make probe id one of the
@@ -144,8 +148,12 @@ func New(ctx context.Context, logName string) (*Logger, error) {
 		name:                logName,
 		debugLog:            enableDebugLog(*debugLog, *debugLogList, logName),
 		disableCloudLogging: *disableCloudLogging,
+		enableJsonLogging: *enabeJsonLogging,
 	}
-
+	if l.enableJsonLogging {
+		l.EnableJsonLogging()
+		return l,nil
+	}
 	if !metadata.OnGCE() || l.disableCloudLogging {
 		return l, nil
 	}
@@ -157,6 +165,12 @@ func New(ctx context.Context, logName string) (*Logger, error) {
 	return l, nil
 }
 
+func (l *Logger) EnableJsonLogging() error {
+	logger, _ := zap.NewProduction()
+	defer logger.Sync()
+	l.JsonLogger =logger
+	return nil
+}
 // EnableStackdriverLogging enables logging to stackdriver.
 func (l *Logger) EnableStackdriverLogging(ctx context.Context) error {
 	if !metadata.OnGCE() {
@@ -239,16 +253,25 @@ func (l *Logger) log(severity logging.Severity, payload ...string) {
 		truncateMsgLen := len(truncateMsg)
 		payloadStr = payloadStr[:MaxLogEntrySize-truncateMsgLen] + truncateMsg
 	}
-
-	if l == nil || l.logc == nil {
-		genericLog(severity, payloadStr)
-		return
+	if l!=nil && l.JsonLogger!=nil {
+		switch severity {
+		case logging.Info: l.JsonLogger.Info(payloadStr)
+		case logging.Warning: l.JsonLogger.Warn(payloadStr)
+		case logging.Error: l.JsonLogger.Error(payloadStr)
+		case logging.Debug: l.JsonLogger.Debug(payloadStr)
+		case logging.Critical: l.JsonLogger.Fatal(payloadStr)
+		default : l.JsonLogger.Info(payloadStr)
+		}
+	} else {
+		if l == nil || l.logc == nil {
+			genericLog(severity, payloadStr)
+			return
+		}
+		l.logger.Log(logging.Entry{
+			Severity: severity,
+			Payload:  payloadStr,
+		})
 	}
-
-	l.logger.Log(logging.Entry{
-		Severity: severity,
-		Payload:  payloadStr,
-	})
 }
 
 // Close closes the cloud logging client if it exists. This flushes the buffer
@@ -357,5 +380,8 @@ func init() {
 
 	if envVarSet(EnvVars.DebugLog) {
 		*debugLog = true
+	}
+	if envVarSet(EnvVars.EnableJsonLogging) {
+		*enabeJsonLogging=true
 	}
 }

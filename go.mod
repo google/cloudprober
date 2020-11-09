@@ -18,6 +18,8 @@ require (
 	github.com/lib/pq v1.8.0
 	github.com/miekg/dns v1.1.33
 	go.opencensus.io v0.22.5 // indirect
+	go.uber.org/multierr v1.6.0 // indirect
+	go.uber.org/zap v1.16.0
 	golang.org/x/crypto v0.0.0-20201012173705-84dcc777aaee // indirect
 	golang.org/x/net v0.0.0-20201010224723-4f7140c49acb
 	golang.org/x/oauth2 v0.0.0-20200902213428-5d25da1a8d43
