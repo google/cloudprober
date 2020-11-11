@@ -16,9 +16,13 @@ package gcp
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"math/rand"
 	"net"
+	"net/http"
+	neturl "net/url"
 	"sync"
 	"time"
 
@@ -29,15 +33,38 @@ import (
 	pb "github.com/google/cloudprober/rds/proto"
 	"github.com/google/cloudprober/rds/server/filter"
 	"golang.org/x/oauth2/google"
-	compute "google.golang.org/api/compute/v1"
 )
 
 // This is how long we wait between API calls per zone.
 const defaultAPICallInterval = 250 * time.Microsecond
+const computeScope = "https://www.googleapis.com/auth/compute.readonly"
 
+type accessConfig struct {
+	NatIP        string
+	ExternalIpv6 string `json:"externalIpv6,omitempty"`
+}
+
+type networkInterface struct {
+	NetworkIP string `json:"networkIP,omitempty"`
+
+	AliasIPRanges []struct {
+		IPCidrRange string `json:"ipCidrRange,omitempty"`
+	} `json:"aliasIpRanges,omitempty"`
+
+	AccessConfigs     []accessConfig
+	Ipv6AccessConfigs []accessConfig `json:"ipv6AccessConfigs,omitempty"`
+}
+
+// instanceInfo represents instance items that we fetch from the API.
+type instanceInfo struct {
+	Name              string
+	Labels            map[string]string
+	NetworkInterfaces []networkInterface
+}
+
+// instanceData represents objects that we store in cache.
 type instanceData struct {
-	nis         []*compute.NetworkInterface
-	labels      map[string]string
+	ii          *instanceInfo
 	lastUpdated int64
 }
 
@@ -69,15 +96,17 @@ type gceInstancesLister struct {
 	project      string
 	c            *configpb.GCEInstances
 	thisInstance string
+	baseAPIPath  string
+	httpClient   *http.Client
+	getURLFunc   func(client *http.Client, url string) ([]byte, error)
 	l            *logger.Logger
 
 	mu            sync.RWMutex
 	namesPerScope map[string][]string                 // "us-e1-b": ["i1", i2"]
 	cachePerScope map[string]map[string]*instanceData // "us-e1-b": {"i1: data}
-	computeSvc    *compute.Service
 }
 
-func instanceIP(nis []*compute.NetworkInterface, ipConfig *pb.IPConfig) (string, error) {
+func instanceIP(nis []networkInterface, ipConfig *pb.IPConfig) (string, error) {
 	var niIndex int
 	ipType := pb.IPConfig_DEFAULT
 	if ipConfig != nil {
@@ -102,15 +131,15 @@ func instanceIP(nis []*compute.NetworkInterface, ipConfig *pb.IPConfig) (string,
 		return ni.AccessConfigs[0].NatIP, nil
 
 	case pb.IPConfig_ALIAS:
-		if len(ni.AliasIpRanges) == 0 {
+		if len(ni.AliasIPRanges) == 0 {
 			return "", fmt.Errorf("no alias IP for NIC(%d)", niIndex)
 		}
 		// Compute API allows specifying CIDR range as an IP address, try that first.
-		if cidrIP := net.ParseIP(ni.AliasIpRanges[0].IpCidrRange); cidrIP != nil {
+		if cidrIP := net.ParseIP(ni.AliasIPRanges[0].IPCidrRange); cidrIP != nil {
 			return cidrIP.String(), nil
 		}
 
-		cidrIP, _, err := net.ParseCIDR(ni.AliasIpRanges[0].IpCidrRange)
+		cidrIP, _, err := net.ParseCIDR(ni.AliasIPRanges[0].IPCidrRange)
 		if err != nil {
 			return "", fmt.Errorf("error geting alias IP for NIC(%d): %v", niIndex, err)
 		}
@@ -140,7 +169,7 @@ func (il *gceInstancesLister) listResources(req *pb.ListResourcesRequest) ([]*pb
 		cache := il.cachePerScope[zone]
 
 		for _, name := range names {
-			ins := cache[name]
+			ins := cache[name].ii
 			if ins == nil {
 				il.l.Errorf("gce_instances: cached info missing for %s", name)
 				continue
@@ -149,11 +178,11 @@ func (il *gceInstancesLister) listResources(req *pb.ListResourcesRequest) ([]*pb
 			if nameFilter != nil && !nameFilter.Match(name, il.l) {
 				continue
 			}
-			if labelsFilter != nil && !labelsFilter.Match(ins.labels, il.l) {
+			if labelsFilter != nil && !labelsFilter.Match(ins.Labels, il.l) {
 				continue
 			}
 
-			nis := ins.nis
+			nis := ins.NetworkInterfaces
 			ip, err := instanceIP(nis, req.GetIpConfig())
 			if err != nil {
 				return nil, fmt.Errorf("gce_instances (instance %s): error while getting IP - %v", name, err)
@@ -162,8 +191,8 @@ func (il *gceInstancesLister) listResources(req *pb.ListResourcesRequest) ([]*pb
 			resources = append(resources, &pb.Resource{
 				Name:        proto.String(name),
 				Ip:          proto.String(ip),
-				Labels:      ins.labels,
-				LastUpdated: proto.Int64(ins.lastUpdated),
+				Labels:      ins.Labels,
+				LastUpdated: proto.Int64(cache[name].lastUpdated),
 				// TODO(manugarg): Add support for returning instance id as well. I want to
 				// implement feature parity with the current targets first and then add
 				// more features.
@@ -175,20 +204,60 @@ func (il *gceInstancesLister) listResources(req *pb.ListResourcesRequest) ([]*pb
 	return resources, nil
 }
 
-// defaultComputeService returns a compute.Service object, initialized using
-// default credentials.
-func defaultComputeService(apiVersion string) (*compute.Service, error) {
-	client, err := google.DefaultClient(context.Background(), compute.ComputeScope)
-	if err != nil {
-		return nil, err
+func parseZonesJSON(resp []byte) ([]string, error) {
+	var itemList struct {
+		Items []struct {
+			Name string
+		}
 	}
-	cs, err := compute.New(client)
+
+	if err := json.Unmarshal(resp, &itemList); err != nil {
+		return nil, fmt.Errorf("error while parsing zones list result: %v", err)
+	}
+
+	keys := make([]string, len(itemList.Items))
+	for i, item := range itemList.Items {
+		keys[i] = item.Name
+	}
+
+	return keys, nil
+}
+
+func parseInstancesJSON(resp []byte) (keys []string, instances map[string]*instanceInfo, err error) {
+	var itemList struct {
+		Items []*instanceInfo
+	}
+
+	if err = json.Unmarshal(resp, &itemList); err != nil {
+		return
+	}
+
+	keys = make([]string, len(itemList.Items))
+	instances = make(map[string]*instanceInfo)
+	for i, item := range itemList.Items {
+		keys[i] = item.Name
+		instances[keys[i]] = item
+	}
+
+	return
+}
+
+func getURLWithClient(client *http.Client, url string) ([]byte, error) {
+	resp, err := client.Get(url)
 	if err != nil {
 		return nil, err
 	}
 
-	cs.BasePath = "https://www.googleapis.com/compute/" + apiVersion + "/projects/"
-	return cs, nil
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("error while fetching URL %s, status: %s", url, resp.Status)
+	}
+
+	respBytes, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("error reading response body: %v", err)
+	}
+
+	return respBytes, nil
 }
 
 func (il *gceInstancesLister) expandForZone(zone string) ([]string, map[string]*instanceData, error) {
@@ -197,18 +266,24 @@ func (il *gceInstancesLister) expandForZone(zone string) ([]string, map[string]*
 		cache = make(map[string]*instanceData)
 	)
 
-	instanceList, err := il.computeSvc.Instances.List(il.project, zone).
-		Filter("status eq \"RUNNING\"").Do()
+	url := fmt.Sprintf("%s/zones/%s/instances?filter=%s", il.baseAPIPath, zone, neturl.PathEscape("status eq \"RUNNING\""))
+	respBytes, err := il.getURLFunc(il.httpClient, url)
 	if err != nil {
 		return nil, nil, err
 	}
+
+	keys, instances, err := parseInstancesJSON(respBytes)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	ts := time.Now().Unix()
-	for _, item := range instanceList.Items {
-		if item.Name == il.thisInstance {
+	for _, name := range keys {
+		if name == il.thisInstance {
 			continue
 		}
-		cache[item.Name] = &instanceData{item.NetworkInterfaces, item.Labels, ts}
-		names = append(names, item.Name)
+		cache[name] = &instanceData{instances[name], ts}
+		names = append(names, name)
 	}
 
 	return names, cache, nil
@@ -219,33 +294,43 @@ func (il *gceInstancesLister) expandForZone(zone string) ([]string, map[string]*
 func (il *gceInstancesLister) expand(reEvalInterval time.Duration) {
 	il.l.Infof("gce_instances.expand: running for the project: %s", il.project)
 
-	zonesList, err := il.computeSvc.Zones.List(il.project).Filter(il.c.GetZoneFilter()).Do()
+	url := il.baseAPIPath + "/zones"
+	if il.c.GetZoneFilter() != "" {
+		url = fmt.Sprintf("%s?filter=%s", url, neturl.PathEscape(il.c.GetZoneFilter()))
+	}
+
+	respBytes, err := il.getURLFunc(il.httpClient, url)
 	if err != nil {
-		il.l.Errorf("gce_instances.expand: error while getting list of all zones: %v", err)
+		il.l.Errorf("gce_instances.expand: error while listing zones: %v", err)
+		return
+	}
+
+	zones, err := parseZonesJSON(respBytes)
+	if err != nil {
+		il.l.Errorf("gce_instances.expand: error while parsing zones list response: %v", err)
 		return
 	}
 
 	// Shuffle the zones list to change the order in each cycle.
-	zl := zonesList.Items
 	rand.Seed(time.Now().UnixNano())
-	rand.Shuffle(len(zl), func(i, j int) { zl[i], zl[j] = zl[j], zl[i] })
+	rand.Shuffle(len(zones), func(i, j int) { zones[i], zones[j] = zones[j], zones[i] })
 
-	il.l.Infof("gce_instances.expand: expanding GCE targets for %d zones", len(zl))
+	il.l.Infof("gce_instances.expand: expanding GCE targets for %d zones", len(zones))
 
 	var numItems int
 
-	sleepBetweenZones := reEvalInterval / (2 * time.Duration(len(zl)+1))
+	sleepBetweenZones := reEvalInterval / (2 * time.Duration(len(zones)+1))
 
-	for _, zone := range zl {
-		names, cache, err := il.expandForZone(zone.Name)
+	for _, zone := range zones {
+		names, cache, err := il.expandForZone(zone)
 		if err != nil {
-			il.l.Errorf("gce_instances.expand: error while listing instances in zone %s: %v", zone.Name, err)
+			il.l.Errorf("gce_instances.expand: error while listing instances in zone %s: %v", zone, err)
 			continue
 		}
 
 		il.mu.Lock()
-		il.namesPerScope[zone.Name] = names
-		il.cachePerScope[zone.Name] = cache
+		il.namesPerScope[zone] = names
+		il.cachePerScope[zone] = cache
 		il.mu.Unlock()
 
 		numItems += len(names)
@@ -266,18 +351,20 @@ func newGCEInstancesLister(project, apiVersion string, c *configpb.GCEInstances,
 		l.Infof("newGCEInstancesLister: this instance: %s", thisInstance)
 	}
 
-	cs, err := defaultComputeService(apiVersion)
+	client, err := google.DefaultClient(context.Background(), computeScope)
 	if err != nil {
-		return nil, fmt.Errorf("gce_instances.expand: error creating compute service: %v", err)
+		return nil, fmt.Errorf("error creating default HTTP OAuth client: %v", err)
 	}
 
 	il := &gceInstancesLister{
 		project:       project,
 		c:             c,
 		thisInstance:  thisInstance,
+		baseAPIPath:   "https://www.googleapis.com/compute/" + apiVersion + "/projects/" + project,
+		httpClient:    client,
+		getURLFunc:    getURLWithClient,
 		cachePerScope: make(map[string]map[string]*instanceData),
 		namesPerScope: make(map[string][]string),
-		computeSvc:    cs,
 		l:             l,
 	}
 

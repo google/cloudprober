@@ -15,13 +15,18 @@
 package gcp
 
 import (
+	"fmt"
+	"io/ioutil"
 	"net"
+	"net/http"
+	"reflect"
+	"sort"
 	"testing"
+	"time"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/logger"
 	pb "github.com/google/cloudprober/rds/proto"
-	compute "google.golang.org/api/compute/v1"
 )
 
 type testNetIf struct {
@@ -38,29 +43,31 @@ type testInstance struct {
 }
 
 func (ti *testInstance) data() *instanceData {
-	var cNetIfs []*compute.NetworkInterface
+	var cNetIfs []networkInterface
 	for _, ni := range ti.netIf {
-		cNetIf := &compute.NetworkInterface{
+		cNetIf := networkInterface{
 			NetworkIP: ni.privateIP,
 		}
 		if ni.publicIP != "" {
-			cNetIf.AccessConfigs = []*compute.AccessConfig{
-				&compute.AccessConfig{
+			cNetIf.AccessConfigs = []accessConfig{
+				accessConfig{
 					NatIP: ni.publicIP,
 				},
 			}
 		}
 		if ni.aliasIPRange != "" {
-			cNetIf.AliasIpRanges = []*compute.AliasIpRange{
-				&compute.AliasIpRange{
-					IpCidrRange: ni.aliasIPRange,
+			cNetIf.AliasIPRanges = []struct {
+				IPCidrRange string `json:"ipCidrRange,omitempty"`
+			}{
+				{
+					IPCidrRange: ni.aliasIPRange,
 				},
 			}
 		}
 		cNetIfs = append(cNetIfs, cNetIf)
 	}
 
-	return &instanceData{nis: cNetIfs, labels: ti.labels}
+	return &instanceData{ii: &instanceInfo{Name: ti.name, NetworkInterfaces: cNetIfs, Labels: ti.labels}}
 }
 
 var testInstancesData = []*testInstance{
@@ -297,6 +304,107 @@ func testListResources(t *testing.T, f []*pb.Filter, ipConfig *pb.IPConfig, gil 
 		}
 		if ip != expectedIP {
 			t.Errorf("Got wrong <%s> IP for %s. Expected: %s, Got: %s", ipTypeStr, ti.name, expectedIP, ip)
+		}
+	}
+}
+
+func readTestJSON(t *testing.T, fileName string) (b []byte) {
+	t.Helper()
+
+	instancesListFile := "./testdata/" + fileName
+	data, err := ioutil.ReadFile(instancesListFile)
+
+	if err != nil {
+		t.Fatalf("error reading test data file: %s", instancesListFile)
+	}
+
+	return data
+}
+
+func TestExpand(t *testing.T) {
+	project, zone, apiVersion := "proj1", "us-central1-a", "v1"
+
+	testGetURL := func(_ *http.Client, url string) ([]byte, error) {
+		switch url {
+		case "https://www.googleapis.com/compute/v1/projects/proj1/zones/us-central1-a/instances?filter=status%20eq%20%22RUNNING%22":
+			return readTestJSON(t, "instances.json"), nil
+		case "https://www.googleapis.com/compute/v1/projects/proj1/zones/us-central1-b/instances?filter=status%20eq%20%22RUNNING%22":
+			return []byte("{\"items\": []}"), nil // No instances in us-central1-b
+		case "https://www.googleapis.com/compute/v1/projects/proj1/zones":
+			return readTestJSON(t, "zones.json"), nil
+		}
+		// Return error for non-matching URL.
+		return nil, fmt.Errorf("unknown url: %s", url)
+	}
+
+	il := &gceInstancesLister{
+		project:       project,
+		baseAPIPath:   "https://www.googleapis.com/compute/" + apiVersion + "/projects/" + project,
+		getURLFunc:    testGetURL,
+		cachePerScope: make(map[string]map[string]*instanceData),
+		namesPerScope: make(map[string][]string),
+	}
+
+	timeBeforeExpand := time.Now().Unix()
+
+	il.expand(time.Second)
+
+	var gotZones []string
+	for z := range il.namesPerScope {
+		gotZones = append(gotZones, z)
+	}
+	// Sort as zones are shuffled in expand.
+	sort.Strings(gotZones)
+	wantZones := []string{"us-central1-a", "us-central1-b"}
+	if !reflect.DeepEqual(gotZones, wantZones) {
+		t.Errorf("got zones=%v, want zones=%v", gotZones, wantZones)
+	}
+
+	gotNames, gotInstances := il.namesPerScope[zone], il.cachePerScope[zone]
+
+	// Expected data comes from the JSON file.
+	wantNames := []string{
+		"ig-us-central1-a-00-abcd",
+		"ig-us-central1-a-01-efgh",
+	}
+	wantLabels := []map[string]string{
+		map[string]string{"app": "cloudprober", "shard": "00"},
+		map[string]string{"app": "cloudprober", "shard": "01"},
+	}
+	wantNetworks := [][][2]string{
+		[][2]string{{"10.0.0.2", "194.197.208.201"}, {"10.0.0.3", "194.197.208.202"}},
+		[][2]string{{"10.0.1.3", "194.197.209.202"}},
+	}
+
+	if !reflect.DeepEqual(gotNames, wantNames) {
+		t.Errorf("Got names=%v, want=%v", gotNames, wantNames)
+	}
+
+	for i, name := range wantNames {
+		ins := gotInstances[name]
+
+		// Check lastupdate timestamp
+		if ins.lastUpdated < timeBeforeExpand {
+			t.Errorf("Instance's last update timestamp (%d) was not updated during expand (timestamp before expand: %d).", ins.lastUpdated, timeBeforeExpand)
+		}
+
+		// Check for labels
+		gotLabels := ins.ii.Labels
+		wantLabels := wantLabels[i]
+		if !reflect.DeepEqual(gotLabels, wantLabels) {
+			t.Errorf("Got labels=%v, want labels=%v", gotLabels, wantLabels)
+		}
+
+		// Check for ips
+		if len(ins.ii.NetworkInterfaces) != len(wantNetworks[i]) {
+			t.Errorf("Got %d nics, want %d", len(ins.ii.NetworkInterfaces), len(wantNetworks[i]))
+		}
+		for i, wantIPs := range wantNetworks[i] {
+			nic := ins.ii.NetworkInterfaces[i]
+			gotIPs := [2]string{nic.NetworkIP, nic.AccessConfigs[0].NatIP}
+			if gotIPs != wantIPs {
+				t.Errorf("Got ips=%v, want=%v", gotIPs, wantIPs)
+			}
 		}
 	}
 }
