@@ -1,0 +1,56 @@
+{
+  "id": "instance-list",
+  "items": [
+    {
+      "name": "ig-us-central1-a-00-abcd",
+      "labels": {
+        "app": "cloudprober",
+        "shard": "00"
+      },
+      "networkInterfaces": [
+        {
+          "accessConfigs": [
+             {
+               "kind": "compute#accessConfig",
+               "name": "external-nat",
+               "natIP": "194.197.208.201",
+               "networkTier": "PREMIUM",
+               "type": "ONE_TO_ONE_NAT"
+             }
+          ],
+          "fingerprint": "DxvgIvO1QQ8=",
+          "kind": "compute#networkInterface",
+          "name": "nic0",
+          "network": "https://www.googleapis.com/compute/v1/projects/proj1/global/networks/default",
+          "networkIP": "10.0.0.2",
+          "subnetwork": "https://www.googleapis.com/compute/v1/projects/proj1/regions/us-central1/subnetworks/default"
+        },
+        {
+          "accessConfigs": [
+             {
+               "natIP": "194.197.208.202"
+             }
+          ],
+          "networkIP": "10.0.0.3"
+        }
+      ]
+    },
+    {
+      "name": "ig-us-central1-a-01-efgh",
+      "labels": {
+        "app": "cloudprober",
+        "shard": "01"
+      },
+      "networkInterfaces": [
+        {
+          "accessConfigs": [
+             {
+               "natIP": "194.197.209.202"
+             }
+          ],
+          "networkIP": "10.0.1.3"
+        }
+      ]
+    }
+  ]
+}

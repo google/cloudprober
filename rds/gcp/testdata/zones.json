@@ -1,0 +1,11 @@
+{
+  "id": "zones-list",
+  "items": [
+    {
+      "name": "us-central1-a"
+    },
+    {
+      "name": "us-central1-b"
+    }
+  ]
+}

@@ -19,6 +19,7 @@
 package gcp
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"sync"
@@ -29,6 +30,7 @@ import (
 	configpb "github.com/google/cloudprober/rds/gcp/proto"
 	pb "github.com/google/cloudprober/rds/proto"
 	"github.com/google/cloudprober/rds/server/filter"
+	"golang.org/x/oauth2/google"
 	compute "google.golang.org/api/compute/v1"
 )
 
@@ -175,6 +177,22 @@ func (frl *forwardingRulesLister) expand(reEvalInterval time.Duration) {
 	}
 
 	frl.l.Infof("forwarding_rules.expand: got %d forwarding rules", numItems)
+}
+
+// defaultComputeService returns a compute.Service object, initialized using
+// default credentials.
+func defaultComputeService(apiVersion string) (*compute.Service, error) {
+	client, err := google.DefaultClient(context.Background(), compute.ComputeScope)
+	if err != nil {
+		return nil, err
+	}
+	cs, err := compute.New(client)
+	if err != nil {
+		return nil, err
+	}
+
+	cs.BasePath = "https://www.googleapis.com/compute/" + apiVersion + "/projects/"
+	return cs, nil
 }
 
 func newForwardingRulesLister(project, apiVersion string, c *configpb.ForwardingRules, l *logger.Logger) (*forwardingRulesLister, error) {
