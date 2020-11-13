@@ -29,6 +29,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/config/runconfig"
@@ -49,6 +50,15 @@ import (
 var (
 	globalResolver *dnsRes.Resolver
 )
+
+// Targets must have refreshed this much time after the lameduck for them to
+// become valid again. This is to take care of the following race between
+// targets refresh and lameduck creation:
+//   Targets are refreshed few seconds after lameduck, and are deleted few more
+//   seconds after that. If there is no min lameduck duration, we'll end up
+//   ignoring lameduck in this case. With min lameduck duration, targets will
+//   need to be refreshed few minutes after being lameducked.
+const minLameduckDuration = 5 * time.Minute
 
 // extensionMap is a map of targets-types extensions. While creating new
 // targets, if it's not a known targets type, we lookup this map to check if
@@ -160,7 +170,7 @@ func (t *targets) includeInResult(ep endpoint.Endpoint, ldMap map[string]endpoin
 		if ldEP.LastUpdated.IsZero() || ep.LastUpdated.IsZero() {
 			return false
 		}
-		return ep.LastUpdated.After(ldEP.LastUpdated)
+		return ep.LastUpdated.After(ldEP.LastUpdated.Add(minLameduckDuration))
 	}
 
 	return true
