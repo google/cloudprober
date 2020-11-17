@@ -19,6 +19,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"strings"
 
 	"github.com/google/cloudprober/targets/endpoint"
 )
@@ -111,11 +112,14 @@ func (p *Probe) httpRequestForTarget(target endpoint.Endpoint, resolveF resolveF
 		urlHost = ip.String()
 	}
 
-	if port != 0 {
-		urlHost = fmt.Sprintf("%s:%d", urlHost, port)
+	// Put square brackets around literal IPv6 hosts. This is the same logic as
+	// net.JoinHostPort, but we cannot use net.JoinHostPort as it works only for
+	// non default ports.
+	if strings.IndexByte(urlHost, ':') >= 0 {
+		urlHost = "[" + urlHost + "]"
 	}
 
-	url := fmt.Sprintf("%s://%s%s", p.protocol, urlHost, relURLForTarget(target, p.url))
+	url := fmt.Sprintf("%s://%s%s", p.protocol, hostWithPort(urlHost, port), relURLForTarget(target, p.url))
 
 	// Prepare request body
 	var body io.Reader

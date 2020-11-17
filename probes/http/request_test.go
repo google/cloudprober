@@ -161,12 +161,18 @@ func TestRelURLforTarget(t *testing.T) {
 
 // Following tests are more comprehensive tests for request URL and host header.
 type testData struct {
-	desc         string
-	targetName   string
-	targetFQDN   string
+	desc       string
+	targetName string
+	targetFQDN string // Make target have this "fqdn" label.
+	resolvedIP string // IP that will be returned by the test resolve function.
+
+	// Probe configuration parameters
 	resolveFirst bool
 	probeHost    string
-	wantURLHost  string
+
+	// Used by TestURLHostAndHeaderForTarget to verify URL host, and
+	// TestRequestHostAndURL to build URL to verify.
+	wantURLHost string
 }
 
 func createRequestAndVerify(t *testing.T, td testData, probePort, targetPort, expectedPort int, resolveF resolveFunc) {
@@ -218,7 +224,7 @@ func testRequestHostAndURLWithDifferentPorts(t *testing.T, td testData) {
 	var resolveF resolveFunc
 	if td.resolveFirst {
 		resolveF = func(target string, ipVer int) (net.IP, error) {
-			return net.ParseIP(td.wantURLHost), nil
+			return net.ParseIP(td.resolvedIP), nil
 		}
 	}
 
@@ -269,16 +275,30 @@ func TestRequestHostAndURL(t *testing.T) {
 			wantURLHost: "test-target.com",
 		},
 		{
+			desc:        "ipv6_literal_host,no_probe_host_header",
+			targetName:  "2600:2d00:4030:a47:c0a8:210d:0:0", // IPv6 literal host
+			wantURLHost: "[2600:2d00:4030:a47:c0a8:210d:0:0]",
+		},
+		{
 			desc:         "resolve_first,no_probe_host_header",
 			targetName:   "localhost",
 			resolveFirst: true,
+			resolvedIP:   "127.0.0.1",
 			wantURLHost:  "127.0.0.1",
+		},
+		{
+			desc:         "resolve_first,ipv6,no_probe_host_header",
+			targetName:   "localhost",
+			resolveFirst: true,
+			resolvedIP:   "2600:2d00:4030:a47:c0a8:210d:0:0", // Resolved IP
+			wantURLHost:  "[2600:2d00:4030:a47:c0a8:210d::]", // IPv6 literal host
 		},
 		{
 			desc:         "resolve_first,probe_host_header",
 			targetName:   "localhost",
 			resolveFirst: true,
 			probeHost:    "test-host",
+			resolvedIP:   "127.0.0.1",
 			wantURLHost:  "127.0.0.1",
 		},
 	}
