@@ -115,8 +115,6 @@ func TestGRPCSuccess(t *testing.T) {
 		t.Fatalf("Error unmarshalling config: %v", err)
 	}
 	l := &logger.Logger{}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 
 	iters := 5
 	statsExportInterval := time.Duration(iters) * time.Second
@@ -133,7 +131,13 @@ func TestGRPCSuccess(t *testing.T) {
 	p := &Probe{}
 	p.Init("grpc-success", probeOpts)
 	dataChan := make(chan *metrics.EventMetrics, 5)
-	go p.Start(ctx, dataChan)
+	ctx, cancel := context.WithCancel(context.Background())
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		p.Start(ctx, dataChan)
+	}()
 	time.Sleep(statsExportInterval * 2)
 	found := false
 	expectedLabels := map[string]string{
@@ -167,6 +171,9 @@ func TestGRPCSuccess(t *testing.T) {
 	if !found {
 		t.Errorf("No probe results found")
 	}
+
+	cancel()
+	wg.Wait()
 }
 
 // TestConnectFailures attempts to connect to localhost:9 (discard port) and
@@ -180,8 +187,6 @@ func TestConnectFailures(t *testing.T) {
 		t.Fatalf("Error unmarshalling config: %v", err)
 	}
 	l := &logger.Logger{}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 
 	iters := 6
 	statsExportInterval := time.Duration(iters) * time.Second
@@ -198,7 +203,13 @@ func TestConnectFailures(t *testing.T) {
 	p := &Probe{}
 	p.Init("grpc-connectfail", probeOpts)
 	dataChan := make(chan *metrics.EventMetrics, 5)
-	go p.Start(ctx, dataChan)
+	ctx, cancel := context.WithCancel(context.Background())
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		p.Start(ctx, dataChan)
+	}()
 	time.Sleep(statsExportInterval * 2)
 	found := false
 	for i := 0; i < 2; i++ {
@@ -223,6 +234,9 @@ func TestConnectFailures(t *testing.T) {
 	if !found {
 		t.Errorf("No probe results found")
 	}
+
+	cancel()
+	wg.Wait()
 }
 
 func TestProbeTimeouts(t *testing.T) {
@@ -235,8 +249,6 @@ func TestProbeTimeouts(t *testing.T) {
 		t.Fatalf("Error unmarshalling config: %v", err)
 	}
 	l := &logger.Logger{}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 
 	iters := 5
 	statsExportInterval := time.Duration(iters) * time.Second
@@ -254,7 +266,14 @@ func TestProbeTimeouts(t *testing.T) {
 	p := &Probe{}
 	p.Init("grpc-reqtimeout", probeOpts)
 	dataChan := make(chan *metrics.EventMetrics, 5)
-	go p.Start(ctx, dataChan)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		p.Start(ctx, dataChan)
+	}()
 	ems, err := testutils.MetricsFromChannel(dataChan, 2, statsExportInterval*3)
 	if err != nil {
 		t.Fatalf("Error retrieving metrics: %v", err)
@@ -287,6 +306,8 @@ func TestProbeTimeouts(t *testing.T) {
 	if !found {
 		t.Errorf("No probe results found")
 	}
+	cancel()
+	wg.Wait()
 }
 
 type testTargets struct {
@@ -332,8 +353,6 @@ func TestTargets(t *testing.T) {
 		t.Fatalf("Error unmarshalling config: %v", err)
 	}
 	l := &logger.Logger{}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 
 	goodTargets := endpoint.EndpointsFromNames([]string{addr})
 	badTargets := endpoint.EndpointsFromNames([]string{"localhost:1", "localhost:2"})
@@ -357,7 +376,13 @@ func TestTargets(t *testing.T) {
 	p := &Probe{}
 	p.Init("grpc", probeOpts)
 	dataChan := make(chan *metrics.EventMetrics, 10)
-	go p.Start(ctx, dataChan)
+	ctx, cancel := context.WithCancel(context.Background())
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		p.Start(ctx, dataChan)
+	}()
 
 	ems, err := testutils.MetricsFromChannel(dataChan, 12, probeRunTime)
 	if err != nil {
@@ -401,4 +426,7 @@ func TestTargets(t *testing.T) {
 	if successIterCount >= connErrIterCount {
 		t.Errorf("Got successIters(%d) >= connErrIters(%d), want '<'.", successIterCount, connErrIterCount)
 	}
+
+	cancel()
+	wg.Wait()
 }
