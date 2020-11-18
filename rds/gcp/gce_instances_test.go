@@ -33,6 +33,8 @@ type testNetIf struct {
 	privateIP    string
 	publicIP     string
 	aliasIPRange string
+	ipv6         string
+	publicIPv6   string
 }
 
 type testInstance struct {
@@ -46,13 +48,17 @@ func (ti *testInstance) data() *instanceData {
 	var cNetIfs []networkInterface
 	for _, ni := range ti.netIf {
 		cNetIf := networkInterface{
-			NetworkIP: ni.privateIP,
+			NetworkIP:   ni.privateIP,
+			Ipv6Address: ni.ipv6,
 		}
 		if ni.publicIP != "" {
 			cNetIf.AccessConfigs = []accessConfig{
-				accessConfig{
-					NatIP: ni.publicIP,
-				},
+				{NatIP: ni.publicIP},
+			}
+		}
+		if ni.publicIPv6 != "" {
+			cNetIf.Ipv6AccessConfigs = []accessConfig{
+				{ExternalIpv6: ni.publicIPv6},
 			}
 		}
 		if ni.aliasIPRange != "" {
@@ -70,13 +76,35 @@ func (ti *testInstance) data() *instanceData {
 	return &instanceData{ii: &instanceInfo{Name: ti.name, NetworkInterfaces: cNetIfs, Labels: ti.labels}}
 }
 
+func (ti *testInstance) expectedIP(spec *testSpec) string {
+	switch spec.ipType {
+	case "private":
+		if spec.ipv6 {
+			return ti.netIf[spec.index].ipv6
+		}
+		return ti.netIf[spec.index].privateIP
+	case "public":
+		if spec.ipv6 {
+			return ti.netIf[spec.index].publicIPv6
+		}
+		return ti.netIf[spec.index].publicIP
+	case "ipAliasRange":
+		netIP, _, _ := net.ParseCIDR(ti.netIf[spec.index].aliasIPRange)
+		if netIP == nil {
+			netIP = net.ParseIP(ti.netIf[spec.index].aliasIPRange)
+		}
+		return netIP.String()
+	}
+	return ""
+}
+
 var testInstancesData = []*testInstance{
 	{
 		name: "ins1",
 		zone: "z-1",
 		netIf: []*testNetIf{
-			&testNetIf{"10.216.0.1", "104.100.143.1", "192.168.1.0/24"},
-			&testNetIf{"10.216.1.1", "", ""},
+			&testNetIf{"10.216.0.1", "104.100.143.1", "192.168.1.0/24", "2600:2d00:4030:a47:c0a8:2110:0:0", "2600:2d00:4030:a47:c0a8:2110:1:0"},
+			&testNetIf{"10.216.1.1", "", "", "", ""},
 		},
 		labels: map[string]string{
 			"env":  "staging",
@@ -87,8 +115,8 @@ var testInstancesData = []*testInstance{
 		name: "ins2",
 		zone: "z-2",
 		netIf: []*testNetIf{
-			&testNetIf{"10.216.0.2", "104.100.143.2", "192.168.2.0"},
-			&testNetIf{"10.216.1.2", "104.100.143.3", ""},
+			&testNetIf{"10.216.0.2", "104.100.143.2", "192.168.2.0", "", ""},
+			&testNetIf{"10.216.1.2", "104.100.143.3", "", "", ""},
 		},
 		labels: map[string]string{
 			"env":  "prod",
@@ -99,8 +127,8 @@ var testInstancesData = []*testInstance{
 		name: "ins3",
 		zone: "z-2",
 		netIf: []*testNetIf{
-			&testNetIf{"10.216.0.3", "104.100.143.4", "192.168.3.0"},
-			&testNetIf{"10.216.1.3", "104.100.143.5", ""},
+			&testNetIf{"10.216.0.3", "104.100.143.4", "192.168.3.0", "", ""},
+			&testNetIf{"10.216.1.3", "104.100.143.5", "", "", ""},
 		},
 		labels: map[string]string{
 			"env":  "prod",
@@ -130,15 +158,84 @@ func testLister() *gceInstancesLister {
 	return lister
 }
 
+type testSpec struct {
+	f      []*pb.Filter
+	index  int
+	ipType string
+	ipv6   bool
+	err    bool
+}
+
+func (ts *testSpec) ipConfig() *pb.IPConfig {
+	ipConfig := &pb.IPConfig{}
+	if ts.ipv6 {
+		ipConfig.IpVersion = pb.IPConfig_V6.Enum()
+	}
+	switch ts.ipType {
+	case "public":
+		ipConfig.IpType = pb.IPConfig_PUBLIC.Enum()
+	case "ipAliasRange":
+		ipConfig.IpType = pb.IPConfig_ALIAS.Enum()
+	}
+	if ts.index != 0 {
+		ipConfig.NicIndex = proto.Int32(int32(ts.index))
+	}
+	return ipConfig
+}
+
+func testListResources(t *testing.T, gil *gceInstancesLister, expectedInstances []*testInstance, spec *testSpec) {
+	t.Helper()
+
+	if spec == nil {
+		spec = &testSpec{}
+	}
+	if spec.ipType == "" {
+		spec.ipType = "private"
+	}
+
+	var filters []*pb.Filter
+	if spec.f != nil {
+		filters = append(filters, spec.f...)
+	}
+
+	resources, err := gil.listResources(&pb.ListResourcesRequest{
+		Filter:   filters,
+		IpConfig: spec.ipConfig(),
+	})
+
+	if err != nil {
+		if !spec.err {
+			t.Errorf("Got error while listing resources: %v, expected no errors", err)
+		}
+		return
+	}
+
+	if len(resources) != len(expectedInstances) {
+		t.Errorf("Got wrong number of targets. Expected: %d, Got: %d", len(expectedInstances), len(resources))
+	}
+
+	// Build a map from the resources in the reply.
+	instances := make(map[string]string)
+	for _, res := range resources {
+		instances[res.GetName()] = res.GetIp()
+	}
+
+	for _, ti := range expectedInstances {
+		ip := instances[ti.name]
+		expectedIP := ti.expectedIP(spec)
+		if ip != expectedIP {
+			t.Errorf("Got wrong <%s> IP for %s. Expected: %s, Got: %s", spec.ipType, ti.name, expectedIP, ip)
+		}
+	}
+}
+
 func TestInstancesResourcesFilters(t *testing.T) {
 	lister := testLister()
-
-	var testIndex int
 
 	// #################################################################
 	// Instances, with first NIC and private IP. Expect no errors.
 	// #################################################################
-	testListResources(t, nil, nil, lister, testInstancesData, testIndex, "private", false)
+	testListResources(t, lister, testInstancesData, nil)
 
 	// #################################################################
 	// Instances, with first NIC and private IP, but a bad filter.
@@ -149,7 +246,7 @@ func TestInstancesResourcesFilters(t *testing.T) {
 			Value: proto.String("ins2"),
 		},
 	}
-	testListResources(t, f, nil, lister, testInstancesData[1:], testIndex, "private", true)
+	testListResources(t, lister, testInstancesData[1:], &testSpec{f: f, err: true})
 
 	// #################################################################
 	// Instances, matching the name "ins." and labels: env:prod, func:rds
@@ -165,7 +262,7 @@ func TestInstancesResourcesFilters(t *testing.T) {
 			Value: proto.String("rds"),
 		},
 	}
-	testListResources(t, f, nil, lister, testInstancesData, testIndex, "private", false)
+	testListResources(t, lister, testInstancesData, &testSpec{f: f})
 
 	// #################################################################
 	// Instances, matching the name "ins." and labels: env:prod, func:rds
@@ -185,7 +282,7 @@ func TestInstancesResourcesFilters(t *testing.T) {
 			Value: proto.String("rds"),
 		},
 	}
-	testListResources(t, f, nil, lister, testInstancesData[1:], testIndex, "private", false)
+	testListResources(t, lister, testInstancesData[1:], &testSpec{f: f})
 
 	// #################################################################
 	// Instances, matching the name "ins." and labels: env:prod, func:server
@@ -205,107 +302,58 @@ func TestInstancesResourcesFilters(t *testing.T) {
 			Value: proto.String("server"),
 		},
 	}
-	testListResources(t, f, nil, lister, []*testInstance{}, testIndex, "private", false)
+	testListResources(t, lister, []*testInstance{}, &testSpec{f: f})
 }
 
 func TestInstancesResources(t *testing.T) {
 	lister := testLister()
 
-	var testIndex int
-
 	// #################################################################
 	// Instances, with first NIC and private IP. Expect no errors.
 	// #################################################################
-	testListResources(t, nil, nil, lister, testInstancesData, testIndex, "private", false)
+	testListResources(t, lister, testInstancesData, nil)
+
+	// #################################################################
+	// Instances, with first NIC and IPv6
+	// Expect no errors.
+	// #################################################################
+	testListResources(t, lister, testInstancesData, &testSpec{ipv6: true})
 
 	// #################################################################
 	// Instances, with first NIC and public IP
 	// Expect no errors.
 	// #################################################################
-	ipConfig := &pb.IPConfig{
-		IpType: pb.IPConfig_PUBLIC.Enum(),
+	testListResources(t, lister, testInstancesData, &testSpec{ipType: "public"})
+
+	// #################################################################
+	// Instances (only ins1), with first NIC, IPv6 and public IP.
+	// Expect no errors.
+	// #################################################################
+	f := []*pb.Filter{
+		{
+			Key:   proto.String("name"),
+			Value: proto.String("ins1"),
+		},
 	}
-	testListResources(t, nil, ipConfig, lister, testInstancesData, testIndex, "public", false)
+	testListResources(t, lister, testInstancesData[:1], &testSpec{f: f, ipType: "public", ipv6: true})
 
 	// #################################################################
 	// Instances, with first NIC and alias IP
 	// Expect no errors.
 	// #################################################################
-	ipConfig = &pb.IPConfig{
-		IpType: pb.IPConfig_ALIAS.Enum(),
-	}
-	testListResources(t, nil, ipConfig, lister, testInstancesData, testIndex, "ipAliasRange", false)
+	testListResources(t, lister, testInstancesData, &testSpec{ipType: "ipAliasRange"})
 
 	// #################################################################
 	// Instances, with second NIC and private IP
 	// Expect no errors.
 	// #################################################################
-	testIndex = 1
-	ipConfig = &pb.IPConfig{
-		NicIndex: proto.Int32(int32(testIndex)),
-	}
-	testListResources(t, nil, ipConfig, lister, testInstancesData, testIndex, "private", false)
+	testListResources(t, lister, testInstancesData, &testSpec{index: 1})
 
 	// #################################################################
 	// Instances, with second NIC and public IP
 	// We get an error as first instance's second NIC doesn't have public IP.
 	// ##################################################################
-	testIndex = 1
-	ipConfig = &pb.IPConfig{
-		NicIndex: proto.Int32(int32(testIndex)),
-		IpType:   pb.IPConfig_PUBLIC.Enum(),
-	}
-	testListResources(t, nil, ipConfig, lister, nil, testIndex, "public", true)
-}
-
-func testListResources(t *testing.T, f []*pb.Filter, ipConfig *pb.IPConfig, gil *gceInstancesLister, expectedInstances []*testInstance, testIndex int, ipTypeStr string, expectError bool) {
-	var filters []*pb.Filter
-	if f != nil {
-		filters = append(filters, f...)
-	}
-
-	resources, err := gil.listResources(&pb.ListResourcesRequest{
-		Filter:   filters,
-		IpConfig: ipConfig,
-	})
-
-	if err != nil {
-		if !expectError {
-			t.Errorf("Got error while listing resources: %v, expected no errors", err)
-		}
-		return
-	}
-
-	if len(resources) != len(expectedInstances) {
-		t.Errorf("Got wrong number of targets. Expected: %d, Got: %d", len(expectedInstances), len(resources))
-	}
-
-	// Build a map from the resources in the reply.
-	instances := make(map[string]string)
-	for _, res := range resources {
-		instances[res.GetName()] = res.GetIp()
-	}
-
-	for _, ti := range expectedInstances {
-		ip := instances[ti.name]
-
-		var expectedIP string
-		switch ipTypeStr {
-		case "private":
-			expectedIP = ti.netIf[testIndex].privateIP
-		case "public":
-			expectedIP = ti.netIf[testIndex].publicIP
-		case "ipAliasRange":
-			expectedNetIP, _, _ := net.ParseCIDR(ti.netIf[testIndex].aliasIPRange)
-			if expectedNetIP == nil {
-				expectedNetIP = net.ParseIP(ti.netIf[testIndex].aliasIPRange)
-			}
-			expectedIP = expectedNetIP.String()
-		}
-		if ip != expectedIP {
-			t.Errorf("Got wrong <%s> IP for %s. Expected: %s, Got: %s", ipTypeStr, ti.name, expectedIP, ip)
-		}
-	}
+	testListResources(t, lister, nil, &testSpec{index: 1, ipType: "public", err: true})
 }
 
 func readTestJSON(t *testing.T, fileName string) (b []byte) {
@@ -371,9 +419,12 @@ func TestExpand(t *testing.T) {
 		map[string]string{"app": "cloudprober", "shard": "00"},
 		map[string]string{"app": "cloudprober", "shard": "01"},
 	}
-	wantNetworks := [][][2]string{
-		[][2]string{{"10.0.0.2", "194.197.208.201"}, {"10.0.0.3", "194.197.208.202"}},
-		[][2]string{{"10.0.1.3", "194.197.209.202"}},
+	wantNetworks := [][][4]string{
+		[][4]string{
+			{"10.0.0.2", "194.197.208.201", "2600:2d00:4030:a47:c0a8:2110:0:0", "2600:2d00:4030:a47:c0a8:2110:1:0"},
+			{"10.0.0.3", "194.197.208.202", "2600:2d00:4030:a47:c0a8:2110:0:1", ""},
+		},
+		[][4]string{{"10.0.1.3", "194.197.209.202", "", ""}},
 	}
 
 	if !reflect.DeepEqual(gotNames, wantNames) {
@@ -401,7 +452,10 @@ func TestExpand(t *testing.T) {
 		}
 		for i, wantIPs := range wantNetworks[i] {
 			nic := ins.ii.NetworkInterfaces[i]
-			gotIPs := [2]string{nic.NetworkIP, nic.AccessConfigs[0].NatIP}
+			gotIPs := [4]string{nic.NetworkIP, nic.AccessConfigs[0].NatIP, nic.Ipv6Address}
+			if len(nic.Ipv6AccessConfigs) > 0 {
+				gotIPs[3] = nic.Ipv6AccessConfigs[0].ExternalIpv6
+			}
 			if gotIPs != wantIPs {
 				t.Errorf("Got ips=%v, want=%v", gotIPs, wantIPs)
 			}

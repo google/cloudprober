@@ -45,7 +45,8 @@ type accessConfig struct {
 }
 
 type networkInterface struct {
-	NetworkIP string `json:"networkIP,omitempty"`
+	NetworkIP   string `json:"networkIP,omitempty"`
+	Ipv6Address string `json:"ipv6Address,omitempty"`
 
 	AliasIPRanges []struct {
 		IPCidrRange string `json:"ipCidrRange,omitempty"`
@@ -106,6 +107,38 @@ type gceInstancesLister struct {
 	cachePerScope map[string]map[string]*instanceData // "us-e1-b": {"i1: data}
 }
 
+// ipV picks an IP address from an array of v4 and v6 addresses, based on the
+// asked IP version.
+// Note: we should consider moving this to a common location.
+func ipV(ips [2]string, ipVer pb.IPConfig_IPVersion) string {
+	switch ipVer {
+	case pb.IPConfig_V4:
+		return ips[0]
+	case pb.IPConfig_V6:
+		return ips[1]
+	default:
+		if ips[0] != "" {
+			return ips[0]
+		}
+		return ips[1]
+	}
+}
+
+func externalAddr(nic networkInterface, ipVer pb.IPConfig_IPVersion) (string, error) {
+	ips := [2]string{"null", "null"}
+	if len(nic.AccessConfigs) != 0 {
+		ips[0] = nic.AccessConfigs[0].NatIP
+	}
+	if len(nic.Ipv6AccessConfigs) != 0 {
+		ips[1] = nic.Ipv6AccessConfigs[0].ExternalIpv6
+	}
+	ip := ipV(ips, ipVer)
+	if ip == "null" {
+		return "", fmt.Errorf("no %s public IP", ipVer.String())
+	}
+	return ip, nil
+}
+
 func instanceIP(nis []networkInterface, ipConfig *pb.IPConfig) (string, error) {
 	var niIndex int
 	ipType := pb.IPConfig_DEFAULT
@@ -122,13 +155,10 @@ func instanceIP(nis []networkInterface, ipConfig *pb.IPConfig) (string, error) {
 
 	switch ipType {
 	case pb.IPConfig_DEFAULT:
-		return ni.NetworkIP, nil
+		return ipV([2]string{ni.NetworkIP, ni.Ipv6Address}, ipConfig.GetIpVersion()), nil
 
 	case pb.IPConfig_PUBLIC:
-		if len(ni.AccessConfigs) == 0 {
-			return "", fmt.Errorf("no public IP for NIC(%d)", niIndex)
-		}
-		return ni.AccessConfigs[0].NatIP, nil
+		return externalAddr(ni, ipConfig.GetIpVersion())
 
 	case pb.IPConfig_ALIAS:
 		if len(ni.AliasIPRanges) == 0 {
