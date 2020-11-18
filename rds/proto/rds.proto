@@ -65,6 +65,13 @@ message IPConfig {
     ALIAS = 2;
   }
   optional IPType ip_type = 3;
+
+  enum IPVersion {
+    IPVERSION_UNDEFINED = 0;
+    V4 = 1;
+    V6 = 2;
+  }
+  optional IPVersion ip_version = 2;
 }
 
 message Resource {

@@ -18,11 +18,17 @@
                "type": "ONE_TO_ONE_NAT"
              }
           ],
+          "ipv6AccessConfigs": [
+             {
+               "externalIpv6": "2600:2d00:4030:a47:c0a8:2110:1:0"
+             }
+          ],
           "fingerprint": "DxvgIvO1QQ8=",
           "kind": "compute#networkInterface",
           "name": "nic0",
           "network": "https://www.googleapis.com/compute/v1/projects/proj1/global/networks/default",
           "networkIP": "10.0.0.2",
+          "ipv6Address": "2600:2d00:4030:a47:c0a8:2110:0:0",
           "subnetwork": "https://www.googleapis.com/compute/v1/projects/proj1/regions/us-central1/subnetworks/default"
         },
         {
@@ -31,7 +37,8 @@
                "natIP": "194.197.208.202"
              }
           ],
-          "networkIP": "10.0.0.3"
+          "networkIP": "10.0.0.3",
+          "ipv6Address": "2600:2d00:4030:a47:c0a8:2110:0:1"
         }
       ]
     },
