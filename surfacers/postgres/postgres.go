@@ -226,7 +226,7 @@ func (s *Surfacer) init(ctx context.Context) error {
 	if err = s.db.Ping(); err != nil {
 		return err
 	}
-	s.writeChan = make(chan *metrics.EventMetrics, 1000)
+	s.writeChan = make(chan *metrics.EventMetrics, s.c.GetMetricsBufferSize())
 
 	// Start a goroutine to run forever, polling on the writeChan. Allows
 	// for the surfacer to write asynchronously to the serial port.
