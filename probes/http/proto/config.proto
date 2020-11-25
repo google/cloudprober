@@ -95,4 +95,7 @@ message ProbeConf {
   // NOTE: This field is now deprecated and will be removed after the v0.10.3
   // releases.
   optional int32 requests_interval_msec = 99 [default = 25];
+
+  // How many concurent HTTP requests probe to targets. 0 or less means no limit
+  optional int32 max_concurrency = 100 [default = 0];
 }

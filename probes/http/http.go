@@ -351,10 +351,14 @@ func (p *Probe) updateTargets() {
 }
 
 func (p *Probe) runProbe(ctx context.Context) {
-	reqCtx, cancelReqCtx := context.WithTimeout(ctx, p.opts.Timeout)
-	defer cancelReqCtx()
+	var concurrencyChannel chan struct{}
 
 	wg := sync.WaitGroup{}
+
+	if p.c.GetMaxConcurrency() > 0 {
+		concurrencyChannel = make(chan struct{}, p.c.GetMaxConcurrency())
+	}
+
 	for _, target := range p.targets {
 		req, result := p.httpRequests[target.Name], p.results[target.Name]
 		if req == nil {
@@ -371,9 +375,19 @@ func (p *Probe) runProbe(ctx context.Context) {
 		for numReq := int32(0); numReq < p.c.GetRequestsPerProbe(); numReq++ {
 			wg.Add(1)
 
+			if concurrencyChannel != nil {
+				concurrencyChannel <- struct{}{}
+			}
+
+			reqCtx, cancelReqCtx := context.WithTimeout(ctx, p.opts.Timeout)
+			defer cancelReqCtx()
+
 			go func(req *http.Request, targetName string, result *probeResult) {
 				defer wg.Done()
 				p.doHTTPRequest(req.WithContext(reqCtx), targetName, result, &resultMu)
+				if concurrencyChannel != nil {
+					<-concurrencyChannel
+				}
 			}(req, target.Name, result)
 		}
 	}
