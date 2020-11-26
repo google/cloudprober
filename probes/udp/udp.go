@@ -162,7 +162,7 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	}
 
 	if p.opts.StatsExportInterval < p.flushIntv {
-		return fmt.Errorf("UDP probe: stats_export_interval_msec (%d ms) is too low. It should be at least twice of the interval (%s) and timeout (%s), whichever is bigger", p.opts.StatsExportInterval, p.opts.Interval, p.opts.Timeout)
+		return fmt.Errorf("UDP probe: stats_export_interval_msec (%s) is too low. It should be at least twice of the interval (%s) and timeout (%s), whichever is bigger", p.opts.StatsExportInterval, p.opts.Interval, p.opts.Timeout)
 	}
 
 	// #send/recv-channel-buffer = #targets * #sources * #probing-intervals-between-flushes
