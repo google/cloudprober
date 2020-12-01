@@ -88,7 +88,7 @@ func New(ctx context.Context, config *configpb.SurfacerConf, l *logger.Logger) (
 	s := SDSurfacer{
 		cache:        make(map[string]*monitoring.TimeSeries),
 		knownMetrics: make(map[string]bool),
-		writeChan:    make(chan *metrics.EventMetrics, 1000),
+		writeChan:    make(chan *metrics.EventMetrics, config.GetMetricsBufferSize()),
 		c:            config,
 		projectName:  config.GetProject(),
 		startTime:    time.Now(),
