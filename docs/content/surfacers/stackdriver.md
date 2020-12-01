@@ -56,7 +56,7 @@ For example, you can configure stackdriver surfacer to export only metrics that 
 surfacer {
   stackdriver_surfacer {
     # Export only "http" probe metrics.
-    allowed_metrics_regex: ".*\/http\/.*"
+    allowed_metrics_regex: ".*\\/http\\/.*"
   }
 }
 ```
