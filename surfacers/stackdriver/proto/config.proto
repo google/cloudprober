@@ -26,4 +26,9 @@ message SurfacerConf {
   // custom.googleapis.com/cloudprober/http/google-homepage/latency
   optional string monitoring_url = 4
       [default = "custom.googleapis.com/cloudprober/"];
+
+  // How many metrics entries to buffer. Incoming metrics
+  // processing is paused while serving data to Stackdriver. This buffer is to
+  // make writes to Stackdriver surfacer non-blocking.
+  optional int64 metrics_buffer_size = 5 [default = 10000];
 }
