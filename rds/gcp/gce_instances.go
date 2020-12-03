@@ -112,9 +112,9 @@ type gceInstancesLister struct {
 // Note: we should consider moving this to a common location.
 func ipV(ips [2]string, ipVer pb.IPConfig_IPVersion) string {
 	switch ipVer {
-	case pb.IPConfig_V4:
+	case pb.IPConfig_IPV4:
 		return ips[0]
-	case pb.IPConfig_V6:
+	case pb.IPConfig_IPV6:
 		return ips[1]
 	default:
 		if ips[0] != "" {

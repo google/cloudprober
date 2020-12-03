@@ -169,7 +169,7 @@ type testSpec struct {
 func (ts *testSpec) ipConfig() *pb.IPConfig {
 	ipConfig := &pb.IPConfig{}
 	if ts.ipv6 {
-		ipConfig.IpVersion = pb.IPConfig_V6.Enum()
+		ipConfig.IpVersion = pb.IPConfig_IPV6.Enum()
 	}
 	switch ts.ipType {
 	case "public":

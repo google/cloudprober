@@ -67,9 +67,9 @@ message IPConfig {
   optional IPType ip_type = 3;
 
   enum IPVersion {
-    IPVERSION_UNDEFINED = 0;
-    V4 = 1;
-    V6 = 2;
+    IP_VERSION_UNSPECIFIED = 0;
+    IPV4 = 1;
+    IPV6 = 2;
   }
   optional IPVersion ip_version = 2;
 }
