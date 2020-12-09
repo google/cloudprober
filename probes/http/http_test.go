@@ -23,14 +23,17 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cloudprober/metrics"
+	"github.com/google/cloudprober/metrics/testutils"
 	configpb "github.com/google/cloudprober/probes/http/proto"
 	"github.com/google/cloudprober/probes/options"
 	"github.com/google/cloudprober/targets"
+	"github.com/google/cloudprober/targets/endpoint"
 )
 
 // The Transport is mocked instead of the Client because Client is not an
@@ -82,7 +85,7 @@ func (tt *testTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 
 func (tt *testTransport) CancelRequest(req *http.Request) {}
 
-func testProbe(opts *options.Options) ([]*probeResult, error) {
+func testProbe(opts *options.Options) (*probeResult, error) {
 	p := &Probe{}
 	err := p.Init("http_test", opts)
 	if err != nil {
@@ -90,13 +93,12 @@ func testProbe(opts *options.Options) ([]*probeResult, error) {
 	}
 	p.client.Transport = newTestTransport()
 
-	p.runProbe(context.Background())
+	target := endpoint.Endpoint{Name: "test.com"}
+	result := p.newResult()
+	req := p.httpRequestForTarget(target, nil)
+	p.runProbe(context.Background(), target, req, result)
 
-	var results []*probeResult
-	for _, target := range p.targets {
-		results = append(results, p.results[target.Name])
-	}
-	return results, nil
+	return result, nil
 }
 
 func TestProbeVariousMethods(t *testing.T) {
@@ -136,7 +138,7 @@ func TestProbeVariousMethods(t *testing.T) {
 				ProbeConf: test.input,
 			}
 
-			results, err := testProbe(opts)
+			result, err := testProbe(opts)
 			if err != nil {
 				if fmt.Sprintf("error: '%s'", err.Error()) != test.want {
 					t.Errorf("Unexpected initialization error: %v", err)
@@ -144,18 +146,15 @@ func TestProbeVariousMethods(t *testing.T) {
 				return
 			}
 
-			for _, result := range results {
-				got := fmt.Sprintf("total: %d, success: %d", result.total, result.success)
-				if got != test.want {
-					t.Errorf("Mismatch got '%s', want '%s'", got, test.want)
-				}
+			got := fmt.Sprintf("total: %d, success: %d", result.total, result.success)
+			if got != test.want {
+				t.Errorf("Mismatch got '%s', want '%s'", got, test.want)
 			}
 		})
 	}
 }
 
 func TestProbeWithBody(t *testing.T) {
-
 	testBody := "TestHTTPBody"
 	testTarget := "test.com"
 	// Build the expected response code map
@@ -177,19 +176,22 @@ func TestProbeWithBody(t *testing.T) {
 		t.Errorf("Error while initializing probe: %v", err)
 	}
 	p.client.Transport = newTestTransport()
+	target := endpoint.Endpoint{Name: testTarget}
 
 	// Probe 1st run
-	p.runProbe(context.Background())
-	got := p.results[testTarget].respBodies.String()
+	result := p.newResult()
+	req := p.httpRequestForTarget(target, nil)
+	p.runProbe(context.Background(), target, req, result)
+	got := result.respBodies.String()
 	if got != expected {
 		t.Errorf("response map: got=%s, expected=%s", got, expected)
 	}
 
 	// Probe 2nd run (we should get the same request body).
-	p.runProbe(context.Background())
+	p.runProbe(context.Background(), target, req, result)
 	expectedMap.IncKey(testBody)
 	expected = expectedMap.String()
-	got = p.results[testTarget].respBodies.String()
+	got = result.respBodies.String()
 	if got != expected {
 		t.Errorf("response map: got=%s, expected=%s", got, expected)
 	}
@@ -224,9 +226,12 @@ func testProbeWithLargeBody(t *testing.T, bodySize int) {
 	}
 	testTransport := newTestTransport()
 	p.client.Transport = testTransport
+	target := endpoint.Endpoint{Name: testTarget}
 
 	// Probe 1st run
-	p.runProbe(context.Background())
+	result := p.newResult()
+	req := p.httpRequestForTarget(target, nil)
+	p.runProbe(context.Background(), target, req, result)
 
 	got := string(testTransport.lastProcessedRequestBody)
 	if got != testBody {
@@ -234,7 +239,7 @@ func testProbeWithLargeBody(t *testing.T, bodySize int) {
 	}
 
 	// Probe 2nd run (we should get the same request body).
-	p.runProbe(context.Background())
+	p.runProbe(context.Background(), target, req, result)
 	got = string(testTransport.lastProcessedRequestBody)
 	if got != testBody {
 		t.Errorf("response body length: got=%d, expected=%d", len(got), len(testBody))
@@ -243,11 +248,13 @@ func testProbeWithLargeBody(t *testing.T, bodySize int) {
 
 func TestMultipleTargetsMultipleRequests(t *testing.T) {
 	testTargets := []string{"test.com", "fail-test.com"}
-	reqPerProbe := int64(6)
+	reqPerProbe := int64(3)
 	opts := &options.Options{
-		Targets:   targets.StaticTargets(strings.Join(testTargets, ",")),
-		Interval:  10 * time.Millisecond,
-		ProbeConf: &configpb.ProbeConf{RequestsPerProbe: proto.Int32(int32(reqPerProbe))},
+		Targets:             targets.StaticTargets(strings.Join(testTargets, ",")),
+		Interval:            10 * time.Millisecond,
+		StatsExportInterval: 20 * time.Millisecond,
+		ProbeConf:           &configpb.ProbeConf{RequestsPerProbe: proto.Int32(int32(reqPerProbe))},
+		LogMetrics:          func(_ *metrics.EventMetrics) {},
 	}
 
 	p := &Probe{}
@@ -258,40 +265,98 @@ func TestMultipleTargetsMultipleRequests(t *testing.T) {
 	}
 	p.client.Transport = newTestTransport()
 
-	// Verify that Init() created result struct for each target.
-	for _, tgt := range testTargets {
-		if _, ok := p.results[tgt]; !ok {
-			t.Errorf("didn't find results for the target: %s", tgt)
-		}
-	}
+	ctx, cancelF := context.WithCancel(context.Background())
+	dataChan := make(chan *metrics.EventMetrics, 100)
 
-	p.runProbe(context.Background())
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		p.Start(ctx, dataChan)
+	}()
 
 	wantSuccess := map[string]int64{
-		"test.com":      reqPerProbe,
+		"test.com":      2 * reqPerProbe,
 		"fail-test.com": 0, // Test transport is configured to fail this.
 	}
+	time.Sleep(50 * time.Millisecond)
 
-	for _, tgt := range testTargets {
-		if p.results[tgt].total != reqPerProbe {
-			t.Errorf("For target %s, total=%d, want=%d", tgt, p.results[tgt].total, reqPerProbe)
-		}
-		if p.results[tgt].success != wantSuccess[tgt] {
-			t.Errorf("For target %s, success=%d, want=%d", tgt, p.results[tgt].success, wantSuccess[tgt])
-		}
+	// We should receive at least 4 eventmetrics: 2 probe cycle x 2 targets.
+	ems, err := testutils.MetricsFromChannel(dataChan, 4, time.Second)
+	if err != nil {
+		t.Errorf("Error getting eventmetrics from data channel: %v", err)
 	}
 
-	// Run again
-	p.runProbe(context.Background())
+	// Following verifies that we are able to cleanly stop the probe.
+	cancelF()
+	wg.Wait()
 
-	wantSuccess["test.com"] += reqPerProbe
-
-	for _, tgt := range testTargets {
-		if p.results[tgt].total != 2*reqPerProbe {
-			t.Errorf("For target %s, total=%d, want=%d", tgt, p.results[tgt].total, reqPerProbe)
+	dataMap := testutils.MetricsMap(ems)
+	for tgt, wantSuccessVal := range wantSuccess {
+		successVals := dataMap["success"][tgt]
+		if len(successVals) < 2 {
+			t.Errorf("Success metric for %s: %v (less than 2)", tgt, successVals)
 		}
-		if p.results[tgt].success != wantSuccess[tgt] {
-			t.Errorf("For target %s, success=%d, want=%d", tgt, p.results[tgt].success, wantSuccess[tgt])
+		latestVal := successVals[1].Metric("success").(*metrics.Int).Int64()
+		if latestVal < wantSuccessVal {
+			t.Errorf("Got success value for target (%s): %d, want: %d", tgt, latestVal, wantSuccessVal)
 		}
 	}
+}
+
+func compareNumberOfMetrics(t *testing.T, ems []*metrics.EventMetrics, targets [2]string, wantCloseRange bool) {
+	t.Helper()
+
+	m := testutils.MetricsMap(ems)["success"]
+	num1 := len(m[targets[0]])
+	num2 := len(m[targets[1]])
+
+	diff := num1 - num2
+	threshold := num1 / 2
+	notCloseRange := diff < -(threshold) || diff > threshold
+
+	if notCloseRange && wantCloseRange {
+		t.Errorf("Number of metrics for two targets are not within a close range (%d, %d)", num1, num2)
+	}
+	if !notCloseRange && !wantCloseRange {
+		t.Errorf("Number of metrics for two targets are within a close range (%d, %d)", num1, num2)
+	}
+}
+
+func TestUpdateTargetsAndStartProbes(t *testing.T) {
+	testTargets := [2]string{"test1.com", "test2.com"}
+	reqPerProbe := int64(3)
+	opts := &options.Options{
+		Targets:             targets.StaticTargets(fmt.Sprintf("%s,%s", testTargets[0], testTargets[1])),
+		Interval:            10 * time.Millisecond,
+		StatsExportInterval: 20 * time.Millisecond,
+		ProbeConf:           &configpb.ProbeConf{RequestsPerProbe: proto.Int32(int32(reqPerProbe))},
+		LogMetrics:          func(_ *metrics.EventMetrics) {},
+	}
+	p := &Probe{}
+	p.Init("http_test", opts)
+	p.client.Transport = newTestTransport()
+
+	dataChan := make(chan *metrics.EventMetrics, 100)
+
+	ctx, cancelF := context.WithCancel(context.Background())
+	p.updateTargetsAndStartProbes(ctx, dataChan)
+	if len(p.cancelFuncs) != 2 {
+		t.Errorf("len(p.cancelFunc)=%d, want=2", len(p.cancelFuncs))
+	}
+	ems, _ := testutils.MetricsFromChannel(dataChan, 100, time.Second)
+	compareNumberOfMetrics(t, ems, testTargets, true)
+
+	// Updates targets to just one target. This should cause one probe loop to
+	// exit. We should get only one data stream after that.
+	opts.Targets = targets.StaticTargets(testTargets[0])
+	p.updateTargetsAndStartProbes(ctx, dataChan)
+	if len(p.cancelFuncs) != 1 {
+		t.Errorf("len(p.cancelFunc)=%d, want=1", len(p.cancelFuncs))
+	}
+	ems, _ = testutils.MetricsFromChannel(dataChan, 100, time.Second)
+	compareNumberOfMetrics(t, ems, testTargets, false)
+
+	cancelF()
+	p.wait()
 }
