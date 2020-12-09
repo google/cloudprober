@@ -15,6 +15,7 @@
 package endpoint
 
 import (
+	"fmt"
 	"testing"
 )
 
@@ -34,5 +35,44 @@ func TestEndpointsFromNames(t *testing.T) {
 		if len(ep.Labels) != 0 {
 			t.Errorf("Endpoint.Labels=%v, want={}", ep.Labels)
 		}
+	}
+}
+
+func TestKey(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		port   int
+		labels map[string]string
+		key    string
+	}{
+		{
+			name: "t1",
+			port: 80,
+			key:  "t1_80",
+		},
+		{
+			name:   "t1",
+			port:   80,
+			labels: map[string]string{"app": "cloudprober", "dc": "xx"},
+			key:    "t1_80_app:cloudprober_dc:xx",
+		},
+		{
+			name:   "t1",
+			port:   80,
+			labels: map[string]string{"dc": "xx", "app": "cloudprober"},
+			key:    "t1_80_app:cloudprober_dc:xx",
+		},
+	} {
+		ep := Endpoint{
+			Name:   test.name,
+			Port:   test.port,
+			Labels: test.labels,
+		}
+		t.Run(fmt.Sprintf("%v", ep), func(t *testing.T) {
+			key := ep.Key()
+			if key != test.key {
+				t.Errorf("Got key: %s, want: %s", key, test.key)
+			}
+		})
 	}
 }

@@ -17,6 +17,9 @@
 package endpoint
 
 import (
+	"sort"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -26,6 +29,20 @@ type Endpoint struct {
 	Labels      map[string]string
 	LastUpdated time.Time
 	Port        int
+}
+
+// Key returns a string key that uniquely identifies that endpoint.
+// Endpoint key consists of endpoint name, port and labels.
+func (ep *Endpoint) Key() string {
+	labelSlice := make([]string, len(ep.Labels))
+	i := 0
+	for k, v := range ep.Labels {
+		labelSlice[i] = k + ":" + v
+		i++
+	}
+	sort.Strings(labelSlice)
+
+	return strings.Join(append([]string{ep.Name, strconv.Itoa(ep.Port)}, labelSlice...), "_")
 }
 
 // Lister should implement the ListEndpoints method.

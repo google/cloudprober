@@ -85,6 +85,9 @@ message ProbeConf {
   // Proxy URL, e.g. http://myproxy:3128
   optional string proxy_url = 16;
 
+  // Interval between targets.
+  optional int32 interval_between_targets_msec = 97 [default = 10];
+
   // Requests per probe.
   // Number of HTTP requests per probe. Requests are executed concurrently and
   // each HTTP re contributes to probe results. For example, if you run two

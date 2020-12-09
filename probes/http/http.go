@@ -1,4 +1,4 @@
-// Copyright 2017-2019 Google Inc.
+// Copyright 2017-2020 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"net"
 	"net/http"
 	"net/http/httptrace"
@@ -41,6 +42,16 @@ import (
 	"golang.org/x/oauth2"
 )
 
+// DefaultTargetsUpdateInterval defines default frequency for target updates.
+// Actual targets update interval is:
+// max(DefaultTargetsUpdateInterval, probe_interval)
+var DefaultTargetsUpdateInterval = 1 * time.Minute
+
+// maxGapBetweenTargets defines the maximum gap between probe loops for each
+// target. Actual gap is either configured or determined by the probe interval
+// and number of targets.
+const maxGapBetweenTargets = 1 * time.Second
+
 const (
 	maxResponseSizeForMetrics = 128
 	targetsUpdateInterval     = 1 * time.Minute
@@ -56,28 +67,28 @@ type Probe struct {
 	client *http.Client
 
 	// book-keeping params
-	targets      []endpoint.Endpoint
-	httpRequests map[string]*http.Request
-	results      map[string]*probeResult
-	protocol     string
-	method       string
-	url          string
-	oauthTS      oauth2.TokenSource
-	bearerToken  string
+	targets     []endpoint.Endpoint
+	protocol    string
+	method      string
+	url         string
+	oauthTS     oauth2.TokenSource
+	bearerToken string
 
 	// Run counter, used to decide when to update targets or export
 	// stats.
 	runCnt int64
 
-	// How often to resolve targets (in probe counts), initialized to
-	// targetsUpdateInterval / p.opts.Interval. Targets and associated data
-	// structures are updated when (runCnt % targetsUpdateFrequency) == 0
-	targetsUpdateFrequency int64
+	// How often to resolve targets (in probe counts), it's the minimum of
+	targetsUpdateInterval time.Duration
 
 	// How often to export metrics (in probe counts), initialized to
 	// statsExportInterval / p.opts.Interval. Metrics are exported when
 	// (runCnt % statsExportFrequency) == 0
 	statsExportFrequency int64
+
+	// Cancel functions for per-target probe loop
+	cancelFuncs map[string]context.CancelFunc
+	waitGroup   sync.WaitGroup
 
 	requestBody []byte
 }
@@ -89,6 +100,27 @@ type probeResult struct {
 	respCodes                *metrics.Map
 	respBodies               *metrics.Map
 	validationFailure        *metrics.Map
+}
+
+func (p *Probe) updateOauthToken() {
+	if p.oauthTS == nil {
+		return
+	}
+
+	tok, err := p.oauthTS.Token()
+	if err != nil {
+		p.l.Error("Error getting OAuth token: ", err.Error(), ". Skipping updating the token.")
+	} else {
+		if tok.AccessToken != "" {
+			p.bearerToken = tok.AccessToken
+		} else {
+			idToken, ok := tok.Extra("id_token").(string)
+			if ok {
+				p.bearerToken = idToken
+			}
+		}
+		p.l.Debug("Got OAuth token, len: ", strconv.FormatInt(int64(len(p.bearerToken)), 10), ", expirationTime: ", tok.Expiry.String())
+	}
 }
 
 // Init initializes the probe with the given params.
@@ -176,6 +208,7 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 			return err
 		}
 		p.oauthTS = oauthTS
+		p.updateOauthToken() // This is also called periodically.
 	}
 
 	if p.c.GetDisableHttp2() {
@@ -194,14 +227,15 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		p.statsExportFrequency = 1
 	}
 
-	// Update targets and associated data structures (requests and results) once
-	// in Init(). It's also called periodically in Start(), at
-	// targetsUpdateInterval.
-	p.updateTargets()
-	p.targetsUpdateFrequency = targetsUpdateInterval.Nanoseconds() / p.opts.Interval.Nanoseconds()
-	if p.targetsUpdateFrequency == 0 {
-		p.targetsUpdateFrequency = 1
+	p.targets = p.opts.Targets.ListEndpoints()
+	p.cancelFuncs = make(map[string]context.CancelFunc, len(p.targets))
+
+	p.targetsUpdateInterval = DefaultTargetsUpdateInterval
+	// There is no point refreshing targets before probe interval.
+	if p.targetsUpdateInterval < p.opts.Interval {
+		p.targetsUpdateInterval = p.opts.Interval
 	}
+	p.l.Infof("Targets update interval: %v", p.targetsUpdateInterval)
 
 	return nil
 }
@@ -292,148 +326,219 @@ func (p *Probe) doHTTPRequest(req *http.Request, targetName string, result *prob
 	}
 }
 
-func (p *Probe) updateTargets() {
-	p.targets = p.opts.Targets.ListEndpoints()
-
-	if p.httpRequests == nil {
-		p.httpRequests = make(map[string]*http.Request, len(p.targets))
-	}
-
-	if p.results == nil {
-		p.results = make(map[string]*probeResult, len(p.targets))
-	}
-
-	// OAuth token is target independent.
-	if p.oauthTS != nil {
-		tok, err := p.oauthTS.Token()
-		if err != nil {
-			p.l.Error("Error getting OAuth token: ", err.Error(), ". Skipping updating the token.")
-		} else {
-			if tok.AccessToken != "" {
-				p.bearerToken = tok.AccessToken
-			} else {
-				idToken, ok := tok.Extra("id_token").(string)
-				if ok {
-					p.bearerToken = idToken
-				}
-			}
-			p.l.Debug("Got OAuth token, len: ", strconv.FormatInt(int64(len(p.bearerToken)), 10), ", expirationTime: ", tok.Expiry.String())
-		}
-	}
-
-	for _, target := range p.targets {
-		// Update HTTP request
-		req := p.httpRequestForTarget(target, nil)
-		if req != nil {
-			p.httpRequests[target.Name] = req
-		}
-
-		for _, al := range p.opts.AdditionalLabels {
-			al.UpdateForTarget(target.Name, target.Labels)
-		}
-
-		// Add missing result objects
-		if p.results[target.Name] == nil {
-			var latencyValue metrics.Value
-			if p.opts.LatencyDist != nil {
-				latencyValue = p.opts.LatencyDist.Clone()
-			} else {
-				latencyValue = metrics.NewFloat(0)
-			}
-			p.results[target.Name] = &probeResult{
-				latency:           latencyValue,
-				respCodes:         metrics.NewMap("code", metrics.NewInt(0)),
-				respBodies:        metrics.NewMap("resp", metrics.NewInt(0)),
-				validationFailure: validators.ValidationFailureMap(p.opts.Validators),
-			}
-		}
-	}
-}
-
-func (p *Probe) runProbe(ctx context.Context) {
+func (p *Probe) runProbe(ctx context.Context, target endpoint.Endpoint, req *http.Request, result *probeResult) {
 	reqCtx, cancelReqCtx := context.WithTimeout(ctx, p.opts.Timeout)
 	defer cancelReqCtx()
 
 	wg := sync.WaitGroup{}
-	for _, target := range p.targets {
-		req, result := p.httpRequests[target.Name], p.results[target.Name]
-		if req == nil {
-			continue
-		}
 
-		// We launch a separate goroutine for each HTTP request. Since there can be
-		// multiple requests per probe per target, we use a mutex to protect access
-		// to per-target result object in doHTTPRequest. Note that result object is
-		// not accessed concurrently anywhere else -- export of the metrics happens
-		// when probe is not running.
-		var resultMu sync.Mutex
+	// We launch a separate goroutine for each HTTP request. Since there can be
+	// multiple requests per probe per target, we use a mutex to protect access
+	// to per-target result object in doHTTPRequest. Note that result object is
+	// not accessed concurrently anywhere else -- export of the metrics happens
+	// when probe is not running.
+	var resultMu sync.Mutex
 
-		for numReq := int32(0); numReq < p.c.GetRequestsPerProbe(); numReq++ {
-			wg.Add(1)
+	for numReq := int32(0); numReq < p.c.GetRequestsPerProbe(); numReq++ {
+		wg.Add(1)
 
-			go func(req *http.Request, targetName string, result *probeResult) {
-				defer wg.Done()
-				p.doHTTPRequest(req.WithContext(reqCtx), targetName, result, &resultMu)
-			}(req, target.Name, result)
-		}
+		go func(req *http.Request, targetName string, result *probeResult) {
+			defer wg.Done()
+			p.doHTTPRequest(req.WithContext(reqCtx), targetName, result, &resultMu)
+		}(req, target.Name, result)
 	}
 
 	// Wait until all probes are done.
 	wg.Wait()
 }
 
-// Start starts and runs the probe indefinitely.
-func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) {
+func (p *Probe) newResult() *probeResult {
+	var latencyValue metrics.Value
+	if p.opts.LatencyDist != nil {
+		latencyValue = p.opts.LatencyDist.Clone()
+	} else {
+		latencyValue = metrics.NewFloat(0)
+	}
+	return &probeResult{
+		latency:           latencyValue,
+		respCodes:         metrics.NewMap("code", metrics.NewInt(0)),
+		respBodies:        metrics.NewMap("resp", metrics.NewInt(0)),
+		validationFailure: validators.ValidationFailureMap(p.opts.Validators),
+	}
+}
+
+func (p *Probe) startForTarget(ctx context.Context, target endpoint.Endpoint, dataChan chan *metrics.EventMetrics) {
+	p.l.Debug("Starting probing for the target ", target.Name)
+
+	// We use this counter to decide when to export stats.
+	var runCnt int64
+
+	for _, al := range p.opts.AdditionalLabels {
+		al.UpdateForTarget(target.Name, target.Labels)
+	}
+	result := p.newResult()
+	req := p.httpRequestForTarget(target, nil)
+
 	ticker := time.NewTicker(p.opts.Interval)
 	defer ticker.Stop()
-
 	for ts := range ticker.C {
 		// Don't run another probe if context is canceled already.
+		if ctxDone(ctx) {
+			return
+		}
+
+		p.runProbe(ctx, target, req, result)
+
+		// Export stats if it's the time to do so.
+		runCnt++
+		if (runCnt % p.statsExportFrequency) == 0 {
+			em := metrics.NewEventMetrics(ts).
+				AddMetric("total", metrics.NewInt(result.total)).
+				AddMetric("success", metrics.NewInt(result.success)).
+				AddMetric("latency", result.latency).
+				AddMetric("timeouts", metrics.NewInt(result.timeouts)).
+				AddMetric("resp-code", result.respCodes).
+				AddMetric("resp-body", result.respBodies).
+				AddLabel("ptype", "http").
+				AddLabel("probe", p.name).
+				AddLabel("dst", target.Name)
+
+			if p.c.GetKeepAlive() {
+				em.AddMetric("connect_event", metrics.NewInt(result.connEvent))
+			}
+
+			em.LatencyUnit = p.opts.LatencyUnit
+
+			for _, al := range p.opts.AdditionalLabels {
+				em.AddLabel(al.KeyValueForTarget(target.Name))
+			}
+
+			if p.opts.Validators != nil {
+				em.AddMetric("validation_failure", result.validationFailure)
+			}
+
+			p.opts.LogMetrics(em)
+			dataChan <- em
+		}
+	}
+}
+
+func (p *Probe) gapBetweenTargets() time.Duration {
+	interTargetGap := time.Duration(p.c.GetIntervalBetweenTargetsMsec()) * time.Millisecond
+
+	// If not configured by user, determine based on probe interval and number of
+	// targets.
+	if interTargetGap == 0 {
+		// Use 1/10th of the probe interval to spread out target groroutines.
+		interTargetGap = p.opts.Interval / time.Duration(10*len(p.targets))
+	}
+
+	return interTargetGap
+}
+
+// updateTargetsAndStartProbes refreshes targets and starts probe loop for
+// new targets and cancels probe loops for targets that are no longer active.
+// Note that this function is not concurrency safe. It is never called
+// concurrently by Start().
+func (p *Probe) updateTargetsAndStartProbes(ctx context.Context, dataChan chan *metrics.EventMetrics) {
+	p.targets = p.opts.Targets.ListEndpoints()
+
+	p.l.Debugf("Probe(%s) got %d targets", p.name, len(p.targets))
+
+	// updatedTargets is used only for logging.
+	updatedTargets := make(map[string]string)
+	defer func() {
+		if len(updatedTargets) > 0 {
+			p.l.Infof("Probe(%s) targets updated: %v", p.name, updatedTargets)
+		}
+	}()
+
+	activeTargets := make(map[string]endpoint.Endpoint)
+	for _, target := range p.targets {
+		key := target.Key()
+		activeTargets[key] = target
+	}
+
+	// Stop probing for deleted targets by invoking cancelFunc.
+	for targetKey, cancelF := range p.cancelFuncs {
+		if _, ok := activeTargets[targetKey]; ok {
+			continue
+		}
+		cancelF()
+		updatedTargets[targetKey] = "DELETE"
+		delete(p.cancelFuncs, targetKey)
+	}
+
+	gapBetweenTargets := p.gapBetweenTargets()
+	var startWaitTime time.Duration
+
+	// Start probe loop for new targets.
+	for key, target := range activeTargets {
+		// This target is already initialized.
+		if _, ok := p.cancelFuncs[key]; ok {
+			continue
+		}
+		updatedTargets[key] = "ADD"
+
+		probeCtx, cancelF := context.WithCancel(ctx)
+		p.waitGroup.Add(1)
+
+		go func(target endpoint.Endpoint, waitTime time.Duration) {
+			defer p.waitGroup.Done()
+			// Wait for wait time + some jitter before starting this probe loop.
+			time.Sleep(waitTime + time.Duration(rand.Int63n(gapBetweenTargets.Microseconds()/10))*time.Microsecond)
+			p.startForTarget(probeCtx, target, dataChan)
+		}(target, startWaitTime)
+
+		startWaitTime += gapBetweenTargets
+
+		p.cancelFuncs[key] = cancelF
+	}
+}
+
+func ctxDone(ctx context.Context) bool {
+	select {
+	case <-ctx.Done():
+		return true
+	default:
+		return false
+	}
+}
+
+// wait waits for child go-routines (one per target) to clean up.
+func (p *Probe) wait() {
+	p.waitGroup.Wait()
+}
+
+// Start starts and runs the probe indefinitely.
+func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) {
+	defer p.wait()
+
+	p.updateTargetsAndStartProbes(ctx, dataChan)
+
+	// Do more frequent listing of targets until we get a non-zero list of
+	// targets.
+	for {
+		if ctxDone(ctx) {
+			return
+		}
+		if len(p.targets) != 0 {
+			break
+		}
+		p.updateTargetsAndStartProbes(ctx, dataChan)
+		time.Sleep(p.opts.Interval)
+	}
+
+	targetsUpdateTicker := time.NewTicker(p.targetsUpdateInterval)
+	defer targetsUpdateTicker.Stop()
+
+	for {
 		select {
 		case <-ctx.Done():
 			return
-		default:
-		}
-
-		// Update targets if its the turn for that.
-		if (p.runCnt % p.targetsUpdateFrequency) == 0 {
-			p.updateTargets()
-		}
-		p.runCnt++
-
-		p.runProbe(ctx)
-
-		if (p.runCnt % p.statsExportFrequency) == 0 {
-			for _, target := range p.targets {
-				result := p.results[target.Name]
-				em := metrics.NewEventMetrics(ts).
-					AddMetric("total", metrics.NewInt(result.total)).
-					AddMetric("success", metrics.NewInt(result.success)).
-					AddMetric("latency", result.latency).
-					AddMetric("timeouts", metrics.NewInt(result.timeouts)).
-					AddMetric("resp-code", result.respCodes).
-					AddMetric("resp-body", result.respBodies).
-					AddLabel("ptype", "http").
-					AddLabel("probe", p.name).
-					AddLabel("dst", target.Name)
-
-				if p.c.GetKeepAlive() {
-					em.AddMetric("connect_event", metrics.NewInt(result.connEvent))
-				}
-
-				em.LatencyUnit = p.opts.LatencyUnit
-
-				for _, al := range p.opts.AdditionalLabels {
-					em.AddLabel(al.KeyValueForTarget(target.Name))
-				}
-
-				if p.opts.Validators != nil {
-					em.AddMetric("validation_failure", result.validationFailure)
-				}
-
-				p.opts.LogMetrics(em)
-				dataChan <- em
-			}
+		case <-targetsUpdateTicker.C:
+			p.updateOauthToken()
+			p.updateTargetsAndStartProbes(ctx, dataChan)
 		}
 	}
 }

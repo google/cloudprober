@@ -201,7 +201,7 @@ func (pr *Prober) Init(ctx context.Context, cfg *configpb.ProberConfig, l *logge
 
 // Start starts a previously initialized Cloudprober.
 func (pr *Prober) Start(ctx context.Context) {
-	pr.dataChan = make(chan *metrics.EventMetrics, 1000)
+	pr.dataChan = make(chan *metrics.EventMetrics, 100000)
 
 	go func() {
 		var em *metrics.EventMetrics
