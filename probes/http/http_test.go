@@ -279,12 +279,11 @@ func TestMultipleTargetsMultipleRequests(t *testing.T) {
 		"test.com":      2 * reqPerProbe,
 		"fail-test.com": 0, // Test transport is configured to fail this.
 	}
-	time.Sleep(50 * time.Millisecond)
 
+	ems, err := testutils.MetricsFromChannel(dataChan, 10, time.Second)
 	// We should receive at least 4 eventmetrics: 2 probe cycle x 2 targets.
-	ems, err := testutils.MetricsFromChannel(dataChan, 4, time.Second)
-	if err != nil {
-		t.Errorf("Error getting eventmetrics from data channel: %v", err)
+	if err != nil && len(ems) < 4 {
+		t.Errorf("Error getting 4 eventmetrics from data channel: %v", err)
 	}
 
 	// Following verifies that we are able to cleanly stop the probe.
@@ -294,10 +293,10 @@ func TestMultipleTargetsMultipleRequests(t *testing.T) {
 	dataMap := testutils.MetricsMap(ems)
 	for tgt, wantSuccessVal := range wantSuccess {
 		successVals := dataMap["success"][tgt]
-		if len(successVals) < 2 {
-			t.Errorf("Success metric for %s: %v (less than 2)", tgt, successVals)
+		if len(successVals) < 1 {
+			t.Errorf("Success metric for %s: %v (less than 1)", tgt, successVals)
 		}
-		latestVal := successVals[1].Metric("success").(*metrics.Int).Int64()
+		latestVal := successVals[len(successVals)-1].Metric("success").(*metrics.Int).Int64()
 		if latestVal < wantSuccessVal {
 			t.Errorf("Got success value for target (%s): %d, want: %d", tgt, latestVal, wantSuccessVal)
 		}
