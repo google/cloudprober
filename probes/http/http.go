@@ -278,9 +278,11 @@ func (p *Probe) doHTTPRequest(req *http.Request, targetName string, result *prob
 	resp, err := p.client.Do(req)
 	latency := time.Since(start)
 
-	// Note that we take lock on result object outside of the actual request.
-	resultMu.Lock()
-	defer resultMu.Unlock()
+	if resultMu != nil {
+		// Note that we take lock on result object outside of the actual request.
+		resultMu.Lock()
+		defer resultMu.Unlock()
+	}
 
 	result.total++
 
@@ -330,25 +332,25 @@ func (p *Probe) runProbe(ctx context.Context, target endpoint.Endpoint, req *htt
 	reqCtx, cancelReqCtx := context.WithTimeout(ctx, p.opts.Timeout)
 	defer cancelReqCtx()
 
-	wg := sync.WaitGroup{}
+	if p.c.GetRequestsPerProbe() == 1 {
+		p.doHTTPRequest(req.WithContext(reqCtx), target.Name, result, nil)
+		return
+	}
 
-	// We launch a separate goroutine for each HTTP request. Since there can be
-	// multiple requests per probe per target, we use a mutex to protect access
-	// to per-target result object in doHTTPRequest. Note that result object is
-	// not accessed concurrently anywhere else -- export of the metrics happens
-	// when probe is not running.
+	// For multiple requests per probe, we launch a separate goroutine for each
+	// HTTP request. We use a mutex to protect access to per-target result object
+	// in doHTTPRequest. Note that result object is not accessed concurrently
+	// anywhere else -- export of metrics happens when probe is not running.
 	var resultMu sync.Mutex
 
+	wg := sync.WaitGroup{}
 	for numReq := int32(0); numReq < p.c.GetRequestsPerProbe(); numReq++ {
 		wg.Add(1)
-
 		go func(req *http.Request, targetName string, result *probeResult) {
 			defer wg.Done()
 			p.doHTTPRequest(req.WithContext(reqCtx), targetName, result, &resultMu)
 		}(req, target.Name, result)
 	}
-
-	// Wait until all probes are done.
 	wg.Wait()
 }
 
