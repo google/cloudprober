@@ -6,10 +6,19 @@
     <description>Recent content on Cloudprober</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
-    <lastBuildDate>Sun, 01 Nov 2020 17:24:32 -0700</lastBuildDate>
+    <lastBuildDate>Wed, 09 Dec 2020 17:24:32 -0700</lastBuildDate>
     
 	<atom:link href="https://cloudprober.org/index.xml" rel="self" type="application/rss+xml" />
     
+    
+    <item>
+      <title>Percentiles, Histograms, and Distributions</title>
+      <link>https://cloudprober.org/how-to/percentiles/</link>
+      <pubDate>Wed, 09 Dec 2020 17:24:32 -0700</pubDate>
+      
+      <guid>https://cloudprober.org/how-to/percentiles/</guid>
+      <description>Percentiles give you a deeper insight into how your system is behaving. For example, if your application&#39;s response latency is very low 94 times out 100 but very high for the remaining 6 times, your average latency will still be low but it won&#39;t be a great experience for your users. In other words, this is the case where your 95th percentile latency is high, even though your average and median (50th-%ile) latency is very low.</description>
+    </item>
     
     <item>
       <title>Stackdriver (Google Cloud Monitoring)</title>

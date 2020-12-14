@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+  
+  
+  
+  
+   <html class="no-js"> 
+
+  <head lang="en-us">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,user-scalable=no,initial-scale=1,maximum-scale=1">
+    <meta http-equiv="X-UA-Compatible" content="IE=10" />
+    <title>Percentiles, Histograms, and Distributions - Cloudprober</title>
+    <meta name="generator" content="Hugo 0.61.0" />
+
+    
+    <link rel="canonical" href="https://cloudprober.org/how-to/percentiles/">
+    
+
+    <meta property="og:url" content="https://cloudprober.org/how-to/percentiles/">
+    <meta property="og:title" content="Cloudprober">
+    
+    <meta name="apple-mobile-web-app-title" content="Cloudprober">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+    <link rel="shortcut icon" type="image/x-icon" href="https://cloudprober.org/images/favicon.ico">
+    <link rel="icon" type="image/x-icon" href="https://cloudprober.org/images/favicon.ico">
+
+    <style>
+      @font-face {
+        font-family: 'Icon';
+        src: url('https://cloudprober.org/fonts/icon.eot');
+        src: url('https://cloudprober.org/fonts/icon.eot')
+               format('embedded-opentype'),
+             url('https://cloudprober.org/fonts/icon.woff')
+               format('woff'),
+             url('https://cloudprober.org/fonts/icon.ttf')
+               format('truetype'),
+             url('https://cloudprober.org/fonts/icon.svg')
+               format('svg');
+        font-weight: normal;
+        font-style: normal;
+      }
+    </style>
+
+    <link rel="stylesheet" href="https://cloudprober.org/stylesheets/application.css">
+    <link rel="stylesheet" href="https://cloudprober.org/stylesheets/temporary.css">
+    <link rel="stylesheet" href="https://cloudprober.org/stylesheets/palettes.css">
+    <link rel="stylesheet" href="https://cloudprober.org/stylesheets/syntax.css">
+
+    
+    
+    
+    <link rel="stylesheet" href="//fonts.googleapis.com/css?family=Roboto:400,700|Roboto&#43;Mono">
+    <style>
+      body, input {
+        font-family: 'Roboto', Helvetica, Arial, sans-serif;
+      }
+      pre, code {
+        font-family: 'Roboto Mono', 'Courier New', 'Courier', monospace;
+      }
+    </style>
+
+    
+    <script src="https://cloudprober.org/javascripts/modernizr.js"></script>
+
+    
+
+  </head>
+  <body class=" ">
+
+
+
+	
+	
+
+
+<div class="backdrop">
+	<div class="backdrop-paper"></div>
+</div>
+
+<input class="toggle" type="checkbox" id="toggle-drawer">
+<input class="toggle" type="checkbox" id="toggle-search">
+<label class="toggle-button overlay" for="toggle-drawer"></label>
+
+<header class="header">
+	<nav aria-label="Header">
+  <div class="bar default">
+    <div class="button button-menu" role="button" aria-label="Menu">
+      <label class="toggle-button icon icon-menu" for="toggle-drawer">
+        <span></span>
+      </label>
+    </div>
+    <div class="stretch">
+      <div class="title">
+        Percentiles, Histograms, and Distributions
+      </div>
+    </div>
+
+    
+
+    
+    
+        
+  </div>
+  <div class="bar search">
+    <div class="button button-close" role="button" aria-label="Close">
+      <label class="toggle-button icon icon-back" for="toggle-search"></label>
+    </div>
+    <div class="stretch">
+      <div class="field">
+        <input class="query" type="text" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck>
+      </div>
+    </div>
+    <div class="button button-reset" role="button" aria-label="Search">
+      <button class="toggle-button icon icon-close" id="reset-search"></button>
+    </div>
+  </div>
+</nav>
+</header>
+
+<main class="main">
+	<div class="drawer">
+		<nav aria-label="Navigation">
+  <a href="https://github.com/google/cloudprober" class="project">
+    <div class="banner">
+      
+      <div class="name">
+        <strong>Cloudprober </strong>
+        
+          <br>
+          google/cloudprober
+        
+      </div>
+    </div>
+  </a>
+
+  <div class="scrollable">
+    <div class="wrapper">
+      
+        <ul class="repo">
+          <li class="repo-download">
+            <a href="https://github.com/google/cloudprober/archive/master.zip" target="_blank" title="Download" data-action="download">
+              <i class="icon icon-download"></i> Download
+            </a>
+          </li>
+          <li class="repo-stars">
+            <a href="https://github.com/google/cloudprober/stargazers" target="_blank" title="Stargazers" data-action="star">
+              <i class="icon icon-star"></i> Stars
+              <span class="count">&ndash;</span>
+            </a>
+          </li>
+        </ul>
+        <hr>
+      
+
+      <div class="toc">
+        
+        <ul>
+          
+
+
+
+
+<li>
+  
+    
+
+
+
+<a  title="Overview" href="https://cloudprober.org/">
+	
+	Overview
+</a>
+
+
+
+  
+</li>
+
+
+
+<li>
+  
+    
+
+
+
+<a  title="Getting Started" href="https://cloudprober.org/getting-started/">
+	
+	Getting Started
+</a>
+
+
+
+  
+</li>
+
+
+
+<li>
+  
+    
+
+
+
+<a  title="What is a Probe" href="https://cloudprober.org/concepts/probe/">
+	
+	What is a Probe
+</a>
+
+
+
+  
+</li>
+
+
+
+<li>
+  
+    
+
+
+
+<a  title="Targets Discovery" href="https://cloudprober.org/concepts/targets/">
+	
+	Targets Discovery
+</a>
+
+
+
+  
+</li>
+
+
+
+<li>
+  
+    <span class="section">Exporting Metrics (Surfacers)</span>
+    <ul>
+      
+        
+        
+
+
+
+<a  title="Surfacers" href="https://cloudprober.org/surfacers/overview/">
+	
+	Surfacers
+</a>
+
+
+
+      
+        
+        
+
+
+
+<a  title="Stackdriver (Google Cloud Monitoring)" href="https://cloudprober.org/surfacers/stackdriver/">
+	
+	Stackdriver (Google Cloud Monitoring)
+</a>
+
+
+
+      
+    </ul>
+  
+</li>
+
+
+
+<li>
+  
+    <span class="section">How-Tos</span>
+    <ul>
+      
+        
+        
+
+
+
+<a  title="Running On Kubernetes" href="https://cloudprober.org/how-to/run-on-kubernetes/">
+	
+	Running On Kubernetes
+</a>
+
+
+
+      
+        
+        
+
+
+
+<a class="current" title="Percentiles and Histograms" href="https://cloudprober.org/how-to/percentiles/">
+	
+	Percentiles and Histograms
+</a>
+
+
+<ul id="scrollspy">
+</ul>
+
+
+      
+        
+        
+
+
+
+<a  title="External Probe" href="https://cloudprober.org/how-to/external-probe/">
+	
+	External Probe
+</a>
+
+
+
+      
+        
+        
+
+
+
+<a  title="Validators" href="https://cloudprober.org/how-to/validators/">
+	
+	Validators
+</a>
+
+
+
+      
+        
+        
+
+
+
+<a  title="Built-in Servers" href="https://cloudprober.org/how-to/built-in-servers/">
+	
+	Built-in Servers
+</a>
+
+
+
+      
+        
+        
+
+
+
+<a  title="Extending Cloudprober" href="https://cloudprober.org/how-to/extensions/">
+	
+	Extending Cloudprober
+</a>
+
+
+
+      
+    </ul>
+  
+</li>
+
+
+        </ul>
+        
+
+        
+      </div>
+    </div>
+  </div>
+</nav>
+
+	</div>
+
+	<article class="article">
+		<div class="wrapper">
+			<h1>Percentiles, Histograms, and Distributions </h1>
+
+			<p>Percentiles give you a deeper insight into how your system is behaving. For example, if your application's response latency is very low 94 times out 100 but very high for the remaining 6 times, your average latency will still be low but it won't be a great experience for your users. In other words, this is the case where your 95th percentile latency is high, even though your average and median (50th-%ile) latency is very low.</p>
+<p>A typical way to measure percentiles from continuous monitoring data, which you may have to aggregate across various sources, is to use histograms (also called, distributions). In a histogram, you assign the incoming data points (samples) to pre-defined buckets. Each data point increases the count for the bucket that it falls into; data point itself is discarded after that. You can take a look at the bucket counts at any point of time and get an estimate of the percentiles. Histograms make it easy to aggregate data across multiple entities, for example, from probes running on multiple machines.</p>
+<p>Following diagram shows distribution of latencies into 9 equal sized histogram buckets:</p>
+<p><img src="https://cloudprober.org/diagrams/latency_distribution.png" alt="Distribution of Latencies" title="Histogram for the samples"></p>
+<p>(<em>Above diagram shows histogram for the following samples:
+5.1, 6.2, 9.0, 12.1, 8.3, 9.7, 9.4, 10.3, 14.1, 11.2, 16.6, 9.9, 10.6, 14.1, 0.9, 7.1, 17.7</em>)</p>
+<h2 id="histograms-in-cloudprober-distributions">Histograms in Cloudprober (Distributions)</h2>
+<p>Cloudprober uses a metric type called &lsquo;distribution&rsquo; to create and export histograms. Cloudprober supports creating distributions for probe latencies, and for metrics generated from external probe payloads. To create distributions, you have to specify how the data should be bucketed &ndash; you can either explicitly specify all bucket bounds, or use exponential buckets type which generates bucket bounds from only a few variables.</p>
+<p>Here is an example of using explicit buckets for latencies:</p>
+<pre><code>probe {
+  name: &quot;...&quot;
+  type: HTTP
+  targets {
+    host_names: &quot;...&quot;
+  }
+
+  latency_unit: &quot;ms&quot;
+  latency_distribution {
+    explicit_buckets: &quot;0.01,0.1,0.15,0.2,0.25,0.35,0.5,0.75,1.0,1.5,2.0,3.0,4.0,5.0,10.0,15.0,20.0&quot;
+  }
+}
+</code></pre><h2 id="configuring-distributions">Configuring distributions</h2>
+<p>As seen in the example above, for latencies you configure distribution at the probe level by adding a field called <code>latency_distribution</code>. Without this field, cloudprober exports only cumulative latencies. To create distributions from an external probe's data, take a look at the external probe's <a href="https://cloudprober.org/how-to/external-probe/#distributions">documentation</a>.</p>
+<p>Format for the distribution field is in turn defined in <a href="https://github.com/google/cloudprober/blob/master/metrics/proto/dist.proto">dist.proto</a>.</p>
+<div class="highlight"><pre class="chroma"><code class="language-protobuf" data-lang="protobuf"><span class="c1">// Dist defines a Distribution data type.
+</span><span class="c1"></span><span class="kd">message</span> <span class="nc">Dist</span> <span class="p">{</span><span class="err">
+</span><span class="err"></span>  <span class="k">oneof</span> <span class="n">buckets</span> <span class="p">{</span><span class="err">
+</span><span class="err"></span>    <span class="c1">// Comma-separated list of lower bounds, where each lower bound is a float
+</span><span class="c1"></span>    <span class="c1">// value. Example: 0.5,1,2,4,8.
+</span><span class="c1"></span>    <span class="kt">string</span> <span class="n">explicit_buckets</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span><span class="err">
+</span><span class="err"></span><span class="err">
+</span><span class="err"></span>    <span class="c1">// Exponentially growing buckets
+</span><span class="c1"></span>    <span class="n">ExponentialBuckets</span> <span class="n">exponential_buckets</span> <span class="o">=</span> <span class="mi">2</span><span class="p">;</span><span class="err">
+</span><span class="err"></span>  <span class="p">}</span><span class="err">
+</span><span class="err"></span><span class="p">}</span><span class="err">
+</span><span class="err"></span><span class="err">
+</span><span class="err"></span><span class="c1">// ExponentialBucket defines a set of num_buckets+2 buckets:
+</span><span class="c1"></span><span class="c1">//   bucket[0] covers (−Inf, 0)
+</span><span class="c1"></span><span class="c1">//   bucket[1] covers [0, scale_factor)
+</span><span class="c1"></span><span class="c1">//   bucket[2] covers [scale_factor, scale_factor*base)
+</span><span class="c1"></span><span class="c1">//   ...
+</span><span class="c1"></span><span class="c1">//   bucket[i] covers [scale_factor*base^(i−2), scale_factor*base^(i−1))
+</span><span class="c1"></span><span class="c1">//   ...
+</span><span class="c1"></span><span class="c1">//   bucket[num_buckets+1] covers [scale_factor*base^(num_buckets−1), +Inf)
+</span><span class="c1"></span><span class="c1">// Note: Base must be at least 1.01.
+</span><span class="c1"></span><span class="kd">message</span> <span class="nc">ExponentialBuckets</span> <span class="p">{</span><span class="err">
+</span><span class="err"></span>  <span class="k">optional</span> <span class="kt">float</span> <span class="n">scale_factor</span> <span class="o">=</span> <span class="mi">1</span> <span class="p">[</span><span class="k">default</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">]</span><span class="p">;</span><span class="err">
+</span><span class="err"></span>  <span class="k">optional</span> <span class="kt">float</span> <span class="n">base</span> <span class="o">=</span> <span class="mi">2</span> <span class="p">[</span><span class="k">default</span> <span class="o">=</span> <span class="mi">2</span><span class="p">]</span><span class="p">;</span><span class="err">
+</span><span class="err"></span>  <span class="k">optional</span> <span class="kt">uint32</span> <span class="n">num_buckets</span> <span class="o">=</span> <span class="mi">3</span> <span class="p">[</span><span class="k">default</span> <span class="o">=</span> <span class="mi">20</span><span class="p">]</span><span class="p">;</span><span class="err">
+</span><span class="err"></span><span class="p">}</span><span class="err">
+</span></code></pre></div><h2 id="percentiles-and-heatmap">Percentiles and Heatmap</h2>
+<p>Now that we've configured cloudprober to generate distributions, how do we make use of this new information. This depends on the monitoring system (prometheus, stackdriver, postgres, etc) you're exporting your data to.</p>
+<p>Both prometheus and <a href="https://cloudprober.org/surfacers/stackdriver/">stackdriver</a> support computing and plotting percentiles from the distributions data. Stackdriver can natively create heatmaps from distributions while for prometheus you need to use grafana to create heatmaps.</p>
+<h3 id="stackdriver-google-cloud-monitoring">Stackdriver (Google Cloud Monitoring)</h3>
+<p>Stackdriver automatically shows percentile aggregator for distribution metrics in metrics explorer (<a href="https://cloudprober.org/diagrams/metrics_explorer_percentile.png">example</a>). You can also use Stackdriver MQL to create percentiles (see <a href="https://cloudprober.org/surfacers/stackdriver/#accessing-the-data">stackdriver documentation</a> for other usages of MQL for cloudprober metrics):</p>
+<div class="highlight"><pre class="chroma"><code class="language-shell" data-lang="shell">fetch gce_instance
+<span class="p">|</span> metric <span class="s1">&#39;custom.googleapis.com/cloudprober/http/google_homepage/latency&#39;</span>
+<span class="p">|</span> filter <span class="o">(</span>resource.zone <span class="o">=</span><span class="o">=</span> <span class="s1">&#39;us-central1-a&#39;</span><span class="o">)</span>
+<span class="p">|</span> align delta<span class="o">(</span>1m<span class="o">)</span>
+<span class="p">|</span> every 1m
+<span class="p">|</span> group_by <span class="o">[</span>resource.zone<span class="o">]</span>, <span class="o">[</span>value_latency_percentile: percentile<span class="o">(</span>value.latency, 95<span class="o">)</span><span class="o">]</span>
+</code></pre></div><p>Stackdriver has <a href="https://cloud.google.com/monitoring/charts/charting-distribution-metrics">detailed documentation</a> on charting distributions.</p>
+<h3 id="prometheus">Prometheus</h3>
+<p>Cloudprober surfaces distributions to prometheus as prometheus metric type <a href="https://prometheus.io/docs/concepts/metric_types/#histogram">histogram</a>. Here is an example of prometheus metrics page created by cloudprober:</p>
+<div class="highlight"><pre class="chroma"><code class="language-shell" data-lang="shell"><span class="c1"># TYPE latency histogram</span>
+latency_sum<span class="o">{</span><span class="nv">ptype</span><span class="o">=</span><span class="s2">&#34;http&#34;</span>,probe<span class="o">=</span><span class="s2">&#34;my_probe&#34;</span>,dst<span class="o">=</span><span class="s2">&#34;hostA&#34;</span><span class="o">}</span> 77557.14022499947 <span class="m">1607766316442</span>
+latency_count<span class="o">{</span><span class="nv">ptype</span><span class="o">=</span><span class="s2">&#34;http&#34;</span>,probe<span class="o">=</span><span class="s2">&#34;my_probe&#34;</span>,dst<span class="o">=</span><span class="s2">&#34;hostA&#34;</span><span class="o">}</span> <span class="m">172150</span> <span class="m">1607766316442</span>
+latency_bucket<span class="o">{</span><span class="nv">ptype</span><span class="o">=</span><span class="s2">&#34;http&#34;</span>,probe<span class="o">=</span><span class="s2">&#34;my_probe&#34;</span>,dst<span class="o">=</span><span class="s2">&#34;hostA&#34;</span>,le<span class="o">=</span><span class="s2">&#34;0.01&#34;</span><span class="o">}</span> <span class="m">0</span> <span class="m">1607766316442</span>
+latency_bucket<span class="o">{</span><span class="nv">ptype</span><span class="o">=</span><span class="s2">&#34;http&#34;</span>,probe<span class="o">=</span><span class="s2">&#34;my_probe&#34;</span>,dst<span class="o">=</span><span class="s2">&#34;hostA&#34;</span>,le<span class="o">=</span><span class="s2">&#34;0.1&#34;</span><span class="o">}</span> <span class="m">0</span> <span class="m">1607766316442</span>
+...
+...
+latency_bucket<span class="o">{</span><span class="nv">ptype</span><span class="o">=</span><span class="s2">&#34;http&#34;</span>,probe<span class="o">=</span><span class="s2">&#34;my_probe&#34;</span>,dst<span class="o">=</span><span class="s2">&#34;hostA&#34;</span>,le<span class="o">=</span><span class="s2">&#34;75&#34;</span><span class="o">}</span> <span class="m">172150</span> <span class="m">1607766316442</span>
+latency_bucket<span class="o">{</span><span class="nv">ptype</span><span class="o">=</span><span class="s2">&#34;http&#34;</span>,probe<span class="o">=</span><span class="s2">&#34;my_probe&#34;</span>,dst<span class="o">=</span><span class="s2">&#34;hostA&#34;</span>,le<span class="o">=</span><span class="s2">&#34;100&#34;</span><span class="o">}</span> <span class="m">172150</span> <span class="m">1607766316442</span>
+latency_bucket<span class="o">{</span><span class="nv">ptype</span><span class="o">=</span><span class="s2">&#34;http&#34;</span>,probe<span class="o">=</span><span class="s2">&#34;my_probe&#34;</span>,dst<span class="o">=</span><span class="s2">&#34;hostA&#34;</span>,le<span class="o">=</span><span class="s2">&#34;+Inf&#34;</span><span class="o">}</span> <span class="m">172150</span> <span class="m">1607766316442</span>
+</code></pre></div><p>Fortunately there is already a plenty of good documentation on how to make use of histograms in prometheus and grafana:</p>
+<ul>
+<li><a href="https://grafana.com/blog/2020/06/23/how-to-visualize-prometheus-histograms-in-grafana/">Grafana blog</a> on how to visualize prometheus histograms in grafana.</li>
+<li>Prometheus documentation on <a href="https://prometheus.io/docs/practices/histograms/">histrograms</a>.</li>
+</ul>
+<h2 id="more-resources">More Resources</h2>
+<ol>
+<li><a href="https://www.circonus.com/2018/11/the-problem-with-percentiles-aggregation-brings-aggravation/">The Problem with Percentiles – Aggregation brings Aggravation</a>.</li>
+<li><a href="https://orangematter.solarwinds.com/2016/11/18/why-percentiles-dont-work-the-way-you-think/">Why percentiles don't work the way you think</a>.</li>
+</ol>
+
+
+			<aside class="copyright" role="note">
+				
+				Documentation built with
+				<a href="https://www.gohugo.io" target="_blank">Hugo</a>
+				using the
+				<a href="http://github.com/digitalcraftsman/hugo-material-docs" target="_blank">Material</a> theme.
+			</aside>
+
+			<footer class="footer">
+				
+			</footer>
+		</div>
+	</article>
+
+	<div class="results" role="status" aria-live="polite">
+		<div class="scrollable">
+			<div class="wrapper">
+				<div class="meta"></div>
+				<div class="list"></div>
+			</div>
+		</div>
+	</div>
+</main>
+
+    <script>
+    
+      var base_url = 'https:\/\/cloudprober.org\/';
+      var repo_id  = 'google\/cloudprober';
+    
+    </script>
+
+    <script src="https://cloudprober.org/javascripts/application.js"></script>
+    
+
+    <script>
+      /* Add headers to scrollspy */
+      var headers   = document.getElementsByTagName("h2");
+      var scrollspy = document.getElementById('scrollspy');
+
+      if(scrollspy) {
+        if(headers.length > 0) {
+          for(var i = 0; i < headers.length; i++) {
+            var li = document.createElement("li");
+            li.setAttribute("class", "anchor");
+
+            var a  = document.createElement("a");
+            a.setAttribute("href", "#" + headers[i].id);
+            a.setAttribute("title", headers[i].innerHTML);
+            a.innerHTML = headers[i].innerHTML;
+
+            li.appendChild(a)
+            scrollspy.appendChild(li);
+          }
+        } else {
+          scrollspy.parentElement.removeChild(scrollspy)
+        }
+
+
+        /* Add permanent link next to the headers */
+        var headers = document.querySelectorAll("h1, h2, h3, h4, h5, h6");
+
+        for(var i = 0; i < headers.length; i++) {
+            var a = document.createElement("a");
+            a.setAttribute("class", "headerlink");
+            a.setAttribute("href", "#" + headers[i].id);
+            a.setAttribute("title", "Permanent link")
+            a.innerHTML = "¶";
+            headers[i].appendChild(a);
+        }
+      }
+    </script>
+
+    
+      <script>
+        (function(i,s,o,g,r,a,m){
+          i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){(i[r].q=i[r].q||
+          []).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+          m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;
+          m.parentNode.insertBefore(a,m)
+        })(window, document,
+          'script', '//www.google-analytics.com/analytics.js', 'ga');
+         
+        ga('create', 'UA-79661-8', 'auto');
+        ga('set', 'anonymizeIp', true);
+        ga('send', 'pageview');
+         
+        var buttons = document.querySelectorAll('a');
+        Array.prototype.map.call(buttons, function(item) {
+          if (item.host != document.location.host) {
+            item.addEventListener('click', function() {
+              var action = item.getAttribute('data-action') || 'follow';
+              ga('send', 'event', 'outbound', action, item.href);
+            });
+          }
+        });
+         
+        var query = document.querySelector('.query');
+        query.addEventListener('blur', function() {
+          if (this.value) {
+            var path = document.location.pathname;
+            ga('send', 'pageview', path + '?q=' + this.value);
+          }
+        });
+      </script>
+    
+  </body>
+</html>
+
