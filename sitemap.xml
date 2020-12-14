@@ -4,7 +4,17 @@
   
   <url>
     <loc>https://cloudprober.org/</loc>
-    <lastmod>2020-11-01T17:24:32-07:00</lastmod>
+    <lastmod>2020-12-09T17:24:32-07:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://cloudprober.org/how-to/</loc>
+    <lastmod>2020-12-09T17:24:32-07:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://cloudprober.org/how-to/percentiles/</loc>
+    <lastmod>2020-12-09T17:24:32-07:00</lastmod>
   </url>
   
   <url>
@@ -34,11 +44,6 @@
   
   <url>
     <loc>https://cloudprober.org/how-to/built-in-servers/</loc>
-    <lastmod>2019-10-11T17:48:13-05:00</lastmod>
-  </url>
-  
-  <url>
-    <loc>https://cloudprober.org/how-to/</loc>
     <lastmod>2019-10-11T17:48:13-05:00</lastmod>
   </url>
   
