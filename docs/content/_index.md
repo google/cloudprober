@@ -50,7 +50,7 @@ what's broken in your system.
     and compiles into a static binary. It can be easily deployed, either as a
     standalone binary or through docker containers. Thanks to the automated,
     continuous, target discovery, there is usually no need to re-deploy or
-    re-configure cloudprober in response to the most of the changes.
+    re-configure cloudprober in response to most of the changes.
 *   Low footprint. Cloudprober docker image is small, containing just the
     statically compiled binary and it takes very little CPU and RAM to run even
     a large number of probes.
