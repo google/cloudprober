@@ -77,7 +77,7 @@ type Probe struct {
 
 	// Process and output results synchronization.
 	mu   sync.Mutex
-	errs probeErr
+	errs *probeErr
 	res  map[string]*probeRunResult
 }
 
@@ -184,8 +184,10 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	p.conn = conn
 
 	p.res = make(map[string]*probeRunResult)
-	p.errs.invalidMsgErrs = make(map[string]string)
-	p.errs.missingTargets = make(map[string]int)
+	p.errs = &probeErr{
+		invalidMsgErrs: make(map[string]string),
+		missingTargets: make(map[string]int),
+	}
 	return nil
 }
 
