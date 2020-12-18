@@ -73,6 +73,11 @@
   </url>
   
   <url>
+    <loc>https://cloudprober.org/_readme/</loc>
+    <priority>0</priority>
+  </url>
+  
+  <url>
     <loc>https://cloudprober.org/categories/</loc>
   </url>
   
