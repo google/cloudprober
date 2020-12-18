@@ -47,6 +47,11 @@ what's broken in your system.
 *   Extensible architecture. Cloudprober can be easily extended along most of
     the dimensions. Adding support for other Cloud targets, monitoring systems
     and even a new probe type, is straight-forward and fairly easy.
+
+## Getting Started
+
+Visit [Getting Started](http://cloudprober.org/getting-started) page to get
+started with Cloudprober.
     
 We'd love to hear your feedback. If you're using Cloudprober, would you please
 mind sharing how you use it by adding a comment [here](
