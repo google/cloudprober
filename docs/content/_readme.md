@@ -52,6 +52,8 @@ what's broken in your system.
 
 Visit [Getting Started](http://cloudprober.org/getting-started) page to get
 started with Cloudprober.
+
+## Feedback
     
 We'd love to hear your feedback. If you're using Cloudprober, would you please
 mind sharing how you use it by adding a comment [here](
