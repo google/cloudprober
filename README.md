@@ -1,1 +1,1 @@
-docs/content/_index.md
+docs/content/_readme.md
