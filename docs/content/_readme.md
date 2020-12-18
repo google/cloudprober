@@ -60,6 +60,6 @@ mind sharing how you use it by adding a comment [here](
 https://github.com/google/cloudprober/issues/123). It will be a great help in
 planning Cloudprober's future progression.
 
-Join [Cloudprober Slack](https://join.slack.com/t/cloudprober/shared_invite/enQtNjA1OTkyOTk3ODc3LWQzZDM2ZWUyNTI0M2E4NmM4NTIyMjM5M2E0MDdjMmU1NGQ3NWNiMjU4NTViMWMyMjg0M2QwMDhkZGZjZmFlNGE) or [mailing list](
-https://groups.google.com/forum/#!forum/cloudprober) for questions and discussion
+Join [Cloudprober Slack](https://join.slack.com/t/cloudprober/shared_invite/enQtNjA1OTkyOTk3ODc3LWQzZDM2ZWUyNTI0M2E4NmM4NTIyMjM5M2E0MDdjMmU1NGQ3NWNiMjU4NTViMWMyMjg0M2QwMDhkZGZjZmFlNGE) or [Github discussions](
+https://github.com/google/cloudprober/discussions) for questions and discussion
 about Cloudprober.
