@@ -17,6 +17,7 @@ package ping
 import (
 	"encoding/binary"
 	"net"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -101,11 +102,14 @@ func (p *Probe) prepareRequestPacket(pktbuf []byte, runID, seq uint16, unixNano 
 	// Fill payload with the bytes corresponding to current time.
 	prepareRequestPayload(pktbuf[8:], unixNano)
 
-	// For IPv6 and datagram sockets ,checksum is computed by the kernel.
-	if p.ipVer != 6 && !p.useDatagramSocket {
-		csum := checksum(pktbuf)
-		pktbuf[2] ^= byte(csum)
-		pktbuf[3] ^= byte(csum >> 8)
+	// For IPv6 checksum is always computed by the kernel.
+	// For IPv4, we compute checksum only if using RAW socket or OS is darwin.
+	if p.ipVer == 4 {
+		if !p.useDatagramSocket || runtime.GOOS == "darwin" {
+			csum := checksum(pktbuf)
+			pktbuf[2] ^= byte(csum)
+			pktbuf[3] ^= byte(csum >> 8)
+		}
 	}
 }
 
