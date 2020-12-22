@@ -36,6 +36,7 @@ import (
 var (
 	targetsF = flag.String("targets", "www.google.com,www.yahoo.com", "Comma separated list of targets")
 	config   = flag.String("config_file", "", "Config file to change ping probe options (see probes/ping/config.proto for default options)")
+	ipVer    = flag.Int("ip", 0, "IP version")
 )
 
 func main() {
@@ -58,6 +59,8 @@ func main() {
 		Timeout:     time.Second,
 		LatencyUnit: 1 * time.Millisecond,
 		ProbeConf:   probeConfig,
+		LogMetrics:  func(*metrics.EventMetrics) {},
+		IPVersion:   *ipVer,
 	}
 	p := &ping.Probe{}
 	if err := p.Init("ping", opts); err != nil {
