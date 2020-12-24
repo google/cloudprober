@@ -34,7 +34,7 @@ func newICMPConn(sourceIP net.IP, ipVer int, datagramSocket bool) (icmpConn, err
 		6: "ip6:ipv6-icmp",
 	}[ipVer]
 
-	if useDatagramSocket {
+	if datagramSocket {
 		network = "udp" + strconv.Itoa(ipVer)
 	}
 
