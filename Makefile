@@ -1,7 +1,7 @@
 VERSION ?= $(shell git describe --tags)
 DOCKER_VERSION ?= $(VERSION)
 GIT_COMMIT = $(strip $(shell git rev-parse --short HEAD))
-GIT_BRANCH = $(strip $(shell git branch --show-current))
+GIT_BRANCH ?= $(strip $(shell git rev-parse --abbrev-ref HEAD))
 GOBIN ?= ${GOPATH}/bin
 BINARY ?= cloudprober
 DOCKER_IMAGE ?= cloudprober/cloudprober
