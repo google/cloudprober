@@ -31,4 +31,7 @@ message SurfacerConf {
   // processing is paused while serving data to Stackdriver. This buffer is to
   // make writes to Stackdriver surfacer non-blocking.
   optional int64 metrics_buffer_size = 5 [default = 10000];
+
+  // If set to true, cloudprober will export all metrics as gauge metrics.
+  optional bool export_as_gauge = 6;
 }
