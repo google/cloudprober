@@ -1,7 +1,6 @@
 VERSION ?= $(shell git describe --tags)
 DOCKER_VERSION ?= $(VERSION)
 GIT_COMMIT = $(strip $(shell git rev-parse --short HEAD))
-GIT_BRANCH ?= $(strip $(shell git rev-parse --abbrev-ref HEAD))
 GOBIN ?= ${GOPATH}/bin
 BINARY ?= cloudprober
 DOCKER_IMAGE ?= cloudprober/cloudprober
@@ -26,7 +25,8 @@ docker_build: $(BINARY) ca-certificates.crt Dockerfile
 
 docker_push:
 	docker login -u "${DOCKER_USER}" -p "${DOCKER_PASS}"
-	docker push $(DOCKER_IMAGE):$(GIT_BRANCH)
+	docker tag $(DOCKER_IMAGE) $(DOCKER_IMAGE):$(DOCKER_VERSION)
+	docker push $(DOCKER_IMAGE):$(DOCKER_VERSION)
 
 docker_push_tagged:
 	docker tag $(DOCKER_IMAGE) $(DOCKER_IMAGE):$(DOCKER_VERSION)
