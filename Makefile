@@ -24,7 +24,7 @@ docker_build: $(BINARY) ca-certificates.crt Dockerfile
 		--build-arg VCS_REF=$(GIT_COMMIT) \
 		-t $(DOCKER_IMAGE)  .
 
-docker_push_master:
+docker_push:
 	docker login -u "${DOCKER_USER}" -p "${DOCKER_PASS}"
 	docker push $(DOCKER_IMAGE):$(GIT_BRANCH)
 
