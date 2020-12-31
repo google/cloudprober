@@ -98,7 +98,7 @@ jobs:
       env: 
         DOCKER_USER: ${{ secrets.docker_login }}
         DOCKER_PASS: ${{ secrets.docker_pass }}
-      run: make docker_push
+      run: make docker_push DOCKER_VERSION=master
 
     - name: Push Docker Image With Version
       if: startsWith(github.ref, 'refs/tags')
@@ -112,8 +112,6 @@ jobs:
     if: github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags')
     needs: [build]
     runs-on: ubuntu-latest
-    env:
-      GIT_BRANCH: master
       
     steps:
     - name: Check out code into the Go module directory
@@ -135,7 +133,7 @@ jobs:
       env: 
         DOCKER_USER: ${{ secrets.docker_login }}
         DOCKER_PASS: ${{ secrets.docker_pass }}
-      run: make -C contrib docker_push
+      run: make -C contrib docker_push DOCKER_VERSION=master
 
     - name: Push Docker Image With Version
       if: startsWith(github.ref, 'refs/tags')

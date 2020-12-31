@@ -27,13 +27,15 @@ docker_build: cloudprober bigquery_probe ca-certificates.crt Dockerfile
                 -t $(DOCKER_IMAGE)  .
 
 docker_push:
+	docker tag $(DOCKER_IMAGE):$(DOCKER_VERSION)
 	docker login -u "${DOCKER_USER}" -p "${DOCKER_PASS}"
-	docker push $(DOCKER_IMAGE):latest
+	docker push $(DOCKER_IMAGE):$(DOCKER_VERSION)
 
 docker_push_tagged:
 	docker tag $(DOCKER_IMAGE) $(DOCKER_IMAGE):$(DOCKER_VERSION)
+	docker tag $(DOCKER_IMAGE) $(DOCKER_IMAGE):latest
 	docker login -u "${DOCKER_USER}" -p "${DOCKER_PASS}"
-	docker push $(DOCKER_IMAGE):$(DOCKER_VERSION)
+	docker image push --all-tags $(DOCKER_IMAGE)
 
 clean:
 	rm cloudprober bigquery_probe
