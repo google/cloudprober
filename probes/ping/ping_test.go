@@ -1,4 +1,4 @@
-// Copyright 2017-2019 Google Inc.
+// Copyright 2017-2020 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -92,7 +92,7 @@ func (tic *testICMPConn) setFlipLastByte() {
 	tic.flipLastByte = true
 }
 
-func (tic *testICMPConn) read(buf []byte) (int, net.Addr, error) {
+func (tic *testICMPConn) read(buf []byte) (int, net.Addr, time.Time, error) {
 	// We create per-target select cases, with each target's select-case
 	// pointing to that target's sentPackets channel.
 	var cases []reflect.SelectCase
@@ -105,7 +105,7 @@ func (tic *testICMPConn) read(buf []byte) (int, net.Addr, error) {
 	// Select over the select cases.
 	chosen, value, ok := reflect.Select(cases)
 	if !ok {
-		return 0, nil, fmt.Errorf("nothing to read")
+		return 0, nil, time.Now(), fmt.Errorf("nothing to read")
 	}
 
 	pkt := value.Bytes()
@@ -128,7 +128,7 @@ func (tic *testICMPConn) read(buf []byte) (int, net.Addr, error) {
 	if tic.c.GetUseDatagramSocket() {
 		peer = &net.UDPAddr{IP: peerIP}
 	}
-	return len(pkt), peer, nil
+	return len(pkt), peer, time.Now(), nil
 }
 
 // write simply queues packets into the sentPackets channel. These packets are
