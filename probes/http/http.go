@@ -369,6 +369,36 @@ func (p *Probe) newResult() *probeResult {
 	}
 }
 
+func (p *Probe) exportMetrics(ts time.Time, result *probeResult, targetName string, dataChan chan *metrics.EventMetrics) {
+	em := metrics.NewEventMetrics(ts).
+		AddMetric("total", metrics.NewInt(result.total)).
+		AddMetric("success", metrics.NewInt(result.success)).
+		AddMetric("latency", result.latency).
+		AddMetric("timeouts", metrics.NewInt(result.timeouts)).
+		AddMetric("resp-code", result.respCodes).
+		AddMetric("resp-body", result.respBodies).
+		AddLabel("ptype", "http").
+		AddLabel("probe", p.name).
+		AddLabel("dst", targetName)
+
+	if p.c.GetKeepAlive() {
+		em.AddMetric("connect_event", metrics.NewInt(result.connEvent))
+	}
+
+	em.LatencyUnit = p.opts.LatencyUnit
+
+	for _, al := range p.opts.AdditionalLabels {
+		em.AddLabel(al.KeyValueForTarget(targetName))
+	}
+
+	if p.opts.Validators != nil {
+		em.AddMetric("validation_failure", result.validationFailure)
+	}
+
+	p.opts.LogMetrics(em)
+	dataChan <- em
+}
+
 func (p *Probe) startForTarget(ctx context.Context, target endpoint.Endpoint, dataChan chan *metrics.EventMetrics) {
 	p.l.Debug("Starting probing for the target ", target.Name)
 
@@ -389,38 +419,23 @@ func (p *Probe) startForTarget(ctx context.Context, target endpoint.Endpoint, da
 			return
 		}
 
-		p.runProbe(ctx, target, req, result)
+		// If request is nil (most likely because target resolving failed or it
+		// was an invalid target), skip this probe cycle. Note that request
+		// creation gets retried at a regular interval (stats export interval).
+		if req != nil {
+			p.runProbe(ctx, target, req, result)
+		}
 
 		// Export stats if it's the time to do so.
 		runCnt++
 		if (runCnt % p.statsExportFrequency) == 0 {
-			em := metrics.NewEventMetrics(ts).
-				AddMetric("total", metrics.NewInt(result.total)).
-				AddMetric("success", metrics.NewInt(result.success)).
-				AddMetric("latency", result.latency).
-				AddMetric("timeouts", metrics.NewInt(result.timeouts)).
-				AddMetric("resp-code", result.respCodes).
-				AddMetric("resp-body", result.respBodies).
-				AddLabel("ptype", "http").
-				AddLabel("probe", p.name).
-				AddLabel("dst", target.Name)
+			p.exportMetrics(ts, result, target.Name, dataChan)
 
-			if p.c.GetKeepAlive() {
-				em.AddMetric("connect_event", metrics.NewInt(result.connEvent))
+			// If we are resolving first, this is also a good time to recreate HTTP
+			// request in case target's IP has changed.
+			if p.c.GetResolveFirst() {
+				req = p.httpRequestForTarget(target, nil)
 			}
-
-			em.LatencyUnit = p.opts.LatencyUnit
-
-			for _, al := range p.opts.AdditionalLabels {
-				em.AddLabel(al.KeyValueForTarget(target.Name))
-			}
-
-			if p.opts.Validators != nil {
-				em.AddMetric("validation_failure", result.validationFailure)
-			}
-
-			p.opts.LogMetrics(em)
-			dataChan <- em
 		}
 	}
 }

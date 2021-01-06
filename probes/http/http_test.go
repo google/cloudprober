@@ -247,7 +247,7 @@ func testProbeWithLargeBody(t *testing.T, bodySize int) {
 }
 
 func TestMultipleTargetsMultipleRequests(t *testing.T) {
-	testTargets := []string{"test.com", "fail-test.com"}
+	testTargets := []string{"test.com", "fail-test.com", "http://www.google.com"}
 	reqPerProbe := int64(3)
 	opts := &options.Options{
 		Targets:             targets.StaticTargets(strings.Join(testTargets, ",")),
@@ -275,9 +275,15 @@ func TestMultipleTargetsMultipleRequests(t *testing.T) {
 		p.Start(ctx, dataChan)
 	}()
 
-	wantSuccess := map[string]int64{
-		"test.com":      2 * reqPerProbe,
-		"fail-test.com": 0, // Test transport is configured to fail this.
+	// target -> [success, total]
+	wantData := map[string][2]int64{
+		"test.com": [2]int64{2 * reqPerProbe, 2 * reqPerProbe},
+
+		// Test transport is configured to fail this.
+		"fail-test.com": [2]int64{0, 2 * reqPerProbe},
+
+		// No probes sent because of bad target (http)
+		"http://www.google.com": [2]int64{0, 0},
 	}
 
 	ems, err := testutils.MetricsFromChannel(dataChan, 100, time.Second)
@@ -291,8 +297,10 @@ func TestMultipleTargetsMultipleRequests(t *testing.T) {
 	wg.Wait()
 
 	dataMap := testutils.MetricsMap(ems)
-	for tgt, wantSuccessVal := range wantSuccess {
-		successVals := dataMap["success"][tgt]
+	for tgt, d := range wantData {
+		wantSuccessVal, wantTotalVal := d[0], d[1]
+		successVals, totalVals := dataMap["success"][tgt], dataMap["total"][tgt]
+
 		if len(successVals) < 1 {
 			t.Errorf("Success metric for %s: %v (less than 1)", tgt, successVals)
 			continue
@@ -300,6 +308,15 @@ func TestMultipleTargetsMultipleRequests(t *testing.T) {
 		latestVal := successVals[len(successVals)-1].Metric("success").(*metrics.Int).Int64()
 		if latestVal < wantSuccessVal {
 			t.Errorf("Got success value for target (%s): %d, want: %d", tgt, latestVal, wantSuccessVal)
+		}
+
+		if len(totalVals) < 1 {
+			t.Errorf("Total metric for %s: %v (less than 1)", tgt, totalVals)
+			continue
+		}
+		latestVal = totalVals[len(totalVals)-1].Metric("total").(*metrics.Int).Int64()
+		if latestVal < wantTotalVal {
+			t.Errorf("Got total value for target (%s): %d, want: %d", tgt, latestVal, wantTotalVal)
 		}
 	}
 }
