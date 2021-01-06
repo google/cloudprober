@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 2020 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,37 +12,42 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// +build !aix,!darwin,!dragonfly,!freebsd,!linux,!netbsd,!openbsd,!solaris
+
 package ping
 
 import (
 	"net"
+	"strconv"
 	"time"
 
 	"golang.org/x/net/icmp"
 )
 
-// icmpConn is an interface wrapper for *icmp.PacketConn to allow testing.
-type icmpConn interface {
-	read(buf []byte) (n int, peer net.Addr, err error)
-	write(buf []byte, peer net.Addr) (int, error)
-	setReadDeadline(deadline time.Time)
-	close()
-}
-
 type icmpPacketConn struct {
 	c *icmp.PacketConn
 }
 
-func newICMPConn(proto, source string) (icmpConn, error) {
-	c, err := icmp.ListenPacket(proto, source)
+func newICMPConn(sourceIP net.IP, ipVer int, datagramSocket bool) (icmpConn, error) {
+	network := map[int]string{
+		4: "ip4:icmp",
+		6: "ip6:ipv6-icmp",
+	}[ipVer]
+
+	if datagramSocket {
+		network = "udp" + strconv.Itoa(ipVer)
+	}
+
+	c, err := icmp.ListenPacket(network, sourceIP.String())
 	if err != nil {
 		return nil, err
 	}
 	return &icmpPacketConn{c}, nil
 }
 
-func (ipc *icmpPacketConn) read(buf []byte) (int, net.Addr, error) {
-	return ipc.c.ReadFrom(buf)
+func (ipc *icmpPacketConn) read(buf []byte) (int, net.Addr, time.Time, error) {
+	n, addr, err := ipc.c.ReadFrom(buf)
+	return n, addr, time.Now(), err
 }
 
 func (ipc *icmpPacketConn) write(buf []byte, peer net.Addr) (int, error) {

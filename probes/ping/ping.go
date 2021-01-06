@@ -1,4 +1,4 @@
-// Copyright 2017-2019 Google Inc.
+// Copyright 2017-2020 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -72,6 +72,14 @@ type result struct {
 	validationFailure *metrics.Map
 }
 
+// icmpConn is an interface wrapper for *icmp.PacketConn to allow testing.
+type icmpConn interface {
+	read(buf []byte) (n int, peer net.Addr, recvTime time.Time, err error)
+	write(buf []byte, peer net.Addr) (int, error)
+	setReadDeadline(deadline time.Time)
+	close()
+}
+
 // Probe implements a ping probe type that sends ICMP ping packets to the targets and reports
 // back statistics on packets sent, received and the rtt.
 type Probe struct {
@@ -81,7 +89,6 @@ type Probe struct {
 	l    *logger.Logger
 
 	// book-keeping params
-	source            string
 	ipVer             int
 	targets           []endpoint.Endpoint
 	results           map[string]*result
@@ -143,10 +150,6 @@ func (p *Probe) initInternal() error {
 	p.target2addr = make(map[string]net.Addr)
 	p.useDatagramSocket = p.c.GetUseDatagramSocket()
 
-	if p.opts.SourceIP != nil {
-		p.source = p.opts.SourceIP.String()
-	}
-
 	// Update targets run peiodically as well.
 	p.updateTargets()
 
@@ -182,19 +185,8 @@ func (p *Probe) configureIntegrityCheck() error {
 }
 
 func (p *Probe) listen() error {
-	netProto := "ip4:icmp"
-	if p.ipVer == 6 {
-		netProto = "ip6:ipv6-icmp"
-	}
-
-	if p.useDatagramSocket {
-		// udp network represents datagram ICMP sockets. The name is a bit
-		// misleading, but that's what Go's icmp package uses.
-		netProto = fmt.Sprintf("udp%d", p.ipVer)
-	}
-
 	var err error
-	p.conn, err = newICMPConn(netProto, p.source)
+	p.conn, err = newICMPConn(p.opts.SourceIP, p.ipVer, p.useDatagramSocket)
 	return err
 }
 
@@ -324,7 +316,7 @@ func (p *Probe) recvPackets(runID uint16, tracker chan bool) {
 		}
 
 		// Read packet from the socket
-		pktLen, peer, err := p.conn.read(pktbuf)
+		pktLen, peer, recvTime, err := p.conn.read(pktbuf)
 
 		if err != nil {
 			p.l.Warning(err.Error())
@@ -339,8 +331,14 @@ func (p *Probe) recvPackets(runID uint16, tracker chan bool) {
 			continue
 		}
 
-		// Record fetch time before further processing.
-		fetchTime := time.Now()
+		// recvTime should never be zero:
+		// -- On Unix systems, recvTime comes from the sockets.
+		// -- On Non-Unix systems, read() call returns recvTime based on when
+		//    packet was received by cloudprober.
+		if recvTime.IsZero() {
+			p.l.Info("didn't get fetch time from the connection (SO_TIMESTAMP), using current time")
+			recvTime = time.Now()
+		}
 
 		var ip net.IP
 		if p.useDatagramSocket {
@@ -360,7 +358,7 @@ func (p *Probe) recvPackets(runID uint16, tracker chan bool) {
 		}
 
 		var pkt = rcvdPkt{
-			tsUnix: fetchTime.UnixNano(),
+			tsUnix: recvTime.UnixNano(),
 			target: target,
 			// ICMP packet body starts from the 5th byte
 			id:   binary.BigEndian.Uint16(pktbuf[4:6]),
