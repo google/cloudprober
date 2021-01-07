@@ -247,7 +247,7 @@ func testProbeWithLargeBody(t *testing.T, bodySize int) {
 }
 
 func TestMultipleTargetsMultipleRequests(t *testing.T) {
-	testTargets := []string{"test.com", "fail-test.com", "http://www.google.com"}
+	testTargets := []string{"test.com", "fail-test.com", "fails-to-resolve.com"}
 	reqPerProbe := int64(3)
 	opts := &options.Options{
 		Targets:             targets.StaticTargets(strings.Join(testTargets, ",")),
@@ -283,7 +283,7 @@ func TestMultipleTargetsMultipleRequests(t *testing.T) {
 		"fail-test.com": [2]int64{0, 2 * reqPerProbe},
 
 		// No probes sent because of bad target (http)
-		"http://www.google.com": [2]int64{0, 0},
+		"fails-to-resolve.com": [2]int64{0, 0},
 	}
 
 	ems, err := testutils.MetricsFromChannel(dataChan, 100, time.Second)

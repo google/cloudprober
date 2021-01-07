@@ -172,14 +172,6 @@ func TestDummyTargets(t *testing.T) {
 	}
 }
 
-func TestStaticTargets(t *testing.T) {
-	testHosts := "host1,host2"
-	got := endpoint.NamesFromEndpoints(StaticTargets(testHosts).ListEndpoints())
-	if !reflect.DeepEqual(got, strings.Split(testHosts, ",")) {
-		t.Errorf("StaticTargets not working as expected. Got list: %q, Expected: %s", got, strings.Split(testHosts, ","))
-	}
-}
-
 type testTargetsType struct {
 	names []string
 }
