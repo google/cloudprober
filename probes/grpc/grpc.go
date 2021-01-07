@@ -24,6 +24,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
+	"strconv"
 	"sync"
 	"time"
 
@@ -155,7 +157,7 @@ func (p *Probe) updateTargetsAndStartProbes(ctx context.Context) {
 	activeTargets := make(map[string]bool)
 	// Create results structure and start probe loop for new targets.
 	for _, tgtEp := range newTargets {
-		tgt := tgtEp.Name
+		tgt := net.JoinHostPort(tgtEp.Name, strconv.Itoa(tgtEp.Port))
 		activeTargets[tgt] = true
 		if _, ok := p.results[tgt]; ok {
 			continue

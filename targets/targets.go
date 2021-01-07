@@ -93,12 +93,12 @@ type resolver interface {
 // example, one could have a probe whose targets are `host_names:
 // "www.google.com, 8.8.8.8"`.
 type staticLister struct {
-	list []string
+	list []endpoint.Endpoint
 }
 
 // List returns a copy of its static host list.
-func (sh *staticLister) ListEndpoints() []endpoint.Endpoint {
-	return endpoint.EndpointsFromNames(append([]string{}, sh.list...))
+func (sl *staticLister) ListEndpoints() []endpoint.Endpoint {
+	return sl.list
 }
 
 // A dummy target object, for external probes that don't have any
@@ -240,18 +240,15 @@ func baseTargets(targetsDef *targetspb.TargetsDef, ldLister endpoint.Lister, l *
 	return tgts, nil
 }
 
-// StaticTargets returns a basic "targets" object (implementing the targets
-// interface) from a comma-separated list of hosts.
-// This function is specially useful if you want to get a valid targets object
-// without an associated TargetDef protobuf (for example for testing).
+// StaticTargets returns a basic "targets" object (implementing the Targets
+// interface) from a comma-separated list of hosts. This function panics if
+// "hosts" string is not valid. It is mainly used by tests to quickly get a
+// targets.Targets object from a list of hosts.
 func StaticTargets(hosts string) Targets {
-	t, _ := baseTargets(nil, nil, nil)
-	sl := &staticLister{}
-	for _, name := range strings.Split(hosts, ",") {
-		sl.list = append(sl.list, strings.TrimSpace(name))
+	t, err := staticTargets(hosts)
+	if err != nil {
+		panic(err)
 	}
-	t.lister = sl
-	t.resolver = globalResolver
 	return t
 }
 
@@ -320,7 +317,10 @@ func New(targetsDef *targetspb.TargetsDef, ldLister endpoint.Lister, globalOpts 
 
 	switch targetsDef.Type.(type) {
 	case *targetspb.TargetsDef_HostNames:
-		st := StaticTargets(targetsDef.GetHostNames())
+		st, err := staticTargets(targetsDef.GetHostNames())
+		if err != nil {
+			return nil, fmt.Errorf("targets.New(): error creating targets from host_names: %v", err)
+		}
 		t.lister, t.resolver = st, st
 
 	case *targetspb.TargetsDef_SharedTargets:

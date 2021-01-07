@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"reflect"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -96,7 +97,8 @@ func globalGRPCServer() (string, error) {
 		srv := &Server{delay: time.Second / 2, msg: make([]byte, 1024)}
 		grpcpb.RegisterProberServer(grpcSrv, srv)
 		go grpcSrv.Serve(ln)
-		srvAddr = ln.Addr().String()
+		tcpAddr := ln.Addr().(*net.TCPAddr)
+		srvAddr = net.JoinHostPort(tcpAddr.IP.String(), strconv.Itoa(tcpAddr.Port))
 		time.Sleep(time.Second * 2)
 	})
 	return srvAddr, err
@@ -354,8 +356,8 @@ func TestTargets(t *testing.T) {
 	}
 	l := &logger.Logger{}
 
-	goodTargets := endpoint.EndpointsFromNames([]string{addr})
-	badTargets := endpoint.EndpointsFromNames([]string{"localhost:1", "localhost:2"})
+	goodTargets := targets.StaticTargets(addr).ListEndpoints()
+	badTargets := targets.StaticTargets("localhost:1,localhost:2").ListEndpoints()
 
 	// Target discovery changes from good to bad targets after 2 statsExports.
 	// And probe continues for 10 more stats exports.
