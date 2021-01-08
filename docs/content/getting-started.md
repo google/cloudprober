@@ -20,8 +20,8 @@ can download and install `cloudprober` using the following commands:
 You can download pre-built binaries for Linux, MacOS and Windows from the
 project's [releases page](http://github.com/google/cloudprober/releases).  
 (_See [this page](
-https://github.com/google/cloudprober/wiki/Download-unreleased-binaries) on
-how to download unreleased binaries._)
+https://github.com/google/cloudprober/wiki/Download-unreleased-binaries) for
+how to download the unreleased binaries._)
 
 * __Docker Image__
 You can download and run the [latest](
