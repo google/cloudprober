@@ -1,6 +1,5 @@
-[![Build
-Status](https://travis-ci.org/google/cloudprober.svg?branch=master)](https://travis-ci.org/google/cloudprober)
-[![Build status](https://ci.appveyor.com/api/projects/status/ypg1okxxfedwkksk?svg=true)](https://ci.appveyor.com/project/manugarg/cloudprober-wwcpu)
+![Go Build and Test](https://github.com/google/cloudprober/workflows/Go%20Build%20and%20Test/badge.svg)
+[![Appveyor Build status](https://ci.appveyor.com/api/projects/status/ypg1okxxfedwkksk?svg=true)](https://ci.appveyor.com/project/manugarg/cloudprober-wwcpu)
 [![Docker Pulls](https://img.shields.io/docker/pulls/cloudprober/cloudprober.svg)](https://hub.docker.com/v2/repositories/cloudprober/cloudprober/)
 
 Cloudprober is a monitoring software that makes it super-easy to monitor
