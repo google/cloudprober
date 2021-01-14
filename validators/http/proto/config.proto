@@ -5,6 +5,14 @@ package cloudprober.validators.http;
 option go_package = "github.com/google/cloudprober/validators/http/proto";
 
 message Validator {
+
+  message Header {
+    // Header name to look for
+    required string name = 1;
+    // Header value to match. If omited - check for header existense
+    optional string value_regex = 2;
+  }
+
   // Comma-separated list of success status codes and code ranges.
   // Example: success_stauts_codes: 200-299,301,302
   optional string success_status_codes = 1;
@@ -12,4 +20,10 @@ message Validator {
   // an overloap between success and failure status codes, failure status codes
   // take precedence over success status codes.
   optional string failure_status_codes = 2;
+
+  // expected successfull validation HTTP response header
+  optional Header success_header = 3;
+
+  // expected failure validation HTTP response header
+  optional Header failure_header = 4;
 }

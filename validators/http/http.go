@@ -19,6 +19,7 @@ package http
 import (
 	"fmt"
 	nethttp "net/http"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -33,6 +34,8 @@ type Validator struct {
 
 	successStatusCodeRanges []*numRange
 	failureStatusCodeRanges []*numRange
+	successHeaderRegexp     *regexp.Regexp
+	failureHeaderRegexp     *regexp.Regexp
 }
 
 type numRange struct {
@@ -105,6 +108,29 @@ func lookupStatusCode(statusCode int, statusCodeRanges []*numRange) bool {
 	return false
 }
 
+// lookupHTTPHeader looks up for header and value in HTTP response.
+// returns true on first match. If value_regex is omitted - check for header existense only
+func lookupHTTPHeader(headers nethttp.Header, expectedHeader string, valueRegexp *regexp.Regexp) bool {
+
+	values, ok := headers[expectedHeader]
+
+	if !ok {
+		return false
+	}
+
+	if valueRegexp == nil {
+		return true
+	}
+
+	for _, value := range values {
+		if valueRegexp.MatchString(value) {
+			return true
+		}
+	}
+
+	return false
+}
+
 // Init initializes the HTTP validator.
 func (v *Validator) Init(config interface{}, l *logger.Logger) error {
 	c, ok := config.(*configpb.Validator)
@@ -124,6 +150,33 @@ func (v *Validator) Init(config interface{}, l *logger.Logger) error {
 		v.failureStatusCodeRanges, err = parseStatusCodeConfig(c.GetFailureStatusCodes())
 		if err != nil {
 			return err
+		}
+	}
+
+	if successHeader := c.GetSuccessHeader(); successHeader != nil {
+		if successHeader.GetName() == "" {
+			return fmt.Errorf("'%v' is not valid HTTP success header", successHeader.GetName())
+		}
+
+		if successHeader.GetValueRegex() != "" {
+			v.successHeaderRegexp, err = regexp.Compile(successHeader.GetValueRegex())
+			if err != nil {
+				return fmt.Errorf("'%v' is not valid HTTP header value regex", successHeader.GetValueRegex())
+			}
+		}
+
+	}
+
+	if failureHeader := c.GetFailureHeader(); failureHeader != nil {
+		if failureHeader.GetName() == "" {
+			return fmt.Errorf("'%v' is not valid HTTP failure header", failureHeader.GetName())
+		}
+
+		if failureHeader.GetValueRegex() != "" {
+			v.failureHeaderRegexp, err = regexp.Compile(failureHeader.GetValueRegex())
+			if err != nil {
+				return fmt.Errorf("'%v' is not valid HTTP header value regex", failureHeader.GetValueRegex())
+			}
 		}
 	}
 
@@ -147,11 +200,24 @@ func (v *Validator) Validate(input interface{}, unused []byte) (bool, error) {
 			return false, nil
 		}
 	}
-	if v.c.GetSuccessStatusCodes() != "" {
-		if lookupStatusCode(res.StatusCode, v.successStatusCodeRanges) {
-			return true, nil
+
+	if failureHeader := v.c.GetFailureHeader(); failureHeader != nil {
+		if lookupHTTPHeader(res.Header, failureHeader.GetName(), v.failureHeaderRegexp) {
+			return false, nil
 		}
 	}
 
-	return false, nil
+	if v.c.GetSuccessStatusCodes() != "" {
+		if !lookupStatusCode(res.StatusCode, v.successStatusCodeRanges) {
+			return false, nil
+		}
+	}
+
+	if successHeader := v.c.GetSuccessHeader(); successHeader != nil {
+		if !lookupHTTPHeader(res.Header, successHeader.GetName(), v.successHeaderRegexp) {
+			return false, nil
+		}
+	}
+
+	return true, nil
 }
