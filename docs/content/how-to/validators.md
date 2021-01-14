@@ -76,9 +76,12 @@ success_status_codes and failure_stauts_codes in the config):
  that range, validator is considered to have failed.
 * If *success_status_codes* is defined and response status code *does not*
  fall within that range, validator is considered to have failed.
-
-We can possibly add more checks to HTTP validator in the future, for example to
-verify headers.
+* If *failure_header* is defined and HTTP response include specified header and
+there are matching values, validator is considered to have failed. Leaving
+*value_regex* empty checks only for header name.
+* If *success_header* is defined and HTTP response *does not* include specified header
+with matching values, validator is considered to have failed. Leaving
+*value_regex* empty checks only for header name.
 
 ## Data Integrity Validator
 
