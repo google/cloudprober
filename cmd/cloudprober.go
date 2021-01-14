@@ -68,6 +68,7 @@ func setupConfigTestVars() {
 		"internal_ip":       "192.168.0.10",
 		"external_ip":       "10.10.10.10",
 		"instance_template": "ig-us-central1-a-01",
+		"machine_type":      "e2-small",
 	}
 }
 

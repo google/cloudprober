@@ -34,6 +34,11 @@ var gceVars = func(vars map[string]string, l *logger.Logger) (bool, error) {
 		return false, nil
 	}
 
+	getLastToken := func(value string) string {
+		tokens := strings.Split(value, "/")
+		return tokens[len(tokens)-1]
+	}
+
 	for _, k := range []string{
 		"zone",
 		"project",
@@ -43,6 +48,7 @@ var gceVars = func(vars map[string]string, l *logger.Logger) (bool, error) {
 		"internal_ip",
 		"external_ip",
 		"instance_template",
+		"machine_type",
 	} {
 		var v string
 		var err error
@@ -71,8 +77,16 @@ var gceVars = func(vars map[string]string, l *logger.Logger) (bool, error) {
 				v = "undefined"
 				err = nil
 			} else {
-				tokens := strings.Split(v, "/")
-				v = tokens[len(tokens)-1]
+				v = getLastToken(v)
+			}
+		case "machine_type":
+			v, err = metadata.Get("instance/machine-type")
+			if err != nil {
+				glog.Infof("Could not fetch machine type. Defaulting to undefined.")
+				v = "undefined"
+				err = nil
+			} else {
+				v = getLastToken(v)
 			}
 		default:
 			return onGCE, fmt.Errorf("sysvars_gce: unknown variable key %q", k)
