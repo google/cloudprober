@@ -116,8 +116,12 @@ func New(ctx context.Context, config *configpb.SurfacerConf, l *logger.Logger) (
 			}
 		}
 
+		// Getting instance name may fail on GKE.
+		// https://github.com/google/cloudprober/issues/554
+		// TODO(manugarg): Find a better solution for this. We should probably
+		// attach container or pod label while running on GKE.
 		if s.instanceName, err = metadata.InstanceName(); err != nil {
-			return nil, fmt.Errorf("unable to retrieve instance name: %v", err)
+			l.Warningf("Error getting instance name: %v", err)
 		}
 
 		if s.zone, err = metadata.Zone(); err != nil {
