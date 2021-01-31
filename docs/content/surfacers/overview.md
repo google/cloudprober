@@ -34,7 +34,7 @@ Adding surfacers to cloudprober is as easy as adding "surfacer" config stanzas t
 surfacer {
   type: PROMETHEUS
   
-  promethues_surfacer {
+  prometheus_surfacer {
     # Following option adds a prefix to exported metrics, for example,
     # "total" metric is exported as "cloudprober_total".
     metrics_prefix: "cloudprober"
