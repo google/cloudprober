@@ -444,10 +444,23 @@ func (p *Probe) runProbe() {
 	p.runID++
 }
 
+func (p *Probe) updateTargets() {
+	p.targets = p.opts.Targets.ListEndpoints()
+	if len(p.targets) > maxTargets {
+		p.l.Warningf("Number of targets (%d) > maxTargets (%d). Truncating the targets list.", len(p.targets), maxTargets)
+		p.targets = p.targets[:maxTargets]
+	}
+	for _, target := range p.targets {
+		for _, al := range p.opts.AdditionalLabels {
+			al.UpdateForTarget(target.Name, target.Labels)
+		}
+	}
+	p.initProbeRunResults()
+}
+
 // Start starts and runs the probe indefinitely.
 func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) {
-	p.targets = p.opts.Targets.ListEndpoints()
-	p.initProbeRunResults()
+	p.updateTargets()
 
 	for _, conn := range p.connList {
 		go p.recvLoop(ctx, conn)
@@ -475,13 +488,8 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 				p.opts.LogMetrics(em)
 				dataChan <- em
 			}
-
-			p.targets = p.opts.Targets.ListEndpoints()
-			if len(p.targets) > maxTargets {
-				p.l.Warningf("Number of targets (%d) > maxTargets (%d). Truncating the targets list.", len(p.targets), maxTargets)
-				p.targets = p.targets[:maxTargets]
-			}
-			p.initProbeRunResults()
+			// Use this opportunity to refresh targets as well.
+			p.updateTargets()
 		}
 	}
 }
