@@ -48,8 +48,14 @@ func main() {
 		glog.Exit("--project is a required paramater")
 	}
 
-	if *certServerName == "" {
-		*certServerName = *project
+	serverName := *certServerName
+	if serverName == "" {
+		serverName = *project
+
+		if strings.Contains(serverName, ":") {
+			parts := strings.SplitN(serverName, ":", 2)
+			serverName = parts[1] + "." + parts[0]
+		}
 	}
 
 	c := &configpb.ClientConf{
@@ -61,7 +67,7 @@ func main() {
 	if *rdsServerCert != "" {
 		c.ServerOptions.TlsConfig = &tlsconfigpb.TLSConfig{
 			CaCertFile: rdsServerCert,
-			ServerName: certServerName,
+			ServerName: proto.String(serverName),
 		}
 	}
 
