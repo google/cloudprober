@@ -413,7 +413,9 @@ func (p *Probe) startForTarget(ctx context.Context, target endpoint.Endpoint, da
 
 	ticker := time.NewTicker(p.opts.Interval)
 	defer ticker.Stop()
-	for ts := range ticker.C {
+
+	for ts := time.Now(); true; ts = <-ticker.C {
+
 		// Don't run another probe if context is canceled already.
 		if ctxDone(ctx) {
 			return
