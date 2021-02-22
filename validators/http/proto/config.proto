@@ -4,12 +4,39 @@ package cloudprober.validators.http;
 
 option go_package = "github.com/google/cloudprober/validators/http/proto";
 
+// HTTP validator configuration. For HTTP validator to succeed, all conditions
+// specified in the validator should succeed. Note that failures conditions are
+// evaluated before success conditions.
 message Validator {
   // Comma-separated list of success status codes and code ranges.
   // Example: success_stauts_codes: 200-299,301,302
   optional string success_status_codes = 1;
-  // Comma-separated list of failure status codes and code ranges. If there is
-  // an overloap between success and failure status codes, failure status codes
-  // take precedence over success status codes.
+
+  // Comma-separated list of failure status codes and code ranges. If HTTP
+  // status code matches failure_status_codes, validator fails.
   optional string failure_status_codes = 2;
+
+  message Header {
+    // Header name to look for
+    optional string name = 1;
+    // Header value to match. If omited - check for header existense
+    optional string value_regex = 2;
+  }
+
+  // Header based validations.
+  // TODO(manugarg): Add support for specifying multiple success and failure
+  // headers.
+  //
+  // Success Header:
+  //   If specified, HTTP response headers should match the success_header for
+  //   validation to succeed. Example:
+  //     success_header: {
+  //       name: "Strict-Transport-Security"
+  //       value_regex: "max-age=31536000"
+  //     }
+  optional Header success_header = 3;
+
+  // Failure Header:
+  //   If HTTP response headers match failure_header, validation fails.
+  optional Header failure_header = 4;
 }

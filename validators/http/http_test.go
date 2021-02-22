@@ -17,6 +17,7 @@ package http
 import (
 	"net/http"
 	"reflect"
+	"regexp"
 	"testing"
 
 	"github.com/golang/protobuf/proto"
@@ -91,6 +92,33 @@ func TestLookupStatusCode(t *testing.T) {
 	}
 }
 
+func TestLookupHTTPHeader(t *testing.T) {
+	var header string
+
+	headers := http.Header{"X-Success": []string{"some", "truly", "last"}}
+
+	header = "X-Failure"
+	if lookupHTTPHeader(headers, header, nil) != false {
+		t.Errorf("lookupHTTPHeader(&%T%+v, %v, %v): true, expected false", headers, headers, header, nil)
+	}
+
+	header = "X-Success"
+	if lookupHTTPHeader(headers, header, nil) != true {
+		t.Errorf("lookupHTTPHeader(&%T%+v, %v, %v): false expected: true", headers, headers, header, nil)
+	}
+
+	r, _ := regexp.Compile("badl[ya]")
+	if lookupHTTPHeader(headers, header, r) != false {
+		t.Errorf("lookupHTTPHeader(&%T%+v, %v, %v): true expected: false", headers, headers, header, r)
+	}
+
+	r, _ = regexp.Compile("tr[ul]ly")
+	if lookupHTTPHeader(headers, header, r) != true {
+		t.Errorf("lookupHTTPHeader(&%T%+v, %v, %v): false expected: true", headers, headers, header, r)
+	}
+
+}
+
 func TestInit(t *testing.T) {
 	testConfig := &configpb.Validator{
 		SuccessStatusCodes: proto.String("200-299,301,302,404"),
@@ -124,4 +152,62 @@ func TestInit(t *testing.T) {
 			t.Errorf("v.Validate(&http.Response{StatusCode: %d}, nil): %v, expected: %v", code, result, expected)
 		}
 	}
+
+	// Pretend there is no configuration about status codes
+	testConfig.SuccessStatusCodes = nil
+	testConfig.FailureStatusCodes = nil
+
+	testConfig.SuccessHeader = &configpb.Validator_Header{Name: proto.String("X-Success")}
+
+	res := &http.Response{Header: http.Header{"X-Success": []string{"some", "truly", "last"}}}
+	if result, _ := v.Validate(res, nil); result == false {
+		t.Errorf("v.Validate(&%T%+v, nil): %v, expected: true", *res, *res, result)
+	}
+
+	testConfig.FailureHeader = &configpb.Validator_Header{Name: proto.String("X-Fail")}
+
+	res = &http.Response{Header: http.Header{"X-Fail": []string{}}}
+	if result, _ := v.Validate(res, nil); result == true {
+		t.Errorf("v.Validate(&%T%+v, nil): %v expected: false", *res, *res, result)
+	}
+
+	testConfig.FailureHeader.ValueRegex = proto.String("good_regexp")
+	v = &Validator{}
+	if err = v.Init(testConfig, &logger.Logger{}); err != nil {
+		t.Errorf("Init(%v, l): err: %v", testConfig, err)
+	}
+
+	testConfig.FailureHeader.ValueRegex = proto.String("[bad_regexp")
+	v = &Validator{}
+	if err = v.Init(testConfig, &logger.Logger{}); err == nil {
+		t.Errorf("Init(%v, l): err: %v", testConfig, err)
+	}
+
+	testConfig.FailureHeader.Name = nil
+	testConfig.FailureHeader.ValueRegex = nil
+
+	v = &Validator{}
+	if err = v.Init(testConfig, &logger.Logger{}); err == nil {
+		t.Errorf("Init(%v, l): err: %v", testConfig, err)
+	}
+
+	testConfig.SuccessHeader.ValueRegex = proto.String("good_regexp")
+	v = &Validator{}
+	if err = v.Init(testConfig, &logger.Logger{}); err == nil {
+		t.Errorf("Init(%v, l): err: %v", testConfig, err)
+	}
+
+	testConfig.SuccessHeader.ValueRegex = proto.String("[bad_regexp")
+	v = &Validator{}
+	if err = v.Init(testConfig, &logger.Logger{}); err == nil {
+		t.Errorf("Init(%v, l): err: %v", testConfig, err)
+	}
+
+	testConfig.SuccessHeader.Name = nil
+	testConfig.SuccessHeader.ValueRegex = nil
+	v = &Validator{}
+	if err = v.Init(testConfig, &logger.Logger{}); err == nil {
+		t.Errorf("Init(%v, l): err: %v", testConfig, err)
+	}
+
 }
