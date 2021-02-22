@@ -17,8 +17,10 @@
 package http
 
 import (
+	"errors"
 	"fmt"
 	nethttp "net/http"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -33,6 +35,8 @@ type Validator struct {
 
 	successStatusCodeRanges []*numRange
 	failureStatusCodeRanges []*numRange
+	successHeaderRegexp     *regexp.Regexp
+	failureHeaderRegexp     *regexp.Regexp
 }
 
 type numRange struct {
@@ -105,12 +109,65 @@ func lookupStatusCode(statusCode int, statusCodeRanges []*numRange) bool {
 	return false
 }
 
+// lookupHTTPHeader looks up for the given header in the HTTP response. It
+// returns true on the first match. If valueRegex is omitted - check for header
+// existence only.
+func lookupHTTPHeader(headers nethttp.Header, expectedHeader string, valueRegexp *regexp.Regexp) bool {
+	values, found := headers[expectedHeader]
+	if !found {
+		return false
+	}
+
+	// Return true if not interested in header's value.
+	if valueRegexp == nil {
+		return true
+	}
+
+	for _, value := range values {
+		if valueRegexp.MatchString(value) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (v *Validator) initHeaderValidators(c *configpb.Validator) error {
+	parseHeader := func(h *configpb.Validator_Header) (*regexp.Regexp, error) {
+		if h == nil {
+			return nil, nil
+		}
+		if h.GetName() == "" {
+			return nil, errors.New("header name cannot be empty")
+		}
+		if h.GetValueRegex() == "" {
+			return nil, nil
+		}
+		return regexp.Compile(h.GetValueRegex())
+	}
+
+	var err error
+
+	if v.successHeaderRegexp, err = parseHeader(c.GetSuccessHeader()); err != nil {
+		return fmt.Errorf("invalid-success-header: %v", err)
+	}
+
+	if v.failureHeaderRegexp, err = parseHeader(c.GetFailureHeader()); err != nil {
+		return fmt.Errorf("invalid-failure-header: %v", err)
+	}
+
+	return nil
+}
+
 // Init initializes the HTTP validator.
 func (v *Validator) Init(config interface{}, l *logger.Logger) error {
 	c, ok := config.(*configpb.Validator)
 	if !ok {
 		return fmt.Errorf("%v is not a valid HTTP validator config", config)
 	}
+
+	v.c = c
+	v.l = l
 
 	var err error
 	if c.GetSuccessStatusCodes() != "" {
@@ -127,9 +184,7 @@ func (v *Validator) Init(config interface{}, l *logger.Logger) error {
 		}
 	}
 
-	v.c = c
-	v.l = l
-	return nil
+	return v.initHeaderValidators(c)
 }
 
 // Validate the provided input and return true if input is valid. Validate
@@ -147,11 +202,24 @@ func (v *Validator) Validate(input interface{}, unused []byte) (bool, error) {
 			return false, nil
 		}
 	}
-	if v.c.GetSuccessStatusCodes() != "" {
-		if lookupStatusCode(res.StatusCode, v.successStatusCodeRanges) {
-			return true, nil
+
+	if failureHeader := v.c.GetFailureHeader(); failureHeader != nil {
+		if lookupHTTPHeader(res.Header, failureHeader.GetName(), v.failureHeaderRegexp) {
+			return false, nil
 		}
 	}
 
-	return false, nil
+	if v.c.GetSuccessStatusCodes() != "" {
+		if !lookupStatusCode(res.StatusCode, v.successStatusCodeRanges) {
+			return false, nil
+		}
+	}
+
+	if successHeader := v.c.GetSuccessHeader(); successHeader != nil {
+		if !lookupHTTPHeader(res.Header, successHeader.GetName(), v.successHeaderRegexp) {
+			return false, nil
+		}
+	}
+
+	return true, nil
 }
