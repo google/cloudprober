@@ -433,9 +433,13 @@ success_status_codes and failure_stauts_codes in the config):</p>
 that range, validator is considered to have failed.</li>
 <li>If <em>success_status_codes</em> is defined and response status code <em>does not</em>
 fall within that range, validator is considered to have failed.</li>
+<li>If <em>failure_header</em> is defined and HTTP response include specified header and
+there are matching values, validator is considered to have failed. Leaving
+<em>value_regex</em> empty checks only for header name.</li>
+<li>If <em>success_header</em> is defined and HTTP response <em>does not</em> include specified header
+with matching values, validator is considered to have failed. Leaving
+<em>value_regex</em> empty checks only for header name.</li>
 </ul>
-<p>We can possibly add more checks to HTTP validator in the future, for example to
-verify headers.</p>
 <h2 id="data-integrity-validator">Data Integrity Validator</h2>
 <p>Data integrity validator is designed to catch the packet corruption issues in
 the network. We have a basic check that verifies that the probe output is made
