@@ -37,6 +37,7 @@ var (
 	certServerName = flag.String("cert_server_name", "", "Server name for the cert, defaults to project name.")
 	provider       = flag.String("provider", "gcp", "Resource provider")
 	resType        = flag.String("resource_type", "gce_instances", "Resource type")
+	publicIP       = flag.Bool("public_ip", false, "Public IP instead of private")
 	project        = flag.String("project", "", "GCP project")
 	filtersF       = flag.String("filters", "", "Comma separated list of filters, e.g. name=ig-us-central1-a-.*")
 )
@@ -74,6 +75,12 @@ func main() {
 	c.Request = &pb.ListResourcesRequest{
 		Provider:     proto.String(*provider),
 		ResourcePath: proto.String(fmt.Sprintf("%s/%s", *resType, *project)),
+	}
+
+	if *publicIP {
+		c.Request.IpConfig = &pb.IPConfig{
+			IpType: pb.IPConfig_PUBLIC.Enum(),
+		}
 	}
 
 	for _, f := range strings.Split(*filtersF, ",") {
