@@ -446,7 +446,7 @@ func (p *Probe) gapBetweenTargets() time.Duration {
 
 	// If not configured by user, determine based on probe interval and number of
 	// targets.
-	if interTargetGap == 0 {
+	if interTargetGap == 0 && len(p.targets) != 0 {
 		// Use 1/10th of the probe interval to spread out target groroutines.
 		interTargetGap = p.opts.Interval / time.Duration(10*len(p.targets))
 	}
