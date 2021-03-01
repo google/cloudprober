@@ -78,17 +78,17 @@ func Listen(addr *net.UDPAddr, l *logger.Logger) (*net.UDPConn, error) {
 
 // Start starts the UDP server. It returns only when context is canceled.
 func (s *Server) Start(ctx context.Context, dataChan chan<- *metrics.EventMetrics) error {
+	// TODO(manugarg): We read and echo back only 4098 bytes. We should look at raising this
+	// limit or making it configurable. Also of note, ReadFromUDP reads a single UDP datagram
+	// (up to the max size of 64K-sizeof(UDPHdr)) and discards the rest.
+	buf := make([]byte, 4098)
+
 	switch s.c.GetType() {
+
 	case configpb.ServerConf_ECHO:
 		s.l.Infof("Starting UDP ECHO server on port %d", int(s.c.GetPort()))
-		for {
-			select {
-			case <-ctx.Done():
-				return s.conn.Close()
-			default:
-			}
-			readAndEcho(s.conn, s.l)
-		}
+		readAndEchoLoop(ctx, s.conn, buf, s.l)
+
 	case configpb.ServerConf_DISCARD:
 		s.l.Infof("Starting UDP DISCARD server on port %d", int(s.c.GetPort()))
 		for {
@@ -97,17 +97,11 @@ func (s *Server) Start(ctx context.Context, dataChan chan<- *metrics.EventMetric
 				return s.conn.Close()
 			default:
 			}
-			readAndDiscard(s.conn, s.l)
+			if _, _, err := s.conn.ReadFromUDP(buf); err != nil {
+				s.l.Errorf("ReadFromUDP: %v", err)
+			}
 		}
 	}
-	return nil
-}
 
-// listenAndServeDiscard launches an UDP discard server listening on port.
-func readAndDiscard(conn *net.UDPConn, l *logger.Logger) {
-	buf := make([]byte, 4098)
-	_, _, err := conn.ReadFromUDP(buf)
-	if err != nil {
-		l.Errorf("ReadFromUDP: %v", err)
-	}
+	return nil
 }

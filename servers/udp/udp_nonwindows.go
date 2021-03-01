@@ -17,6 +17,8 @@
 package udp
 
 import (
+	"context"
+	"fmt"
 	"io"
 	"net"
 
@@ -25,22 +27,28 @@ import (
 	"golang.org/x/net/ipv6"
 )
 
-func readAndEcho(conn *net.UDPConn, l *logger.Logger) {
-	// TODO(manugarg): We read and echo back only 4098 bytes. We should look at raising this
-	// limit or making it configurable. Also of note, ReadFromUDP reads a single UDP datagram
-	// (up to the max size of 64K-sizeof(UDPHdr)) and discards the rest.
-	buf := make([]byte, 4098)
-
+func readAndEchoLoop(ctx context.Context, conn *net.UDPConn, buf []byte, l *logger.Logger) error {
 	// We use an IPv6 connection wrapper to receive both IPv4 and IPv6 packets.
 	// ipv6.PacketConn lets us use control messages to:
 	//  -- receive packet destination IP (FlagDst)
 	//  -- set source IP (Src).
 	p6 := ipv6.NewPacketConn(conn)
 	if err := p6.SetControlMessage(ipv6.FlagDst, true); err != nil {
-		l.Error("error running SetControlMessage(FlagDst): ", err.Error())
-		return
+		return fmt.Errorf("error running SetControlMessage(FlagDst): %v", err)
 	}
+	p4 := ipv4.NewPacketConn(conn)
 
+	for {
+		select {
+		case <-ctx.Done():
+			return conn.Close()
+		default:
+		}
+		readAndEchoNonWindows(p6, p4, buf, l)
+	}
+}
+
+func readAndEchoNonWindows(p6 *ipv6.PacketConn, p4 *ipv4.PacketConn, buf []byte, l *logger.Logger) {
 	// ipv6.PacketConn also receives IPv4 packets.
 	len, cm, addr, err := p6.ReadFrom(buf)
 	if err != nil {
@@ -51,7 +59,6 @@ func readAndEcho(conn *net.UDPConn, l *logger.Logger) {
 	var n int
 	if cm.Dst.To4() != nil {
 		// We have a v4 packet, use an ipv4.PacketConn for sending.
-		p4 := ipv4.NewPacketConn(conn)
 		wcm := &ipv4.ControlMessage{
 			Src: cm.Dst.To4(),
 		}

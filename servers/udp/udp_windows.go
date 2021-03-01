@@ -17,17 +17,25 @@
 package udp
 
 import (
+	"context"
 	"io"
 	"net"
 
 	"github.com/google/cloudprober/logger"
 )
 
-func readAndEcho(conn *net.UDPConn, l *logger.Logger) {
-	// TODO(manugarg): We read and echo back only 4098 bytes. We should look at raising this
-	// limit or making it configurable. Also of note, ReadFromUDP reads a single UDP datagram
-	// (up to the max size of 64K-sizeof(UDPHdr)) and discards the rest.
-	buf := make([]byte, 4098)
+func readAndEchoLoop(ctx context.Context, conn *net.UDPConn, buf []byte, l *logger.Logger) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return conn.Close()
+		default:
+		}
+		readAndEchoWindows(conn, buf, l)
+	}
+}
+
+func readAndEchoWindows(conn *net.UDPConn, buf []byte, l *logger.Logger) {
 	len, addr, err := conn.ReadFromUDP(buf)
 	if err != nil {
 		l.Errorf("ReadFromUDP: %v", err)
