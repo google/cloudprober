@@ -143,6 +143,10 @@ func (s *Server) readAndEcho(buf []byte) (error, error) {
 }
 
 func connClosed(err error) bool {
+	// ReadFromUDP returns net.OpError
+	if opErr, ok := err.(*net.OpError); ok {
+		err = opErr.Err
+	}
 	// TODO(manugarg): Replace this by errors.Is(err, net.ErrClosed) once Go 1.16
 	// is more widely available.
 	return strings.Contains(err.Error(), "use of closed network connection")
