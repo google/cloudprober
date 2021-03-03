@@ -20,7 +20,6 @@ package udp
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net"
 
@@ -137,6 +136,12 @@ func (s *Server) readAndEcho(buf []byte) (error, error) {
 	}
 
 	return nil, nil
+}
+
+func connClosed(err error) bool {
+	// TODO(manugarg): Replace this by errors.Is(err, net.ErrClosed) once Go 1.16
+	// is more widely available.
+	return strings.Contains(err.Error(), "use of closed network connection")
 }
 
 // Start starts the UDP server. It returns only when context is canceled.
