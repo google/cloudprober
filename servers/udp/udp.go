@@ -161,7 +161,7 @@ func (s *Server) Start(ctx context.Context, dataChan chan<- *metrics.EventMetric
 		s.l.Infof("Starting UDP ECHO server on port %d", int(s.c.GetPort()))
 		for {
 			if err, nestedErr := s.readAndEcho(buf); err != nil {
-				if errors.Is(nestedErr, net.ErrClosed) {
+				if connClosed(nestedErr) {
 					s.l.Warning("connection closed, stopping the start goroutine")
 					return nil
 				}
@@ -173,7 +173,7 @@ func (s *Server) Start(ctx context.Context, dataChan chan<- *metrics.EventMetric
 		s.l.Infof("Starting UDP DISCARD server on port %d", int(s.c.GetPort()))
 		for {
 			if _, _, err := s.conn.ReadFromUDP(buf); err != nil {
-				if errors.Is(err, net.ErrClosed) {
+				if connClosed(err) {
 					return nil
 				}
 				s.l.Errorf("ReadFromUDP: %v", err)
