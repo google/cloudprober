@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
+	"sync"
 	"testing"
 	"time"
 
@@ -123,4 +124,58 @@ func testServer(t *testing.T, testConfig *configpb.ServerConf) {
 	for i := 0; i < 10; i++ {
 		sendAndTestResponse(t, testConfig, conn)
 	}
+}
+
+func TestServerStop(t *testing.T) {
+	t.Run("ECHO mode", func(t *testing.T) {
+		testServerStopWithConfig(t, &configpb.ServerConf{
+			Port: proto.Int32(int32(0)),
+			Type: configpb.ServerConf_ECHO.Enum(),
+		})
+	})
+	t.Run("Discard mode", func(t *testing.T) {
+		testServerStopWithConfig(t, &configpb.ServerConf{
+			Port: proto.Int32(int32(0)),
+			Type: configpb.ServerConf_DISCARD.Enum(),
+		})
+	})
+}
+
+func testServerStopWithConfig(t *testing.T, testConfig *configpb.ServerConf) {
+	t.Helper()
+
+	server, err := New(context.Background(), testConfig, &logger.Logger{})
+	if err != nil {
+		t.Fatalf("Error creating a new server: %v", err)
+	}
+	serverAddr := fmt.Sprintf("localhost:%d", server.conn.LocalAddr().(*net.UDPAddr).Port)
+
+	var wg sync.WaitGroup
+	ctx, cancelF := context.WithCancel(context.Background())
+
+	wg.Add(1)
+	go func() {
+		server.Start(ctx, nil)
+		wg.Done()
+	}()
+
+	go func() {
+		time.Sleep(1 * time.Second)
+		cancelF()
+	}()
+
+	conn, err := net.Dial("udp", serverAddr)
+	if err != nil {
+		t.Errorf("Error connecting to test UDP server (%s): %v", serverAddr, err)
+	}
+	for i := 0; true; i++ {
+		_, err := conn.Write(make([]byte, 10))
+		if err == nil {
+			continue
+		}
+		t.Logf("Stopped writing packet due to error: %v, sent %d packets", err, i+1)
+		break
+	}
+
+	wg.Wait()
 }
