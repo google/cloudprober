@@ -22,6 +22,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"strings"
 
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
