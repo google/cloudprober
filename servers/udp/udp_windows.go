@@ -16,41 +16,6 @@
 
 package udp
 
-import (
-	"context"
-	"io"
-	"net"
-
-	"github.com/google/cloudprober/logger"
-)
-
-func readAndEchoLoop(ctx context.Context, conn *net.UDPConn, buf []byte, l *logger.Logger) error {
-	for {
-		select {
-		case <-ctx.Done():
-			return conn.Close()
-		default:
-		}
-		readAndEchoWindows(conn, buf, l)
-	}
-}
-
-func readAndEchoWindows(conn *net.UDPConn, buf []byte, l *logger.Logger) {
-	len, addr, err := conn.ReadFromUDP(buf)
-	if err != nil {
-		l.Errorf("ReadFromUDP: %v", err)
-		return
-	}
-
-	n, err := conn.WriteToUDP(buf[:len], addr)
-	if err == io.EOF {
-		return
-	}
-	if err != nil {
-		l.Errorf("WriteToUDP: %v", err)
-		return
-	}
-	if n < len {
-		l.Warningf("Reply truncated! Got %v bytes but only sent %v bytes", len, n)
-	}
+func (s *Server) initConnection() error {
+	return nil
 }
