@@ -19,8 +19,8 @@ package udp
 import (
 	"fmt"
 
-	"google3/third_party/golang/go_net/ipv4/ipv4"
-	"google3/third_party/golang/go_net/ipv6/ipv6"
+        "golang.org/x/net/ipv4"
+	"golang.org/x/net/ipv6"
 )
 
 func (s *Server) initConnection() error {
