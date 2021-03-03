@@ -168,6 +168,7 @@ func testServerStopWithConfig(t *testing.T, testConfig *configpb.ServerConf) {
 	if err != nil {
 		t.Errorf("Error connecting to test UDP server (%s): %v", serverAddr, err)
 	}
+	conn.SetWriteDeadline(time.Now().Add(2 * time.Second))
 	for i := 0; true; i++ {
 		_, err := conn.Write(make([]byte, 10))
 		if err == nil {
