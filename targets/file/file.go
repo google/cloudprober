@@ -49,6 +49,7 @@ type Targets struct {
 	labelsFilter *filter.LabelsFilter
 	mu           sync.RWMutex
 	l            *logger.Logger
+	probeName    string
 }
 
 /*
@@ -73,7 +74,7 @@ var SupportedFilters = struct {
 }
 
 // New returns new file targets.
-func New(opts *configpb.TargetsConf, res *dnsRes.Resolver, l *logger.Logger) (*Targets, error) {
+func New(probeName string, opts *configpb.TargetsConf, res *dnsRes.Resolver, l *logger.Logger) (*Targets, error) {
 	ft := &Targets{
 		path:      opts.GetFilePath(),
 		resources: make(map[string]*rdspb.Resource),
@@ -93,6 +94,7 @@ func New(opts *configpb.TargetsConf, res *dnsRes.Resolver, l *logger.Logger) (*T
 	}
 
 	ft.nameFilter, ft.labelsFilter = allFilters.RegexFilters["name"], allFilters.LabelsFilter
+	ft.probeName = probeName
 
 	if opts.GetReEvalSec() == 0 {
 		return ft, ft.refresh()
@@ -193,7 +195,7 @@ func (ft *Targets) parseFileContent(b []byte) error {
 	}
 	ft.names = ft.names[:i]
 
-	ft.l.Infof("file_targets(%s): Read %d resources, kept %d after filtering", ft.path, len(resources.GetResource()), len(ft.names))
+	ft.l.Infof("Probe(%s), file_targets(%s): Read %d resources, kept %d after filtering", ft.probeName, ft.path, len(resources.GetResource()), len(ft.names))
 	return nil
 }
 

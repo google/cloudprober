@@ -166,7 +166,7 @@ func testFileTargetsForType(t *testing.T, fileType string) {
 	t.Helper()
 	testFile := createTestFile(t, fileType)
 
-	ft, err := New(&configpb.TargetsConf{FilePath: proto.String(testFile)}, nil, nil)
+	ft, err := New("Probe1", &configpb.TargetsConf{FilePath: proto.String(testFile)}, nil, nil)
 	if err != nil {
 		t.Fatalf("Unexpected error while parsing textpb: %v", err)
 	}
@@ -196,7 +196,7 @@ func TestListEndpointsWithFilter(t *testing.T) {
 
 	testFile := createTestFile(t, "")
 
-	ft, err := New(&configpb.TargetsConf{
+	ft, err := New("Probe1", &configpb.TargetsConf{
 		FilePath: proto.String(testFile),
 		Filter: []*rdspb.Filter{
 			{

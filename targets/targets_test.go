@@ -149,7 +149,7 @@ func TestDummyTargets(t *testing.T) {
 		},
 	}
 	l := &logger.Logger{}
-	tgts, err := New(targetsDef, nil, nil, nil, l)
+	tgts, err := New("Probe1", targetsDef, nil, nil, nil, l)
 	if err != nil {
 		t.Fatalf("New(...) Unexpected errors %v", err)
 	}
@@ -201,7 +201,7 @@ func TestGetExtensionTargets(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error setting up extension in test targets proto: %v", err)
 	}
-	tgts, err := New(targetsDef, nil, nil, nil, nil)
+	tgts, err := New("Probe1", targetsDef, nil, nil, nil, nil)
 	if err == nil {
 		t.Errorf("Expected error in building targets from extensions, got nil. targets: %v", tgts)
 	}
@@ -209,7 +209,7 @@ func TestGetExtensionTargets(t *testing.T) {
 	RegisterTargetsType(200, func(conf interface{}, l *logger.Logger) (Targets, error) {
 		return &testTargetsType{names: testTargets}, nil
 	})
-	tgts, err = New(targetsDef, nil, nil, nil, nil)
+	tgts, err = New("Probe1", targetsDef, nil, nil, nil, nil)
 	if err != nil {
 		t.Errorf("Got error in building targets from extensions: %v.", err)
 	}
@@ -233,7 +233,7 @@ func TestSharedTargets(t *testing.T) {
 		}
 
 		var err error
-		tgts[i], err = New(targetsDef, nil, nil, nil, nil)
+		tgts[i], err = New("Probe1", targetsDef, nil, nil, nil, nil)
 
 		if err != nil {
 			t.Errorf("got error while creating targets from shared targets: %v", err)

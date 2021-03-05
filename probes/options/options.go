@@ -123,7 +123,7 @@ func BuildProbeOptions(p *configpb.ProbeDef, ldLister endpoint.Lister, globalTar
 		return nil, fmt.Errorf("error in initializing logger for the probe (%s): %v", p.GetName(), err)
 	}
 
-	if opts.Targets, err = targets.New(p.GetTargets(), ldLister, globalTargetsOpts, l, opts.Logger); err != nil {
+	if opts.Targets, err = targets.New(p.GetName(), p.GetTargets(), ldLister, globalTargetsOpts, l, opts.Logger); err != nil {
 		return nil, err
 	}
 

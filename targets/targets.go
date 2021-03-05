@@ -308,7 +308,7 @@ func RDSClientConf(pb *targetspb.RDSTargets, globalOpts *targetspb.GlobalTargets
 //
 // See cloudprober/targets/targets.proto for more information on the possible
 // configurations of Targets.
-func New(targetsDef *targetspb.TargetsDef, ldLister endpoint.Lister, globalOpts *targetspb.GlobalTargetsOptions, globalLogger, l *logger.Logger) (Targets, error) {
+func New(probeName string, targetsDef *targetspb.TargetsDef, ldLister endpoint.Lister, globalOpts *targetspb.GlobalTargetsOptions, globalLogger, l *logger.Logger) (Targets, error) {
 	t, err := baseTargets(targetsDef, ldLister, l)
 	if err != nil {
 		globalLogger.Error("Unable to produce the base target lister")
@@ -353,7 +353,7 @@ func New(targetsDef *targetspb.TargetsDef, ldLister endpoint.Lister, globalOpts 
 		t.lister, t.resolver = client, client
 
 	case *targetspb.TargetsDef_FileTargets:
-		ft, err := file.New(targetsDef.GetFileTargets(), globalResolver, l)
+		ft, err := file.New(probeName, targetsDef.GetFileTargets(), globalResolver, l)
 		if err != nil {
 			return nil, fmt.Errorf("target.New(): %v", err)
 		}
