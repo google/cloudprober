@@ -240,8 +240,13 @@ func (l *Logger) log(severity logging.Severity, payload ...string) {
 		payloadStr = payloadStr[:MaxLogEntrySize-truncateMsgLen] + truncateMsg
 	}
 
-	if l == nil || l.logc == nil {
-		genericLog(severity, payloadStr)
+	if l == nil {
+		genericLog(severity, "nil", payloadStr)
+		return
+	}
+
+	if l.logc == nil {
+		genericLog(severity, l.name, payloadStr)
 		return
 	}
 
@@ -325,10 +330,12 @@ func (l *Logger) Criticalf(format string, args ...interface{}) {
 	os.Exit(1)
 }
 
-func genericLog(severity logging.Severity, s string) {
+func genericLog(severity logging.Severity, name string, s string) {
 	// Set the caller frame depth to 3 so that can get to the actual caller of
 	// the logger. genericLog -> log -> Info* -> actualCaller
 	depth := 3
+
+	s = fmt.Sprintf("[%s] %s", name, s)
 
 	switch severity {
 	case logging.Debug, logging.Info:
