@@ -17,8 +17,8 @@
 package ping
 
 import (
-	"bytes"
 	"encoding/binary"
+	"fmt"
 	"net"
 	"os"
 	"runtime"
@@ -153,7 +153,11 @@ func (ipc *icmpPacketConn) read(buf []byte) (n int, addr net.Addr, recvTime time
 		return
 	}
 
-	cmsgs, err := syscall.ParseSocketControlMessage(oob[:oobn])
+	cmsgs, cmErr := syscall.ParseSocketControlMessage(oob[:oobn])
+	if cmErr != nil {
+		err = cmErr
+		return
+	}
 
 	for _, m := range cmsgs {
 		// We are interested only in socket-level control messages
@@ -166,9 +170,13 @@ func (ipc *icmpPacketConn) read(buf []byte) (n int, addr net.Addr, recvTime time
 		// Note that syscall.SO_TIMESTAMP == syscall.SCM_TIMESTAMP for linux, but
 		// that doesn't have to be true for other operating systems, e.g. Mac OS X.
 		if m.Header.Type == syscall.SCM_TIMESTAMP {
-			var tv syscall.Timeval
-			binary.Read(bytes.NewReader(m.Data), NativeEndian, &tv)
-			recvTime = time.Unix(tv.Unix()) // syscall.Timeval -> time.Time
+			if len(m.Data) < 16 {
+				err = fmt.Errorf("timestamp control message data size (%d) is less than timestamp size (16 bytes)", len(m.Data))
+				return
+			}
+			sec := NativeEndian.Uint64(m.Data)
+			usec := NativeEndian.Uint64(m.Data[8:])
+			recvTime = time.Unix(int64(sec), int64(usec)*1e3)
 		}
 	}
 
