@@ -30,6 +30,14 @@ message SurfacerDef {
 
   optional Type type = 2;
 
+  // How many metrics entries (EventMetrics) to buffer. This is the buffer
+  // between incoming metrics and the metrics that are being processed. Default
+  // value should work in most cases. You may need to increase it on a busy
+  // system, but that's usually a sign that you metrics processing pipeline is
+  // slow for some reason, e.g. slow writes to a remote file.
+  // Note: Only file and pubsub surfacer supports this option right now.
+  optional int64 metrics_buffer_size = 3 [default = 10000];
+
   // Matching surfacer specific configuration (one for each type in the above
   // enum)
   oneof surfacer {

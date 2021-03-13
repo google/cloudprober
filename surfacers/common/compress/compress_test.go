@@ -48,9 +48,10 @@ func TestCompressionBufferFlush(t *testing.T) {
 	var outbuf bytes.Buffer
 
 	c := CompressionBuffer{
-		buf:      new(bytes.Buffer),
-		l:        &logger.Logger{},
-		callback: func(b []byte) { outbuf.Write(b) },
+		buf:       new(bytes.Buffer),
+		batchSize: 1000,
+		l:         &logger.Logger{},
+		callback:  func(b []byte) { outbuf.Write(b) },
 	}
 
 	testStr := "test string\n"

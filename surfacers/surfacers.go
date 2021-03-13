@@ -32,6 +32,7 @@ import (
 
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
+	"github.com/google/cloudprober/surfacers/common/options"
 	"github.com/google/cloudprober/surfacers/file"
 	"github.com/google/cloudprober/surfacers/postgres"
 	"github.com/google/cloudprober/surfacers/prometheus"
@@ -129,6 +130,10 @@ func initSurfacer(ctx context.Context, s *surfacerpb.SurfacerDef, sType surfacer
 		return nil, nil, fmt.Errorf("unable to create cloud logger: %v", err)
 	}
 
+	opts := &options.Options{
+		MetricsBufferSize: int(s.GetMetricsBufferSize()),
+	}
+
 	var conf interface{}
 	var surfacer Surfacer
 
@@ -140,13 +145,13 @@ func initSurfacer(ctx context.Context, s *surfacerpb.SurfacerDef, sType surfacer
 		surfacer, err = stackdriver.New(ctx, s.GetStackdriverSurfacer(), l)
 		conf = s.GetStackdriverSurfacer()
 	case surfacerpb.Type_FILE:
-		surfacer, err = file.New(ctx, s.GetFileSurfacer(), l)
+		surfacer, err = file.New(ctx, s.GetFileSurfacer(), opts, l)
 		conf = s.GetFileSurfacer()
 	case surfacerpb.Type_POSTGRES:
 		surfacer, err = postgres.New(ctx, s.GetPostgresSurfacer(), l)
 		conf = s.GetPostgresSurfacer()
 	case surfacerpb.Type_PUBSUB:
-		surfacer, err = pubsub.New(ctx, s.GetPubsubSurfacer(), l)
+		surfacer, err = pubsub.New(ctx, s.GetPubsubSurfacer(), opts, l)
 		conf = s.GetPubsubSurfacer()
 	case surfacerpb.Type_USER_DEFINED:
 		userDefinedSurfacersMu.Lock()

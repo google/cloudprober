@@ -27,6 +27,7 @@ import (
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
 	"github.com/google/cloudprober/surfacers/common/compress"
+	"github.com/google/cloudprober/surfacers/common/options"
 
 	configpb "github.com/google/cloudprober/surfacers/file/proto"
 )
@@ -36,7 +37,8 @@ import (
 // per line).
 type Surfacer struct {
 	// Configuration
-	c *configpb.SurfacerConf
+	c    *configpb.SurfacerConf
+	opts *options.Options
 
 	// Channel for incoming data.
 	inChan         chan *metrics.EventMetrics
@@ -91,7 +93,7 @@ func (s *Surfacer) processInput(ctx context.Context) {
 }
 
 func (s *Surfacer) init(ctx context.Context, id int64) error {
-	s.inChan = make(chan *metrics.EventMetrics, 10000)
+	s.inChan = make(chan *metrics.EventMetrics, s.opts.MetricsBufferSize)
 	s.id = id
 
 	// File handle for the output file
@@ -110,7 +112,7 @@ func (s *Surfacer) init(ctx context.Context, id int64) error {
 			if _, err := s.outf.Write(append(data, '\n')); err != nil {
 				s.l.Errorf("Unable to write data to %s. Err: %v", s.outf.Name(), err)
 			}
-		}, s.l)
+		}, s.opts.MetricsBufferSize/10, s.l)
 	}
 
 	// Start a goroutine to run forever, polling on the inChan. Allows
@@ -149,10 +151,11 @@ func (s *Surfacer) Write(ctx context.Context, em *metrics.EventMetrics) {
 // as a GCE instance's serial port). This Surfacer does not utilize the Google
 // cloud logger because it is unlikely to fail reportably after the call to
 // New.
-func New(ctx context.Context, config *configpb.SurfacerConf, l *logger.Logger) (*Surfacer, error) {
+func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Options, l *logger.Logger) (*Surfacer, error) {
 	s := &Surfacer{
-		c: config,
-		l: l,
+		c:    config,
+		opts: opts,
+		l:    l,
 	}
 
 	// Get a unique id from the nano timestamp. This id is

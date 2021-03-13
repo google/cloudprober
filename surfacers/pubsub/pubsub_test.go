@@ -28,6 +28,7 @@ import (
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
 	"github.com/google/cloudprober/surfacers/common/compress"
+	"github.com/google/cloudprober/surfacers/common/options"
 	configpb "github.com/google/cloudprober/surfacers/pubsub/proto"
 	"google.golang.org/api/option"
 	pb "google.golang.org/genproto/googleapis/pubsub/v1"
@@ -134,7 +135,7 @@ func createSurfacerAndVerify(t *testing.T, srv *testServer, compression bool) {
 	s, err := New(context.Background(), &configpb.SurfacerConf{
 		TopicName:          proto.String("test-topic"),
 		CompressionEnabled: proto.Bool(compression),
-	}, &logger.Logger{})
+	}, &options.Options{MetricsBufferSize: 1000}, &logger.Logger{})
 	if err != nil {
 		t.Fatalf("Error while creating new surfacer: %v", err)
 	}
