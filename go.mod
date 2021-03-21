@@ -9,7 +9,7 @@ require (
 	cloud.google.com/go/pubsub v1.8.1
 	github.com/aws/aws-sdk-go v1.35.7
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
-	github.com/golang/protobuf v1.4.3
+	github.com/golang/protobuf v1.5.1
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/hashicorp/golang-lru v0.5.3 // indirect
 	github.com/hoisie/redis v0.0.0-20160730154456-b5c6e81454e0
@@ -28,5 +28,5 @@ require (
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20201013134114-7f9ee70cb474
 	google.golang.org/grpc v1.33.0
-	google.golang.org/protobuf v1.25.0
+	google.golang.org/protobuf v1.26.0
 )
