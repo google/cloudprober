@@ -28,13 +28,13 @@ import (
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
 	"github.com/google/cloudprober/surfacers/common/compress"
+	"github.com/google/cloudprober/surfacers/common/options"
 	"github.com/google/cloudprober/sysvars"
 
 	configpb "github.com/google/cloudprober/surfacers/pubsub/proto"
 )
 
 const (
-	inChanCapacity = 1000
 	publishTimeout = 10 * time.Second
 	compressedAttr = "compressed"
 	starttimeAttr  = "starttime"
@@ -59,7 +59,8 @@ var newPubsubClient = func(ctx context.Context, project string) (*pubsub.Client,
 // Surfacer implements a pubsub surfacer.
 type Surfacer struct {
 	// Configuration
-	c *configpb.SurfacerConf
+	c    *configpb.SurfacerConf
+	opts *options.Options
 
 	// Channel for incoming data.
 	inChan            chan *metrics.EventMetrics
@@ -115,7 +116,7 @@ func (s *Surfacer) processInput(ctx context.Context) {
 }
 
 func (s *Surfacer) init(ctx context.Context) error {
-	s.inChan = make(chan *metrics.EventMetrics, inChanCapacity)
+	s.inChan = make(chan *metrics.EventMetrics, s.opts.MetricsBufferSize)
 
 	// We use start timestamp in millisecond as the incarnation id.
 	s.starttime = strconv.FormatInt(time.Now().UnixNano()/(1000*1000), 10)
@@ -172,7 +173,7 @@ func (s *Surfacer) init(ctx context.Context) error {
 	if s.c.GetCompressionEnabled() {
 		s.compressionBuffer = compress.NewCompressionBuffer(ctx, func(data []byte) {
 			s.publishMessage(ctx, data)
-		}, s.l)
+		}, s.opts.MetricsBufferSize/10, s.l)
 	}
 
 	// Start a goroutine to run forever, polling on the inChan. Allows
@@ -202,14 +203,15 @@ func (s *Surfacer) Write(ctx context.Context, em *metrics.EventMetrics) {
 	select {
 	case s.inChan <- em:
 	default:
-		s.l.Errorf("Surfacer's write channel (capacity: %d) is full, dropping new data.", inChanCapacity)
+		s.l.Errorf("Surfacer's write channel (capacity: %d) is full, dropping new data.", s.opts.MetricsBufferSize)
 	}
 }
 
 // New initializes a Surfacer for publishing data to a pubsub topic.
-func New(ctx context.Context, config *configpb.SurfacerConf, l *logger.Logger) (*Surfacer, error) {
+func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Options, l *logger.Logger) (*Surfacer, error) {
 	s := &Surfacer{
 		c:                 config,
+		opts:              opts,
 		l:                 l,
 		topicName:         config.GetTopicName(),
 		gcpProject:        config.GetProject(),

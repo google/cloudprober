@@ -33,6 +33,7 @@ import (
 
 	"github.com/google/cloudprober/metrics"
 	"github.com/google/cloudprober/surfacers/common/compress"
+	"github.com/google/cloudprober/surfacers/common/options"
 	configpb "github.com/google/cloudprober/surfacers/file/proto"
 )
 
@@ -75,6 +76,9 @@ func testWrite(t *testing.T, compressionEnabled bool) {
 			c: &configpb.SurfacerConf{
 				FilePath:           proto.String(f.Name()),
 				CompressionEnabled: proto.Bool(compressionEnabled),
+			},
+			opts: &options.Options{
+				MetricsBufferSize: 1000,
 			},
 		}
 		id := time.Now().UnixNano()

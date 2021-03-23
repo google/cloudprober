@@ -28,15 +28,15 @@ import (
 
 var (
 	compressionBufferFlushInterval = time.Second
-	compressionBufferMaxLines      = 100
 )
 
 // CompressionBuffer stores the data that is ready to be compressed.
 type CompressionBuffer struct {
-	mu    sync.Mutex
-	buf   *bytes.Buffer
-	lines int
-	l     *logger.Logger
+	mu        sync.Mutex
+	buf       *bytes.Buffer
+	lines     int
+	batchSize int
+	l         *logger.Logger
 
 	// Function to callback with compressed data.
 	callback func([]byte)
@@ -47,11 +47,12 @@ type CompressionBuffer struct {
 }
 
 // NewCompressionBuffer returns a new compression buffer.
-func NewCompressionBuffer(inctx context.Context, callback func([]byte), l *logger.Logger) *CompressionBuffer {
+func NewCompressionBuffer(inctx context.Context, callback func([]byte), batchSize int, l *logger.Logger) *CompressionBuffer {
 	ctx, cancel := context.WithCancel(inctx)
 	c := &CompressionBuffer{
 		buf:       new(bytes.Buffer),
 		callback:  callback,
+		batchSize: batchSize,
 		l:         l,
 		cancelCtx: cancel,
 	}
@@ -83,7 +84,7 @@ func (c *CompressionBuffer) WriteLineToBuffer(line string) {
 	c.buf.WriteString(line)
 	c.buf.WriteString("\n")
 	c.lines++
-	if c.lines >= compressionBufferMaxLines {
+	if c.lines >= c.batchSize {
 		triggerFlush = true
 	}
 	c.mu.Unlock()
