@@ -63,6 +63,9 @@ const histogram = "histogram"
 // blocking on previous queries to finish.
 const queriesQueueSize = 10
 
+// Max time 10 min
+const maxExpiredTime = int64(1000 * 60 * 10)
+
 var (
 	// Cache of EventMetric label to prometheus label mapping. We use it to
 	// quickly lookup if we have already seen a label and we have a prometheus
@@ -379,11 +382,58 @@ func (ps *PromSurfacer) record(em *metrics.EventMetrics) {
 
 // writeData writes metrics data on w io.Writer
 func (ps *PromSurfacer) writeData(w io.Writer) {
+	nowTime := time.Now()
 	for _, name := range ps.metricNames {
+		if metricKeys, ok := ps.getExpiredMetrics(name, nowTime); ok {
+			ps.deleteExpiredMetrics(name, metricKeys)
+		}
+
 		pm := ps.metrics[name]
 		fmt.Fprintf(w, "#TYPE %s %s\n", name, pm.typ)
 		for _, k := range pm.dataKeys {
 			ps.dataWriter(w, pm, k)
 		}
+	}
+}
+
+// getExpiredMetrics checks the existence of a metric that has not been collected for a long time
+// and returns a list of the metric key values, if any.
+func (ps *PromSurfacer) getExpiredMetrics(metricsName string, t time.Time) ([]string, bool) {
+	var expiredMetricsKeys []string
+	ok := false
+
+	nowTime := promTime(t)
+	pm := ps.metrics[metricsName]
+	for metricKey, v := range pm.data {
+		if nowTime >= v.timestamp+maxExpiredTime {
+			expiredMetricsKeys = append(expiredMetricsKeys, metricKey)
+			ok = true
+		}
+	}
+
+	return expiredMetricsKeys, ok
+}
+
+// deleteExpiredMetrics clears the metric information in PromSurfacer using the metric key.
+func (ps *PromSurfacer) deleteExpiredMetrics(metricName string, metricsKeys []string) {
+	pm := ps.metrics[metricName]
+	for _, mk := range metricsKeys {
+		// delete metrics data in pm.data
+		delete(pm.data, mk)
+
+		targetIndex := -1
+		for i, dk := range pm.dataKeys {
+			if dk == mk {
+				targetIndex = i
+				break
+			}
+		}
+
+		if targetIndex == -1 {
+			continue
+		}
+
+		//delete metrics key in dataKeys
+		pm.dataKeys = append(pm.dataKeys[:targetIndex], pm.dataKeys[targetIndex+1:]...)
 	}
 }
