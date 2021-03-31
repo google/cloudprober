@@ -7,6 +7,7 @@ import "github.com/google/cloudprober/surfacers/postgres/proto/config.proto";
 import "github.com/google/cloudprober/surfacers/prometheus/proto/config.proto";
 import "github.com/google/cloudprober/surfacers/pubsub/proto/config.proto";
 import "github.com/google/cloudprober/surfacers/stackdriver/proto/config.proto";
+import "github.com/google/cloudprober/surfacers/cloudwatch/proto/config.proto";
 
 option go_package = "github.com/google/cloudprober/surfacers/proto";
 
