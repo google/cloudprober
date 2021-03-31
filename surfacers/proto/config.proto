@@ -18,6 +18,7 @@ enum Type {
   FILE = 3;
   POSTGRES = 4;
   PUBSUB = 5;
+  CLOUDWATCH = 6;
   USER_DEFINED = 99;
 }
 
@@ -46,5 +47,6 @@ message SurfacerDef {
     file.SurfacerConf file_surfacer = 12;
     postgres.SurfacerConf postgres_surfacer = 13;
     pubsub.SurfacerConf pubsub_surfacer = 14;
+    cloudwatch.SurfacerConf cloudwatch_surfacer = 15;
   }
 }
