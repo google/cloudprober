@@ -150,7 +150,7 @@ func (cw *CWSurfacer) ignoreProberTypeLabel(em *metrics.EventMetrics) bool {
 	return false
 }
 
-// Create a new cloudwatch metriddatum using the values passed in. The value for a metric in cloudwatch must be of float64 type.
+// Create a new cloudwatch metriddatum using the values passed in.
 func (cw *CWSurfacer) newCWMetricDatum(metricname string, value float64, dimensions []*cloudwatch.Dimension, timestamp time.Time) *cloudwatch.MetricDatum {
 	unit := cloudwatch.StandardUnitCount
 

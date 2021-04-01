@@ -161,7 +161,7 @@ func TestNewCWMetricDatum(t *testing.T) {
 	tests := map[string]struct {
 		surfacer   CWSurfacer
 		metricname string
-		value      metrics.NumValue
+		value      float64
 		dimensions []*cloudwatch.Dimension
 		timestamp  time.Time
 		want       *cloudwatch.MetricDatum
@@ -169,7 +169,7 @@ func TestNewCWMetricDatum(t *testing.T) {
 		"simple": {
 			surfacer:   newTestCWSurfacer(),
 			metricname: "testingmetric",
-			value:      metrics.NewFloat(float64(20)),
+			value:      float64(20),
 			dimensions: []*cloudwatch.Dimension{
 				{
 					Name: aws.String("test"), Value: aws.String("value"),
@@ -186,6 +186,7 @@ func TestNewCWMetricDatum(t *testing.T) {
 				Value:             aws.Float64(float64(20)),
 				StorageResolution: aws.Int64(60),
 				Timestamp:         aws.Time(timestamp),
+				Unit:              aws.String("Count"),
 			},
 		},
 	}
