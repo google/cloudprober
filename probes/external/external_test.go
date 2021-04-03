@@ -18,9 +18,11 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"reflect"
 	"strings"
 	"testing"
@@ -717,5 +719,94 @@ func TestCommandParsing(t *testing.T) {
 	wantArgs := []string{"--flag1", "one", "--flag23", "two three"}
 	if !reflect.DeepEqual(p.cmdArgs, wantArgs) {
 		t.Errorf("Got command args=%v, want command args=%v", p.cmdArgs, wantArgs)
+	}
+}
+
+type fakeCommand struct {
+	exitCtx  context.Context
+	startCtx context.Context
+	waitErr  error
+}
+
+func (fc *fakeCommand) Wait() error {
+	select {
+	case <-fc.exitCtx.Done():
+	case <-fc.startCtx.Done():
+	}
+	return fc.waitErr
+}
+
+func TestMonitorCommand(t *testing.T) {
+	tests := []struct {
+		desc       string
+		waitErr    error
+		finishCmd  bool
+		cancelCtx  bool
+		wantErr    bool
+		wantStderr bool
+	}{
+		{
+			desc:      "Command exit with no error",
+			finishCmd: true,
+			wantErr:   false,
+		},
+		{
+			desc:      "Cancel context, no error",
+			cancelCtx: true,
+			wantErr:   false,
+		},
+		{
+			desc:       "command exit with exit error",
+			finishCmd:  true,
+			waitErr:    &exec.ExitError{Stderr: []byte("exit-error exiting")},
+			wantErr:    true,
+			wantStderr: true,
+		},
+		{
+			desc:       "command exit with no exit error",
+			finishCmd:  true,
+			waitErr:    errors.New("some-error"),
+			wantErr:    true,
+			wantStderr: false,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.desc, func(t *testing.T) {
+			exitCtx, exitFunc := context.WithCancel(context.Background())
+			startCtx, startCancelFunc := context.WithCancel(context.Background())
+			cmd := &fakeCommand{
+				exitCtx:  exitCtx,
+				startCtx: startCtx,
+				waitErr:  test.waitErr,
+			}
+
+			p := &Probe{}
+			errCh := make(chan error)
+			go func() {
+				errCh <- p.monitorCommand(startCtx, cmd)
+			}()
+
+			if test.finishCmd {
+				exitFunc()
+			}
+			if test.cancelCtx {
+				startCancelFunc()
+			}
+
+			err := <-errCh
+			if (err != nil) != test.wantErr {
+				t.Errorf("Got error: %v, want error?= %v", err, test.wantErr)
+			}
+
+			if err != nil {
+				if test.wantStderr && !strings.Contains(err.Error(), "Stderr") {
+					t.Errorf("Want std err: %v, got std err: %v", test.wantStderr, strings.Contains(err.Error(), "Stderr"))
+				}
+			}
+
+			exitFunc()
+			startCancelFunc()
+		})
 	}
 }
