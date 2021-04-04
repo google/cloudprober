@@ -17,6 +17,7 @@ Cloudprober currently supports following surfacer types:
 * Google Pub/Sub ([config](https://github.com/google/cloudprober/blob/master/surfacers/pubsub/proto/config.proto))
 * Postgres ([config](https://github.com/google/cloudprober/blob/master/surfacers/postgres/proto/config.proto))
 * File ([config](https://github.com/google/cloudprober/blob/master/surfacers/file/proto/config.proto))
+* AWS Cloudwatch ([config](https://github.com/google/cloudprober/blob/master/surfacers/cloudwatch/proto/config.proto))
 
 Source: [surfacers config](https://github.com/google/cloudprober/blob/7bc30b62e42f3fe4e8a2fb8cd0e87ea18b73aeb8/surfacers/proto/config.proto#L14).
 
@@ -33,7 +34,7 @@ Adding surfacers to cloudprober is as easy as adding "surfacer" config stanzas t
 # scraping by prometheus.
 surfacer {
   type: PROMETHEUS
-  
+
   prometheus_surfacer {
     # Following option adds a prefix to exported metrics, for example,
     # "total" metric is exported as "cloudprober_total".
@@ -47,4 +48,3 @@ surfacer {
   type: STACKDRIVER
 }
 ```
-
