@@ -89,3 +89,23 @@ The full list of configuration options for the cloudwatch surfacer is:
 ```
 
 (Source: https://github.com/google/cloudprober/blob/master/surfacers/cloudwatch/proto/config.proto)
+
+## Calculating the metric delta with Cloudwatch Metric Maths
+
+The metrics produced by cloudprober are cumulative. Most services producing metrics into cloudwatch produce snapshot data whereby the metrics are recorded for a specific point in time.
+
+In order to achieve a similar effect here, the [Cloudwatch Metric Maths](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/using-metric-math.html) RATE and PERIOD functions can be used to determine the delta values.
+
+```
+RATE(m1) * PERIOD(m1)
+```
+
+Whereby m1 is the metric id for the cloudprober metrics, for example:
+
+```
+namespace: /cloudprober/grafana
+metric name: latency
+dst: google.com
+ptype: http
+probe: probe name
+```
