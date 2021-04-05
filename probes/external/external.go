@@ -224,6 +224,28 @@ func substituteLabels(in string, labels map[string]string) (string, bool) {
 	return output, foundAll
 }
 
+type command interface {
+	Wait() error
+}
+
+// monitorCommand waits for the process to terminate and sets cmdRunning to
+// false when that happens.
+func (p *Probe) monitorCommand(startCtx context.Context, cmd command) error {
+	err := cmd.Wait()
+
+	// Spare logging error message if killed explicitly.
+	select {
+	case <-startCtx.Done():
+		return nil
+	default:
+	}
+
+	if exitErr, ok := err.(*exec.ExitError); ok {
+		return fmt.Errorf("external probe process died with the status: %s. Stderr: %s", exitErr.Error(), string(exitErr.Stderr))
+	}
+	return err
+}
+
 func (p *Probe) startCmdIfNotRunning(startCtx context.Context) error {
 	// Start external probe command if it's not running already. Note that here we
 	// are trusting the cmdRunning to be set correctly. It can be false for 3 reasons:
@@ -265,21 +287,11 @@ func (p *Probe) startCmdIfNotRunning(startCtx context.Context) error {
 	// This goroutine waits for the process to terminate and sets cmdRunning to
 	// false when that happens.
 	go func() {
-		err := cmd.Wait()
+		if err := p.monitorCommand(startCtx, cmd); err != nil {
+			p.l.Error(err.Error())
+		}
 		close(doneChan)
 		p.cmdRunning = false
-
-		// Spare logging error message if killed explicitly.
-		select {
-		case <-startCtx.Done():
-			return
-		}
-
-		if err != nil {
-			if exitErr, ok := err.(*exec.ExitError); ok {
-				p.l.Errorf("external probe process died with the status: %s. Stderr: %s", exitErr.Error(), string(exitErr.Stderr))
-			}
-		}
 	}()
 	go p.readProbeReplies(doneChan)
 	p.cmdRunning = true
