@@ -173,7 +173,7 @@ func (cw *CWSurfacer) newCWMetricDatum(metricname string, value float64, dimensi
 	// cloudwatch GetMetricData api call. The unit type is optional.
 	if isDistribution {
 		metricDatum.Unit = aws.String(cloudwatch.StandardUnitCount)
-	} else if metricname == "latency" && !isDistribution {
+	} else if metricname == "latency" {
 		metricDatum.Unit = aws.String(cloudwatch.StandardUnitMilliseconds)
 	}
 
