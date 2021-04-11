@@ -160,21 +160,24 @@ func (cw *CWSurfacer) newCWMetricDatum(metricname string, value float64, dimensi
 		Timestamp:         aws.Time(timestamp),
 	}
 
-	// distributions are of unit type count, identify if the dimensions contain a distribution value
-	var isDistribution bool
-	for _, value := range dimensions {
-		if *value.Name == distributionDimensionName {
-			isDistribution = true
-			break
-		}
+	unitTypes := map[string]string{
+		"latency":  cloudwatch.StandardUnitMilliseconds,
+		"failures": cloudwatch.StandardUnitCount,
+		"success":  cloudwatch.StandardUnitCount,
+		"total":    cloudwatch.StandardUnitCount,
+		"timeouts": cloudwatch.StandardUnitCount,
 	}
 
-	// determine the unit type where we can, missing unit values will only surface as None in the
-	// cloudwatch GetMetricData api call. The unit type is optional.
-	if isDistribution {
-		metricDatum.Unit = aws.String(cloudwatch.StandardUnitCount)
-	} else if metricname == "latency" {
-		metricDatum.Unit = aws.String(cloudwatch.StandardUnitMilliseconds)
+	if value, exists := unitTypes[metricname]; exists {
+		metricDatum.Unit = aws.String(value)
+	}
+
+	// distributions are of unit type count, identify if the dimensions contain a distribution key
+	for _, value := range dimensions {
+		if *value.Name == distributionDimensionName {
+			metricDatum.Unit = aws.String(cloudwatch.StandardUnitCount)
+			break
+		}
 	}
 
 	return &metricDatum
