@@ -103,7 +103,7 @@ RATE(m1) * PERIOD(m1)
 Whereby m1 is the metric id for the cloudprober metrics, for example:
 
 ```
-namespace: /cloudprober/grafana
+namespace: cloudprober
 metric name: latency
 dst: google.com
 ptype: http
