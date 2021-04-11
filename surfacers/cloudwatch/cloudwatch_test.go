@@ -186,6 +186,74 @@ func TestNewCWMetricDatum(t *testing.T) {
 				Value:             aws.Float64(float64(20)),
 				StorageResolution: aws.Int64(60),
 				Timestamp:         aws.Time(timestamp),
+			},
+		},
+		"le_dimension_count_unit": {
+			surfacer:   newTestCWSurfacer(),
+			metricname: "testingmetric",
+			value:      float64(20),
+			dimensions: []*cloudwatch.Dimension{
+				{
+					Name: aws.String("le"), Value: aws.String("value"),
+				},
+			},
+			timestamp: timestamp,
+			want: &cloudwatch.MetricDatum{
+				Dimensions: []*cloudwatch.Dimension{
+					{
+						Name: aws.String("le"), Value: aws.String("value"),
+					},
+				},
+				MetricName:        aws.String("testingmetric"),
+				Value:             aws.Float64(float64(20)),
+				StorageResolution: aws.Int64(60),
+				Timestamp:         aws.Time(timestamp),
+				Unit:              aws.String("Count"),
+			},
+		},
+		"latency_name_milliseconds_unit": {
+			surfacer:   newTestCWSurfacer(),
+			metricname: "latency",
+			value:      float64(20),
+			dimensions: []*cloudwatch.Dimension{
+				{
+					Name: aws.String("name"), Value: aws.String("value"),
+				},
+			},
+			timestamp: timestamp,
+			want: &cloudwatch.MetricDatum{
+				Dimensions: []*cloudwatch.Dimension{
+					{
+						Name: aws.String("name"), Value: aws.String("value"),
+					},
+				},
+				MetricName:        aws.String("latency"),
+				Value:             aws.Float64(float64(20)),
+				StorageResolution: aws.Int64(60),
+				Timestamp:         aws.Time(timestamp),
+				Unit:              aws.String("Milliseconds"),
+			},
+		},
+		"latency_name_but_le_dimension_count_unit": {
+			surfacer:   newTestCWSurfacer(),
+			metricname: "latency",
+			value:      float64(20),
+			dimensions: []*cloudwatch.Dimension{
+				{
+					Name: aws.String("le"), Value: aws.String("value"),
+				},
+			},
+			timestamp: timestamp,
+			want: &cloudwatch.MetricDatum{
+				Dimensions: []*cloudwatch.Dimension{
+					{
+						Name: aws.String("le"), Value: aws.String("value"),
+					},
+				},
+				MetricName:        aws.String("latency"),
+				Value:             aws.Float64(float64(20)),
+				StorageResolution: aws.Int64(60),
+				Timestamp:         aws.Time(timestamp),
 				Unit:              aws.String("Count"),
 			},
 		},

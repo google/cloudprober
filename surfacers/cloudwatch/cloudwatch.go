@@ -130,7 +130,7 @@ func calculateFailureMetric(em *metrics.EventMetrics) (float64, error) {
 	success, successOK := successMetric.(metrics.NumValue)
 	total, totalOK := totalMetric.(metrics.NumValue)
 
-	if successOK == false || totalOK == false {
+	if !successOK || !totalOK {
 		return 0, fmt.Errorf("unexpected error, either success or total is not a number")
 	}
 
@@ -152,31 +152,32 @@ func (cw *CWSurfacer) ignoreProberTypeLabel(em *metrics.EventMetrics) bool {
 
 // Create a new cloudwatch metriddatum using the values passed in.
 func (cw *CWSurfacer) newCWMetricDatum(metricname string, value float64, dimensions []*cloudwatch.Dimension, timestamp time.Time) *cloudwatch.MetricDatum {
-	unit := cloudwatch.StandardUnitCount
-
-	// distributions are a count, identify if the dimensions contain a distribution value, and if so
-	// keep the unit type to be a count
-	var isDistribution bool
-	for _, value := range dimensions {
-		name := *value.Name
-		if name == distributionDimensionName {
-			isDistribution = true
-			break
-		}
-	}
-
-	if metricname == "latency" && !isDistribution {
-		unit = cloudwatch.StandardUnitMilliseconds
-	}
-
-	return &cloudwatch.MetricDatum{
+	metricDatum := cloudwatch.MetricDatum{
 		Dimensions:        dimensions,
 		MetricName:        aws.String(metricname),
 		Value:             aws.Float64(value),
 		StorageResolution: aws.Int64(cw.c.GetResolution()),
 		Timestamp:         aws.Time(timestamp),
-		Unit:              aws.String(unit),
 	}
+
+	// distributions are of unit type count, identify if the dimensions contain a distribution value
+	var isDistribution bool
+	for _, value := range dimensions {
+		if *value.Name == distributionDimensionName {
+			isDistribution = true
+			break
+		}
+	}
+
+	// determine the unit type where we can, missing unit values will only surface as None in the
+	// cloudwatch GetMetricData api call. The unit type is optional.
+	if isDistribution {
+		metricDatum.Unit = aws.String(cloudwatch.StandardUnitCount)
+	} else if metricname == "latency" && !isDistribution {
+		metricDatum.Unit = aws.String(cloudwatch.StandardUnitMilliseconds)
+	}
+
+	return &metricDatum
 }
 
 // Take metric labels from an event metric and parse them into a Cloudwatch Dimension struct.
