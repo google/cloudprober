@@ -97,10 +97,10 @@ LoopEventMetrics:
 			}
 
 		case *metrics.Distribution:
-			for i, distributionBounds := range value.Data().LowerBounds {
+			for i, distributionBound := range value.Data().LowerBounds {
 				dimensions := append(emLabelsToDimensions(em), &cloudwatch.Dimension{
 					Name:  aws.String(distributionDimensionName),
-					Value: aws.String(strconv.FormatFloat(distributionBounds, 'f', -1, 64)),
+					Value: aws.String(strconv.FormatFloat(distributionBound, 'f', -1, 64)),
 				})
 
 				cw.publishMetrics(cw.newCWMetricDatum(metricKey, float64(value.Data().BucketCounts[i]), dimensions, em.Timestamp))
