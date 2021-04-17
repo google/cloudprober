@@ -90,7 +90,7 @@ LoopEventMetrics:
 			for _, metricValueMapKey := range value.Keys() {
 				dimensions := emLabelsToDimensions(em)
 				dimensions = append(dimensions, &cloudwatch.Dimension{
-					Name:  aws.String(metricKey),
+					Name:  aws.String(value.MapName),
 					Value: aws.String(metricValueMapKey),
 				})
 				cw.publishMetrics(cw.newCWMetricDatum(metricKey, value.GetKey(metricValueMapKey).Float64(), dimensions, em.Timestamp))
