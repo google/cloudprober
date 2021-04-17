@@ -12,7 +12,9 @@ import (
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
+
 	configpb "github.com/google/cloudprober/surfacers/cloudwatch/proto"
+	"github.com/google/cloudprober/surfacers/common/options"
 )
 
 /*
@@ -199,7 +201,7 @@ func emLabelsToDimensions(em *metrics.EventMetrics) []*cloudwatch.Dimension {
 
 // New creates a new instance of a cloudwatch surfacer, based on the config passed in. It then hands off
 // to a goroutine to surface metrics to cloudwatch across a buffered channel.
-func New(ctx context.Context, config *configpb.SurfacerConf, l *logger.Logger) (*CWSurfacer, error) {
+func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Options, l *logger.Logger) (*CWSurfacer, error) {
 
 	sess := session.Must(session.NewSessionWithOptions(session.Options{
 		SharedConfigState: session.SharedConfigEnable,
@@ -207,7 +209,7 @@ func New(ctx context.Context, config *configpb.SurfacerConf, l *logger.Logger) (
 
 	cw := &CWSurfacer{
 		c:         config,
-		writeChan: make(chan *metrics.EventMetrics, config.GetMetricsBufferSize()),
+		writeChan: make(chan *metrics.EventMetrics, opts.MetricsBufferSize),
 		session:   cloudwatch.New(sess),
 		l:         l,
 	}

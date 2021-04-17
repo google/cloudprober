@@ -12,10 +12,7 @@ message SurfacerConf {
   // default this will filter out sysvar probes.
   optional string ignore_prober_types = 2 [default="^sysvars$"];
 
-  // The buffer size for the channel to pass EventMetrics over.
-  optional int64 metrics_buffer_size = 3 [default = 10000];
-
   // The cloudwatch resolution value, lowering this below 60 will incur
   // additional charges as the metrics will be charged at a high resolution rate.
-  optional int64 resolution = 4 [default=60];
+  optional int64 resolution = 3 [default=60];
 }

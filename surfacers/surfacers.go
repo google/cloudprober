@@ -157,7 +157,7 @@ func initSurfacer(ctx context.Context, s *surfacerpb.SurfacerDef, sType surfacer
 		surfacer, err = pubsub.New(ctx, s.GetPubsubSurfacer(), opts, l)
 		conf = s.GetPubsubSurfacer()
 	case surfacerpb.Type_CLOUDWATCH:
-		surfacer, err = cloudwatch.New(ctx, s.GetCloudwatchSurfacer(), l)
+		surfacer, err = cloudwatch.New(ctx, s.GetCloudwatchSurfacer(), opts, l)
 		conf = s.GetCloudwatchSurfacer()
 	case surfacerpb.Type_USER_DEFINED:
 		userDefinedSurfacersMu.Lock()
