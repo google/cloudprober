@@ -79,7 +79,6 @@ func (cw *CWSurfacer) receiveMetricsFromEvent(ctx context.Context) {
 // recordEventMetrics takes an EventMetric, which can contain multiple metrics of varying types, and loops through
 // each metric in the EventMetric, parsing each metric into a structure that is supported by Cloudwatch
 func (cw *CWSurfacer) recordEventMetrics(em *metrics.EventMetrics) {
-LoopEventMetrics:
 	for _, metricKey := range em.MetricsKeys() {
 
 		switch value := em.Metric(metricKey).(type) {
@@ -105,11 +104,7 @@ LoopEventMetrics:
 
 				cw.publishMetrics(cw.newCWMetricDatum(metricKey, float64(value.Data().BucketCounts[i]), dimensions, em.Timestamp))
 			}
-
-		default:
-			continue LoopEventMetrics
 		}
-
 	}
 }
 
