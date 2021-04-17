@@ -33,14 +33,6 @@ import (
 	"github.com/google/cloudprober/surfacers/common/options"
 )
 
-/*
-	The cloudwatch surfacer presents EventMetrics to the cloudwatch putmetricdata APIs,
-	using the config passed in.
-
-	Some EventMetrics are not supported here, as the cloudwatch putmetricdata API only
-	supports float64 type values as the metric value.
-*/
-
 // Cloudwatch API limit for metrics included in a PutMetricData call
 const cloudwatchMaxMetricDatums int = 20
 
