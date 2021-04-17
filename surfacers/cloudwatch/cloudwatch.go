@@ -39,7 +39,6 @@ const cloudwatchMaxMetricDatums int = 20
 // The dimension named used to identify distributions
 const distributionDimensionName string = "le"
 
-// CWSurfacer implements a cloudwatch surfacer for cloudwatch metrics.
 type CWSurfacer struct {
 	c                 *configpb.SurfacerConf
 	writeChan         chan *metrics.EventMetrics
