@@ -87,13 +87,13 @@ LoopEventMetrics:
 			cw.publishMetrics(cw.newCWMetricDatum(metricKey, value.Float64(), emLabelsToDimensions(em), em.Timestamp))
 
 		case *metrics.Map:
-			for _, metricValueMapKey := range value.Keys() {
+			for _, mapKey := range value.Keys() {
 				dimensions := emLabelsToDimensions(em)
 				dimensions = append(dimensions, &cloudwatch.Dimension{
 					Name:  aws.String(value.MapName),
-					Value: aws.String(metricValueMapKey),
+					Value: aws.String(mapKey),
 				})
-				cw.publishMetrics(cw.newCWMetricDatum(metricKey, value.GetKey(metricValueMapKey).Float64(), dimensions, em.Timestamp))
+				cw.publishMetrics(cw.newCWMetricDatum(metricKey, value.GetKey(mapKey).Float64(), dimensions, em.Timestamp))
 			}
 
 		case *metrics.Distribution:
