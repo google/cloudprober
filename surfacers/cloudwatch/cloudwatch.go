@@ -83,7 +83,7 @@ func (cw *CWSurfacer) recordEventMetrics(em *metrics.EventMetrics) {
 
 		switch value := em.Metric(metricKey).(type) {
 		case metrics.NumValue:
-			cw.publishMetrics(cw.newCWMetricDatum(metricKey, value.Float64(), emLabelsToDimensions(em), em.Timestamp))
+			cw.publishMetrics(cw.newCWMetricDatum(metricKey, value.Float64(), emLabelsToDimensions(em), em.Timestamp, em.LatencyUnit))
 
 		case *metrics.Map:
 			for _, mapKey := range value.Keys() {
@@ -92,7 +92,7 @@ func (cw *CWSurfacer) recordEventMetrics(em *metrics.EventMetrics) {
 					Name:  aws.String(value.MapName),
 					Value: aws.String(mapKey),
 				})
-				cw.publishMetrics(cw.newCWMetricDatum(metricKey, value.GetKey(mapKey).Float64(), dimensions, em.Timestamp))
+				cw.publishMetrics(cw.newCWMetricDatum(metricKey, value.GetKey(mapKey).Float64(), dimensions, em.Timestamp, em.LatencyUnit))
 			}
 
 		case *metrics.Distribution:
@@ -102,7 +102,7 @@ func (cw *CWSurfacer) recordEventMetrics(em *metrics.EventMetrics) {
 					Value: aws.String(strconv.FormatFloat(distributionBound, 'f', -1, 64)),
 				})
 
-				cw.publishMetrics(cw.newCWMetricDatum(metricKey, float64(value.Data().BucketCounts[i]), dimensions, em.Timestamp))
+				cw.publishMetrics(cw.newCWMetricDatum(metricKey, float64(value.Data().BucketCounts[i]), dimensions, em.Timestamp, em.LatencyUnit))
 			}
 		}
 	}
@@ -155,32 +155,30 @@ func (cw *CWSurfacer) ignoreProberTypeLabel(em *metrics.EventMetrics) bool {
 }
 
 // Create a new cloudwatch metriddatum using the values passed in.
-func (cw *CWSurfacer) newCWMetricDatum(metricname string, value float64, dimensions []*cloudwatch.Dimension, timestamp time.Time) *cloudwatch.MetricDatum {
+func (cw *CWSurfacer) newCWMetricDatum(metricname string, value float64, dimensions []*cloudwatch.Dimension, timestamp time.Time, lu time.Duration) *cloudwatch.MetricDatum {
+	// define the metric datum with default values
 	metricDatum := cloudwatch.MetricDatum{
 		Dimensions:        dimensions,
 		MetricName:        aws.String(metricname),
 		Value:             aws.Float64(value),
 		StorageResolution: aws.Int64(cw.c.GetResolution()),
 		Timestamp:         aws.Time(timestamp),
+		Unit:              aws.String(cloudwatch.StandardUnitCount),
 	}
 
-	unitTypes := map[string]string{
-		"latency":  cloudwatch.StandardUnitMilliseconds,
-		"failures": cloudwatch.StandardUnitCount,
-		"success":  cloudwatch.StandardUnitCount,
-		"total":    cloudwatch.StandardUnitCount,
-		"timeouts": cloudwatch.StandardUnitCount,
-	}
-
-	if value, exists := unitTypes[metricname]; exists {
-		metricDatum.Unit = aws.String(value)
-	}
-
-	// distributions are of unit type count, identify if the dimensions contain a distribution key
-	for _, value := range dimensions {
-		if *value.Name == distributionDimensionName {
-			metricDatum.Unit = aws.String(cloudwatch.StandardUnitCount)
-			break
+	if metricname == "latency" {
+		switch lu {
+		case time.Second:
+			metricDatum.Unit = aws.String(cloudwatch.StandardUnitSeconds)
+		case time.Millisecond:
+			metricDatum.Unit = aws.String(cloudwatch.StandardUnitMilliseconds)
+		case time.Microsecond:
+			metricDatum.Unit = aws.String(cloudwatch.StandardUnitMicroseconds)
+		case time.Nanosecond:
+			// The cloudwatch API doesn't support nanoseconds as a unit type. Converting the value
+			// to Microseconds and setting the unit accordingly.
+			metricDatum.Unit = aws.String(cloudwatch.StandardUnitMicroseconds)
+			metricDatum.Value = aws.Float64(value / 1000)
 		}
 	}
 

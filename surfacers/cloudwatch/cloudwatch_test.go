@@ -178,6 +178,7 @@ func TestNewCWMetricDatum(t *testing.T) {
 		value      float64
 		dimensions []*cloudwatch.Dimension
 		timestamp  time.Time
+		duration   time.Duration
 		want       *cloudwatch.MetricDatum
 	}{
 		"simple": {
@@ -200,6 +201,7 @@ func TestNewCWMetricDatum(t *testing.T) {
 				Value:             aws.Float64(float64(20)),
 				StorageResolution: aws.Int64(60),
 				Timestamp:         aws.Time(timestamp),
+				Unit:              aws.String(cloudwatch.StandardUnitCount),
 			},
 		},
 		"le_dimension_count_unit": {
@@ -208,14 +210,14 @@ func TestNewCWMetricDatum(t *testing.T) {
 			value:      float64(20),
 			dimensions: []*cloudwatch.Dimension{
 				{
-					Name: aws.String("le"), Value: aws.String("value"),
+					Name: aws.String("test"), Value: aws.String("value"),
 				},
 			},
 			timestamp: timestamp,
 			want: &cloudwatch.MetricDatum{
 				Dimensions: []*cloudwatch.Dimension{
 					{
-						Name: aws.String("le"), Value: aws.String("value"),
+						Name: aws.String("test"), Value: aws.String("value"),
 					},
 				},
 				MetricName:        aws.String("testingmetric"),
@@ -223,6 +225,54 @@ func TestNewCWMetricDatum(t *testing.T) {
 				StorageResolution: aws.Int64(60),
 				Timestamp:         aws.Time(timestamp),
 				Unit:              aws.String("Count"),
+			},
+		},
+		"latency_name_nanosecond_unit": {
+			surfacer:   newTestCWSurfacer(),
+			metricname: "latency",
+			value:      float64(20),
+			dimensions: []*cloudwatch.Dimension{
+				{
+					Name: aws.String("name"), Value: aws.String("value"),
+				},
+			},
+			timestamp: timestamp,
+			duration:  time.Nanosecond,
+			want: &cloudwatch.MetricDatum{
+				Dimensions: []*cloudwatch.Dimension{
+					{
+						Name: aws.String("name"), Value: aws.String("value"),
+					},
+				},
+				MetricName:        aws.String("latency"),
+				Value:             aws.Float64(float64(0.02)),
+				StorageResolution: aws.Int64(60),
+				Timestamp:         aws.Time(timestamp),
+				Unit:              aws.String("Microseconds"),
+			},
+		},
+		"latency_name_microseconds_unit": {
+			surfacer:   newTestCWSurfacer(),
+			metricname: "latency",
+			value:      float64(20),
+			dimensions: []*cloudwatch.Dimension{
+				{
+					Name: aws.String("name"), Value: aws.String("value"),
+				},
+			},
+			timestamp: timestamp,
+			duration:  time.Microsecond,
+			want: &cloudwatch.MetricDatum{
+				Dimensions: []*cloudwatch.Dimension{
+					{
+						Name: aws.String("name"), Value: aws.String("value"),
+					},
+				},
+				MetricName:        aws.String("latency"),
+				Value:             aws.Float64(float64(20)),
+				StorageResolution: aws.Int64(60),
+				Timestamp:         aws.Time(timestamp),
+				Unit:              aws.String("Microseconds"),
 			},
 		},
 		"latency_name_milliseconds_unit": {
@@ -235,6 +285,7 @@ func TestNewCWMetricDatum(t *testing.T) {
 				},
 			},
 			timestamp: timestamp,
+			duration:  time.Millisecond,
 			want: &cloudwatch.MetricDatum{
 				Dimensions: []*cloudwatch.Dimension{
 					{
@@ -248,27 +299,28 @@ func TestNewCWMetricDatum(t *testing.T) {
 				Unit:              aws.String("Milliseconds"),
 			},
 		},
-		"latency_name_but_le_dimension_count_unit": {
+		"latency_name_seconds_unit": {
 			surfacer:   newTestCWSurfacer(),
 			metricname: "latency",
 			value:      float64(20),
 			dimensions: []*cloudwatch.Dimension{
 				{
-					Name: aws.String("le"), Value: aws.String("value"),
+					Name: aws.String("name"), Value: aws.String("value"),
 				},
 			},
 			timestamp: timestamp,
+			duration:  time.Second,
 			want: &cloudwatch.MetricDatum{
 				Dimensions: []*cloudwatch.Dimension{
 					{
-						Name: aws.String("le"), Value: aws.String("value"),
+						Name: aws.String("name"), Value: aws.String("value"),
 					},
 				},
 				MetricName:        aws.String("latency"),
 				Value:             aws.Float64(float64(20)),
 				StorageResolution: aws.Int64(60),
 				Timestamp:         aws.Time(timestamp),
-				Unit:              aws.String("Count"),
+				Unit:              aws.String("Seconds"),
 			},
 		},
 	}
@@ -280,6 +332,7 @@ func TestNewCWMetricDatum(t *testing.T) {
 				tc.value,
 				tc.dimensions,
 				tc.timestamp,
+				tc.duration,
 			)
 
 			if !reflect.DeepEqual(got, tc.want) {
