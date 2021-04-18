@@ -13,10 +13,9 @@ message SurfacerConf {
   optional int64 resolution = 2 [default=60];
 
   // If allowed_metrics_regex is specified, only metrics matching the given
-  // regular expression will be exported to cloudwatch. Since probe type and
-  // probe name are part of the metric name, you can use this field to restrict
-  // cloudwatch metrics to a particular probe.
+  // regular expression will be exported to cloudwatch. This will be evaluated
+  // against both the probe type and probe name.
   // Example:
-  // allowed_metrics_regex: ".*(http|ping).*(success|validation_failure).*"
+  // allowed_metrics_regex: "(http|ping)"
   optional string allowed_metrics_regex = 3;
 }
