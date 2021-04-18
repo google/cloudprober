@@ -170,19 +170,18 @@ func (cw *CWSurfacer) newCWMetricDatum(metricname string, value float64, dimensi
 		Unit:              aws.String(cloudwatch.StandardUnitCount),
 	}
 
+	// the cloudwatch api will throw warnings when a timeseries has multiple units, to avoid
+	// this always calculate the value as milliseconds.
 	if metricname == "latency" {
+		metricDatum.Unit = aws.String(cloudwatch.StandardUnitMilliseconds)
+
 		switch lu {
 		case time.Second:
-			metricDatum.Unit = aws.String(cloudwatch.StandardUnitSeconds)
-		case time.Millisecond:
-			metricDatum.Unit = aws.String(cloudwatch.StandardUnitMilliseconds)
+			metricDatum.Value = aws.Float64(value * 1000)
 		case time.Microsecond:
-			metricDatum.Unit = aws.String(cloudwatch.StandardUnitMicroseconds)
-		case time.Nanosecond:
-			// The cloudwatch API doesn't support nanoseconds as a unit type. Converting the value
-			// to Microseconds and setting the unit accordingly.
-			metricDatum.Unit = aws.String(cloudwatch.StandardUnitMicroseconds)
 			metricDatum.Value = aws.Float64(value / 1000)
+		case time.Nanosecond:
+			metricDatum.Value = aws.Float64((value / 1000) / 1000)
 		}
 	}
 
