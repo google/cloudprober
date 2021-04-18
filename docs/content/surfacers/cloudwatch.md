@@ -76,16 +76,17 @@ The full list of configuration options for the cloudwatch surfacer is:
   // The cloudwatch metric namespace
   optional string namespace = 1 [default = "cloudprober"];
 
-  // Filter for the allowed metrics, applied to the label. As
-  // default this will filter out sysvar probes.
-  optional string ignore_prober_types = 2 [default="^sysvars$"];
-
-  // The buffer size for the channel to pass EventMetrics over.
-  optional int64 metrics_buffer_size = 3 [default = 10000];
-
   // The cloudwatch resolution value, lowering this below 60 will incur
   // additional charges as the metrics will be charged at a high resolution rate.
-  optional int64 resolution = 4 [default=60];
+  optional int64 resolution = 2 [default=60];
+
+  // If allowed_metrics_regex is specified, only metrics matching the given
+  // regular expression will be exported to cloudwatch. Since probe type and
+  // probe name are part of the metric name, you can use this field to restrict
+  // cloudwatch metrics to a particular probe.
+  // Example:
+  // allowed_metrics_regex: ".*(http|ping).*(success|validation_failure).*"
+  optional string allowed_metrics_regex = 3;
 ```
 
 (Source: https://github.com/google/cloudprober/blob/master/surfacers/cloudwatch/proto/config.proto)

@@ -35,80 +35,65 @@ func newTestCWSurfacer() CWSurfacer {
 	resolution := int64(60)
 
 	return CWSurfacer{
-		l:                 l,
-		ignoreLabelsRegex: &regexp.Regexp{},
+		l:                   l,
+		allowedMetricsRegex: &regexp.Regexp{},
 		c: &configpb.SurfacerConf{
-			Namespace:  &namespace,
-			Resolution: &resolution,
+			Namespace:           &namespace,
+			AllowedMetricsRegex: new(string),
+			Resolution:          &resolution,
 		},
 	}
 }
 
-func TestIgnoreProberTypeLabel(t *testing.T) {
-	timestamp := time.Now()
-
+func TestIgnoreMetric(t *testing.T) {
 	tests := map[string]struct {
-		surfacer     CWSurfacer
-		em           *metrics.EventMetrics
-		labels       map[string]string
-		regexpString string
-		want         bool
+		surfacer CWSurfacer
+		regex    string
+		name     string
+		want     bool
 	}{
-		"regexp match": {
+		"regex default": {
 			surfacer: newTestCWSurfacer(),
-			em:       metrics.NewEventMetrics(timestamp),
-			labels: map[string]string{
-				"ptype": "sysvars",
-				"probe": "testprobe",
-			},
-			regexpString: "sysvars",
-			want:         true,
+			regex:    "",
+			name:     "test",
+			want:     false,
 		},
-		"regexp miss": {
+		"regexp direct match": {
 			surfacer: newTestCWSurfacer(),
-			em:       metrics.NewEventMetrics(timestamp),
-			labels: map[string]string{
-				"ptype": "http",
-				"probe": "testprobe",
-			},
-			regexpString: "sysvars",
-			want:         false,
+			regex:    "latency",
+			name:     "latency",
+			want:     false,
 		},
-		"regexp wildcard all": {
+		"regexp partial match inside optional": {
 			surfacer: newTestCWSurfacer(),
-			em:       metrics.NewEventMetrics(timestamp),
-			labels: map[string]string{
-				"ptype": "sysvars",
-				"probe": "testprobe",
-			},
-			regexpString: ".*",
-			want:         true,
+			regex:    ".*(http.*|ping).*",
+			name:     "httphttp",
+			want:     false,
 		},
-		"regexp partial match": {
+		"regex ignored": {
 			surfacer: newTestCWSurfacer(),
-			em:       metrics.NewEventMetrics(timestamp),
-			labels: map[string]string{
-				"ptype": "sysvars",
-				"probe": "testprobe",
-			},
-			regexpString: "sys",
-			want:         true,
+			regex:    ".*(http|ping).*",
+			name:     "sysvar",
+			want:     true,
+		},
+		"regex ignored partial": {
+			surfacer: newTestCWSurfacer(),
+			regex:    ".*(http.*|ping).*",
+			name:     "httsysvar",
+			want:     true,
 		},
 	}
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			for k, v := range tc.labels {
-				tc.em.AddLabel(k, v)
-			}
-
-			r, err := regexp.Compile(tc.regexpString)
+			r, err := regexp.Compile(tc.regex)
 			if err != nil {
-				t.Fatalf("Error compiling regex string: %s, error: %s", tc.regexpString, err)
+				t.Fatalf("Error compiling regex string: %s, error: %s", tc.regex, err)
 			}
 
-			tc.surfacer.ignoreLabelsRegex = r
-			got := tc.surfacer.ignoreProberTypeLabel(tc.em)
+			tc.surfacer.allowedMetricsRegex = r
+
+			got := tc.surfacer.ignoreMetric(tc.name)
 			if got != tc.want {
 				t.Errorf("got: %t, want: %t", got, tc.want)
 			}

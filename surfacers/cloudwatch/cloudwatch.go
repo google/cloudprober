@@ -40,11 +40,11 @@ const cloudwatchMaxMetricDatums int = 20
 const distributionDimensionName string = "le"
 
 type CWSurfacer struct {
-	c                 *configpb.SurfacerConf
-	writeChan         chan *metrics.EventMetrics
-	session           *cloudwatch.CloudWatch
-	l                 *logger.Logger
-	ignoreLabelsRegex *regexp.Regexp
+	c                   *configpb.SurfacerConf
+	writeChan           chan *metrics.EventMetrics
+	session             *cloudwatch.CloudWatch
+	l                   *logger.Logger
+	allowedMetricsRegex *regexp.Regexp
 
 	// A cache of []*cloudwatch.MetricDatum's, used for batch writing to the
 	// cloudwatch api.
@@ -52,14 +52,19 @@ type CWSurfacer struct {
 }
 
 func (cw *CWSurfacer) receiveMetricsFromEvent(ctx context.Context) {
+RoutineLoop:
 	for {
 		select {
 		case <-ctx.Done():
 			cw.l.Infof("Context canceled, stopping the surfacer write loop")
 			return
 		case em := <-cw.writeChan:
-			if cw.ignoreProberTypeLabel(em) {
-				break
+
+			// evaluate if any of the metric labels are to be ignored and exit early
+			for _, label := range em.LabelsKeys() {
+				if cw.ignoreMetric(label) || cw.ignoreMetric(em.Label(label)) {
+					continue RoutineLoop
+				}
 			}
 
 			// check if a failure metric can be calculated
@@ -143,10 +148,9 @@ func calculateFailureMetric(em *metrics.EventMetrics) (float64, error) {
 	return failure, nil
 }
 
-// determine if we should ignore the prober type label, based on the ignoreLabelsRegex config
-func (cw *CWSurfacer) ignoreProberTypeLabel(em *metrics.EventMetrics) bool {
-	if cw.ignoreLabelsRegex != nil {
-		if cw.ignoreLabelsRegex.MatchString(em.Label("ptype")) {
+func (s *CWSurfacer) ignoreMetric(name string) bool {
+	if s.allowedMetricsRegex != nil {
+		if !s.allowedMetricsRegex.MatchString(name) {
 			return true
 		}
 	}
@@ -214,12 +218,12 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 		l:         l,
 	}
 
-	if cw.c.GetIgnoreProberTypes() != "" {
-		r, err := regexp.Compile(cw.c.GetIgnoreProberTypes())
+	if cw.c.GetAllowedMetricsRegex() != "" {
+		r, err := regexp.Compile(cw.c.GetAllowedMetricsRegex())
 		if err != nil {
 			return nil, err
 		}
-		cw.ignoreLabelsRegex = r
+		cw.allowedMetricsRegex = r
 	}
 
 	// Set the capacity of this slice to the max metric value, to avoid having to grow the slice.
