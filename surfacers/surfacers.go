@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 2017-2021 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -32,6 +32,7 @@ import (
 
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
+	"github.com/google/cloudprober/surfacers/cloudwatch"
 	"github.com/google/cloudprober/surfacers/common/options"
 	"github.com/google/cloudprober/surfacers/file"
 	"github.com/google/cloudprober/surfacers/postgres"
@@ -112,6 +113,8 @@ func inferType(s *surfacerpb.SurfacerDef) surfacerspb.Type {
 		return surfacerspb.Type_POSTGRES
 	case *surfacerpb.SurfacerDef_PubsubSurfacer:
 		return surfacerspb.Type_PUBSUB
+	case *surfacerpb.SurfacerDef_CloudwatchSurfacer:
+		return surfacerspb.Type_CLOUDWATCH
 	}
 
 	return surfacerspb.Type_NONE
@@ -153,6 +156,9 @@ func initSurfacer(ctx context.Context, s *surfacerpb.SurfacerDef, sType surfacer
 	case surfacerpb.Type_PUBSUB:
 		surfacer, err = pubsub.New(ctx, s.GetPubsubSurfacer(), opts, l)
 		conf = s.GetPubsubSurfacer()
+	case surfacerpb.Type_CLOUDWATCH:
+		surfacer, err = cloudwatch.New(ctx, s.GetCloudwatchSurfacer(), opts, l)
+		conf = s.GetCloudwatchSurfacer()
 	case surfacerpb.Type_USER_DEFINED:
 		userDefinedSurfacersMu.Lock()
 		defer userDefinedSurfacersMu.Unlock()
