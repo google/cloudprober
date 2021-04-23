@@ -9,14 +9,14 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,user-scalable=no,initial-scale=1,maximum-scale=1">
     <meta http-equiv="X-UA-Compatible" content="IE=10" />
-    <title>Validators - Cloudprober</title>
+    <title>Cloudwatch (AWS Cloud Monitoring) - Cloudprober</title>
     <meta name="generator" content="Hugo 0.61.0" />
 
     
-    <link rel="canonical" href="https://cloudprober.org/how-to/validators/">
+    <link rel="canonical" href="https://cloudprober.org/surfacers/cloudwatch/">
     
 
-    <meta property="og:url" content="https://cloudprober.org/how-to/validators/">
+    <meta property="og:url" content="https://cloudprober.org/surfacers/cloudwatch/">
     <meta property="og:title" content="Cloudprober">
     
     <meta name="apple-mobile-web-app-title" content="Cloudprober">
@@ -93,7 +93,7 @@
     </div>
     <div class="stretch">
       <div class="title">
-        Validators
+        Cloudwatch (AWS Cloud Monitoring)
       </div>
     </div>
 
@@ -257,11 +257,14 @@
 
 
 
-<a  title="Cloudwatch (AWS Cloud Monitoring)" href="https://cloudprober.org/surfacers/cloudwatch/">
+<a class="current" title="Cloudwatch (AWS Cloud Monitoring)" href="https://cloudprober.org/surfacers/cloudwatch/">
 	
 	Cloudwatch (AWS Cloud Monitoring)
 </a>
 
+
+<ul id="scrollspy">
+</ul>
 
 
       
@@ -333,14 +336,11 @@
 
 
 
-<a class="current" title="Validators" href="https://cloudprober.org/how-to/validators/">
+<a  title="Validators" href="https://cloudprober.org/how-to/validators/">
 	
 	Validators
 </a>
 
-
-<ul id="scrollspy">
-</ul>
 
 
       
@@ -388,76 +388,80 @@
 
 	<article class="article">
 		<div class="wrapper">
-			<h1>Validators </h1>
+			<h1>Cloudwatch (AWS Cloud Monitoring) </h1>
 
-			<p>Validators allow you to run checks on the probe request output (if any). For
-example, you can specify if you expect the probe output to match a certain
-regex or return a certain status code (for HTTP). You can configure more than
-one validators and all validators should succeed for the probe to be marked as
-success.</p>
-<div class="highlight"><pre class="chroma"><code class="language-bash" data-lang="bash">probe <span class="o">{</span>
-    name: <span class="s2">&#34;google_homepage&#34;</span>
-    type: HTTP
-    targets <span class="o">{</span>
-        host_names: <span class="s2">&#34;www.google.com&#34;</span>
-    <span class="o">}</span>
-    interval_msec: <span class="m">10000</span>    <span class="c1"># Probe every 10s</span>
+			<p>Cloudprober can natively export metrics to AWS Cloudwatch using the cloudwatch <a href="https://cloudprober.org/surfacers/overview">surfacer</a>. Adding the cloudwatch surfacer to cloudprover is as simple as adding the following stanza to the config:</p>
+<pre><code>surfacer {
+  type: CLOUDWATCH
+}
+</code></pre><h2 id="authentication">Authentication</h2>
+<p>The cloudwatch surfacer uses the AWS Go SDK, and supports the <a href="https://docs.aws.amazon.com/sdk-for-go/v2/developer-guide/configuring-sdk.html">default credential chain</a>:</p>
+<ol>
+<li>Environment variables.</li>
+<li>Shared credentials file.</li>
+<li>If your application uses an ECS task definition or RunTask API operation, IAM role for tasks.</li>
+<li>If your application is running on an Amazon EC2 instance, IAM role for Amazon EC2.</li>
+</ol>
+<h2 id="authorization">Authorization</h2>
+<p>In order to permit cloudprober to publish metric data to cloudwatch, ensure the profile being used for authentication has the following permissions, where the &ldquo;cloudwatch:namespace&rdquo; is the <a href="#metric-namespace">metric namespace</a> used by cloudprober.</p>
+<p>If the default metric namespace is changed, also change the condition in the IAM policy below to match the same value.</p>
+<pre><code>{
+    &quot;Version&quot;: &quot;2012-10-17&quot;,
+    &quot;Statement&quot;: [
+        {
+            &quot;Condition&quot;: {
+                &quot;StringEqualsIgnoreCase&quot;: {
+                    &quot;cloudwatch:namespace&quot;: &quot;cloudprober&quot;
+                }
+            },
+            &quot;Action&quot;: [
+                &quot;cloudwatch:PutMetricData&quot;
+            ],
+            &quot;Resource&quot;: [
+                &quot;*&quot;
+            ],
+            &quot;Effect&quot;: &quot;Allow&quot;,
+            &quot;Sid&quot;: &quot;PutMetrics&quot;
+        }
+    ]
+}
+</code></pre><h2 id="metric-namespacehttpsdocsawsamazoncomamazoncloudwatchlatestmonitoringcloudwatch-conceptshtmlnamespace"><a href="https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/cloudwatch_concepts.html#Namespace">Metric Namespace</a></h2>
+<p>The metric namespace used to publish metrics to by default is set to <code>cloudprober</code>. This can be changed by expanding the surfacer configuration:</p>
+<pre><code>surfacer {
+  type: CLOUDWATCH
 
-    <span class="c1"># This validator should succeed.</span>
-    validator <span class="o">{</span>
-        name: <span class="s2">&#34;status_code_2xx&#34;</span>
-        http_validator <span class="o">{</span>
-            success_status_codes: <span class="s2">&#34;200-299&#34;</span>
-        <span class="o">}</span>
-    <span class="o">}</span>
-
-    <span class="c1"># This validator will fail, notice missing &#39;o&#39; in our regex.</span>
-    validator <span class="o">{</span>
-        name: <span class="s2">&#34;gogle_re&#34;</span>
-        regex: <span class="s2">&#34;gogle&#34;</span>
-    <span class="o">}</span>
-<span class="o">}</span></code></pre></div>
-<p>(Full listing: <a href="https://github.com/google/cloudprober/blob/master/examples/validators/cloudprober_validator.cfg">https://github.com/google/cloudprober/blob/master/examples/validators/cloudprober_validator.cfg</a>)</p>
-<p>To make the debugging easier, validation failures are logged and exported as an
-independent map counter &ndash; <em>validation_failure</em>, with <em>validator</em> key. For
-example, the above example will result in the following counters being
-exported after 5 runs:</p>
-<div class="highlight"><pre class="chroma"><code class="language-bash" data-lang="bash">total<span class="o">{</span><span class="nv">probe</span><span class="o">=</span><span class="s2">&#34;google_homepage&#34;</span>,dst<span class="o">=</span><span class="s2">&#34;www.google.com&#34;</span><span class="o">}</span> <span class="m">5</span>
-success<span class="o">{</span><span class="nv">probe</span><span class="o">=</span><span class="s2">&#34;google_homepage&#34;</span>,dst<span class="o">=</span><span class="s2">&#34;www.google.com&#34;</span><span class="o">}</span> <span class="m">0</span>
-validation_failure<span class="o">{</span><span class="nv">validator</span><span class="o">=</span><span class="s2">&#34;status_code_2xx&#34;</span>,probe<span class="o">=</span><span class="s2">&#34;google_homepage&#34;</span>,dst<span class="o">=</span><span class="s2">&#34;www.google.com&#34;</span><span class="o">}</span> <span class="m">0</span>
-validation_failure<span class="o">{</span><span class="nv">validator</span><span class="o">=</span><span class="s2">&#34;gogle_re&#34;</span>,probe<span class="o">=</span><span class="s2">&#34;google_homepage&#34;</span>,dst<span class="o">=</span><span class="s2">&#34;www.google.com&#34;</span><span class="o">}</span> <span class="m">5</span></code></pre></div>
-<p>Note that validator counter will <strong>not</strong> go up if probe fails for other
-reasons, for example web server timing out. That's why you typically don't want
-to alert only on validation failures. That said, in some cases, validation
-failures could be the only thing you're interested in, for example, if you're
-trying to make sure that a certain copyright is always present in your web
-pages or you want to catch data integrity issues in your network.</p>
-<p>Let's take a look at the types of validators you can configure.</p>
-<h2 id="regex-validator">Regex Validator</h2>
-<p>Regex validator simply checks for a regex in the probe request output. It works
-for all probe types except for UDP and UDP_LISTENER - these probe types don't
-support any validators at the moment.</p>
-<h2 id="http-validator">HTTP Validator</h2>
-<p>HTTP response validator works only for the HTTP probe type. You can currently
-use HTTP  validator to define success and failure status codes (represented by
-success_status_codes and failure_stauts_codes in the config):</p>
-<ul>
-<li>If <em>failure_status_codes</em> is defined and response status code falls within
-that range, validator is considered to have failed.</li>
-<li>If <em>success_status_codes</em> is defined and response status code <em>does not</em>
-fall within that range, validator is considered to have failed.</li>
-<li>If <em>failure_header</em> is defined and HTTP response include specified header and
-there are matching values, validator is considered to have failed. Leaving
-<em>value_regex</em> empty checks only for header name.</li>
-<li>If <em>success_header</em> is defined and HTTP response <em>does not</em> include specified header
-with matching values, validator is considered to have failed. Leaving
-<em>value_regex</em> empty checks only for header name.</li>
-</ul>
-<h2 id="data-integrity-validator">Data Integrity Validator</h2>
-<p>Data integrity validator is designed to catch the packet corruption issues in
-the network. We have a basic check that verifies that the probe output is made
-up purely of a pattern repeated many times over.</p>
-
+  cloudwatch_surfacer {
+    namespace: &quot;/cloudprober/website/probes&quot;
+  }
+}
+</code></pre><p>Note: If the namespace is modified, also modify the <a href="#authorization">IAM policy condition</a> for the namespace PutMetricData call.</p>
+<h2 id="configuration-options">Configuration Options</h2>
+<p>The full list of configuration options for the cloudwatch surfacer is:</p>
+<div class="highlight"><pre class="chroma"><code class="language-protobuf" data-lang="protobuf">  <span class="c1">// The cloudwatch metric namespace
+</span><span class="c1"></span>  <span class="k">optional</span> <span class="kt">string</span> <span class="n">namespace</span> <span class="o">=</span> <span class="mi">1</span> <span class="p">[</span><span class="k">default</span> <span class="o">=</span> <span class="s">&#34;cloudprober&#34;</span><span class="p">]</span><span class="p">;</span><span class="err">
+</span><span class="err"></span><span class="err">
+</span><span class="err"></span>  <span class="c1">// The cloudwatch resolution value, lowering this below 60 will incur
+</span><span class="c1"></span>  <span class="c1">// additional charges as the metrics will be charged at a high resolution rate.
+</span><span class="c1"></span>  <span class="k">optional</span> <span class="kt">int64</span> <span class="n">resolution</span> <span class="o">=</span> <span class="mi">2</span> <span class="p">[</span><span class="k">default</span><span class="o">=</span><span class="mi">60</span><span class="p">]</span><span class="p">;</span><span class="err">
+</span><span class="err"></span><span class="err">
+</span><span class="err"></span>  <span class="c1">// If allowed_metrics_regex is specified, only metrics matching the given
+</span><span class="c1"></span>  <span class="c1">// regular expression will be exported to cloudwatch. This will be evaluated
+</span><span class="c1"></span>  <span class="c1">// against both the probe type and probe name.
+</span><span class="c1"></span>  <span class="c1">// Example:
+</span><span class="c1"></span>  <span class="c1">// allowed_metrics_regex: &#34;(http|ping)&#34;
+</span><span class="c1"></span>  <span class="k">optional</span> <span class="kt">string</span> <span class="n">allowed_metrics_regex</span> <span class="o">=</span> <span class="mi">3</span><span class="p">;</span><span class="err">
+</span></code></pre></div><p>(Source: <a href="https://github.com/google/cloudprober/blob/master/surfacers/cloudwatch/proto/config.proto">https://github.com/google/cloudprober/blob/master/surfacers/cloudwatch/proto/config.proto</a>)</p>
+<h2 id="calculating-the-metric-delta-with-cloudwatch-metric-maths">Calculating the metric delta with Cloudwatch Metric Maths</h2>
+<p>The metrics produced by cloudprober are cumulative. Most services producing metrics into cloudwatch produce snapshot data whereby the metrics are recorded for a specific point in time.</p>
+<p>In order to achieve a similar effect here, the <a href="https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/using-metric-math.html">Cloudwatch Metric Maths</a> RATE and PERIOD functions can be used to determine the delta values.</p>
+<pre><code>RATE(m1) * PERIOD(m1)
+</code></pre><p>Whereby m1 is the metric id for the cloudprober metrics, for example:</p>
+<pre><code>namespace: cloudprober
+metric name: latency
+dst: google.com
+ptype: http
+probe: probe name
+</code></pre>
 
 			<aside class="copyright" role="note">
 				
