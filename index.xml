@@ -6,10 +6,21 @@
     <description>Recent content on Cloudprober</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
-    <lastBuildDate>Wed, 09 Dec 2020 17:24:32 -0700</lastBuildDate>
+    <lastBuildDate>Sun, 04 Apr 2021 19:37:00 +0100</lastBuildDate>
     
 	<atom:link href="https://cloudprober.org/index.xml" rel="self" type="application/rss+xml" />
     
+    
+    <item>
+      <title>Cloudwatch (AWS Cloud Monitoring)</title>
+      <link>https://cloudprober.org/surfacers/cloudwatch/</link>
+      <pubDate>Sun, 04 Apr 2021 19:37:00 +0100</pubDate>
+      
+      <guid>https://cloudprober.org/surfacers/cloudwatch/</guid>
+      <description>Cloudprober can natively export metrics to AWS Cloudwatch using the cloudwatch surfacer. Adding the cloudwatch surfacer to cloudprover is as simple as adding the following stanza to the config:
+surfacer { type: CLOUDWATCH } Authentication The cloudwatch surfacer uses the AWS Go SDK, and supports the default credential chain:
+ Environment variables. Shared credentials file. If your application uses an ECS task definition or RunTask API operation, IAM role for tasks.</description>
+    </item>
     
     <item>
       <title>Percentiles, Histograms, and Distributions</title>
