@@ -111,6 +111,12 @@ message ProberConfig {
   // how to use these variables.
   optional string sysvars_env_var = 98 [default = "SYSVARS"];
 
+  // Time between triggering cancelation of various goroutines and exiting the
+  // process. If --stop_time flag is also configured, that gets priority.
+  // You may want to set it to 0 if cloudprober is running as a backend for
+  // the probes and you don't want time lost in stop and start.
+  optional int32 stop_time_sec = 99 [default = 5];
+
   // Global targets options. Per-probe options are specified within the probe
   // stanza.
   optional targets.GlobalTargetsOptions global_targets_options = 100;
