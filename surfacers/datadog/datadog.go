@@ -1,3 +1,17 @@
+// Copyright 2017 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package datadog
 
 import (
@@ -103,7 +117,7 @@ func (dd *DDSurfacer) newDDSeries(metricName string, value float64, tags []strin
 
 // Take metric labels from an event metric and parse them into a Cloudwatch Dimension struct.
 func emLabelsToTags(em *metrics.EventMetrics) []string {
-	var tags []string
+  tags := []string{}
 
 	for _, k := range em.LabelsKeys() {
 		tags = append(tags, fmt.Sprintf("%s:%s", k, em.Label(k)))
@@ -140,21 +154,17 @@ func (dd *DDSurfacer) distToDDSeries(d *metrics.DistributionData, metricName str
 	return ret
 }
 
-// New creates a new instance of a cloudwatch surfacer, based on the config passed in. It then hands off
-// to a goroutine to surface metrics to cloudwatch across a buffered channel.
+// New creates a new instance of a datadog surfacer, based on the config passed in. It then hands off
+// to a goroutine to surface metrics to datadog across a buffered channel.
 func New(ctx context.Context, config *configpb.SurfacerConf, l *logger.Logger) (*DDSurfacer, error) {
 
-	l.Infof("1\n")
 	os.Setenv("DD_APP_KEY", config.GetAppKey())
 	os.Setenv("DD_API_KEY", config.GetApiKey())
 
-	l.Infof("2\n")
 	ctx = datadog.NewDefaultContext(ctx)
 	configuration := datadog.NewConfiguration()
-	l.Infof("3\n")
 
 	client := datadog.NewAPIClient(configuration)
-	l.Infof("4\n")
 
 	p := config.GetPrefix()
 	if p[len(p)-1] != '.' {
@@ -168,7 +178,6 @@ func New(ctx context.Context, config *configpb.SurfacerConf, l *logger.Logger) (
 		l:         l,
 		prefix:    p,
 	}
-	l.Infof("5\n")
 
 	if config.GetIgnoreProberTypes() != "" {
 		r, err := regexp.Compile(config.GetIgnoreProberTypes())
@@ -181,10 +190,9 @@ func New(ctx context.Context, config *configpb.SurfacerConf, l *logger.Logger) (
 	// Set the capacity of this slice to the max metric value, to avoid having to grow the slice.
 	dd.ddSeriesCache = make([]datadog.Series, 0)
 
-	l.Infof("6\n")
 	go dd.receiveMetricsFromEvent(ctx)
 
-	dd.l.Info("Initialised Cloudwatch surfacer")
+	dd.l.Info("Initialised Datadog surfacer")
 	return dd, nil
 }
 
