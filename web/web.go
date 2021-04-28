@@ -63,7 +63,7 @@ func Status() string {
 }
 
 func configHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, cloudprober.GetConfig())
+	fmt.Fprint(w, cloudprober.GetTextConfig())
 }
 
 func statusHandler(w http.ResponseWriter, r *http.Request) {

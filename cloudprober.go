@@ -66,6 +66,7 @@ var cloudProber struct {
 	defaultServerLn net.Listener
 	defaultGRPCLn   net.Listener
 	textConfig      string
+	config          *configpb.ProberConfig
 	cancelInitCtx   context.CancelFunc
 	sync.Mutex
 }
@@ -209,6 +210,7 @@ func InitFromConfig(configFile string) error {
 	}
 
 	cloudProber.prober = pr
+	cloudProber.config = cfg
 	cloudProber.textConfig = configStr
 	cloudProber.defaultServerLn = ln
 	cloudProber.defaultGRPCLn = grpcLn
@@ -248,7 +250,14 @@ func Start(ctx context.Context) {
 }
 
 // GetConfig returns the prober config.
-func GetConfig() string {
+func GetConfig() *configpb.ProberConfig {
+	cloudProber.Lock()
+	defer cloudProber.Unlock()
+	return cloudProber.config
+}
+
+// GetTextConfig returns the prober config in text proto format.
+func GetTextConfig() string {
 	cloudProber.Lock()
 	defer cloudProber.Unlock()
 	return cloudProber.textConfig
