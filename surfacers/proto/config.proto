@@ -8,6 +8,7 @@ import "github.com/google/cloudprober/surfacers/prometheus/proto/config.proto";
 import "github.com/google/cloudprober/surfacers/pubsub/proto/config.proto";
 import "github.com/google/cloudprober/surfacers/stackdriver/proto/config.proto";
 import "github.com/google/cloudprober/surfacers/cloudwatch/proto/config.proto";
+import "github.com/google/cloudprober/surfacers/datadog/proto/config.proto";
 
 option go_package = "github.com/google/cloudprober/surfacers/proto";
 
@@ -20,6 +21,7 @@ enum Type {
   POSTGRES = 4;
   PUBSUB = 5;
   CLOUDWATCH = 6;
+  DATADOG = 7;
   USER_DEFINED = 99;
 }
 
@@ -49,5 +51,6 @@ message SurfacerDef {
     postgres.SurfacerConf postgres_surfacer = 13;
     pubsub.SurfacerConf pubsub_surfacer = 14;
     cloudwatch.SurfacerConf cloudwatch_surfacer = 15;
+    datadog.SurfacerConf datadog_surfacer = 16;
   }
 }

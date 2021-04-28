@@ -39,6 +39,7 @@ import (
 	"github.com/google/cloudprober/surfacers/prometheus"
 	"github.com/google/cloudprober/surfacers/pubsub"
 	"github.com/google/cloudprober/surfacers/stackdriver"
+	"github.com/google/cloudprober/surfacers/datadog"
 	"github.com/google/cloudprober/web/formatutils"
 
 	surfacerpb "github.com/google/cloudprober/surfacers/proto"
@@ -115,6 +116,8 @@ func inferType(s *surfacerpb.SurfacerDef) surfacerspb.Type {
 		return surfacerspb.Type_PUBSUB
 	case *surfacerpb.SurfacerDef_CloudwatchSurfacer:
 		return surfacerspb.Type_CLOUDWATCH
+	case *surfacerpb.SurfacerDef_DatadogSurfacer:
+		return surfacerspb.Type_CLOUDWATCH
 	}
 
 	return surfacerspb.Type_NONE
@@ -159,6 +162,9 @@ func initSurfacer(ctx context.Context, s *surfacerpb.SurfacerDef, sType surfacer
 	case surfacerpb.Type_CLOUDWATCH:
 		surfacer, err = cloudwatch.New(ctx, s.GetCloudwatchSurfacer(), opts, l)
 		conf = s.GetCloudwatchSurfacer()
+	case surfacerpb.Type_DATADOG:
+		surfacer, err = datadog.New(ctx, s.GetDatadogSurfacer(), l)
+		conf = s.GetDatadogSurfacer()
 	case surfacerpb.Type_USER_DEFINED:
 		userDefinedSurfacersMu.Lock()
 		defer userDefinedSurfacersMu.Unlock()
