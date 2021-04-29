@@ -29,23 +29,20 @@ import (
 )
 
 /*
-	The datadog surfacer presents EventMetrics to the cloudwatch putmetricdata APIs,
+	The datadog surfacer presents EventMetrics to the datadog SubmitMetrics APIs,
 	using the config passed in.
 
-	Some EventMetrics are not supported here, as the cloudwatch putmetricdata API only
+	Some EventMetrics are not supported here, as the datadog SubmitMetrics API only
 	supports float64 type values as the metric value.
 */
 
-// Cloudwatch API limit for metrics included in a PutMetricData call
-const cloudwatchMaxMetricDatums int = 20
-
-// The dimension named used to identify distributions
-const distributionDimensionName string = "le"
+// Datadog API limit for metrics included in a SubmitMetrics call
+const datadogMaxSeries int = 20
 
 //
 const gauge string = "string"
 
-// DDSurfacer implements a cloudwatch surfacer for cloudwatch metrics.
+// DDSurfacer implements a datadog surfacer for datadog metrics.
 type DDSurfacer struct {
 	c                 *configpb.SurfacerConf
 	writeChan         chan *metrics.EventMetrics
@@ -89,9 +86,9 @@ func (dd *DDSurfacer) emToDDSeries(ctx context.Context, em *metrics.EventMetrics
 	}
 }
 
-// publish the metrics to cloudwatch, using the namespace provided from configuration
+// publish the metrics to datadog, buffering as necessary
 func (dd *DDSurfacer) publishMetrics(ctx context.Context, series datadog.Series) {
-	if len(dd.ddSeriesCache) >= 20 {
+	if len(dd.ddSeriesCache) >= datadogMaxSeries {
 		body := *datadog.NewMetricsPayload(dd.ddSeriesCache)
 		_, r, err := dd.client.MetricsApi.SubmitMetrics(ctx, body)
 
@@ -105,7 +102,7 @@ func (dd *DDSurfacer) publishMetrics(ctx context.Context, series datadog.Series)
 	dd.ddSeriesCache = append(dd.ddSeriesCache, series)
 }
 
-// Create a new cloudwatch metriddatum using the values passed in. The value for a metric in cloudwatch must be of float64 type.
+// Create a new datadog series using the values passed in. The value for a metric in datadog series must be of float64 type.
 func (dd *DDSurfacer) newDDSeries(metricName string, value float64, tags []string, timestamp time.Time) datadog.Series {
 	return datadog.Series{
 		Metric: dd.prefix + metricName,
@@ -197,7 +194,7 @@ func New(ctx context.Context, config *configpb.SurfacerConf, l *logger.Logger) (
 }
 
 // Write is a function defined to comply with the surfacer interface, and enables the
-// cloudwatch surfacer to receive EventMetrics over the buffered channel.
+// datadog surfacer to receive EventMetrics over the buffered channel.
 func (dd *DDSurfacer) Write(ctx context.Context, em *metrics.EventMetrics) {
 	select {
 	case dd.writeChan <- em:

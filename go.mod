@@ -7,6 +7,7 @@ require (
 	cloud.google.com/go/bigquery v1.8.0
 	cloud.google.com/go/logging v1.1.0
 	cloud.google.com/go/pubsub v1.8.1
+	github.com/DataDog/datadog-api-client-go v1.0.0-beta.20
 	github.com/aws/aws-sdk-go v1.35.7
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/golang/protobuf v1.5.2
