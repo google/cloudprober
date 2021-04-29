@@ -39,8 +39,8 @@ import (
 // Datadog API limit for metrics included in a SubmitMetrics call
 const datadogMaxSeries int = 20
 
-//
-const gauge string = "string"
+// All metrics are of type gauge
+const gauge string = "gauge"
 
 // DDSurfacer implements a datadog surfacer for datadog metrics.
 type DDSurfacer struct {
