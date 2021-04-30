@@ -20,7 +20,6 @@ package cloudwatch
 import (
 	"context"
 	"fmt"
-	"regexp"
 	"strconv"
 	"time"
 
@@ -42,11 +41,11 @@ const distributionDimensionName string = "le"
 
 // CWSurfacer implements AWS Cloudwatch surfacer.
 type CWSurfacer struct {
-	c                   *configpb.SurfacerConf
-	writeChan           chan *metrics.EventMetrics
-	session             *cloudwatch.CloudWatch
-	l                   *logger.Logger
-	allowedMetricsRegex *regexp.Regexp
+	c         *configpb.SurfacerConf
+	opts      *options.Options
+	writeChan chan *metrics.EventMetrics
+	session   *cloudwatch.CloudWatch
+	l         *logger.Logger
 
 	// A cache of []*cloudwatch.MetricDatum's, used for batch writing to the
 	// cloudwatch api.
@@ -54,21 +53,12 @@ type CWSurfacer struct {
 }
 
 func (cw *CWSurfacer) processIncomingMetrics(ctx context.Context) {
-RoutineLoop:
 	for {
 		select {
 		case <-ctx.Done():
 			cw.l.Infof("Context canceled, stopping the surfacer write loop")
 			return
 		case em := <-cw.writeChan:
-
-			// evaluate if any of the metric labels are to be ignored and exit early
-			for _, label := range em.LabelsKeys() {
-				if cw.ignoreMetric(label) || cw.ignoreMetric(em.Label(label)) {
-					continue RoutineLoop
-				}
-			}
-
 			// check if a failure metric can be calculated
 			if em.Metric("success") != nil && em.Metric("total") != nil && em.Metric("failure") == nil {
 				if failure, err := calculateFailureMetric(em); err == nil {
@@ -88,6 +78,9 @@ RoutineLoop:
 // each metric into a structure that is supported by Cloudwatch
 func (cw *CWSurfacer) recordEventMetrics(em *metrics.EventMetrics) {
 	for _, metricKey := range em.MetricsKeys() {
+		if !cw.opts.AllowMetric(metricKey) {
+			continue
+		}
 
 		switch value := em.Metric(metricKey).(type) {
 		case metrics.NumValue:
@@ -152,16 +145,6 @@ func calculateFailureMetric(em *metrics.EventMetrics) (float64, error) {
 	return failure, nil
 }
 
-func (cw *CWSurfacer) ignoreMetric(name string) bool {
-	if cw.allowedMetricsRegex != nil {
-		if !cw.allowedMetricsRegex.MatchString(name) {
-			return true
-		}
-	}
-
-	return false
-}
-
 // Create a new cloudwatch metriddatum using the values passed in.
 func (cw *CWSurfacer) newCWMetricDatum(metricname string, value float64, dimensions []*cloudwatch.Dimension, timestamp time.Time, latencyUnit time.Duration) *cloudwatch.MetricDatum {
 	// define the metric datum with default values
@@ -209,17 +192,10 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 
 	cw := &CWSurfacer{
 		c:         config,
+		opts:      opts,
 		writeChan: make(chan *metrics.EventMetrics, opts.MetricsBufferSize),
 		session:   cloudwatch.New(sess),
 		l:         l,
-	}
-
-	if cw.c.GetAllowedMetricsRegex() != "" {
-		r, err := regexp.Compile(cw.c.GetAllowedMetricsRegex())
-		if err != nil {
-			return nil, err
-		}
-		cw.allowedMetricsRegex = r
 	}
 
 	// Set the capacity of this slice to the max metric value, to avoid having to
