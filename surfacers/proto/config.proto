@@ -2,12 +2,12 @@ syntax = "proto2";
 
 package cloudprober.surfacer;
 
+import "github.com/google/cloudprober/surfacers/cloudwatch/proto/config.proto";
 import "github.com/google/cloudprober/surfacers/file/proto/config.proto";
 import "github.com/google/cloudprober/surfacers/postgres/proto/config.proto";
 import "github.com/google/cloudprober/surfacers/prometheus/proto/config.proto";
 import "github.com/google/cloudprober/surfacers/pubsub/proto/config.proto";
 import "github.com/google/cloudprober/surfacers/stackdriver/proto/config.proto";
-import "github.com/google/cloudprober/surfacers/cloudwatch/proto/config.proto";
 
 option go_package = "github.com/google/cloudprober/surfacers/proto";
 
@@ -21,6 +21,11 @@ enum Type {
   PUBSUB = 5;
   CLOUDWATCH = 6;
   USER_DEFINED = 99;
+}
+
+message LabelFilter {
+  optional string key = 1;
+  optional string value = 2;
 }
 
 message SurfacerDef {
@@ -39,6 +44,36 @@ message SurfacerDef {
   // slow for some reason, e.g. slow writes to a remote file.
   // Note: Only file and pubsub surfacer supports this option right now.
   optional int64 metrics_buffer_size = 3 [default = 10000];
+
+  // If specified, only allow metrics that match any of these label filters.
+  // Example:
+  // allow_metrics_with_label {
+  //   key: "probe",
+  //   value: "check_homepage",
+  // }
+  repeated LabelFilter allow_metrics_with_label = 4;
+
+  // Ignore metrics that match any of these label filters. Ignore has precedence
+  // over allow filters.
+  // Example:
+  // ignore_metrics_with_label {
+  //   key: "probe",
+  //   value: "sysvars",
+  // }
+  repeated LabelFilter ignore_metrics_with_label = 5;
+
+  // Allow and ignore metrics based on their names. You can specify regexes
+  // here. Ignore has precendence over allow.
+  // Examples:
+  //  ignore_metrics_with_name: "validation_failure"
+  //  allow_metrics_with_name: "(total|success|latency)"
+  //
+  // For efficiency reasons, filtering by metric name has to be implemented by
+  // individual surfacers (while going through metrics within an EventMetrics).
+  // Currently following surfacers implement it:
+  //     CLOUDWATCH, PROMETHEUS, STACKDRIVER
+  optional string allow_metrics_with_name = 6;
+  optional string ignore_metrics_with_name = 7;
 
   // Matching surfacer specific configuration (one for each type in the above
   // enum)

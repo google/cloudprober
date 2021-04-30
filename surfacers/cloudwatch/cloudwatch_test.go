@@ -17,7 +17,6 @@ package cloudwatch
 import (
 	"context"
 	"reflect"
-	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -35,69 +34,12 @@ func newTestCWSurfacer() CWSurfacer {
 	resolution := int64(60)
 
 	return CWSurfacer{
-		l:                   l,
-		allowedMetricsRegex: &regexp.Regexp{},
+		l: l,
 		c: &configpb.SurfacerConf{
 			Namespace:           &namespace,
 			AllowedMetricsRegex: new(string),
 			Resolution:          &resolution,
 		},
-	}
-}
-
-func TestIgnoreMetric(t *testing.T) {
-	tests := map[string]struct {
-		surfacer CWSurfacer
-		regex    string
-		name     string
-		want     bool
-	}{
-		"regex default": {
-			surfacer: newTestCWSurfacer(),
-			regex:    "",
-			name:     "test",
-			want:     false,
-		},
-		"regexp direct match": {
-			surfacer: newTestCWSurfacer(),
-			regex:    "latency",
-			name:     "latency",
-			want:     false,
-		},
-		"regexp partial match inside optional": {
-			surfacer: newTestCWSurfacer(),
-			regex:    ".*(http.*|ping).*",
-			name:     "httphttp",
-			want:     false,
-		},
-		"regex ignored": {
-			surfacer: newTestCWSurfacer(),
-			regex:    ".*(http|ping).*",
-			name:     "sysvar",
-			want:     true,
-		},
-		"regex ignored partial": {
-			surfacer: newTestCWSurfacer(),
-			regex:    ".*(http.*|ping).*",
-			name:     "httsysvar",
-			want:     true,
-		},
-	}
-
-	for name, tc := range tests {
-		t.Run(name, func(t *testing.T) {
-			r, err := regexp.Compile(tc.regex)
-			if err != nil {
-				t.Fatalf("Error compiling regex string: %s, error: %s", tc.regex, err)
-			}
-
-			tc.surfacer.allowedMetricsRegex = r
-
-			got := tc.surfacer.ignoreMetric(tc.name)
-			if got != tc.want {
-				t.Errorf("got: %t, want: %t", got, tc.want)
-			}
-		})
 	}
 }
 

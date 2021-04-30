@@ -44,6 +44,7 @@ import (
 
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
+	"github.com/google/cloudprober/surfacers/common/options"
 	configpb "github.com/google/cloudprober/surfacers/prometheus/proto"
 )
 
@@ -100,7 +101,8 @@ type httpWriter struct {
 //       and timestamp.
 // Data key represents a unique combination of metric name and labels.
 type PromSurfacer struct {
-	c           *configpb.SurfacerConf     // Configuration
+	c           *configpb.SurfacerConf // Configuration
+	opts        *options.Options
 	prefix      string                     // Metrics prefix, e.g. "cloudprober_"
 	emChan      chan *metrics.EventMetrics // Buffered channel to store incoming EventMetrics
 	metrics     map[string]*promMetric     // Metric name to promMetric mapping
@@ -120,12 +122,13 @@ type PromSurfacer struct {
 // New returns a prometheus surfacer based on the config provided. It sets up a
 // goroutine to process both the incoming EventMetrics and the web requests for
 // the URL handler /metrics.
-func New(ctx context.Context, config *configpb.SurfacerConf, l *logger.Logger) (*PromSurfacer, error) {
+func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Options, l *logger.Logger) (*PromSurfacer, error) {
 	if config == nil {
 		config = &configpb.SurfacerConf{}
 	}
 	ps := &PromSurfacer{
 		c:            config,
+		opts:         opts,
 		emChan:       make(chan *metrics.EventMetrics, config.GetMetricsBufferSize()),
 		queryChan:    make(chan *httpWriter, queriesQueueSize),
 		metrics:      make(map[string]*promMetric),
@@ -319,6 +322,9 @@ func (ps *PromSurfacer) record(em *metrics.EventMetrics) {
 	}
 
 	for _, metricName := range em.MetricsKeys() {
+		if !ps.opts.AllowMetric(metricName) {
+			continue
+		}
 		pMetricName := ps.promMetricName(metricName)
 		if pMetricName == "" {
 			// No prometheus metric name found for this metric.
