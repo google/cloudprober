@@ -36,9 +36,8 @@ func newTestCWSurfacer() CWSurfacer {
 	return CWSurfacer{
 		l: l,
 		c: &configpb.SurfacerConf{
-			Namespace:           &namespace,
-			AllowedMetricsRegex: new(string),
-			Resolution:          &resolution,
+			Namespace:  &namespace,
+			Resolution: &resolution,
 		},
 	}
 }
