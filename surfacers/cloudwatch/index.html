@@ -443,13 +443,6 @@
 </span><span class="err"></span>  <span class="c1">// The cloudwatch resolution value, lowering this below 60 will incur
 </span><span class="c1"></span>  <span class="c1">// additional charges as the metrics will be charged at a high resolution rate.
 </span><span class="c1"></span>  <span class="k">optional</span> <span class="kt">int64</span> <span class="n">resolution</span> <span class="o">=</span> <span class="mi">2</span> <span class="p">[</span><span class="k">default</span><span class="o">=</span><span class="mi">60</span><span class="p">]</span><span class="p">;</span><span class="err">
-</span><span class="err"></span><span class="err">
-</span><span class="err"></span>  <span class="c1">// If allowed_metrics_regex is specified, only metrics matching the given
-</span><span class="c1"></span>  <span class="c1">// regular expression will be exported to cloudwatch. This will be evaluated
-</span><span class="c1"></span>  <span class="c1">// against both the probe type and probe name.
-</span><span class="c1"></span>  <span class="c1">// Example:
-</span><span class="c1"></span>  <span class="c1">// allowed_metrics_regex: &#34;(http|ping)&#34;
-</span><span class="c1"></span>  <span class="k">optional</span> <span class="kt">string</span> <span class="n">allowed_metrics_regex</span> <span class="o">=</span> <span class="mi">3</span><span class="p">;</span><span class="err">
 </span></code></pre></div><p>(Source: <a href="https://github.com/google/cloudprober/blob/master/surfacers/cloudwatch/proto/config.proto">https://github.com/google/cloudprober/blob/master/surfacers/cloudwatch/proto/config.proto</a>)</p>
 <h2 id="calculating-the-metric-delta-with-cloudwatch-metric-maths">Calculating the metric delta with Cloudwatch Metric Maths</h2>
 <p>The metrics produced by cloudprober are cumulative. Most services producing metrics into cloudwatch produce snapshot data whereby the metrics are recorded for a specific point in time.</p>
