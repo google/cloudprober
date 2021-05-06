@@ -399,6 +399,7 @@
 <li>Google Pub/Sub (<a href="https://github.com/google/cloudprober/blob/master/surfacers/pubsub/proto/config.proto">config</a>)</li>
 <li>Postgres (<a href="https://github.com/google/cloudprober/blob/master/surfacers/postgres/proto/config.proto">config</a>)</li>
 <li>File (<a href="https://github.com/google/cloudprober/blob/master/surfacers/file/proto/config.proto">config</a>)</li>
+<li><a href="https://cloudprober.org/surfacers/cloudwatch">Cloudwatch (AWS Cloud Monitoring)</a></li>
 </ul>
 <p>Source: <a href="https://github.com/google/cloudprober/blob/7bc30b62e42f3fe4e8a2fb8cd0e87ea18b73aeb8/surfacers/proto/config.proto#L14">surfacers config</a>.</p>
 <p>It's easy to add more surfacers without having to understand the internals of cloudprober. You only need to implement the <a href="https://github.com/google/cloudprober/blob/7bc30b62e42f3fe4e8a2fb8cd0e87ea18b73aeb8/surfacers/surfacers.go#L87">Surfacer interface</a>.</p>
@@ -410,7 +411,7 @@
 <span class="c1"># scraping by prometheus.</span>
 surfacer <span class="o">{</span>
   type: PROMETHEUS
-  
+
   prometheus_surfacer <span class="o">{</span>
     <span class="c1"># Following option adds a prefix to exported metrics, for example,</span>
     <span class="c1"># &#34;total&#34; metric is exported as &#34;cloudprober_total&#34;.</span>
@@ -423,7 +424,54 @@ surfacer <span class="o">{</span>
 surfacer <span class="o">{</span>
   type: STACKDRIVER
 <span class="o">}</span>
-</code></pre></div>
+</code></pre></div><h3 id="filtering-metrics">Filtering Metrics</h3>
+<p>It is possible to filter the metrics that the surfacers receive.</p>
+<h4 id="filtering-by-label">Filtering by Label</h4>
+<p>Cloudprober can filter the metrics that are published to surfacers. To filter metrics by labels, reference one of the following keys in the surfacer configuration:</p>
+<ul>
+<li><code>allow_metrics_with_label</code></li>
+<li><code>ignore_metrics_with_label</code></li>
+</ul>
+<p><em>Note: <code>ignore_metrics_with_label</code> takes precedence over <code>allow_metrics_with_label</code>.</em></p>
+<p>For example, to ignore all sysvar metrics:</p>
+<pre><code>surfacer {
+  type: PROMETHEUS
+
+  ignore_metrics_with_label {
+    key: &quot;probe&quot;,
+    value: &quot;sysvars&quot;,
+  }
+}
+</code></pre><p>Or to only allow metrics from http probes:</p>
+<pre><code>surfacer {
+  type: PROMETHEUS
+
+  allow_metrics_with_label {
+    key: &quot;ptype&quot;,
+    value: &quot;http&quot;,
+  }
+}
+</code></pre><h4 id="filtering-by-metric-name">Filtering by Metric Name</h4>
+<p>For certain surfacers, cloudprober can filter the metrics that are published by name. The surfacers that support this functionality are:</p>
+<ul>
+<li>Cloudwatch</li>
+<li>Prometheus</li>
+<li>Stackdriver</li>
+</ul>
+<p>Within the surfacer configuration, the following options are defined:</p>
+<ul>
+<li><code>allow_metrics_with_name</code></li>
+<li><code>ignore_metrics_with_name</code></li>
+</ul>
+<p><em>Note: <code>ignore_metrics_with_name</code> takes precedence over <code>allow_metrics_with_name</code>.</em></p>
+<p>To filter out all <code>validation_failure</code> metrics by name:</p>
+<pre><code>surfacer {
+  type: PROMETHEUS
+
+  ignore_metrics_with_name: &quot;validation_failure&quot;
+}
+</code></pre><p>(Source: <a href="https://github.com/google/cloudprober/blob/master/surfacers/proto/config.proto">https://github.com/google/cloudprober/blob/master/surfacers/proto/config.proto</a>)</p>
+
 
 			<aside class="copyright" role="note">
 				
