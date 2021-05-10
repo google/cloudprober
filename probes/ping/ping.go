@@ -63,7 +63,7 @@ const (
 	dataIntegrityKey = "data-integrity"
 	icmpHeaderSize   = 8
 	minPacketSize    = icmpHeaderSize + timeBytesSize // 16
-	maxPacketSize    = 1500                           // MTU
+	maxPacketSize    = 5000                           // MTU
 )
 
 type result struct {
