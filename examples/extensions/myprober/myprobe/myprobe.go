@@ -3,6 +3,8 @@ package myprobe
 import (
 	"context"
 	"fmt"
+	"net"
+	"strconv"
 	"sync"
 	"time"
 
@@ -17,7 +19,7 @@ import (
 type Probe struct {
 	name    string
 	c       *ProbeConf
-	targets []string
+	targets []endpoint.Endpoint
 	opts    *options.Options
 
 	res map[string]*metrics.EventMetrics // Results by target
@@ -34,8 +36,8 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	p.name = name
 	p.opts = opts
 	p.l = opts.Logger
-	p.res = make(map[string]*metrics.EventMetrics)
 
+	p.res = make(map[string]*metrics.EventMetrics)
 	return nil
 }
 
@@ -53,7 +55,7 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 			for _, em := range p.res {
 				dataChan <- em
 			}
-			p.targets = endpoint.NamesFromEndpoints(p.opts.Targets.ListEndpoints())
+			p.targets = p.opts.Targets.ListEndpoints()
 			p.initProbeMetrics()
 			probeCtx, cancelFunc := context.WithDeadline(ctx, time.Now().Add(p.opts.Timeout))
 			p.runProbe(probeCtx)
@@ -65,7 +67,7 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 // initProbeMetrics initializes missing probe metrics.
 func (p *Probe) initProbeMetrics() {
 	for _, target := range p.targets {
-		if p.res[target] != nil {
+		if p.res[target.Name] != nil {
 			continue
 		}
 		var latVal metrics.Value
@@ -74,20 +76,20 @@ func (p *Probe) initProbeMetrics() {
 		} else {
 			latVal = metrics.NewFloat(0)
 		}
-		p.res[target] = metrics.NewEventMetrics(time.Now()).
+		p.res[target.Name] = metrics.NewEventMetrics(time.Now()).
 			AddMetric("total", metrics.NewInt(0)).
 			AddMetric("success", metrics.NewInt(0)).
 			AddMetric("latency", latVal).
 			AddLabel("ptype", "redis").
 			AddLabel("probe", p.name).
-			AddLabel("dst", target)
+			AddLabel("dst", target.Name)
 	}
 }
 
 // runProbeForTarget runs probe for a single target.
-func (p *Probe) runProbeForTarget(ctx context.Context, target string) error {
+func (p *Probe) runProbeForTarget(ctx context.Context, target endpoint.Endpoint) error {
 	client := &redis.Client{
-		Addr: target,
+		Addr: net.JoinHostPort(target.Name, strconv.Itoa(target.Port)),
 	}
 	key := p.c.GetKey()
 	val := p.c.GetValue()
@@ -108,13 +110,13 @@ func (p *Probe) runProbeForTarget(ctx context.Context, target string) error {
 
 // runProbe runs probe for all targets and update EventMetrics.
 func (p *Probe) runProbe(ctx context.Context) {
-	p.targets = endpoint.NamesFromEndpoints(p.opts.Targets.ListEndpoints())
+	p.targets = p.opts.Targets.ListEndpoints()
 
 	var wg sync.WaitGroup
 	for _, target := range p.targets {
 		wg.Add(1)
 
-		go func(target string, em *metrics.EventMetrics) {
+		go func(target endpoint.Endpoint, em *metrics.EventMetrics) {
 			defer wg.Done()
 			em.Metric("total").AddInt64(1)
 			start := time.Now()
@@ -125,8 +127,7 @@ func (p *Probe) runProbe(ctx context.Context) {
 			}
 			em.Metric("success").AddInt64(1)
 			em.Metric("latency").AddFloat64(time.Now().Sub(start).Seconds() / p.opts.LatencyUnit.Seconds())
-		}(target, p.res[target])
-
+		}(target, p.res[target.Name])
 	}
 
 	wg.Wait()
