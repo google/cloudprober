@@ -1,0 +1,33 @@
+# This file lists targets in the RDS resource format:
+# https://github.com/google/cloudprober/blob/master/rds/proto/rds.proto#L77
+# See cloudprober.cfg in the same directory for more details on how this file
+# is used.
+resource {
+    name: "web-aa-01"
+    ip: "10.11.112.3"
+    port: 8080
+    labels {
+       key: "dc"
+       value: "aa"
+    }
+}
+
+resource {
+    name: "web-aa-02"
+    ip: "10.11.112.4"
+    port: 8080
+    labels {
+       key: "dc"
+       value: "aa"
+    }
+}
+
+resource {
+    name: "web-bb-01"
+    ip: "10.16.110.12"
+    port: 8080
+    labels {
+       key: "dc"
+       value: "bb"
+    }
+}
