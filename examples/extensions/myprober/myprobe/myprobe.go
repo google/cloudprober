@@ -53,7 +53,7 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 		case <-probeTicker.C:
 			// On probe tick, write data to the channel and run probe.
 			for _, em := range p.res {
-				dataChan <- em
+				dataChan <- em.Clone()
 			}
 			p.targets = p.opts.Targets.ListEndpoints()
 			p.initProbeMetrics()
@@ -118,8 +118,9 @@ func (p *Probe) runProbe(ctx context.Context) {
 
 		go func(target endpoint.Endpoint, em *metrics.EventMetrics) {
 			defer wg.Done()
-			em.Metric("total").AddInt64(1)
 			start := time.Now()
+			em.Timestamp = start
+			em.Metric("total").AddInt64(1)
 			err := p.runProbeForTarget(ctx, target) // run probe just for a single target
 			if err != nil {
 				p.l.Errorf(err.Error())
