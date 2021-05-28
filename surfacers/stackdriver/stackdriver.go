@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 2017 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -33,6 +33,7 @@ import (
 	monitoring "google.golang.org/api/monitoring/v3"
 
 	"github.com/google/cloudprober/metrics"
+	"github.com/google/cloudprober/surfacers/common/options"
 	configpb "github.com/google/cloudprober/surfacers/stackdriver/proto"
 )
 
@@ -46,9 +47,8 @@ const batchSize = 200
 // for making StackDriver API calls, and a registered which is in charge of
 // keeping track of what metrics have already been registereded
 type SDSurfacer struct {
-
-	// Configuration
-	c *configpb.SurfacerConf
+	c    *configpb.SurfacerConf
+	opts *options.Options
 
 	// Metrics regexp
 	allowedMetricsRegex *regexp.Regexp
@@ -82,7 +82,7 @@ type SDSurfacer struct {
 // variables for call references (project and instances variables) as well
 // as provisioning it with clients for making the necessary API calls. New
 // requires you to pass in a valid stackdriver surfacer configuration.
-func New(ctx context.Context, config *configpb.SurfacerConf, l *logger.Logger) (*SDSurfacer, error) {
+func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Options, l *logger.Logger) (*SDSurfacer, error) {
 	// Create a cache, which is used for batching write requests together,
 	// and a channel for writing data.
 	s := SDSurfacer{
@@ -90,12 +90,14 @@ func New(ctx context.Context, config *configpb.SurfacerConf, l *logger.Logger) (
 		knownMetrics: make(map[string]bool),
 		writeChan:    make(chan *metrics.EventMetrics, config.GetMetricsBufferSize()),
 		c:            config,
+		opts:         opts,
 		projectName:  config.GetProject(),
 		startTime:    time.Now(),
 		l:            l,
 	}
 
 	if s.c.GetAllowedMetricsRegex() != "" {
+		l.Warning("allowed_metrics_regex is now deprecated. Please use the common surfacer options: allow_metrics, ignore_metrics.")
 		r, err := regexp.Compile(s.c.GetAllowedMetricsRegex())
 		if err != nil {
 			return nil, err
@@ -431,6 +433,10 @@ func (s *SDSurfacer) recordEventMetrics(em *metrics.EventMetrics) (ts []*monitor
 	}
 
 	for _, k := range em.MetricsKeys() {
+		if !s.opts.AllowMetric(k) {
+			continue
+		}
+
 		// Create a copy of emLabels for use in timeseries object.
 		mLabels := make(map[string]string)
 		for k, v := range emLabels {

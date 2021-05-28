@@ -79,13 +79,6 @@ The full list of configuration options for the cloudwatch surfacer is:
   // The cloudwatch resolution value, lowering this below 60 will incur
   // additional charges as the metrics will be charged at a high resolution rate.
   optional int64 resolution = 2 [default=60];
-
-  // If allowed_metrics_regex is specified, only metrics matching the given
-  // regular expression will be exported to cloudwatch. This will be evaluated
-  // against both the probe type and probe name.
-  // Example:
-  // allowed_metrics_regex: "(http|ping)"
-  optional string allowed_metrics_regex = 3;
 ```
 
 (Source: https://github.com/google/cloudprober/blob/master/surfacers/cloudwatch/proto/config.proto)

@@ -1,4 +1,4 @@
-// Copyright 2017-2021 Google Inc.
+// Copyright 2017-2021 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -94,6 +94,17 @@ type Surfacer interface {
 	Write(ctx context.Context, em *metrics.EventMetrics)
 }
 
+type surfacerWrapper struct {
+	Surfacer
+	opts *options.Options
+}
+
+func (sw *surfacerWrapper) Write(ctx context.Context, em *metrics.EventMetrics) {
+	if sw.opts.AllowEventMetrics(em) {
+		sw.Surfacer.Write(ctx, em)
+	}
+}
+
 // SurfacerInfo encapsulates a Surfacer and related info.
 type SurfacerInfo struct {
 	Surfacer
@@ -136,8 +147,9 @@ func initSurfacer(ctx context.Context, s *surfacerpb.SurfacerDef, sType surfacer
 		return nil, nil, fmt.Errorf("unable to create cloud logger: %v", err)
 	}
 
-	opts := &options.Options{
-		MetricsBufferSize: int(s.GetMetricsBufferSize()),
+	opts, err := options.BuildOptionsFromConfig(s)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	var conf interface{}
@@ -145,10 +157,10 @@ func initSurfacer(ctx context.Context, s *surfacerpb.SurfacerDef, sType surfacer
 
 	switch sType {
 	case surfacerpb.Type_PROMETHEUS:
-		surfacer, err = prometheus.New(ctx, s.GetPrometheusSurfacer(), l)
+		surfacer, err = prometheus.New(ctx, s.GetPrometheusSurfacer(), opts, l)
 		conf = s.GetPrometheusSurfacer()
 	case surfacerpb.Type_STACKDRIVER:
-		surfacer, err = stackdriver.New(ctx, s.GetStackdriverSurfacer(), l)
+		surfacer, err = stackdriver.New(ctx, s.GetStackdriverSurfacer(), opts, l)
 		conf = s.GetStackdriverSurfacer()
 	case surfacerpb.Type_FILE:
 		surfacer, err = file.New(ctx, s.GetFileSurfacer(), opts, l)
@@ -176,7 +188,10 @@ func initSurfacer(ctx context.Context, s *surfacerpb.SurfacerDef, sType surfacer
 		return nil, nil, fmt.Errorf("unknown surfacer type: %s", s.GetType())
 	}
 
-	return surfacer, conf, err
+	return &surfacerWrapper{
+		Surfacer: surfacer,
+		opts:     opts,
+	}, conf, err
 }
 
 // Init initializes the surfacers from the config protobufs and returns them as
