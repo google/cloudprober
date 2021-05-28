@@ -6,8 +6,6 @@ menu:
 title: "Datadog (Metrics)"
 date: 2021-04-28T17:00:00-07:00
 ---
-Cloudprober can natively export metrics to Google Cloud Monitoring (formerly, Stackdriver) using stackdriver [surfacer](/surfacers/overview).  Adding stackdriver surfacer to cloudprober is as simple as adding the following stanza to the config:
-
 Cloudprober can natively export metrics to Datadog using the Datadog [submit-metrics](https://docs.datadoghq.com/api/latest/metrics/#submit-metrics) API. Adding Datadog surfacer to cloudprober requires an existing account with Datadog, an [API\_KEY, and an APP\_KEY](https://docs.datadoghq.com/account_management/api-app-keys/). 
 
 ```
@@ -19,8 +17,6 @@ surfacer {
   prefix: "prefix.for.metrics"
 }
 ```
-
-By default, stackdriver surfacer exports metrics with the following prefix: `custom.googleapis.com/cloudprober/<probe-type>/<probe>`. For example, for HTTP probe named `google_com`, standard metrics will be exported as:
 
 Datadog metrics will be exported as: 
 
