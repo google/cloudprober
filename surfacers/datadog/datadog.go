@@ -24,7 +24,7 @@ import (
 	datadog "github.com/DataDog/datadog-api-client-go/api/v1/datadog"
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
-  "github.com/google/cloudprober/surfacers/common/options"
+	"github.com/google/cloudprober/surfacers/common/options"
 	configpb "github.com/google/cloudprober/surfacers/datadog/proto"
 	"google.golang.org/protobuf/proto"
 )
@@ -114,7 +114,7 @@ func (dd *DDSurfacer) newDDSeries(metricName string, value float64, tags []strin
 
 // Take metric labels from an event metric and parse them into a Datadog Dimension struct.
 func emLabelsToTags(em *metrics.EventMetrics) []string {
-  tags := []string{}
+	tags := []string{}
 
 	for _, k := range em.LabelsKeys() {
 		tags = append(tags, fmt.Sprintf("%s:%s", k, em.Label(k)))
