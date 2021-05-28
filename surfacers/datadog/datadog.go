@@ -24,6 +24,7 @@ import (
 	datadog "github.com/DataDog/datadog-api-client-go/api/v1/datadog"
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
+  "github.com/google/cloudprober/surfacers/common/options"
 	configpb "github.com/google/cloudprober/surfacers/datadog/proto"
 	"google.golang.org/protobuf/proto"
 )
@@ -61,12 +62,12 @@ func (dd *DDSurfacer) receiveMetricsFromEvent(ctx context.Context) {
 			dd.l.Infof("Context canceled, stopping the surfacer write loop")
 			return
 		case em := <-dd.writeChan:
-			dd.emToDDSeries(ctx, em)
+			dd.recordEventMetrics(ctx, em)
 		}
 	}
 }
 
-func (dd *DDSurfacer) emToDDSeries(ctx context.Context, em *metrics.EventMetrics) {
+func (dd *DDSurfacer) recordEventMetrics(ctx context.Context, em *metrics.EventMetrics) {
 	for _, metricKey := range em.MetricsKeys() {
 		switch value := em.Metric(metricKey).(type) {
 		case metrics.NumValue:
@@ -81,7 +82,6 @@ func (dd *DDSurfacer) emToDDSeries(ctx context.Context, em *metrics.EventMetrics
 			for _, series := range dd.distToDDSeries(value.Data(), metricKey, emLabelsToTags(em), em.Timestamp) {
 				dd.publishMetrics(ctx, series)
 			}
-			//dd.publishMetrics(ctx, distToDDSeries(value, metricKey, emLabelsToTags(em), em.Timestamp))
 		}
 	}
 }
@@ -102,7 +102,7 @@ func (dd *DDSurfacer) publishMetrics(ctx context.Context, series datadog.Series)
 	dd.ddSeriesCache = append(dd.ddSeriesCache, series)
 }
 
-// Create a new datadog series using the values passed in. The value for a metric in datadog series must be of float64 type.
+// Create a new datadog series using the values passed in.
 func (dd *DDSurfacer) newDDSeries(metricName string, value float64, tags []string, timestamp time.Time) datadog.Series {
 	return datadog.Series{
 		Metric: dd.prefix + metricName,
@@ -112,7 +112,7 @@ func (dd *DDSurfacer) newDDSeries(metricName string, value float64, tags []strin
 	}
 }
 
-// Take metric labels from an event metric and parse them into a Cloudwatch Dimension struct.
+// Take metric labels from an event metric and parse them into a Datadog Dimension struct.
 func emLabelsToTags(em *metrics.EventMetrics) []string {
   tags := []string{}
 
@@ -153,7 +153,7 @@ func (dd *DDSurfacer) distToDDSeries(d *metrics.DistributionData, metricName str
 
 // New creates a new instance of a datadog surfacer, based on the config passed in. It then hands off
 // to a goroutine to surface metrics to datadog across a buffered channel.
-func New(ctx context.Context, config *configpb.SurfacerConf, l *logger.Logger) (*DDSurfacer, error) {
+func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Options, l *logger.Logger) (*DDSurfacer, error) {
 
 	os.Setenv("DD_APP_KEY", config.GetAppKey())
 	os.Setenv("DD_API_KEY", config.GetApiKey())
@@ -170,22 +170,14 @@ func New(ctx context.Context, config *configpb.SurfacerConf, l *logger.Logger) (
 
 	dd := &DDSurfacer{
 		c:         config,
-		writeChan: make(chan *metrics.EventMetrics, config.GetMetricsBufferSize()),
+		writeChan: make(chan *metrics.EventMetrics, opts.MetricsBufferSize),
 		client:    client,
 		l:         l,
 		prefix:    p,
 	}
 
-	if config.GetIgnoreProberTypes() != "" {
-		r, err := regexp.Compile(config.GetIgnoreProberTypes())
-		if err != nil {
-			return nil, err
-		}
-		dd.ignoreLabelsRegex = r
-	}
-
 	// Set the capacity of this slice to the max metric value, to avoid having to grow the slice.
-	dd.ddSeriesCache = make([]datadog.Series, 0)
+	dd.ddSeriesCache = make([]datadog.Series, datadogMaxSeries)
 
 	go dd.receiveMetricsFromEvent(ctx)
 

@@ -117,7 +117,7 @@ func inferType(s *surfacerpb.SurfacerDef) surfacerspb.Type {
 	case *surfacerpb.SurfacerDef_CloudwatchSurfacer:
 		return surfacerspb.Type_CLOUDWATCH
 	case *surfacerpb.SurfacerDef_DatadogSurfacer:
-		return surfacerspb.Type_CLOUDWATCH
+		return surfacerspb.Type_DATADOG
 	}
 
 	return surfacerspb.Type_NONE
@@ -163,7 +163,7 @@ func initSurfacer(ctx context.Context, s *surfacerpb.SurfacerDef, sType surfacer
 		surfacer, err = cloudwatch.New(ctx, s.GetCloudwatchSurfacer(), opts, l)
 		conf = s.GetCloudwatchSurfacer()
 	case surfacerpb.Type_DATADOG:
-		surfacer, err = datadog.New(ctx, s.GetDatadogSurfacer(), l)
+		surfacer, err = datadog.New(ctx, s.GetDatadogSurfacer(), opts, l)
 		conf = s.GetDatadogSurfacer()
 	case surfacerpb.Type_USER_DEFINED:
 		userDefinedSurfacersMu.Lock()

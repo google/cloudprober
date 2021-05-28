@@ -8,13 +8,7 @@ message SurfacerConf {
   // The cloudwatch metric namespace
   optional string prefix = 10 [default = "cloudprober"];
 
-  // Filter for the allowed metrics, applied to the label. As
-  // default this will filter out sysvar probes.
-  optional string ignore_prober_types = 20 [default="^sysvars$"];
-
   optional string api_key = 30;
 
   optional string app_key = 40;
-
-  optional int64 metrics_buffer_size = 50 [default=10000];
 }

@@ -16,54 +16,53 @@ package datadog
 
 import (
 	"context"
-  "testing"
+	"reflect"
+	"testing"
 	"time"
-  "reflect"
 
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
 )
 
 func newTestDDSurfacer() DDSurfacer {
-  l, _ := logger.New(context.TODO(), "test-logger")
+	l, _ := logger.New(context.TODO(), "test-logger")
 
-  return DDSurfacer{
-    l: l,
-    prefix: "testPrefix",
-  }
+	return DDSurfacer{
+		l:      l,
+		prefix: "testPrefix",
+	}
 }
 
 func TestEmLabelsToTags(t *testing.T) {
-  timestamp := time.Now()
+	timestamp := time.Now()
 
-  tests := map[string]struct {
-      em *metrics.EventMetrics
-      want []string
-  }{
-    "no label": {
-        em: metrics.NewEventMetrics(timestamp),
-        want: []string{},
-    },
-    "one label": {
-        em: metrics.NewEventMetrics(timestamp).AddLabel("ptype", "sysvars"),
-        want: []string{"ptype:sysvars"},
-    },
-    "three labels": {
-        em: metrics.NewEventMetrics(timestamp).AddLabel("label1", "value1").
-                                               AddLabel("label2", "value2").
-                                               AddLabel("label3", "value3"),
-        want: []string{"label1:value1","label2:value2","label3:value3"},
-    },
-  }
+	tests := map[string]struct {
+		em   *metrics.EventMetrics
+		want []string
+	}{
+		"no label": {
+			em:   metrics.NewEventMetrics(timestamp),
+			want: []string{},
+		},
+		"one label": {
+			em:   metrics.NewEventMetrics(timestamp).AddLabel("ptype", "sysvars"),
+			want: []string{"ptype:sysvars"},
+		},
+		"three labels": {
+			em: metrics.NewEventMetrics(timestamp).AddLabel("label1", "value1").
+				AddLabel("label2", "value2").
+				AddLabel("label3", "value3"),
+			want: []string{"label1:value1", "label2:value2", "label3:value3"},
+		},
+	}
 
-  for name, tc := range tests {
-    t.Run(name, func(t *testing.T) {
-      got := emLabelsToTags(tc.em)
-      if !reflect.DeepEqual(got, tc.want) {
-     // if got != tc.want {
-        t.Errorf("got: %v, want %v %v %v", got, tc.want, reflect.TypeOf(got), reflect.TypeOf(tc.want))
-      }
-    })
-  }
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			got := emLabelsToTags(tc.em)
+			if !reflect.DeepEqual(got, tc.want) {
+				// if got != tc.want {
+				t.Errorf("got: %v, want %v %v %v", got, tc.want, reflect.TypeOf(got), reflect.TypeOf(tc.want))
+			}
+		})
+	}
 }
-
