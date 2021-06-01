@@ -94,12 +94,28 @@ func (s *Server) healthcheckHandler(w http.ResponseWriter) {
 	}
 }
 
+func (s *Server) metadataHandler(w http.ResponseWriter, r *http.Request) {
+	varNames, ok := r.URL.Query()["var"]
+	if !ok || len(varNames) == 0 {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+	val, ok := s.sysVars[varNames[0]]
+	if !ok {
+		http.Error(w, fmt.Sprintf("'%s' not found", varNames[0]), http.StatusNotFound)
+		return
+	}
+	w.Write([]byte(val))
+}
+
 func (s *Server) handler(w http.ResponseWriter, r *http.Request) {
 	switch r.URL.Path {
 	case "/lameduck":
 		s.lameduckHandler(w)
 	case "/healthcheck":
 		s.healthcheckHandler(w)
+	case "/metadata":
+		s.metadataHandler(w, r)
 	default:
 		res, ok := s.staticURLResTable[r.URL.Path]
 		if !ok {
@@ -116,6 +132,7 @@ type Server struct {
 	c                 *configpb.ServerConf
 	ln                net.Listener
 	instanceName      string
+	sysVars           map[string]string
 	staticURLResTable map[string][]byte
 	reqMetric         *metrics.Map
 	dataChan          chan<- *metrics.EventMetrics
@@ -149,18 +166,20 @@ func New(initCtx context.Context, c *configpb.ServerConf, l *logger.Logger) (*Se
 		ln.Close()
 	}()
 
-	return &Server{
-		c:        c,
-		l:        l,
-		ln:       ln,
-		ldLister: ldLister,
+	sysVars := sysvars.Vars()
 
+	return &Server{
+		c:             c,
+		l:             l,
+		ln:            ln,
+		ldLister:      ldLister,
+		sysVars:       sysVars,
 		reqMetric:     metrics.NewMap("url", metrics.NewInt(0)),
 		statsInterval: statsExportInterval,
 		instanceName:  sysvars.Vars()["instance"],
 		staticURLResTable: map[string][]byte{
 			"/":         []byte(OK),
-			"/instance": []byte(sysvars.Vars()["instance"]),
+			"/instance": []byte(sysVars["instance"]),
 		},
 	}, nil
 }

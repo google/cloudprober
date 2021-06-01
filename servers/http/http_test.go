@@ -59,6 +59,7 @@ func testServer(ctx context.Context, t *testing.T, insName string, ldLister endp
 		instanceName:  insName,
 		ldLister:      ldLister,
 		reqMetric:     metrics.NewMap("url", metrics.NewInt(0)),
+		sysVars:       map[string]string{"instance": insName},
 		staticURLResTable: map[string][]byte{
 			"/":         []byte(OK),
 			"/instance": []byte(insName),
@@ -101,10 +102,12 @@ func TestListenAndServeStats(t *testing.T) {
 	defer cancelFunc()
 
 	urlsAndExpectedResponse := map[string]string{
-		"/":            OK,
-		"/instance":    "testInstance",
-		"/lameduck":    "false",
-		"/healthcheck": OK,
+		"/":                      OK,
+		"/instance":              "testInstance",
+		"/lameduck":              "false",
+		"/healthcheck":           OK,
+		"/metadata?var=instance": testIns,
+		"/metadata?var=xyz":      "'xyz' not found\n",
 	}
 	for url, expectedResponse := range urlsAndExpectedResponse {
 		if response, _ := get(t, s.ln, url); response != expectedResponse {
@@ -119,6 +122,7 @@ func TestListenAndServeStats(t *testing.T) {
 	// Build a map of expected URL stats
 	expectedURLStats := make(map[string]int64)
 	for url := range urlsAndExpectedResponse {
+		url = strings.Split(url, "?")[0]
 		expectedURLStats[url]++
 	}
 	if len(dataChan) != 1 {
@@ -128,6 +132,7 @@ func TestListenAndServeStats(t *testing.T) {
 
 	// See if we got stats for the all URLs
 	for url, expectedCount := range expectedURLStats {
+		url = strings.Split(url, "?")[0]
 		count := em.Metric("req").(*metrics.Map).GetKey(url).Int64()
 		if count != expectedCount {
 			t.Errorf("Didn't get the expected stats for the URL: %s. Got: %d, Expected: %d", url, count, expectedCount)
