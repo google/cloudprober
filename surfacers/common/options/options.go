@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"regexp"
 
+	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
 	surfacerpb "github.com/google/cloudprober/surfacers/proto"
 )
@@ -65,11 +66,15 @@ func parseMetricsFilter(configs []*surfacerpb.LabelFilter) ([]*labelFilter, erro
 // Options encapsulates surfacer options common to all surfacers.
 type Options struct {
 	MetricsBufferSize int
+	Config            *surfacerpb.SurfacerDef
+	Logger            *logger.Logger
 
 	allowLabelFilters  []*labelFilter
 	ignoreLabelFilters []*labelFilter
 	allowMetricName    *regexp.Regexp
 	ignoreMetricName   *regexp.Regexp
+
+	AddFailureMetric bool
 }
 
 // AllowEventMetrics returns whether a certain EventMetrics should be allowed
@@ -120,8 +125,10 @@ func (opts *Options) AllowMetric(metricName string) bool {
 }
 
 // BuildOptionsFromConfig builds surfacer options using config.
-func BuildOptionsFromConfig(sdef *surfacerpb.SurfacerDef) (*Options, error) {
+func BuildOptionsFromConfig(sdef *surfacerpb.SurfacerDef, l *logger.Logger) (*Options, error) {
 	opts := &Options{
+		Config:            sdef,
+		Logger:            l,
 		MetricsBufferSize: int(sdef.GetMetricsBufferSize()),
 	}
 
@@ -148,6 +155,11 @@ func BuildOptionsFromConfig(sdef *surfacerpb.SurfacerDef) (*Options, error) {
 		if err != nil {
 			return nil, err
 		}
+	}
+
+	opts.AddFailureMetric = opts.Config.GetAddFailureMetric()
+	if opts.Config.AddFailureMetric == nil && opts.Config.GetType() == surfacerpb.Type_STACKDRIVER {
+		opts.AddFailureMetric = true
 	}
 
 	return opts, nil

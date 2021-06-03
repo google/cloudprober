@@ -97,7 +97,7 @@ func TestAllowEventMetrics(t *testing.T) {
 				config.AllowMetricsWithLabel = append(config.AllowMetricsWithLabel, &configpb.LabelFilter{Key: proto.String(allowF[0]), Value: proto.String(allowF[1])})
 			}
 
-			opts, err := BuildOptionsFromConfig(config)
+			opts, err := BuildOptionsFromConfig(config, nil)
 			if err != nil {
 				if !test.wantErr {
 					t.Errorf("Unexpected building options from the config: %v", err)
@@ -170,7 +170,7 @@ func TestAllowMetric(t *testing.T) {
 				AllowMetricsWithName:  proto.String(test.allow),
 			}
 
-			opts, err := BuildOptionsFromConfig(config)
+			opts, err := BuildOptionsFromConfig(config, nil)
 			if err != nil {
 				if !test.wantErr {
 					t.Errorf("Unexpected building options from the config: %v", err)

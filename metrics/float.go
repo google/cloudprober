@@ -73,6 +73,22 @@ func (f *Float) Add(val Value) error {
 	return nil
 }
 
+// SubtractCounter subtracts the provided "lastVal", assuming that value
+// represents a counter, i.e. if "value" is less than "lastVal", we assume that
+// counter has been reset and don't subtract.
+func (f *Float) SubtractCounter(lastVal Value) (bool, error) {
+	lv, ok := lastVal.(*Float)
+	if !ok {
+		return false, errors.New("incompatible value to add")
+	}
+	if f.f < lv.f {
+		return true, nil
+	}
+
+	f.f -= lv.f
+	return false, nil
+}
+
 // AddInt64 adds an int64 to the receiver Float.
 func (f *Float) AddInt64(i int64) {
 	f.f += float64(i)

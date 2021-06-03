@@ -74,6 +74,23 @@ func (i *Int) Add(val Value) error {
 	return nil
 }
 
+// SubtractCounter subtracts the provided "lastVal", assuming that value
+// represents a counter, i.e. if "value" is less than "lastVal", we assume that
+// counter has been reset and don't subtract.
+func (i *Int) SubtractCounter(lastVal Value) (bool, error) {
+	lv, ok := lastVal.(*Int)
+	if !ok {
+		return false, errors.New("incompatible value to subtract")
+	}
+
+	if i.i < lv.i {
+		return true, nil
+	}
+
+	i.i -= lv.i
+	return false, nil
+}
+
 // AddInt64 adds an int64 to the receiver Int.
 func (i *Int) AddInt64(ii int64) {
 	i.i += ii
@@ -93,8 +110,9 @@ func (i *Int) String() string {
 	return strconv.FormatInt(i.Int64(), 10)
 }
 
-// AtomicInt implements NumValue with int64 storage and atomic operations. If concurrency-safety
-// is not a requirement, e.g. for use in already mutex protected map, you could use Int.
+// AtomicInt implements NumValue with int64 storage and atomic operations. If
+// concurrency-safety is not a requirement, e.g. for use in already mutex
+// protected map, you could use Int.
 type AtomicInt struct {
 	i int64
 	// If Str is defined, this is method used to convert AtomicInt into a string.
@@ -145,6 +163,28 @@ func (i *AtomicInt) Add(val Value) error {
 	}
 	atomic.AddInt64(&i.i, delta.Int64())
 	return nil
+}
+
+// SubtractCounter subtracts the provided "lastVal". Note that this function
+// is not fully atomic: we first load the values, compare them, and then update
+// the receiver if required. There is a possibility that either receiver, or
+// lastVal may change between loading of the values and updating them. We
+// should still not get negative values though, as we use the snapshots to
+// finally update the value.
+func (i *AtomicInt) SubtractCounter(lastVal Value) (bool, error) {
+	lv, ok := lastVal.(NumValue)
+	if !ok {
+		return false, errors.New("incompatible value to subtract")
+	}
+
+	valS := i.Int64()
+	lvS := lv.Int64()
+
+	if valS < lvS {
+		return true, nil
+	}
+	atomic.StoreInt64(&i.i, valS-lvS)
+	return false, nil
 }
 
 // AddInt64 adds an int64 to the receiver Int.

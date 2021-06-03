@@ -113,6 +113,68 @@ func TestEventMetricsUpdate(t *testing.T) {
 	}
 }
 
+func TestEventMetricsSubtractCounters(t *testing.T) {
+	rttVal := NewInt(0)
+	rttVal.Str = func(i int64) string {
+		return fmt.Sprintf("%.3f", float64(i)/1000)
+	}
+	m := newEventMetrics(10, 10, 1000, make(map[string]int64))
+	m.AddLabel("ptype", "http")
+
+	// First run
+	m2 := newEventMetrics(32, 22, 220100, map[string]int64{
+		"200": 22,
+	})
+	gEM, err := m2.SubtractLast(m)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	verifyEventMetrics(t, gEM, 22, 12, 219100, map[string]int64{
+		"200": 22,
+	})
+
+	// Second run
+	m3 := newEventMetrics(42, 31, 300100, map[string]int64{
+		"200": 24,
+		"204": 8,
+	})
+
+	gEM, err = m3.SubtractLast(m2)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	verifyEventMetrics(t, gEM, 10, 9, 80000, map[string]int64{
+		"200": 2,
+		"204": 8,
+	})
+
+	// Third run, expect reset
+	m4 := newEventMetrics(10, 8, 1100, map[string]int64{
+		"200": 8,
+	})
+	gEM, err = m4.SubtractLast(m3)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	verifyEventMetrics(t, gEM, 10, 8, 1100, map[string]int64{
+		"200": 8,
+	})
+}
+
+func TestKey(t *testing.T) {
+	m := newEventMetrics(42, 31, 300100, map[string]int64{
+		"200": 24,
+		"204": 8,
+	}).AddLabel("probe", "google-homepage")
+
+	key := m.Key()
+	wantKey := "sent,rcvd,rtt,resp-code,probe=google-homepage"
+
+	if key != wantKey {
+		t.Errorf("Got key: %s, wanted: %s", key, wantKey)
+	}
+}
+
 func BenchmarkEventMetricsStringer(b *testing.B) {
 	em := newEventMetrics(32, 22, 220100, map[string]int64{
 		"200": 22,

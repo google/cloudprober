@@ -75,6 +75,19 @@ message SurfacerDef {
   optional string allow_metrics_with_name = 6;
   optional string ignore_metrics_with_name = 7;
 
+  // Whether to add failure metric or not. For stackdriver surfacer, we add
+  // failure metric by default.
+  optional bool add_failure_metric = 8;
+
+  // If set to true, cloudprober will export all metrics as gauge metrics. Note
+  // that cloudprober inherently generates only cumulative metrics. To create
+  // gauge metrics from cumulative metrics, we keep a copy of the old metrics
+  // and subtract new metrics from the previous metrics. This transformation in
+  // metrics has an increased memory-overhead because extra copies required.
+  // However, it should not be noticeable unless you're producing large number
+  // of metrics (say > 10000 metrics per second).
+  optional bool export_as_gauge = 9;
+
   // Matching surfacer specific configuration (one for each type in the above
   // enum)
   oneof surfacer {
