@@ -108,11 +108,7 @@ func Listen(addr *net.UDPAddr, l *logger.Logger) (*net.UDPConn, error) {
 	return conn, nil
 }
 
-func (s *Server) readPackets(ms []ipv6.Message) (int, error) {
-	return s.p6.ReadBatch(ms, 0)
-}
-
-func (s *Server) writePackets(ms []ipv6.Message) error {
+func (s *Server) writePacketsBatch(ms []ipv6.Message) error {
 	for remaining := len(ms); remaining > 0; {
 		n, err := s.p6.WriteBatch(ms, 0)
 		if err != nil {
@@ -126,21 +122,42 @@ func (s *Server) writePackets(ms []ipv6.Message) error {
 	return nil
 }
 
-// readAndEcho reads a packet from the server connection and writes it back. To
-// determine the source address for outgoing packets (e.g. if server is behind
-// a load balancer), we make use of control messages (Note: this doesn't work
-// on Windows OS as Go doesn't provide a way to access control messages on
-// Windows).
+func (s *Server) readAndEchoWindows(buf []byte) error {
+	inLen, addr, err := s.conn.ReadFromUDP(buf)
+	if err != nil {
+		return fmt.Errorf("error reading from UDP: %v", err)
+	}
+
+	n, err := s.conn.WriteToUDP(buf[:inLen], addr)
+	if err != nil {
+		return fmt.Errorf("error writing to UDP: %v", err)
+	}
+
+	if n < inLen {
+		s.l.Warningf("Reply truncated! Got %d bytes but only sent %d bytes", inLen, n)
+	}
+	return nil
+}
+
+// readAndEcho reads a packet from the server connection and writes it back.
+// To determine the source address for outgoing packets (e.g. if server
+// is behind a load balancer), we make use of control messages (Note: this
+// doesn't work on Windows OS as Go doesn't provide a way to access control
+// messages on Windows).
 //
-// Note that we don't need to copy or modify the messages below before echoing them
-// for the following reasons:
-//   - Message struct uses the same field (Addr) for sender (while receiving) and
-//     destination address (while sending).
+// Note that we don't need to copy or modify the messages below before echoing
+// them for the following reasons:
+//   - Message struct uses the same field (Addr) for sender (while receiving)
+//     and destination address (while sending).
 //   - Control message (type: packet-info) field that contains the received
-//     packet's destination address, is also the field that's used to set the source
-//     address on the outgoing packets.
-func (s *Server) readAndEcho(ms []ipv6.Message) error {
-	n, err := s.readPackets(ms)
+//     packet's destination address, is also the field that's used to set the
+//     source address on the outgoing packets.
+func (s *Server) readAndEcho(ms []ipv6.Message, buf []byte) error {
+	if runtime.GOOS == "windows" {
+		return s.readAndEchoWindows(buf)
+	}
+
+	n, err := s.p6.ReadBatch(ms, 0)
 	if err != nil {
 		return fmt.Errorf("error reading from UDP: %v", err)
 	}
@@ -152,7 +169,7 @@ func (s *Server) readAndEcho(ms []ipv6.Message) error {
 		m.Buffers[0] = m.Buffers[0][:m.N]
 	}
 
-	err = s.writePackets(ms)
+	err = s.writePacketsBatch(ms)
 	if err != nil {
 		return fmt.Errorf("error writing to UDP: %v", err)
 	}
@@ -165,6 +182,15 @@ func (s *Server) readAndEcho(ms []ipv6.Message) error {
 	}
 
 	return nil
+}
+
+func (s *Server) readAndDiscard(ms []ipv6.Message, buf []byte) (err error) {
+	if runtime.GOOS == "windows" {
+		_, _, err = s.conn.ReadFromUDP(buf)
+		return
+	}
+	_, err = s.p6.ReadBatch(ms, 0)
+	return
 }
 
 func connClosed(err error) bool {
@@ -186,6 +212,9 @@ func (s *Server) Start(ctx context.Context, dataChan chan<- *metrics.EventMetric
 		}
 	}
 
+	// buf is used for higher level read-wrie funtions on Windows.
+	var buf []byte
+
 	// Setup a background function to close connection if context is canceled.
 	// Typically, this is not what we want (close something started outside of
 	// Start function), but in case of UDP we don't have better control than
@@ -200,7 +229,7 @@ func (s *Server) Start(ctx context.Context, dataChan chan<- *metrics.EventMetric
 	case configpb.ServerConf_ECHO:
 		s.l.Infof("Starting UDP ECHO server on port %d", int(s.c.GetPort()))
 		for {
-			if err := s.readAndEcho(ms); err != nil {
+			if err := s.readAndEcho(ms, buf); err != nil {
 				if connClosed(err) {
 					s.l.Warning("connection closed, stopping the start goroutine")
 					return nil
@@ -212,7 +241,7 @@ func (s *Server) Start(ctx context.Context, dataChan chan<- *metrics.EventMetric
 	case configpb.ServerConf_DISCARD:
 		s.l.Infof("Starting UDP DISCARD server on port %d", int(s.c.GetPort()))
 		for {
-			if _, err := s.readPackets(ms); err != nil {
+			if err := s.readAndDiscard(ms, buf); err != nil {
 				if connClosed(err) {
 					return nil
 				}
