@@ -50,6 +50,9 @@ func sendAndTestResponse(t *testing.T, c *configpb.ServerConf, conn net.Conn) {
 		t.Errorf("Wrote only %d of %d bytes", m, len(data))
 	}
 
+	timeout := time.Duration(10) * time.Millisecond
+	conn.SetReadDeadline(time.Now().Add(timeout))
+
 	switch c.GetType() {
 	case configpb.ServerConf_ECHO:
 		rcvd := make([]byte, size)
@@ -65,8 +68,6 @@ func sendAndTestResponse(t *testing.T, c *configpb.ServerConf, conn net.Conn) {
 			t.Errorf("Data mismatch: Sent '%v', Got '%v'", data, rcvd)
 		}
 	case configpb.ServerConf_DISCARD:
-		timeout := time.Duration(10) * time.Millisecond
-		conn.SetReadDeadline(time.Now().Add(timeout))
 		rcvd := make([]byte, size)
 		n, err := conn.Read(rcvd)
 		if err != nil {
@@ -108,6 +109,7 @@ func testServer(t *testing.T, testConfig *configpb.ServerConf) {
 	go server.Start(context.Background(), nil)
 	// try 100 Samples
 	for i := 0; i < 100; i++ {
+		t.Logf("Creating connection %d to %s", i, serverAddr)
 		conn, err := net.Dial("udp", serverAddr)
 		if err != nil {
 			t.Fatal(err)
@@ -116,6 +118,7 @@ func testServer(t *testing.T, testConfig *configpb.ServerConf) {
 		conn.Close()
 	}
 	// try 10 samples on the same connection
+	t.Logf("Creating many-packet connection to %s", serverAddr)
 	conn, err := net.Dial("udp", serverAddr)
 	if err != nil {
 		t.Fatal(err)
