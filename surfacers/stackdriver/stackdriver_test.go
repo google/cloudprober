@@ -1,4 +1,4 @@
-// Copyright 2017 The Cloudprober Authors.
+// Copyright 2017-2021 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@ package stackdriver
 
 import (
 	"context"
-	"fmt"
 	"testing"
 	"time"
 
@@ -216,71 +215,5 @@ func TestTimeSeries(t *testing.T) {
 		if diff := pretty.Compare(tt.timeSeries, gotTimeSeries); diff != "" {
 			t.Errorf("timeSeries() produced incorrect timeSeries (-want +got):\n%s\ntest description: %s", diff, tt.description)
 		}
-	}
-}
-
-func TestFailureCountForDefaultMetrics(t *testing.T) {
-	s := &SDSurfacer{}
-	var tests = []struct {
-		total, success, failure metrics.Value
-		failureCount            float64
-		wantFailure             bool
-	}{
-		{
-			total:        metrics.NewInt(1000),
-			success:      metrics.NewInt(990),
-			failureCount: float64(10),
-			wantFailure:  true,
-		},
-		{
-			total:       metrics.NewInt(1000),
-			success:     metrics.NewInt(990),
-			failure:     metrics.NewInt(10),
-			wantFailure: false,
-		},
-		{
-			total:        metrics.NewInt(1000),
-			success:      metrics.NewInt(1000),
-			failureCount: float64(0),
-			wantFailure:  true,
-		},
-		{
-			total:       nil,
-			success:     metrics.NewInt(990),
-			wantFailure: false,
-		},
-		{
-			total:       metrics.NewInt(1000),
-			success:     nil,
-			wantFailure: false,
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(fmt.Sprintf("%+v", test), func(t *testing.T) {
-			em := metrics.NewEventMetrics(time.Now()).
-				AddMetric("total", test.total).
-				AddMetric("success", test.success)
-
-			if test.failure != nil {
-				em.AddMetric("failure", test.failure)
-			}
-
-			testMetricPrefix := "custom/"
-			expectedMetricName := testMetricPrefix + "failure"
-			createFailureMetric, fVal := s.failureCountForDefaultMetrics(em, testMetricPrefix)
-
-			if !test.wantFailure && createFailureMetric {
-				t.Errorf("Unexpected failure count metric (with value: %v)", fVal)
-			}
-
-			if test.wantFailure && !createFailureMetric {
-				t.Errorf("Not creating failure count metric; expected to create metric %s with value %v", expectedMetricName, fVal)
-			}
-
-			if test.failureCount != fVal {
-				t.Errorf("Failure count=%v, want=%v", fVal, test.failureCount)
-			}
-		})
 	}
 }

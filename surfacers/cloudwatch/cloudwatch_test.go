@@ -268,47 +268,6 @@ func TestNewCWMetricDatum(t *testing.T) {
 	}
 }
 
-func TestCalculateFailureMetric(t *testing.T) {
-	timestamp := time.Now()
-
-	tests := map[string]struct {
-		em      *metrics.EventMetrics
-		want    float64
-		wantErr string
-	}{
-		"simple": {
-			em: metrics.NewEventMetrics(timestamp).
-				AddLabel("ptype", "http").
-				AddMetric("total", metrics.NewFloat(10)).
-				AddMetric("success", metrics.NewFloat(5)),
-			want:    float64(5),
-			wantErr: "",
-		},
-		"string metric": {
-			em: metrics.NewEventMetrics(timestamp).
-				AddLabel("ptype", "http").
-				AddMetric("total", metrics.NewFloat(10)).
-				AddMetric("success", metrics.NewString("5")),
-			want:    float64(0),
-			wantErr: "unexpected",
-		},
-	}
-
-	for name, tc := range tests {
-		t.Run(name, func(t *testing.T) {
-			gotFailure, err := calculateFailureMetric(tc.em)
-
-			if !ErrorContains(err, tc.wantErr) {
-				t.Errorf("unexpected error: %s", err)
-			}
-
-			if gotFailure != tc.want {
-				t.Errorf("Return failure metric check: got: %f, want: %f", gotFailure, tc.want)
-			}
-		})
-	}
-}
-
 func ErrorContains(out error, want string) bool {
 	if out == nil {
 		return want == ""
