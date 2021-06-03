@@ -106,7 +106,9 @@ func (sw *surfacerWrapper) Write(ctx context.Context, em *metrics.EventMetrics) 
 	}
 
 	if sw.opts.AddFailureMetric {
-		transform.AddFailureMetric(em, sw.opts.Logger)
+		if err := transform.AddFailureMetric(em); err != nil {
+			sw.opts.Logger.Warning(err.Error())
+		}
 	}
 
 	if sw.opts.Config.GetExportAsGauge() && em.Kind == metrics.CUMULATIVE {

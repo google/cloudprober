@@ -19,7 +19,6 @@ package cloudwatch
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 	"time"
 
@@ -59,15 +58,6 @@ func (cw *CWSurfacer) processIncomingMetrics(ctx context.Context) {
 			cw.l.Infof("Context canceled, stopping the surfacer write loop")
 			return
 		case em := <-cw.writeChan:
-			// check if a failure metric can be calculated
-			if em.Metric("success") != nil && em.Metric("total") != nil && em.Metric("failure") == nil {
-				if failure, err := calculateFailureMetric(em); err == nil {
-					em.AddMetric("failure", metrics.NewFloat(failure))
-				} else {
-					cw.l.Errorf("Error calculating failure metric: %s", err)
-				}
-			}
-
 			cw.recordEventMetrics(em)
 		}
 	}
@@ -126,23 +116,6 @@ func (cw *CWSurfacer) publishMetrics(md *cloudwatch.MetricDatum) {
 	}
 
 	cw.cwMetricDatumCache = append(cw.cwMetricDatumCache, md)
-}
-
-// calculateFailureMetrics calculates a failure cumalative metric, from the
-// total and success metrics in the eventmetric.
-func calculateFailureMetric(em *metrics.EventMetrics) (float64, error) {
-	successMetric, totalMetric := em.Metric("success"), em.Metric("total")
-
-	success, successOK := successMetric.(metrics.NumValue)
-	total, totalOK := totalMetric.(metrics.NumValue)
-
-	if !successOK || !totalOK {
-		return 0, fmt.Errorf("unexpected error, either success or total is not a number")
-	}
-
-	failure := total.Float64() - success.Float64()
-
-	return failure, nil
 }
 
 // Create a new cloudwatch metriddatum using the values passed in.

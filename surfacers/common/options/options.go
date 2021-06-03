@@ -158,7 +158,11 @@ func BuildOptionsFromConfig(sdef *surfacerpb.SurfacerDef, l *logger.Logger) (*Op
 	}
 
 	opts.AddFailureMetric = opts.Config.GetAddFailureMetric()
-	if opts.Config.AddFailureMetric == nil && opts.Config.GetType() == surfacerpb.Type_STACKDRIVER {
+	defaultFailureMetric := map[surfacerpb.Type]bool{
+		surfacerpb.Type_STACKDRIVER: true,
+		surfacerpb.Type_CLOUDWATCH:  true,
+	}
+	if opts.Config.AddFailureMetric == nil && defaultFailureMetric[opts.Config.GetType()] {
 		opts.AddFailureMetric = true
 	}
 

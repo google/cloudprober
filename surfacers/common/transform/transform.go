@@ -25,22 +25,22 @@ import (
 
 // AddFailureMetric adds failure metric to the EventMetrics based on the
 // config options.
-func AddFailureMetric(em *metrics.EventMetrics, l *logger.Logger) {
+func AddFailureMetric(em *metrics.EventMetrics) error {
 	tv, sv, fv := em.Metric("total"), em.Metric("success"), em.Metric("failure")
 	// If there is already a failure metric, or if "total" and "success" metrics
 	// are not available, don't compute failure metric.
 	if fv != nil || tv == nil || sv == nil {
-		return
+		return nil
 	}
 
 	total, totalOk := tv.(metrics.NumValue)
 	success, successOk := sv.(metrics.NumValue)
 	if !totalOk || !successOk {
-		l.Errorf("total (%v) and success (%v) values are not numeric, this should never happen", tv, sv)
-		return
+		return fmt.Errorf("total (%v) and success (%v) values are not numeric, this should never happen", tv, sv)
 	}
 
 	em.AddMetric("failure", metrics.NewInt(total.Int64()-success.Int64()))
+	return nil
 }
 
 // CumulativeToGauge creates a "gauge" EventMetrics from a "cumulative"
