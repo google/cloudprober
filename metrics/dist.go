@@ -123,25 +123,52 @@ func (d *Distribution) AddFloat64(f float64) {
 // Add adds a distribution to the receiver distribution. If both distributions
 // don't have the same buckets, an error is returned.
 func (d *Distribution) Add(val Value) error {
+	_, err := d.addOrSubtract(val, false)
+	return err
+}
+
+// SubtractCounter subtracts the provided "lastVal", assuming that value
+// represents a counter, i.e. if "value" is less than "lastVal", we assume that
+// counter has been reset and don't subtract.
+func (d *Distribution) SubtractCounter(lastVal Value) (bool, error) {
+	return d.addOrSubtract(lastVal, true)
+}
+
+func (d *Distribution) addOrSubtract(val Value, subtract bool) (bool, error) {
 	delta, ok := val.(*Distribution)
 	if !ok {
-		return errors.New("incompatible value to add to distribution")
+		return false, errors.New("dist: incompatible value to add or subtract")
 	}
 
 	if !reflect.DeepEqual(d.lowerBounds, delta.lowerBounds) {
-		return fmt.Errorf("incompatible delta value, Bucket lower bounds in receiver distribution: %v, and in delta distribution: %v", d.lowerBounds, delta.lowerBounds)
+		return false, fmt.Errorf("incompatible delta value, Bucket lower bounds in receiver distribution: %v, and in delta distribution: %v", d.lowerBounds, delta.lowerBounds)
 	}
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	delta.mu.RLock()
 	defer delta.mu.RUnlock()
 
-	for i := 0; i < len(d.bucketCounts); i++ {
-		d.bucketCounts[i] += delta.bucketCounts[i]
+	if subtract {
+		// If receiver count is less than lastVal' count, assume reset and return.
+		if d.count < delta.count {
+			return true, nil
+		}
+		d.count -= delta.count
+		d.sum -= delta.sum
+	} else {
+		d.count += delta.count
+		d.sum += delta.sum
 	}
-	d.count += delta.count
-	d.sum += delta.sum
-	return nil
+
+	for i := 0; i < len(d.bucketCounts); i++ {
+		if subtract {
+			d.bucketCounts[i] -= delta.bucketCounts[i]
+		} else {
+			d.bucketCounts[i] += delta.bucketCounts[i]
+		}
+	}
+
+	return false, nil
 }
 
 // String returns a string representation of the distribution:

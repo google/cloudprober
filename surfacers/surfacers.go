@@ -34,6 +34,7 @@ import (
 	"github.com/google/cloudprober/metrics"
 	"github.com/google/cloudprober/surfacers/cloudwatch"
 	"github.com/google/cloudprober/surfacers/common/options"
+	"github.com/google/cloudprober/surfacers/common/transform"
 	"github.com/google/cloudprober/surfacers/file"
 	"github.com/google/cloudprober/surfacers/postgres"
 	"github.com/google/cloudprober/surfacers/prometheus"
@@ -95,13 +96,29 @@ type Surfacer interface {
 
 type surfacerWrapper struct {
 	Surfacer
-	opts *options.Options
+	opts    *options.Options
+	lvCache map[string]*metrics.EventMetrics
 }
 
 func (sw *surfacerWrapper) Write(ctx context.Context, em *metrics.EventMetrics) {
-	if sw.opts.AllowEventMetrics(em) {
-		sw.Surfacer.Write(ctx, em)
+	if !sw.opts.AllowEventMetrics(em) {
+		return
 	}
+
+	if sw.opts.AddFailureMetric {
+		transform.AddFailureMetric(em, sw.opts.Logger)
+	}
+
+	if sw.opts.Config.GetExportAsGauge() && em.Kind == metrics.CUMULATIVE {
+		newEM, err := transform.CumulativeToGauge(em, sw.lvCache, sw.opts.Logger)
+		if err != nil {
+			sw.opts.Logger.Errorf("Error converting CUMULATIVE metrics to GAUGE: %v", err)
+			return
+		}
+		em = newEM
+	}
+
+	sw.Surfacer.Write(ctx, em)
 }
 
 // SurfacerInfo encapsulates a Surfacer and related info.
@@ -144,7 +161,7 @@ func initSurfacer(ctx context.Context, s *surfacerpb.SurfacerDef, sType surfacer
 		return nil, nil, fmt.Errorf("unable to create cloud logger: %v", err)
 	}
 
-	opts, err := options.BuildOptionsFromConfig(s)
+	opts, err := options.BuildOptionsFromConfig(s, l)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -185,6 +202,7 @@ func initSurfacer(ctx context.Context, s *surfacerpb.SurfacerDef, sType surfacer
 	return &surfacerWrapper{
 		Surfacer: surfacer,
 		opts:     opts,
+		lvCache:  make(map[string]*metrics.EventMetrics),
 	}, conf, err
 }
 

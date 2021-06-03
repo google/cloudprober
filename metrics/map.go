@@ -23,14 +23,17 @@ import (
 	"sync"
 )
 
-// Map implements a key-value store where keys are of type string and values are
-// of type NumValue.
+// Map implements a key-value store where keys are of type string and values
+// are of type NumValue.
 // It satisfies the Value interface.
 type Map struct {
 	MapName string // Map key name
 	mu      sync.RWMutex
 	m       map[string]NumValue
 	keys    []string
+
+	// total is only used to figure out if counter is moving up or down (reset).
+	total NumValue
 
 	// We use this to initialize new keys
 	defaultKeyValue NumValue
@@ -42,12 +45,11 @@ func NewMap(mapName string, defaultValue NumValue) *Map {
 		MapName:         mapName,
 		defaultKeyValue: defaultValue,
 		m:               make(map[string]NumValue),
+		total:           defaultValue.Clone().(NumValue),
 	}
 }
 
 // GetKey returns the given key's value.
-// TODO(manugarg): We should probably add a way to get the list of all the keys in the
-// map.
 func (m *Map) GetKey(key string) NumValue {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -63,6 +65,7 @@ func (m *Map) Clone() Value {
 		MapName:         m.MapName,
 		defaultKeyValue: m.defaultKeyValue.Clone().(NumValue),
 		m:               make(map[string]NumValue),
+		total:           m.total.Clone().(NumValue),
 	}
 	newMap.keys = make([]string, len(m.keys))
 	for i, k := range m.keys {
@@ -86,6 +89,7 @@ func (m *Map) newKey(key string) {
 	m.keys = append(m.keys, key)
 	sort.Strings(m.keys)
 	m.m[key] = m.defaultKeyValue.Clone().(NumValue)
+	m.total.IncBy(m.defaultKeyValue)
 }
 
 // IncKey increments the given key's value by one.
@@ -96,6 +100,7 @@ func (m *Map) IncKey(key string) {
 		m.newKey(key)
 	}
 	m.m[key].Inc()
+	m.total.Inc()
 }
 
 // IncKeyBy increments the given key's value by NumValue.
@@ -106,33 +111,61 @@ func (m *Map) IncKeyBy(key string, delta NumValue) {
 		m.newKey(key)
 	}
 	m.m[key].IncBy(delta)
+	m.total.IncBy(delta)
 }
 
-// Add adds a value (type Value) to the receiver Map. A non-Map value returns an error.
-// This is part of the Value interface.
+// Add adds a value (type Value) to the receiver Map. A non-Map value returns
+// an error. This is part of the Value interface.
 func (m *Map) Add(val Value) error {
+	_, err := m.addOrSubtract(val, false)
+	return err
+}
+
+// SubtractCounter subtracts the provided "lastVal", assuming that value
+// represents a counter, i.e. if "value" is less than "lastVal", we assume that
+// counter has been reset and don't subtract.
+func (m *Map) SubtractCounter(lastVal Value) (bool, error) {
+	return m.addOrSubtract(lastVal, true)
+}
+
+func (m *Map) addOrSubtract(val Value, subtract bool) (bool, error) {
 	delta, ok := val.(*Map)
 	if !ok {
-		return errors.New("incompatible value to add")
+		return false, errors.New("incompatible value to add or subtract")
 	}
+
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	delta.mu.RLock()
 	defer delta.mu.RUnlock()
+
+	if subtract && (m.total.Float64() < delta.total.Float64()) {
+		return true, nil
+	}
+
 	var sortRequired bool
 	for k, v := range delta.m {
-		if m.m[k] == nil {
-			sortRequired = true
-			m.keys = append(m.keys, k)
-			m.m[k] = v
-			continue
+		if subtract {
+			// If a key is there in delta (lastVal) but not in the current val,
+			// assume metric has been reset.
+			if m.m[k] == nil {
+				return true, nil
+			}
+			m.m[k].SubtractCounter(v)
+		} else {
+			if m.m[k] == nil {
+				sortRequired = true
+				m.keys = append(m.keys, k)
+				m.m[k] = v
+				continue
+			}
+			m.m[k].Add(v)
 		}
-		m.m[k].Add(v)
 	}
 	if sortRequired {
 		sort.Strings(m.keys)
 	}
-	return nil
+	return false, nil
 }
 
 // AddInt64 generates a panic for the Map type. This is added only to satisfy

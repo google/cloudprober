@@ -139,6 +139,25 @@ func TestDistAdd(t *testing.T) {
 	verifyBucketCount(t, d, []int{0, 1, 2, 3, 4, 5}, []int64{1, 2, 0, 2, 0, 1})
 }
 
+func TestDistSubtractCounter(t *testing.T) {
+	lb := []float64{1, 5, 15, 30, 45}
+	d := NewDistribution(lb)
+
+	for _, s := range []float64{0.5, 4, 17} {
+		d.AddSample(s)
+	}
+
+	d2 := d.Clone().(*Distribution)
+	for _, s := range []float64{3.5, 21, 300} {
+		d2.AddSample(s)
+	}
+
+	if wasReset, err := d2.SubtractCounter(d); err != nil || wasReset {
+		t.Errorf("SubtractCounter error: %v, wasReset: %v", err, wasReset)
+	}
+	verifyBucketCount(t, d2, []int{0, 1, 2, 3, 4, 5}, []int64{0, 1, 0, 1, 0, 1})
+}
+
 func TestDistData(t *testing.T) {
 	lb := []float64{1, 5, 15, 30, 45}
 	d := NewDistribution(lb)

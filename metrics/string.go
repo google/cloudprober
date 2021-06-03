@@ -33,6 +33,12 @@ func (s String) Add(val Value) error {
 	return errors.New("string value type doesn't support Add() operation")
 }
 
+// SubtractCounter isn't supported for the String type, this is only to satisfy
+// the Value interface.
+func (s String) SubtractCounter(val Value) (bool, error) {
+	return false, errors.New("string value type doesn't support SubtractCounter() operation")
+}
+
 // AddInt64 generates a panic for the String type. This is added only to satisfy
 // the Value interface.
 func (s String) AddInt64(i int64) {

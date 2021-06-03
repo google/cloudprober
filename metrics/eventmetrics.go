@@ -186,6 +186,38 @@ func (em *EventMetrics) Update(in *EventMetrics) error {
 	}
 }
 
+// SubtractLast subtracts the provided (last) EventMetrics from the receiver
+// EventMetrics and return the result as a GAUGE EventMetrics.
+func (em *EventMetrics) SubtractLast(lastEM *EventMetrics) (*EventMetrics, error) {
+	if em.Kind != CUMULATIVE || lastEM.Kind != CUMULATIVE {
+		return nil, fmt.Errorf("incorrect eventmetrics kind (current: %v, last: %v), SubtractLast works only for CUMULATIVE metrics", em.Kind, lastEM.Kind)
+	}
+
+	gaugeEM := em.Clone()
+	gaugeEM.Kind = GAUGE
+
+	for name, lastVal := range lastEM.metrics {
+		val, ok := gaugeEM.metrics[name]
+		if !ok {
+			return nil, fmt.Errorf("receiver EventMetrics doesn't have %s metric", name)
+		}
+		wasReset, err := val.SubtractCounter(lastVal)
+		if err != nil {
+			return nil, err
+		}
+
+		// If any metric is reset, consider it a full reset of EventMetrics.
+		// TODO(manugarg): See if we can track this event somehow.
+		if wasReset {
+			gaugeEM := em.Clone()
+			gaugeEM.Kind = GAUGE
+			return gaugeEM, nil
+		}
+	}
+
+	return gaugeEM, nil
+}
+
 // String returns the string representation of the EventMetrics.
 // Note that this is compatible with what vmwatcher understands.
 // Example output string:
@@ -216,4 +248,17 @@ func (em *EventMetrics) String() string {
 		b.WriteString(em.metrics[name].String())
 	}
 	return b.String()
+}
+
+// Key returns a string key that uniquely identifies an eventmetrics.
+func (em *EventMetrics) Key() string {
+	em.mu.RLock()
+	defer em.mu.RUnlock()
+
+	var keys []string
+	keys = append(keys, em.metricsKeys...)
+	for _, k := range em.LabelsKeys() {
+		keys = append(keys, k+"="+em.labels[k])
+	}
+	return strings.Join(keys, ",")
 }

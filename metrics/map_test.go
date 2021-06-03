@@ -20,6 +20,8 @@ import (
 )
 
 func verify(t *testing.T, m *Map, expectedKeys []string, expectedMap map[string]int64) {
+	t.Helper()
+
 	if !reflect.DeepEqual(m.Keys(), expectedKeys) {
 		t.Errorf("Map doesn't have expected keys. Got: %q, Expected: %q", m.Keys(), expectedKeys)
 	}
@@ -73,6 +75,47 @@ func TestMap(t *testing.T) {
 		"404": 1,
 		"500": 1,
 	})
+}
+
+func TestMapSubtractCounter(t *testing.T) {
+	m1 := NewMap("code", NewInt(0))
+	m1.IncKeyBy("200", NewInt(4000))
+	m1.IncKeyBy("403", NewInt(2))
+
+	m2 := m1.Clone().(*Map)
+	m2.IncKeyBy("200", NewInt(400))
+	m2.IncKey("500")
+	m2Clone := m2.Clone() // We'll use this for reset testing below.
+
+	expectReset := false
+	wasReset, err := m2.SubtractCounter(m1)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+	if wasReset != expectReset {
+		t.Errorf("wasReset=%v, expected=%v", wasReset, expectReset)
+	}
+	verify(t, m2, []string{"200", "403", "500"}, map[string]int64{
+		"200": 400,
+		"403": 0,
+		"500": 1,
+	})
+
+	// Expect a reset this time, as m3 (m) will be smaller than m2Clone.
+	m3 := m1.Clone()
+	expectReset = true
+	wasReset, err = m3.SubtractCounter(m2Clone)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+	if wasReset != expectReset {
+		t.Errorf("wasReset=%v, expected=%v", wasReset, expectReset)
+	}
+	verify(t, m3.(*Map), []string{"200", "403"}, map[string]int64{
+		"200": 4000,
+		"403": 2,
+	})
+
 }
 
 func TestMapString(t *testing.T) {

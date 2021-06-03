@@ -28,6 +28,11 @@ type Value interface {
 	AddInt64(i int64)
 	AddFloat64(f float64)
 	String() string
+
+	// SubtractCounter subtracts the provided "lastVal", assuming that value
+	// represents a counter, i.e. if "value" is less than the "lastVal", we
+	// assume that counter has been reset and don't subtract.
+	SubtractCounter(last Value) (wasReset bool, err error)
 }
 
 // NumValue represents any numerical metric value, e.g. Int, Float.
