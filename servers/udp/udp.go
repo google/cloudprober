@@ -20,10 +20,10 @@ package udp
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"runtime"
-	"strings"
 
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
@@ -53,7 +53,8 @@ type Server struct {
 	conn *net.UDPConn
 	l    *logger.Logger
 
-	p6 *ipv6.PacketConn
+	advancedReadWrite bool // Set to true on non-windows systems
+	p6                *ipv6.PacketConn
 }
 
 // New returns an UDP server.
@@ -86,6 +87,7 @@ func New(initCtx context.Context, c *configpb.ServerConf, l *logger.Logger) (*Se
 		if err := s.p6.SetControlMessage(ipv6.FlagDst, true); err != nil {
 			return nil, fmt.Errorf("SetControlMessage(ipv6.FlagDst, true) failed: %v", err)
 		}
+		s.advancedReadWrite = true
 	}
 
 	return s, nil
@@ -108,7 +110,28 @@ func Listen(addr *net.UDPAddr, l *logger.Logger) (*net.UDPConn, error) {
 	return conn, nil
 }
 
-func (s *Server) writePacketsBatch(ms []ipv6.Message) error {
+// readAndEchoBatch reads, writes packets in batches.
+//
+// Note that we don't need to copy or modify the messages below before echoing
+// them for the following reasons:
+//   - Message struct uses the same field (Addr) for sender (while receiving)
+//     and destination address (while sending).
+//   - Control message (type: packet-info) field that contains the received
+//     packet's destination address, is also the field that's used to set the
+//     source address on the outgoing packets.
+func (s *Server) readAndEchoBatch(ms []ipv6.Message) error {
+	n, err := s.p6.ReadBatch(ms, 0)
+	if err != nil {
+		return fmt.Errorf("error reading from UDP: %v", err)
+	}
+	ms = ms[:n]
+
+	// Resize buffers to match amount read.
+	for _, m := range ms {
+		// We only allocated a 0th buffer, so all the data is there.
+		m.Buffers[0] = m.Buffers[0][:m.N]
+	}
+
 	for remaining := len(ms); remaining > 0; {
 		n, err := s.p6.WriteBatch(ms, 0)
 		if err != nil {
@@ -119,10 +142,26 @@ func (s *Server) writePacketsBatch(ms []ipv6.Message) error {
 		}
 		remaining -= n
 	}
+
+	// Reset buffers to full size for re-use.
+	for _, m := range ms {
+		b := m.Buffers[0]
+		// We only allocated a 0th buffer.
+		m.Buffers[0] = b[:cap(b)]
+	}
+
 	return nil
 }
 
-func (s *Server) readAndEchoWindows(buf []byte) error {
+// readAndEcho reads a packet from the server connection and writes it back.
+// To determine the source address for outgoing packets (e.g. if server
+// is behind a load balancer), we make use of control messages (except on
+// Windows).
+func (s *Server) readAndEcho(ms []ipv6.Message, buf []byte) error {
+	if s.advancedReadWrite {
+		return s.readAndEchoBatch(ms)
+	}
+
 	inLen, addr, err := s.conn.ReadFromUDP(buf)
 	if err != nil {
 		return fmt.Errorf("error reading from UDP: %v", err)
@@ -139,81 +178,27 @@ func (s *Server) readAndEchoWindows(buf []byte) error {
 	return nil
 }
 
-// readAndEcho reads a packet from the server connection and writes it back.
-// To determine the source address for outgoing packets (e.g. if server
-// is behind a load balancer), we make use of control messages (Note: this
-// doesn't work on Windows OS as Go doesn't provide a way to access control
-// messages on Windows).
-//
-// Note that we don't need to copy or modify the messages below before echoing
-// them for the following reasons:
-//   - Message struct uses the same field (Addr) for sender (while receiving)
-//     and destination address (while sending).
-//   - Control message (type: packet-info) field that contains the received
-//     packet's destination address, is also the field that's used to set the
-//     source address on the outgoing packets.
-func (s *Server) readAndEcho(ms []ipv6.Message, buf []byte) error {
-	if runtime.GOOS == "windows" {
-		return s.readAndEchoWindows(buf)
-	}
-
-	n, err := s.p6.ReadBatch(ms, 0)
-	if err != nil {
-		return fmt.Errorf("error reading from UDP: %v", err)
-	}
-	ms = ms[:n]
-
-	// Resize buffers to match amount read.
-	for _, m := range ms {
-		// We only allocated a 0th buffer, so all the data is there.
-		m.Buffers[0] = m.Buffers[0][:m.N]
-	}
-
-	err = s.writePacketsBatch(ms)
-	if err != nil {
-		return fmt.Errorf("error writing to UDP: %v", err)
-	}
-
-	// Reset buffers to full size for re-use.
-	for _, m := range ms {
-		b := m.Buffers[0]
-		// We only allocated a 0th buffer.
-		m.Buffers[0] = b[:cap(b)]
-	}
-
-	return nil
-}
-
 func (s *Server) readAndDiscard(ms []ipv6.Message, buf []byte) (err error) {
-	if runtime.GOOS == "windows" {
+	if s.advancedReadWrite {
+		_, err = s.p6.ReadBatch(ms, 0)
+	} else {
 		_, _, err = s.conn.ReadFromUDP(buf)
-		return
 	}
-	_, err = s.p6.ReadBatch(ms, 0)
 	return
-}
-
-func connClosed(err error) bool {
-	// TODO(manugarg): Replace this by errors.Is(err, net.ErrClosed) once Go 1.16
-	// is more widely available.
-	return strings.Contains(err.Error(), "use of closed network connection")
 }
 
 // Start starts the UDP server. It returns only when context is canceled.
 func (s *Server) Start(ctx context.Context, dataChan chan<- *metrics.EventMetrics) error {
-	ms := make([]ipv6.Message, batchSize)
-	for i := 0; i < batchSize; i++ {
-		ms[i].Buffers = [][]byte{make([]byte, maxPacketSize)}
-		switch runtime.GOOS {
-		case "linux":
+	var ms []ipv6.Message // Used for batch read-write
+	var buf []byte        // Used for single packet read-write (windows)
+
+	if s.advancedReadWrite {
+		ms = make([]ipv6.Message, batchSize)
+		for i := 0; i < batchSize; i++ {
+			ms[i].Buffers = [][]byte{make([]byte, maxPacketSize)}
 			ms[i].OOB = ipv6.NewControlMessage(ipv6.FlagDst)
-		default:
-			// Control messages are not supported.
 		}
 	}
-
-	// buf is used for higher level read-wrie funtions on Windows.
-	var buf []byte
 
 	// Setup a background function to close connection if context is canceled.
 	// Typically, this is not what we want (close something started outside of
@@ -230,7 +215,7 @@ func (s *Server) Start(ctx context.Context, dataChan chan<- *metrics.EventMetric
 		s.l.Infof("Starting UDP ECHO server on port %d", int(s.c.GetPort()))
 		for {
 			if err := s.readAndEcho(ms, buf); err != nil {
-				if connClosed(err) {
+				if errors.Is(err, net.ErrClosed) {
 					s.l.Warning("connection closed, stopping the start goroutine")
 					return nil
 				}
@@ -242,7 +227,7 @@ func (s *Server) Start(ctx context.Context, dataChan chan<- *metrics.EventMetric
 		s.l.Infof("Starting UDP DISCARD server on port %d", int(s.c.GetPort()))
 		for {
 			if err := s.readAndDiscard(ms, buf); err != nil {
-				if connClosed(err) {
+				if errors.Is(err, net.ErrClosed) {
 					return nil
 				}
 				s.l.Errorf("ReadFromUDP: %v", err)
