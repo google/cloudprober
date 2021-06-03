@@ -321,10 +321,8 @@ func (p *Probe) doHTTPRequest(req *http.Request, targetName string, result *prob
 
 	result.success++
 	result.latency.AddFloat64(latency.Seconds() / p.opts.LatencyUnit.Seconds())
-	if p.c.GetExportResponseAsMetrics() {
-		if len(respBody) <= maxResponseSizeForMetrics {
-			result.respBodies.IncKey(string(respBody))
-		}
+	if result.respBodies != nil && len(respBody) <= maxResponseSizeForMetrics {
+		result.respBodies.IncKey(string(respBody))
 	}
 }
 
@@ -355,18 +353,25 @@ func (p *Probe) runProbe(ctx context.Context, target endpoint.Endpoint, req *htt
 }
 
 func (p *Probe) newResult() *probeResult {
-	var latencyValue metrics.Value
+	result := &probeResult{
+		respCodes: metrics.NewMap("code", metrics.NewInt(0)),
+	}
+
+	if p.opts.Validators != nil {
+		result.validationFailure = validators.ValidationFailureMap(p.opts.Validators)
+	}
+
 	if p.opts.LatencyDist != nil {
-		latencyValue = p.opts.LatencyDist.Clone()
+		result.latency = p.opts.LatencyDist.Clone()
 	} else {
-		latencyValue = metrics.NewFloat(0)
+		result.latency = metrics.NewFloat(0)
 	}
-	return &probeResult{
-		latency:           latencyValue,
-		respCodes:         metrics.NewMap("code", metrics.NewInt(0)),
-		respBodies:        metrics.NewMap("resp", metrics.NewInt(0)),
-		validationFailure: validators.ValidationFailureMap(p.opts.Validators),
+
+	if p.c.GetExportResponseAsMetrics() {
+		result.respBodies = metrics.NewMap("resp", metrics.NewInt(0))
 	}
+
+	return result
 }
 
 func (p *Probe) exportMetrics(ts time.Time, result *probeResult, targetName string, dataChan chan *metrics.EventMetrics) {
@@ -376,10 +381,13 @@ func (p *Probe) exportMetrics(ts time.Time, result *probeResult, targetName stri
 		AddMetric("latency", result.latency).
 		AddMetric("timeouts", metrics.NewInt(result.timeouts)).
 		AddMetric("resp-code", result.respCodes).
-		AddMetric("resp-body", result.respBodies).
 		AddLabel("ptype", "http").
 		AddLabel("probe", p.name).
 		AddLabel("dst", targetName)
+
+	if result.respBodies != nil {
+		em.AddMetric("resp-body", result.respBodies)
+	}
 
 	if p.c.GetKeepAlive() {
 		em.AddMetric("connect_event", metrics.NewInt(result.connEvent))
@@ -391,7 +399,7 @@ func (p *Probe) exportMetrics(ts time.Time, result *probeResult, targetName stri
 		em.AddLabel(al.KeyValueForTarget(targetName))
 	}
 
-	if p.opts.Validators != nil {
+	if result.validationFailure != nil {
 		em.AddMetric("validation_failure", result.validationFailure)
 	}
 
