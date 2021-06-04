@@ -120,7 +120,9 @@ func testServer(t *testing.T, testConfig *configpb.ServerConf) {
 		if err = sendAndTestResponse(t, testConfig, conn); err != nil {
 			conn.Close()
 		}
+		server.mu.RLock()
 		t.Logf("Rcvd: %d, Sent: %d", server.rcvd, server.sent)
+		server.mu.RUnlock()
 	}
 	// try 10 samples on the same connection
 	t.Logf("Creating many-packet connection to %s", serverAddr)

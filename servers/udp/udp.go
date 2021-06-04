@@ -25,6 +25,7 @@ import (
 	"net"
 	"runtime"
 	"strings"
+	"sync"
 
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
@@ -56,6 +57,7 @@ type Server struct {
 
 	advancedReadWrite bool // Set to true on non-windows systems
 	p6                *ipv6.PacketConn
+	mu                sync.RWMutex
 	sent, rcvd        int64
 }
 
@@ -137,7 +139,9 @@ func (s *Server) readAndEchoBatch(ms []ipv6.Message) *readWriteErr {
 		return &readWriteErr{"error reading packets", err}
 	}
 	ms = ms[:n]
+	s.mu.Lock()
 	s.rcvd += int64(len(ms))
+	s.mu.Unlock()
 
 	// Resize buffers to match amount read.
 	for _, m := range ms {
@@ -147,7 +151,9 @@ func (s *Server) readAndEchoBatch(ms []ipv6.Message) *readWriteErr {
 
 	for remaining := len(ms); remaining > 0; {
 		n, err := s.p6.WriteBatch(ms, 0)
+		s.mu.Lock()
 		s.sent += int64(n)
+		s.mu.Unlock()
 		if err != nil {
 			return &readWriteErr{"error writing packets", err}
 		}
@@ -174,13 +180,17 @@ func (s *Server) readAndEchoSimple(buf []byte) *readWriteErr {
 	if err != nil {
 		return &readWriteErr{"error reading packet", err}
 	}
+	s.mu.Lock()
 	s.rcvd++
+	s.mu.Unlock()
 
 	n, err := s.conn.WriteToUDP(buf[:inLen], addr)
 	if err != nil {
 		return &readWriteErr{"error writing packet", err}
 	}
+	s.mu.Lock()
 	s.sent++
+	s.mu.Unlock()
 
 	if n < inLen {
 		s.l.Warningf("Reply truncated! Got %d bytes but only sent %d bytes", inLen, n)
