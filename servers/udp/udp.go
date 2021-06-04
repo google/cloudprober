@@ -140,6 +140,7 @@ func (s *Server) readAndEchoBatch(ms []ipv6.Message) *readWriteErr {
 		return &readWriteErr{"error reading packets", err}
 	}
 	ms = ms[:n]
+	s.rcvd += int64(len(ms))
 
 	// Resize buffers to match amount read.
 	for _, m := range ms {
@@ -149,6 +150,7 @@ func (s *Server) readAndEchoBatch(ms []ipv6.Message) *readWriteErr {
 
 	for remaining := len(ms); remaining > 0; {
 		n, err := s.p6.WriteBatch(ms, 0)
+		s.sent += int64(n)
 		if err != nil {
 			return &readWriteErr{"error writing packets", err}
 		}

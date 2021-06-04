@@ -36,7 +36,7 @@ func isClientTimeout(err error) bool {
 	return ok && e != nil && e.Timeout()
 }
 
-func sendAndTestResponse(t *testing.T, c *configpb.ServerConf, conn net.Conn) {
+func sendAndTestResponse(t *testing.T, c *configpb.ServerConf, conn net.Conn) error {
 	size := rand.Intn(1024)
 	data := make([]byte, size)
 	rand.Read(data)
@@ -58,7 +58,8 @@ func sendAndTestResponse(t *testing.T, c *configpb.ServerConf, conn net.Conn) {
 		rcvd := make([]byte, size)
 		n, err := conn.Read(rcvd)
 		if err != nil {
-			t.Fatal(err)
+			t.Error(err)
+			return err
 		}
 
 		if m != n {
@@ -73,9 +74,10 @@ func sendAndTestResponse(t *testing.T, c *configpb.ServerConf, conn net.Conn) {
 		if err != nil {
 			if isClientTimeout(err) {
 				// Success, timed out with no response
-				return
+				return nil
 			}
-			t.Fatal(err)
+			t.Error(err)
+			return err
 		}
 		if n > 0 {
 			t.Errorf("Received data (%v)! (Should be discarded)", rcvd)
@@ -108,14 +110,17 @@ func testServer(t *testing.T, testConfig *configpb.ServerConf) {
 	serverAddr := fmt.Sprintf("localhost:%d", server.conn.LocalAddr().(*net.UDPAddr).Port)
 	go server.Start(context.Background(), nil)
 	// try 100 Samples
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 10; i++ {
 		t.Logf("Creating connection %d to %s", i, serverAddr)
 		conn, err := net.Dial("udp", serverAddr)
 		if err != nil {
 			t.Fatal(err)
 		}
-		sendAndTestResponse(t, testConfig, conn)
-		conn.Close()
+		if err = sendAndTestResponse(t, testConfig, conn); err != nil {
+			conn.Close()
+			return
+		}
+
 	}
 	// try 10 samples on the same connection
 	t.Logf("Creating many-packet connection to %s", serverAddr)
@@ -125,7 +130,9 @@ func testServer(t *testing.T, testConfig *configpb.ServerConf) {
 	}
 	defer conn.Close()
 	for i := 0; i < 10; i++ {
-		sendAndTestResponse(t, testConfig, conn)
+		if err := sendAndTestResponse(t, testConfig, conn); err != nil {
+			return
+		}
 	}
 }
 
