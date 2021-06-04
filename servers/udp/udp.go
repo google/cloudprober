@@ -76,10 +76,7 @@ func New(initCtx context.Context, c *configpb.ServerConf, l *logger.Logger) (*Se
 		l:    l,
 	}
 
-	switch runtime.GOOS {
-	case "windows":
-		// Control messages are not supported.
-	default:
+	if runtime.GOOS != "windows" {
 		s.advancedReadWrite = true
 		// We use an IPv6 connection wrapper to receive both IPv4 and IPv6 packets.
 		// ipv6.PacketConn lets us use control messages (non-Windows only) to:
@@ -218,6 +215,7 @@ func (s *Server) Start(ctx context.Context, dataChan chan<- *metrics.EventMetric
 		<-ctx.Done()
 		s.conn.Close()
 	}()
+	defer s.conn.Close()
 
 	switch s.c.GetType() {
 
@@ -254,6 +252,8 @@ func (s *Server) Start(ctx context.Context, dataChan chan<- *metrics.EventMetric
 
 			if err != nil {
 				if errors.Is(err, net.ErrClosed) {
+					s.l.Error("connection closed, stopping the start goroutine")
+					s.l.Errorf("Rcvd: %d, Sent: %d", s.rcvd, s.sent)
 					return nil
 				}
 				s.l.Errorf("ReadFromUDP: %v", err)
