@@ -47,6 +47,15 @@ const (
 	maxPacketSize = 4098
 )
 
+type readWriteErr struct {
+	msg string
+	err error
+}
+
+func (rwerr *readWriteErr) Error() string {
+	return fmt.Sprintf("%s: %v", rwerr.msg, rwerr.err)
+}
+
 // Server implements a basic UDP server.
 type Server struct {
 	c    *configpb.ServerConf
@@ -120,10 +129,10 @@ func Listen(addr *net.UDPAddr, l *logger.Logger) (*net.UDPConn, error) {
 //   - Control message (type: packet-info) field that contains the received
 //     packet's destination address, is also the field that's used to set the
 //     source address on the outgoing packets.
-func (s *Server) readAndEchoBatch(ms []ipv6.Message) error {
+func (s *Server) readAndEchoBatch(ms []ipv6.Message) *readWriteErr {
 	n, err := s.p6.ReadBatch(ms, 0)
 	if err != nil {
-		return fmt.Errorf("error reading from UDP: %v", err)
+		return &readWriteErr{"error reading packets", err}
 	}
 	ms = ms[:n]
 
@@ -136,10 +145,10 @@ func (s *Server) readAndEchoBatch(ms []ipv6.Message) error {
 	for remaining := len(ms); remaining > 0; {
 		n, err := s.p6.WriteBatch(ms, 0)
 		if err != nil {
-			return fmt.Errorf("writing packets: %v", err)
+			return &readWriteErr{"error writing packets", err}
 		}
 		if n == 0 {
-			return fmt.Errorf("wrote zero packets, %d remain", remaining)
+			return &readWriteErr{fmt.Sprintf("wrote zero packets, %d remain", remaining), nil}
 		}
 		remaining -= n
 	}
@@ -155,15 +164,15 @@ func (s *Server) readAndEchoBatch(ms []ipv6.Message) error {
 }
 
 // readAndEcho reads a packet from the server connection and writes it back.
-func (s *Server) readAndEcho(buf []byte) error {
+func (s *Server) readAndEcho(buf []byte) *readWriteErr {
 	inLen, addr, err := s.conn.ReadFromUDP(buf)
 	if err != nil {
-		return fmt.Errorf("error reading from UDP: %v", err)
+		return &readWriteErr{"error reading packet", err}
 	}
 
 	n, err := s.conn.WriteToUDP(buf[:inLen], addr)
 	if err != nil {
-		return fmt.Errorf("error writing to UDP: %v", err)
+		return &readWriteErr{"error writing packet", err}
 	}
 
 	if n < inLen {
@@ -200,29 +209,31 @@ func (s *Server) Start(ctx context.Context, dataChan chan<- *metrics.EventMetric
 		s.conn.Close()
 	}()
 
-	var err error
-
 	switch s.c.GetType() {
 
 	case configpb.ServerConf_ECHO:
 		s.l.Infof("Starting UDP ECHO server on port %d", int(s.c.GetPort()))
+
+		var rwerr *readWriteErr
 		for {
 			if s.advancedReadWrite {
-				err = s.readAndEchoBatch(ms)
+				rwerr = s.readAndEchoBatch(ms)
 			} else {
-				err = s.readAndEcho(buf)
+				rwerr = s.readAndEcho(buf)
 			}
-			if err != nil {
-				if connClosed(err) {
+			if rwerr != nil {
+				if connClosed(rwerr.err) {
 					s.l.Warning("connection closed, stopping the start goroutine")
 					return nil
 				}
-				s.l.Error(err.Error())
+				s.l.Error(rwerr.Error())
 			}
 		}
 
 	case configpb.ServerConf_DISCARD:
 		s.l.Infof("Starting UDP DISCARD server on port %d", int(s.c.GetPort()))
+
+		var err error
 		for {
 			if s.advancedReadWrite {
 				_, err = s.p6.ReadBatch(ms, 0)
