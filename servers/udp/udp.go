@@ -56,6 +56,7 @@ type Server struct {
 
 	advancedReadWrite bool // Set to true on non-windows systems
 	p6                *ipv6.PacketConn
+	sent, rcvd        int64
 }
 
 // New returns an UDP server.
@@ -174,11 +175,13 @@ func (s *Server) readAndEchoSimple(buf []byte) *readWriteErr {
 	if err != nil {
 		return &readWriteErr{"error reading packet", err}
 	}
+	s.rcvd++
 
 	n, err := s.conn.WriteToUDP(buf[:inLen], addr)
 	if err != nil {
 		return &readWriteErr{"error writing packet", err}
 	}
+	s.sent++
 
 	if n < inLen {
 		s.l.Warningf("Reply truncated! Got %d bytes but only sent %d bytes", inLen, n)
@@ -228,7 +231,8 @@ func (s *Server) Start(ctx context.Context, dataChan chan<- *metrics.EventMetric
 			}
 			if rwerr != nil {
 				if errors.Is(rwerr.err, net.ErrClosed) {
-					s.l.Warning("connection closed, stopping the start goroutine")
+					s.l.Error("connection closed, stopping the start goroutine")
+					s.l.Errorf("Rcvd: %d, Sent: %d", s.rcvd, s.sent)
 					return nil
 				}
 				s.l.Error(rwerr.Error())
