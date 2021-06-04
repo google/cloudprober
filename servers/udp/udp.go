@@ -72,22 +72,21 @@ func New(initCtx context.Context, c *configpb.ServerConf, l *logger.Logger) (*Se
 		c:    c,
 		conn: conn,
 		l:    l,
-
-		// We use an IPv6 connection wrapper to receive both IPv4 and IPv6 packets.
-		// ipv6.PacketConn lets us use control messages (non-Windows only) to:
-		//  -- receive packet destination IP (FlagDst)
-		//  -- set source IP (Src).
-		p6: ipv6.NewPacketConn(conn),
 	}
 
 	switch runtime.GOOS {
 	case "windows":
 		// Control messages are not supported.
 	default:
+		s.advancedReadWrite = true
+		// We use an IPv6 connection wrapper to receive both IPv4 and IPv6 packets.
+		// ipv6.PacketConn lets us use control messages (non-Windows only) to:
+		//  -- receive packet destination IP (FlagDst)
+		//  -- set source IP (Src).
+		s.p6 = ipv6.NewPacketConn(conn)
 		if err := s.p6.SetControlMessage(ipv6.FlagDst, true); err != nil {
 			return nil, fmt.Errorf("SetControlMessage(ipv6.FlagDst, true) failed: %v", err)
 		}
-		s.advancedReadWrite = true
 	}
 
 	return s, nil
