@@ -20,6 +20,7 @@ package udp
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"runtime"
@@ -46,15 +47,6 @@ const (
 	// (up to the max size of 64K-sizeof(UDPHdr)) and discards the rest.
 	maxPacketSize = 4098
 )
-
-type readWriteErr struct {
-	msg string
-	err error
-}
-
-func (rwerr *readWriteErr) Error() string {
-	return fmt.Sprintf("%s: %v", rwerr.msg, rwerr.err)
-}
 
 // Server implements a basic UDP server.
 type Server struct {
@@ -118,6 +110,18 @@ func Listen(addr *net.UDPAddr, l *logger.Logger) (*net.UDPConn, error) {
 	return conn, nil
 }
 
+// readWriteErr is used by readAndEcho functions so that we can return both,
+// the relevant error message and the original error. Original error is used
+// to determine if the underlying transport has been closed.
+type readWriteErr struct {
+	msg string
+	err error
+}
+
+func (rwerr *readWriteErr) Error() string {
+	return fmt.Sprintf("%s: %v", rwerr.msg, rwerr.err)
+}
+
 // readAndEchoBatch reads, writes packets in batches. To determine the source
 // address for outgoing packets (e.g. if server is behind a load balancer), we
 // make use of control messages (configured through messages' OOB).
@@ -163,8 +167,9 @@ func (s *Server) readAndEchoBatch(ms []ipv6.Message) *readWriteErr {
 	return nil
 }
 
-// readAndEcho reads a packet from the server connection and writes it back.
-func (s *Server) readAndEcho(buf []byte) *readWriteErr {
+// readAndEchoSimple reads a packet from the server connection and writes it
+// back.
+func (s *Server) readAndEchoSimple(buf []byte) *readWriteErr {
 	inLen, addr, err := s.conn.ReadFromUDP(buf)
 	if err != nil {
 		return &readWriteErr{"error reading packet", err}
@@ -189,8 +194,8 @@ func connClosed(err error) bool {
 
 // Start starts the UDP server. It returns only when context is canceled.
 func (s *Server) Start(ctx context.Context, dataChan chan<- *metrics.EventMetrics) error {
-	var ms []ipv6.Message // Used for batch read-write
-	var buf []byte        // Used for single packet read-write (windows)
+	var ms []ipv6.Message              // Used for batch read-write
+	buf := make([]byte, maxPacketSize) // Used for single packet read-write (windows)
 
 	if s.advancedReadWrite {
 		ms = make([]ipv6.Message, batchSize)
@@ -219,10 +224,10 @@ func (s *Server) Start(ctx context.Context, dataChan chan<- *metrics.EventMetric
 			if s.advancedReadWrite {
 				rwerr = s.readAndEchoBatch(ms)
 			} else {
-				rwerr = s.readAndEcho(buf)
+				rwerr = s.readAndEchoSimple(buf)
 			}
 			if rwerr != nil {
-				if connClosed(rwerr.err) {
+				if errors.Is(rwerr.err, net.ErrClosed) {
 					s.l.Warning("connection closed, stopping the start goroutine")
 					return nil
 				}
@@ -242,7 +247,7 @@ func (s *Server) Start(ctx context.Context, dataChan chan<- *metrics.EventMetric
 			}
 
 			if err != nil {
-				if connClosed(err) {
+				if errors.Is(err, net.ErrClosed) {
 					return nil
 				}
 				s.l.Errorf("ReadFromUDP: %v", err)
