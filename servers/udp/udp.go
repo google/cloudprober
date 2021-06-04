@@ -20,10 +20,10 @@ package udp
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net"
 	"runtime"
+	"strings"
 
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
@@ -110,7 +110,9 @@ func Listen(addr *net.UDPAddr, l *logger.Logger) (*net.UDPConn, error) {
 	return conn, nil
 }
 
-// readAndEchoBatch reads, writes packets in batches.
+// readAndEchoBatch reads, writes packets in batches. To determine the source
+// address for outgoing packets (e.g. if server is behind a load balancer), we
+// make use of control messages (configured through messages' OOB).
 //
 // Note that we don't need to copy or modify the messages below before echoing
 // them for the following reasons:
@@ -154,14 +156,7 @@ func (s *Server) readAndEchoBatch(ms []ipv6.Message) error {
 }
 
 // readAndEcho reads a packet from the server connection and writes it back.
-// To determine the source address for outgoing packets (e.g. if server
-// is behind a load balancer), we make use of control messages (except on
-// Windows).
-func (s *Server) readAndEcho(ms []ipv6.Message, buf []byte) error {
-	if s.advancedReadWrite {
-		return s.readAndEchoBatch(ms)
-	}
-
+func (s *Server) readAndEcho(buf []byte) error {
 	inLen, addr, err := s.conn.ReadFromUDP(buf)
 	if err != nil {
 		return fmt.Errorf("error reading from UDP: %v", err)
@@ -178,13 +173,10 @@ func (s *Server) readAndEcho(ms []ipv6.Message, buf []byte) error {
 	return nil
 }
 
-func (s *Server) readAndDiscard(ms []ipv6.Message, buf []byte) (err error) {
-	if s.advancedReadWrite {
-		_, err = s.p6.ReadBatch(ms, 0)
-	} else {
-		_, _, err = s.conn.ReadFromUDP(buf)
-	}
-	return
+func connClosed(err error) bool {
+	// TODO(manugarg): Replace this by errors.Is(err, net.ErrClosed) once Go 1.16
+	// is more widely available.
+	return strings.Contains(err.Error(), "use of closed network connection")
 }
 
 // Start starts the UDP server. It returns only when context is canceled.
@@ -209,13 +201,20 @@ func (s *Server) Start(ctx context.Context, dataChan chan<- *metrics.EventMetric
 		s.conn.Close()
 	}()
 
+	var err error
+
 	switch s.c.GetType() {
 
 	case configpb.ServerConf_ECHO:
 		s.l.Infof("Starting UDP ECHO server on port %d", int(s.c.GetPort()))
 		for {
-			if err := s.readAndEcho(ms, buf); err != nil {
-				if errors.Is(err, net.ErrClosed) {
+			if s.advancedReadWrite {
+				err = s.readAndEchoBatch(ms)
+			} else {
+				err = s.readAndEcho(buf)
+			}
+			if err != nil {
+				if connClosed(err) {
 					s.l.Warning("connection closed, stopping the start goroutine")
 					return nil
 				}
@@ -226,8 +225,14 @@ func (s *Server) Start(ctx context.Context, dataChan chan<- *metrics.EventMetric
 	case configpb.ServerConf_DISCARD:
 		s.l.Infof("Starting UDP DISCARD server on port %d", int(s.c.GetPort()))
 		for {
-			if err := s.readAndDiscard(ms, buf); err != nil {
-				if errors.Is(err, net.ErrClosed) {
+			if s.advancedReadWrite {
+				_, err = s.p6.ReadBatch(ms, 0)
+			} else {
+				_, _, err = s.conn.ReadFromUDP(buf)
+			}
+
+			if err != nil {
+				if connClosed(err) {
 					return nil
 				}
 				s.l.Errorf("ReadFromUDP: %v", err)
