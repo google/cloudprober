@@ -83,6 +83,7 @@ func sendAndTestResponse(t *testing.T, c *configpb.ServerConf, conn net.Conn) er
 			t.Errorf("Received data (%v)! (Should be discarded)", rcvd)
 		}
 	}
+	return nil
 }
 
 func TestEchoServer(t *testing.T) {
