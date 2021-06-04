@@ -50,7 +50,7 @@ func sendAndTestResponse(t *testing.T, c *configpb.ServerConf, conn net.Conn) er
 		t.Errorf("Wrote only %d of %d bytes", m, len(data))
 	}
 
-	timeout := time.Duration(10) * time.Millisecond
+	timeout := time.Duration(100) * time.Millisecond
 	conn.SetReadDeadline(time.Now().Add(timeout))
 
 	switch c.GetType() {
