@@ -552,7 +552,7 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 			break
 		}
 		p.updateTargetsAndStartProbes(ctx, dataChan)
-		time.Sleep(p.opts.Interval)
+		time.Sleep(time.Second)
 	}
 
 	targetsUpdateTicker := time.NewTicker(p.targetsUpdateInterval)
