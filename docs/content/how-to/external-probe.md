@@ -9,7 +9,11 @@ date: 2017-10-08T17:24:32-07:00
 External probe type allows you to run arbitrary, complex probes through
 Cloudprober. An external probe runs an independent external program for actual
 probing. Cloudprober calculates probe metrics based on program's exit status
-and time elapsed in execution. Cloudprober also allows external programs to provide additional metrics over stdout.
+and time elapsed in execution. 
+
+Cloudprober also allows external programs to provide additional metrics.
+Every message send to `stdout` will be parsed as a new metrics to be emitted.
+Thus for your general logging you can use another I/O stream  like `stderr`.
 
 ## Sample Probe
 To understand how it works, lets create a sample probe that sets and gets a key
@@ -72,6 +76,12 @@ probe {
   }
 }
 {{< / highlight >}}
+
+Note: To pass target information to your external program, you can send target information as arguments using the `@label@` notation.  
+Supported field are: target, address, port, probe, and your target.labels like target.label.fqdn.
+```
+command: "./redis_probe" -host=@address@ -port=@port@
+```
 
 Running it through cloudprober, you'll see the following output:
 
