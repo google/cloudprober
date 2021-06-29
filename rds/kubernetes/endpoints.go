@@ -93,7 +93,12 @@ func (lister *epLister) listResources(req *pb.ListResourcesRequest) ([]*pb.Resou
 
 type epSubset struct {
 	Addresses []struct {
-		IP string
+		IP        string
+		NodeName  string
+		TargetRef struct {
+			Kind string
+			Name string
+		}
 	}
 	Ports []struct {
 		Name string
@@ -129,11 +134,22 @@ func (epi *epInfo) resources(portFilter *filter.RegexFilter, l *logger.Logger) (
 			for _, addr := range eps.Addresses {
 				// We name the resource as <endpoints_name>_<IP>_<port>
 				resName := fmt.Sprintf("%s_%s_%s", epi.Metadata.Name, addr.IP, portName)
+
+				labels := make(map[string]string)
+				for k, v := range epi.Metadata.Labels {
+					labels[k] = v
+				}
+				labels["node"] = addr.NodeName
+				// If adding labels, make a copy of the metadata labels.
+				if addr.TargetRef.Kind == "Pod" {
+					labels["pod"] = addr.TargetRef.Name
+				}
+
 				resources = append(resources, &pb.Resource{
 					Name:   proto.String(resName),
 					Ip:     proto.String(addr.IP),
 					Port:   proto.Int(port.Port),
-					Labels: epi.Metadata.Labels,
+					Labels: labels,
 				})
 			}
 		}
