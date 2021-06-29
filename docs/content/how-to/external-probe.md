@@ -12,8 +12,8 @@ probing. Cloudprober calculates probe metrics based on program's exit status
 and time elapsed in execution. 
 
 Cloudprober also allows external programs to provide additional metrics.
-Every message send to `stdout` will be parsed as a new metrics to be emitted.
-Thus for your general logging you can use another I/O stream  like `stderr`.
+Every message sent to `stdout` will be parsed as a new metrics to be emitted.
+For general logging you can use another I/O stream  like `stderr`.
 
 ## Sample Probe
 To understand how it works, lets create a sample probe that sets and gets a key
@@ -36,7 +36,13 @@ func main() {
 
 (Full listing: https://github.com/google/cloudprober/blob/master/examples/external/redis_probe.go)
 
-This program sets and gets a key in redis and prints the time taken for both operations. Cloudprober can use this program as an external probe, to verify
+This program sets and gets a key in redis and prints the time taken for both operations. 
+`set_latency_ms` and `get_latency_ms` will be emitted as metrics. You could also define your own labels using this format:
+```
+fmt.Printf("get_latency_ms{region=%v, cluster=%v} %f\n", region, cluster, float64(time.Since(startTime).Nanoseconds())/1e6)
+```
+
+Cloudprober can use this program as an external probe, to verify
 the availability and performance of the redis server. This program assumes that
 redis server is running locally, at its default port. For the sake of demonstration, lets run a local redis server (you can also easily modify this program to use a different server.)
 
@@ -77,8 +83,9 @@ probe {
 }
 {{< / highlight >}}
 
-Note: To pass target information to your external program, you can send target information as arguments using the `@label@` notation.  
-Supported field are: target, address, port, probe, and your target.labels like target.label.fqdn.
+Note: To pass target information to your external program, 
+you can send target information as arguments using the `@label@` notation.  
+Supported fields are: target, address, port, probe, and target labels like target.label.fqdn.
 ```
 command: "./redis_probe" -host=@address@ -port=@port@
 ```
