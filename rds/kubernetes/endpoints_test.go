@@ -42,13 +42,29 @@ func TestParseEndpoints(t *testing.T) {
 		}
 
 		eps := epi.Subsets[0]
-		var ips []string
+		var ips, pods, nodes []string
 		for _, addr := range eps.Addresses {
 			ips = append(ips, addr.IP)
+			nodes = append(nodes, addr.NodeName)
+			if addr.TargetRef.Kind != "Pod" {
+				t.Errorf("Unexpected target ref kind for addr (%s): %s", addr.IP, addr.TargetRef.Kind)
+			}
+			pods = append(pods, addr.TargetRef.Name)
 		}
+
 		expectedIPs := []string{"10.28.0.3", "10.28.2.3", "10.28.2.6"}
 		if !reflect.DeepEqual(ips, expectedIPs) {
 			t.Errorf("cloudprober endpoints addresses: got=%v, want=%v", ips, expectedIPs)
+		}
+
+		expectedNodes := []string{"gke-cluster-1-default-pool-abd8ad35-ccr7", "gke-cluster-1-default-pool-abd8ad35-mzh9", "gke-cluster-1-default-pool-abd8ad35-mzh9"}
+		if !reflect.DeepEqual(nodes, expectedNodes) {
+			t.Errorf("cloudprober endpoints nodes: got=%v, want=%v", nodes, expectedNodes)
+		}
+
+		expectedPods := []string{"cloudprober-test-577cf7bbcc-c7l5p", "cloudprober-test-577cf7bbcc-qnrvg", "cloudprober-54778d95f5-vms2d"}
+		if !reflect.DeepEqual(pods, expectedPods) {
+			t.Errorf("cloudprober endpoints pods: got=%v, want=%v", pods, expectedPods)
 		}
 
 		if len(eps.Ports) != 1 {
@@ -77,10 +93,27 @@ func TestEndpointsToResources(t *testing.T) {
 
 	epi.Subsets[0] = epSubset{
 		Addresses: []struct {
-			IP string
+			IP        string
+			NodeName  string
+			TargetRef struct {
+				Kind string
+				Name string
+			}
 		}{
-			{IP: ips[0]},
-			{IP: ips[1]},
+			{
+				IP:       ips[0],
+				NodeName: "n1",
+				TargetRef: struct {
+					Kind, Name string
+				}{
+					Kind: "Pod",
+					Name: "test-pod",
+				},
+			},
+			{
+				IP:       ips[1],
+				NodeName: "n2",
+			},
 		},
 		Ports: []struct {
 			Name string
@@ -104,10 +137,13 @@ func TestEndpointsToResources(t *testing.T) {
 	}
 
 	var names, resIPs []string
+	var labels []map[string]string
 	var ports []int32
+
 	for _, res := range resources {
 		t.Logf("name=%s, IP=%s", res.GetName(), res.GetIp())
 		names = append(names, res.GetName())
+		labels = append(labels, res.GetLabels())
 		resIPs = append(resIPs, res.GetIp())
 		ports = append(ports, res.GetPort())
 	}
@@ -115,6 +151,16 @@ func TestEndpointsToResources(t *testing.T) {
 	expectedNames := []string{"cloudprober_10.0.0.1_9313", "cloudprober_10.0.0.2_9313", "cloudprober_10.0.0.1_rds", "cloudprober_10.0.0.2_rds"}
 	if !reflect.DeepEqual(names, expectedNames) {
 		t.Errorf("Cloudprober endpoints resource names=%v, want=%v", names, expectedNames)
+	}
+
+	expectedLabels := []map[string]string{
+		{"app": "lCloudprober", "node": "n1", "pod": "test-pod"},
+		{"app": "lCloudprober", "node": "n2"},
+		{"app": "lCloudprober", "node": "n1", "pod": "test-pod"},
+		{"app": "lCloudprober", "node": "n2"},
+	}
+	if !reflect.DeepEqual(labels, expectedLabels) {
+		t.Errorf("Cloudprober endpoints resource labels=%v, want=%v", labels, expectedLabels)
 	}
 
 	expectedIPs := []string{"10.0.0.1", "10.0.0.2", "10.0.0.1", "10.0.0.2"}
