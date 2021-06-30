@@ -544,6 +544,12 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 
 	// Do more frequent listing of targets until we get a non-zero list of
 	// targets.
+	initialRefreshInterval := p.opts.Interval
+	// Don't wait too long if p.opts.Interval is large.
+	if initialRefreshInterval > time.Second {
+		initialRefreshInterval = time.Second
+	}
+
 	for {
 		if ctxDone(ctx) {
 			return
@@ -552,7 +558,7 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 			break
 		}
 		p.updateTargetsAndStartProbes(ctx, dataChan)
-		time.Sleep(p.opts.Interval)
+		time.Sleep(initialRefreshInterval)
 	}
 
 	targetsUpdateTicker := time.NewTicker(p.targetsUpdateInterval)
