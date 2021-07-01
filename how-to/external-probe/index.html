@@ -336,6 +336,19 @@
 
 
 
+<a  title="Additional Labels" href="https://cloudprober.org/how-to/additional-labels/">
+	
+	Additional Labels
+</a>
+
+
+
+      
+        
+        
+
+
+
 <a  title="Validators" href="https://cloudprober.org/how-to/validators/">
 	
 	Validators
@@ -393,7 +406,10 @@
 			<p>External probe type allows you to run arbitrary, complex probes through
 Cloudprober. An external probe runs an independent external program for actual
 probing. Cloudprober calculates probe metrics based on program's exit status
-and time elapsed in execution. Cloudprober also allows external programs to provide additional metrics over stdout.</p>
+and time elapsed in execution.</p>
+<p>Cloudprober also allows external programs to provide additional metrics.
+Every message sent to <code>stdout</code> will be parsed as a new metrics to be emitted.
+For general logging you can use another I/O stream  like <code>stderr</code>.</p>
 <h2 id="sample-probe">Sample Probe</h2>
 <p>To understand how it works, lets create a sample probe that sets and gets a key
 in a redis server. Here is the <code>main</code> function of such a probe:</p>
@@ -410,7 +426,10 @@ in a redis server. Here is the <code>main</code> function of such a probe:</p>
     <span class="nx">fmt</span><span class="p">.</span><span class="nf">Printf</span><span class="p">(</span><span class="s">&#34;get_latency_ms %f\n&#34;</span><span class="p">,</span> <span class="nb">float64</span><span class="p">(</span><span class="nx">time</span><span class="p">.</span><span class="nf">Since</span><span class="p">(</span><span class="nx">startTime</span><span class="p">)</span><span class="p">.</span><span class="nf">Nanoseconds</span><span class="p">(</span><span class="p">)</span><span class="p">)</span><span class="o">/</span><span class="mf">1e6</span><span class="p">)</span>
 <span class="p">}</span></code></pre></div>
 <p>(Full listing: <a href="https://github.com/google/cloudprober/blob/master/examples/external/redis_probe.go">https://github.com/google/cloudprober/blob/master/examples/external/redis_probe.go</a>)</p>
-<p>This program sets and gets a key in redis and prints the time taken for both operations. Cloudprober can use this program as an external probe, to verify
+<p>This program sets and gets a key in redis and prints the time taken for both operations.
+<code>set_latency_ms</code> and <code>get_latency_ms</code> will be emitted as metrics. You could also define your own labels using this format:</p>
+<pre><code>fmt.Printf(&quot;get_latency_ms{region=%v, cluster=%v} %f\n&quot;, region, cluster, float64(time.Since(startTime).Nanoseconds())/1e6)
+</code></pre><p>Cloudprober can use this program as an external probe, to verify
 the availability and performance of the redis server. This program assumes that
 redis server is running locally, at its default port. For the sake of demonstration, lets run a local redis server (you can also easily modify this program to use a different server.)</p>
 <div class="highlight"><pre class="chroma"><code class="language-bash" data-lang="bash"><span class="cp">#!bash
@@ -437,7 +456,11 @@ probe <span class="o">{</span>
     command: <span class="s2">&#34;./redis_probe&#34;</span>
   <span class="o">}</span>
 <span class="o">}</span></code></pre></div>
-<p>Running it through cloudprober, you'll see the following output:</p>
+<p>Note: To pass target information to your external program,
+you can send target information as arguments using the <code>@label@</code> notation.<br>
+Supported fields are: target, address, port, probe, and target labels like target.label.fqdn.</p>
+<pre><code>command: &quot;./redis_probe&quot; -host=@address@ -port=@port@
+</code></pre><p>Running it through cloudprober, you'll see the following output:</p>
 <div class="highlight"><pre class="chroma"><code class="language-bash" data-lang="bash"><span class="c1"># Launch cloudprober</span>
 cloudprober --config_file<span class="o">=</span>cloudprober.cfg
 
