@@ -6,10 +6,21 @@
     <description>Recent content in How-tos on Cloudprober</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
-    <lastBuildDate>Wed, 09 Dec 2020 17:24:32 -0700</lastBuildDate>
+    <lastBuildDate>Mon, 28 Jun 2021 17:24:32 -0700</lastBuildDate>
     
 	<atom:link href="https://cloudprober.org/how-to/index.xml" rel="self" type="application/rss+xml" />
     
+    
+    <item>
+      <title>Additional Labels</title>
+      <link>https://cloudprober.org/how-to/additional-labels/</link>
+      <pubDate>Mon, 28 Jun 2021 17:24:32 -0700</pubDate>
+      
+      <guid>https://cloudprober.org/how-to/additional-labels/</guid>
+      <description>Additional metrics Adding your own labels You can add additional labels to the probe results using the probe-level field, additional_label. An additional label&#39;s value can be static or it can be derived from the target labels.
+For the following config:
+ if ingress target has label &amp;ldquo;fqdn:app.example.com&amp;rdquo;, and prober is running in the GCE zone &amp;ldquo;us-east1-c&amp;rdquo;, and prober&#39;s GCE instance has label &amp;ldquo;env:prod&amp;rdquo;.  Probe results will look like the following:</description>
+    </item>
     
     <item>
       <title>Percentiles, Histograms, and Distributions</title>
@@ -67,8 +78,8 @@ probe { name: &amp;#34;google_homepage&amp;#34; type: HTTP targets { host_names:
       <pubDate>Sun, 08 Oct 2017 17:24:32 -0700</pubDate>
       
       <guid>https://cloudprober.org/how-to/external-probe/</guid>
-      <description>External probe type allows you to run arbitrary, complex probes through Cloudprober. An external probe runs an independent external program for actual probing. Cloudprober calculates probe metrics based on program&#39;s exit status and time elapsed in execution. Cloudprober also allows external programs to provide additional metrics over stdout.
-Sample Probe To understand how it works, lets create a sample probe that sets and gets a key in a redis server. Here is the main function of such a probe:</description>
+      <description>External probe type allows you to run arbitrary, complex probes through Cloudprober. An external probe runs an independent external program for actual probing. Cloudprober calculates probe metrics based on program&#39;s exit status and time elapsed in execution.
+Cloudprober also allows external programs to provide additional metrics. Every message sent to stdout will be parsed as a new metrics to be emitted. For general logging you can use another I/O stream like stderr.</description>
     </item>
     
   </channel>
