@@ -17,9 +17,9 @@
       <pubDate>Mon, 28 Jun 2021 17:24:32 -0700</pubDate>
       
       <guid>https://cloudprober.org/how-to/additional-labels/</guid>
-      <description>Additional metrics Adding your own labels You can add additional labels to the probe results using the probe-level field, additional_label. An additional label&#39;s value can be static or it can be derived from the target labels.
-For the following config:
- if ingress target has label &amp;ldquo;fqdn:app.example.com&amp;rdquo;, and prober is running in the GCE zone &amp;ldquo;us-east1-c&amp;rdquo;, and prober&#39;s GCE instance has label &amp;ldquo;env:prod&amp;rdquo;.  Probe results will look like the following:</description>
+      <description>Adding additional labels You can add additional labels to probe metrics using a probe-level field: additional_label. An additional label&#39;s value can be static, or it can be determined at the run-time: from the environment that the probe is running in (e.g. GCE instance labels), or target&#39;s labels.
+Example config here demonstrates adding various types of additional labels to probe metrics. For this config (also listed below for quick rerefence):
+ if ingress target has label &amp;ldquo;fqdn:app.</description>
     </item>
     
     <item>

@@ -403,16 +403,15 @@
 		<div class="wrapper">
 			<h1>Additional Labels </h1>
 
-			<h2 id="additional-metrics">Additional metrics</h2>
-<h4 id="adding-your-own-labels">Adding your own labels</h4>
-<p>You can add additional labels to the probe results using the probe-level field, <code>additional_label</code>. An additional label's value can be static or it can be derived from the target labels.</p>
-<p>For the following config:</p>
+			<h2 id="adding-additional-labels">Adding additional labels</h2>
+<p>You can add additional labels to probe metrics using a probe-level field: <code>additional_label</code>. An additional label's value can be static, or it can be determined at the run-time: from the environment that the probe is running in (e.g. GCE instance labels), or target's labels.</p>
+<p>Example config <a href="https://github.com/google/cloudprober/blob/master/examples/additional_label/cloudprober.cfg">here</a> demonstrates adding various types of additional labels to probe metrics. For this config (also listed below for quick rerefence):</p>
 <ul>
-<li>if ingress target has label &ldquo;fqdn:app.example.com&rdquo;,</li>
-<li>and prober is running in the GCE zone &ldquo;us-east1-c&rdquo;,</li>
-<li>and prober's GCE instance has label &ldquo;env:prod&rdquo;.</li>
+<li>if ingress target has label &ldquo;<code>fqdn:app.example.com</code>&rdquo;,</li>
+<li>and prober is running in the GCE zone <code>us-east1-c</code>,</li>
+<li>and prober's GCE instance has label <code>env:prod</code>.</li>
 </ul>
-<p>Probe results will look like the following:</p>
+<p>Probe metrics will look like the following:</p>
 <pre><code> total{probe=&quot;my_ingress&quot;,ptype=&quot;http&quot;,metrictype=&quot;prober&quot;,env=&quot;prod&quot;,src_zone=&quot;us-east1-c&quot;,host=&quot;app.example.com&quot;}: 90
  success{probe=&quot;my_ingress&quot;,ptype=&quot;http&quot;,metrictype=&quot;prober&quot;,env=&quot;prod&quot;,src_zone=&quot;us-east1-c&quot;,host=&quot;app.example.com&quot;}: 80
 </code></pre><div class="highlight"><pre class="chroma"><code class="language-bash" data-lang="bash">probe <span class="o">{</span>
@@ -435,19 +434,19 @@
     value: <span class="s2">&#34;prober&#34;</span>
   <span class="o">}</span>
   
-  <span class="c1"># Label is configured at the run time, based on the prober instance label (GCE).</span>
+  <span class="c1"># Label is configured at the run-time, based on the prober instance label (GCE).</span>
   additional_label <span class="o">{</span>
     key: <span class="s2">&#34;env&#34;</span>
     value: <span class="s2">&#34;{{.label_env}}&#34;</span>
   <span class="o">}</span>
   
-  <span class="c1"># Label is configured at the run time, based on the prober environment (GCE).</span>
+  <span class="c1"># Label is configured at the run-time, based on the prober environment (GCE).</span>
   additional_label <span class="o">{</span>
     key: <span class="s2">&#34;src_zone&#34;</span>
     value: <span class="s2">&#34;{{.zone}}&#34;</span>
   <span class="o">}</span>
   
-  <span class="c1"># Label is configured based on the target labels.</span>
+  <span class="c1"># Label is configured based on the target&#39;s labels.</span>
   additional_label <span class="o">{</span>
     key: <span class="s2">&#34;host&#34;</span>
     value: <span class="s2">&#34;@target.label.fqdn@&#34;</span>
@@ -455,9 +454,10 @@
 
   http_probe <span class="o">{</span><span class="o">}</span>
 <span class="o">}</span>
-</code></pre></div><h4 id="adding-your-own-metrics">Adding your own metrics</h4>
+</code></pre></div><p>(Listing source: <a href="https://github.com/google/cloudprober/blob/master/examples/additional_label/cloudprober.cfg">examples/additional_label/cloudprober.cfg</a>)</p>
+<h2 id="adding-your-own-metrics">Adding your own metrics</h2>
 <p>For external probes, Cloudprober also allows external programs to provide additional metrics.
-See <a href="https://cloudprober.org/how-to/external-probe">External Probe</a></p>
+See <a href="https://cloudprober.org/how-to/external-probe">External Probe</a> for more details.</p>
 
 
 			<aside class="copyright" role="note">
