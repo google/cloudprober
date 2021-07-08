@@ -17,10 +17,10 @@ package sysvars
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 
 	"cloud.google.com/go/compute/metadata"
-	"github.com/golang/glog"
 	"github.com/google/cloudprober/logger"
 	compute "google.golang.org/api/compute/v1"
 )
@@ -43,7 +43,6 @@ var gceVars = func(vars map[string]string, l *logger.Logger) (bool, error) {
 		"zone",
 		"project",
 		"project_id",
-		"instance",
 		"instance_id",
 		"internal_ip",
 		"external_ip",
@@ -59,8 +58,6 @@ var gceVars = func(vars map[string]string, l *logger.Logger) (bool, error) {
 			v, err = metadata.ProjectID()
 		case "project_id":
 			v, err = metadata.NumericProjectID()
-		case "instance":
-			v, err = metadata.InstanceName()
 		case "instance_id":
 			v, err = metadata.InstanceID()
 		case "internal_ip":
@@ -73,7 +70,7 @@ var gceVars = func(vars map[string]string, l *logger.Logger) (bool, error) {
 			// just fall back "undefined".
 			v, err = metadata.InstanceAttributeValue("instance-template")
 			if err != nil {
-				glog.Infof("No instance_template found. Defaulting to undefined.")
+				l.Infof("No instance_template found. Defaulting to undefined.")
 				v = "undefined"
 				err = nil
 			} else {
@@ -82,7 +79,7 @@ var gceVars = func(vars map[string]string, l *logger.Logger) (bool, error) {
 		case "machine_type":
 			v, err = metadata.Get("instance/machine-type")
 			if err != nil {
-				glog.Infof("Could not fetch machine type. Defaulting to undefined.")
+				l.Infof("Could not fetch machine type. Defaulting to undefined.")
 				v = "undefined"
 				err = nil
 			} else {
@@ -96,9 +93,18 @@ var gceVars = func(vars map[string]string, l *logger.Logger) (bool, error) {
 		}
 		vars[k] = v
 	}
+
 	zoneParts := strings.Split(vars["zone"], "-")
 	vars["region"] = strings.Join(zoneParts[0:len(zoneParts)-1], "-")
 	addGceNicInfo(vars, l)
+
+	// Fetching instance name fails on some versions of GKE.
+	if instance, err := metadata.InstanceName(); err != nil {
+		l.Warningf("Error getting instance name on GCE, using HOSTNAME environment variable: %v", err)
+		vars["instance"] = os.Getenv("HOSTNAME")
+	} else {
+		vars["instance"] = instance
+	}
 
 	labels, err := labelsFromGCE(vars["project"], vars["zone"], vars["instance"])
 	if err != nil {
