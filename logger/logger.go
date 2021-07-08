@@ -31,7 +31,6 @@ import (
 	"github.com/golang/glog"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/option"
-	monpb "google.golang.org/genproto/googleapis/api/monitoredres"
 )
 
 var (
@@ -168,16 +167,6 @@ func (l *Logger) EnableStackdriverLogging(ctx context.Context) error {
 		return err
 	}
 
-	instanceID, err := metadata.InstanceID()
-	if err != nil {
-		return err
-	}
-
-	zone, err := metadata.Zone()
-	if err != nil {
-		return err
-	}
-
 	if l.name == "" {
 		return fmt.Errorf("logName cannot be empty")
 	}
@@ -195,15 +184,8 @@ func (l *Logger) EnableStackdriverLogging(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	l.logger = l.logc.Logger(logName,
-		logging.CommonResource(&monpb.MonitoredResource{
-			Type: "gce_instance",
-			Labels: map[string]string{
-				"project_id":  projectID,
-				"instance_id": instanceID,
-				"zone":        zone,
-			},
-		}),
+
+	loggerOpts := []logging.LoggerOption{
 		// Encourage batching of write requests.
 		// Flush logs to remote logging after 1000 entries (default is 10).
 		logging.EntryCountThreshold(1000),
@@ -211,8 +193,18 @@ func (l *Logger) EnableStackdriverLogging(ctx context.Context) error {
 		// before being flushed to the logging service. Default is 1 second.
 		// We want flushing to be mostly driven by the buffer size (configured
 		// above), rather than time.
-		logging.DelayThreshold(10*time.Second),
-	)
+		logging.DelayThreshold(10 * time.Second),
+	}
+
+	// Add instance_name to common labels if available.
+	instanceName, err := metadata.InstanceName()
+	if err != nil {
+		l.Infof("Error getting instance name on GCE. Possibly running on GKE: %v", err)
+	} else {
+		loggerOpts = append(loggerOpts, logging.CommonLabels(map[string]string{"instance_name": instanceName}))
+	}
+
+	l.logger = l.logc.Logger(logName, loggerOpts...)
 	return nil
 }
 
