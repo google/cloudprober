@@ -35,12 +35,17 @@ var (
 func newTestSurfacer() SDSurfacer {
 	l, _ := logger.New(context.TODO(), "test-logger")
 	return SDSurfacer{
-		cache:        make(map[string]*monitoring.TimeSeries),
-		onGCE:        true,
-		projectName:  "test-project",
-		instanceName: "test-instance",
-		zone:         "us-central1-a",
-		l:            l,
+		cache:       make(map[string]*monitoring.TimeSeries),
+		onGCE:       true,
+		projectName: "test-project",
+		l:           l,
+		resource: &monitoring.MonitoredResource{
+			Type: "gce_instance",
+			Labels: map[string]string{
+				"instance_id": "test-instance",
+				"zone":        "us-central1-a",
+			},
+		},
 	}
 }
 
