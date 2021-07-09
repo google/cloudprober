@@ -61,10 +61,9 @@ type SDSurfacer struct {
 	writeChan chan *metrics.EventMetrics
 
 	// VM Information
-	onGCE        bool
-	projectName  string
-	instanceName string
-	zone         string
+	onGCE       bool
+	projectName string
+	resource    *monitoring.MonitoredResource
 
 	// Time when stackdriver module was initialized. This is used as start time
 	// for cumulative metrics.
@@ -118,17 +117,13 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 			}
 		}
 
-		// Getting instance name may fail on GKE.
-		// https://github.com/google/cloudprober/issues/554
-		// TODO(manugarg): Find a better solution for this. We should probably
-		// attach container or pod label while running on GKE.
-		if s.instanceName, err = metadata.InstanceName(); err != nil {
-			l.Warningf("Error getting instance name: %v", err)
+		mr, err := monitoredResourceOnGCE(s.projectName)
+		if err != nil {
+			return nil, fmt.Errorf("error initializing monitored resource for stackdriver on GCE: %v", err)
 		}
 
-		if s.zone, err = metadata.Zone(); err != nil {
-			return nil, fmt.Errorf("unable to retrieve instance zone: %v", err)
-		}
+		s.resource = mr
+
 	}
 
 	// Create monitoring client
@@ -306,16 +301,8 @@ func (s *SDSurfacer) recordTimeSeries(metricKind, metricName, msgType string, la
 		},
 	}
 
-	if s.onGCE {
-		// Resource is required only if we want the data to be parsable
-		// on the gce-instance level (as opposed to all globally).
-		ts.Resource = &monitoring.MonitoredResource{
-			Type: "gce_instance",
-			Labels: map[string]string{
-				"instance_id": s.instanceName,
-				"zone":        s.zone,
-			},
-		}
+	if s.resource != nil {
+		ts.Resource = s.resource
 	}
 
 	// We create a key that is a composite of both the name and the
