@@ -237,7 +237,7 @@ func (l *Logger) log(severity logging.Severity, payload ...string) {
 		return
 	}
 
-	if l.logc == nil {
+	if l.logger == nil {
 		genericLog(severity, l.name, payloadStr)
 		return
 	}
