@@ -15,28 +15,20 @@
 package stackdriver
 
 import (
-	"io/ioutil"
 	"os"
 
 	"cloud.google.com/go/compute/metadata"
+	md "github.com/google/cloudprober/common/metadata"
 	monitoring "google.golang.org/api/monitoring/v3"
 )
 
-func isKubernetesEngine() (bool, string) {
-	clusterName, err := metadata.InstanceAttributeValue("cluster-name")
-	// Note: InstanceAttributeValue can return "", nil
-	if err != nil || clusterName == "" {
-		return false, ""
-	}
-	return true, clusterName
-}
+func kubernetesResource(projectID string) (*monitoring.MonitoredResource, error) {
+	namespace := md.KubernetesNamespace()
 
-func kubernetesResource(clusterName, projectID, zone string) (*monitoring.MonitoredResource, error) {
-	namespaceBytes, err := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
-	namespaceName := ""
-	if err == nil {
-		namespaceName = string(namespaceBytes)
-	}
+	// We ignore error in getting cluster name and location. These attributes
+	// should be set while running on GKE.
+	clusterName, _ := metadata.InstanceAttributeValue("cluster-name")
+	location, _ := metadata.InstanceAttributeValue("cluster-location")
 
 	// We can likely use cluster-location instance attribute for location. Using
 	// zone provides more granular scope though.
@@ -44,18 +36,23 @@ func kubernetesResource(clusterName, projectID, zone string) (*monitoring.Monito
 		Type: "k8s_container",
 		Labels: map[string]string{
 			"cluster_name":   clusterName,
-			"location":       zone,
+			"location":       location,
 			"project_id":     projectID,
 			"pod_name":       os.Getenv("HOSTNAME"),
-			"namespace_name": namespaceName,
+			"namespace_name": namespace,
 			// To get the `container_name` label, users need to explicitly provide it.
 			"container_name": os.Getenv("CONTAINER_NAME"),
 		},
 	}, nil
 }
 
-func gceResource(projectID, zone string) (*monitoring.MonitoredResource, error) {
+func gceResource(projectID string) (*monitoring.MonitoredResource, error) {
 	name, err := metadata.InstanceName()
+	if err != nil {
+		return nil, err
+	}
+
+	zone, err := metadata.Zone()
 	if err != nil {
 		return nil, err
 	}
@@ -75,12 +72,8 @@ func gceResource(projectID, zone string) (*monitoring.MonitoredResource, error) 
 }
 
 func monitoredResourceOnGCE(projectID string) (*monitoring.MonitoredResource, error) {
-	zone, err := metadata.Zone()
-	if err != nil {
-		return nil, err
+	if md.IsKubernetes() {
+		return kubernetesResource(projectID)
 	}
-	if ok, clusterName := isKubernetesEngine(); ok {
-		return kubernetesResource(clusterName, projectID, zone)
-	}
-	return gceResource(projectID, zone)
+	return gceResource(projectID)
 }

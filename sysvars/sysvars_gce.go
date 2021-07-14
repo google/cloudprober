@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"cloud.google.com/go/compute/metadata"
+	md "github.com/google/cloudprober/common/metadata"
 	"github.com/google/cloudprober/logger"
 	compute "google.golang.org/api/compute/v1"
 )
@@ -28,12 +29,48 @@ import (
 // maxNICs is the number of NICs allowed on a VM. Used by addGceNicInfo.
 var maxNICs = 8
 
+// commonGCEGKEVars sets the variables that are available on both - GCE and GKE
+// metadata. This list is based on
+// https://cloud.google.com/kubernetes-engine/docs/how-to/workload-identity#gke_mds
+func commonGCEGKEVars(vars map[string]string) error {
+	metadataFuncs := map[string]func() (string, error){
+		"project":     metadata.ProjectID,
+		"project_id":  metadata.NumericProjectID,
+		"instance_id": metadata.InstanceID,
+	}
+
+	for k, fn := range metadataFuncs {
+		v, err := fn()
+		if err != nil {
+			return fmt.Errorf("sysvars_gce: error while getting %s from metadata: %v", k, err)
+		}
+		vars[k] = v
+	}
+
+	return nil
+}
+
 var gceVars = func(vars map[string]string, l *logger.Logger) (bool, error) {
 	onGCE := metadata.OnGCE()
 	if !onGCE {
 		return false, nil
 	}
 
+	if err := commonGCEGKEVars(vars); err != nil {
+		return onGCE, err
+	}
+
+	// If running on Kubernetes, don't bother setting rest of the variables. They
+	// may or may not be available. Also, they may not be very relevant for
+	// Kubernetes use case.
+	if md.IsKubernetes() {
+		// TODO(manugarg): See if we want to try setting variables on Kubernetes,
+		// e.g. pod-name, cluster-name, cluser-location, etc.
+		vars["namespace"] = md.KubernetesNamespace()
+		return onGCE, nil
+	}
+
+	// Helper function we use below.
 	getLastToken := func(value string) string {
 		tokens := strings.Split(value, "/")
 		return tokens[len(tokens)-1]
@@ -41,9 +78,6 @@ var gceVars = func(vars map[string]string, l *logger.Logger) (bool, error) {
 
 	for _, k := range []string{
 		"zone",
-		"project",
-		"project_id",
-		"instance_id",
 		"internal_ip",
 		"external_ip",
 		"instance_template",
@@ -54,12 +88,6 @@ var gceVars = func(vars map[string]string, l *logger.Logger) (bool, error) {
 		switch k {
 		case "zone":
 			v, err = metadata.Zone()
-		case "project":
-			v, err = metadata.ProjectID()
-		case "project_id":
-			v, err = metadata.NumericProjectID()
-		case "instance_id":
-			v, err = metadata.InstanceID()
 		case "internal_ip":
 			v, err = metadata.InternalIP()
 		case "external_ip":
