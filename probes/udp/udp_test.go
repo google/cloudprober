@@ -14,6 +14,7 @@
 
 // Workaround to skip UDP tests using a tag, until
 // https://github.com/google/cloudprober/issues/199 is fixed.
+//go:build !skip_udp_probe_test
 // +build !skip_udp_probe_test
 
 package udp

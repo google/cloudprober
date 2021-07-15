@@ -24,7 +24,7 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/DataDog/datadog-api-client-go/api/v1/datadog"
+	"google3/third_party/golang/datadog_api_client/api/v1/datadog/datadog"
 
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
