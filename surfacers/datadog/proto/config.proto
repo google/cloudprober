@@ -1,0 +1,17 @@
+syntax = "proto2";
+
+package cloudprober.surfacer.datadog;
+
+option go_package = "github.com/google/cloudprober/surfacers/datadog/proto";
+
+// Surfacer config for datadog surfacer.
+message SurfacerConf {
+  // Prefix to add to all metrics.
+  optional string prefix = 1 [default = "cloudprober"];
+
+  // Datadog API key. If not set, DD_API_KEY env variable is used.
+  optional string api_key = 2;
+
+  // Datadog APP key. If not set, DD_APP_KEY env variable is used.
+  optional string app_key = 3;
+}
