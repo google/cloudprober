@@ -22,8 +22,8 @@ what's broken in your system.
     [Prometheus](http://prometheus.io) and [Grafana](http://grafana.com).
     Cloudprober exports probe results as counter based metrics that work well
     with Prometheus and Grafana.
-*   Integration with [StackDriver](https://cloud.google.com/stackdriver/). If
-    configured, Cloudprober exports probe results to StackDriver as custom
+*   Integration with [Operations (formerly Stackdriver)](https://cloud.google.com/operations/). If
+    configured, Cloudprober exports probe results to Operations (formerly Stackdriver) as custom
     metrics.
 *   Fast and efficient built-in implementations for the most common types of
     checks: PING (ICMP), HTTP, UDP, DNS. Especially PING and UDP probes are
