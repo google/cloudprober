@@ -1,4 +1,4 @@
-// Copyright 2017-2020 The Cloudprober Authors.
+// Copyright 2017-2021 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,51 +22,68 @@ import (
 	configpb "github.com/google/cloudprober/probes/proto"
 )
 
-// TargetLabelType for target based additional labels
-type TargetLabelType int
+// targetLabelType for target based additional labels
+type targetLabelType int
 
 // TargetLabelType enum values.
 const (
-	NotTargetLabel TargetLabelType = iota
-	TargetLabel
-	TargetName
+	notTargetLabel targetLabelType = iota
+	label
+	name
 )
 
-var targetLabelRegex = regexp.MustCompile(`@target.label.(.*)@`)
+var targetLabelRegex = regexp.MustCompile(`target.label.(.*)`)
+
+type targetToken struct {
+	tokenType targetLabelType
+	labelKey  string // target's label key.
+}
 
 // AdditionalLabel encapsulates additional labels to attach to probe results.
 type AdditionalLabel struct {
 	mu  sync.RWMutex
 	Key string
 
-	Value           string // static value
-	TargetLabelKey  string // from target
-	TargetLabelType TargetLabelType
+	// If non-empty, additional label's value is independent of the target/
+	staticValue string
 
-	// This map will allow for quick label lookup for a target. It will be
+	// This map will allow for quick value lookup for a target. It will be
 	// updated by the probe while updating targets.
-	LabelForTarget map[string]string
+	valueForTarget map[string]string
+
+	// At the time of parsing we split the label value at the delimiters ('@').
+	// When we update an additional label for a target, we update the value
+	// parts that correspond to the substitution tokens and join them back.
+	valueParts []string
+
+	// Target based substitution tokens.
+	tokens []targetToken
 }
 
-// UpdateForTarget updates target-based label's value.
+// UpdateForTarget updates addtional label based on target's name and labels.
 func (al *AdditionalLabel) UpdateForTarget(tname string, tLabels map[string]string) {
 	al.mu.Lock()
 	defer al.mu.Unlock()
 
-	if al.TargetLabelType == NotTargetLabel {
+	// Return early if this label has a static value.
+	if al.staticValue != "" {
 		return
 	}
 
-	if al.LabelForTarget == nil {
-		al.LabelForTarget = make(map[string]string)
+	if al.valueForTarget == nil {
+		al.valueForTarget = make(map[string]string)
 	}
 
-	switch al.TargetLabelType {
-	case TargetLabel:
-		al.LabelForTarget[tname] = tLabels[al.TargetLabelKey]
-	case TargetName:
-		al.LabelForTarget[tname] = tname
+	parts := append([]string{}, al.valueParts...)
+	for i, tok := range al.tokens {
+		switch tok.tokenType {
+		case name:
+			parts[2*i+1] = tname
+		case label:
+			parts[2*i+1] = tLabels[tok.labelKey]
+		}
 	}
+	al.valueForTarget[tname] = strings.Join(parts, "")
 }
 
 // KeyValueForTarget returns key, value pair for the given target.
@@ -74,44 +91,64 @@ func (al *AdditionalLabel) KeyValueForTarget(targetName string) (key, val string
 	al.mu.RLock()
 	defer al.mu.RUnlock()
 
-	if al.Value != "" {
-		return al.Key, al.Value
+	if al.staticValue != "" {
+		return al.Key, al.staticValue
 	}
-	return al.Key, al.LabelForTarget[targetName]
+	return al.Key, al.valueForTarget[targetName]
+}
+
+func parseAdditionalLabel(alpb *configpb.AdditionalLabel) *AdditionalLabel {
+	al := &AdditionalLabel{
+		Key: alpb.GetKey(),
+	}
+
+	al.valueParts = strings.Split(alpb.GetValue(), "@")
+
+	// No tokens
+	if len(al.valueParts) == 1 {
+		al.staticValue = alpb.GetValue()
+		return al
+	}
+
+	// If there are even number of parts after the split above, that means we
+	// don't have an even number of delimiters ('@'). Assume that the last
+	// token is incomplete and attach '@' to the front of the last part.
+	// e.g. @target.name@:@target.port
+	//   valueParts: ["", "target.name", ":", "@target.port"]
+	lenParts := len(al.valueParts)
+	if lenParts%2 == 0 {
+		al.valueParts[lenParts-1] = "@" + al.valueParts[lenParts-1]
+	}
+	// tokens[i] -> parts[2*i+1]
+	// e.g. proto:@target.name@/@target.label.url@ -->
+	//   valueParts: ["proto:", "target.name", "/", "target.label.url", ""]
+	//   tokens:     ["target.name", "target.label.url"]
+	numTokens := (len(al.valueParts) - 1) / 2
+	for i := 0; i < numTokens; i++ {
+		tokStr := al.valueParts[2*i+1]
+		if tokStr == "target.name" {
+			al.tokens = append(al.tokens, targetToken{tokenType: name})
+			continue
+		}
+		matches := targetLabelRegex.FindStringSubmatch(tokStr)
+		if len(matches) == 2 {
+			al.tokens = append(al.tokens, targetToken{tokenType: label, labelKey: matches[1]})
+		}
+	}
+
+	// if no valid tokens found, assign the value as it is.
+	if len(al.tokens) == 0 {
+		al.staticValue = alpb.GetValue()
+	}
+
+	return al
 }
 
 func parseAdditionalLabels(p *configpb.ProbeDef) []*AdditionalLabel {
 	var aLabels []*AdditionalLabel
 
 	for _, pb := range p.GetAdditionalLabel() {
-		al := &AdditionalLabel{
-			Key: pb.GetKey(),
-		}
-		aLabels = append(aLabels, al)
-
-		val := pb.GetValue()
-		if !strings.Contains(val, "@") {
-			al.Value = val
-			continue
-		}
-
-		if val == "@target.name@" {
-			al.TargetLabelType = TargetName
-			al.LabelForTarget = make(map[string]string)
-			continue
-		}
-
-		matches := targetLabelRegex.FindStringSubmatch(val)
-		if len(matches) == 2 {
-			al.TargetLabelType = TargetLabel
-			al.TargetLabelKey = matches[1]
-			al.LabelForTarget = make(map[string]string)
-			continue
-		}
-
-		// If a match is not found and target contains an "@" character, use it
-		// as it is.
-		al.Value = val
+		aLabels = append(aLabels, parseAdditionalLabel(pb))
 	}
 
 	return aLabels

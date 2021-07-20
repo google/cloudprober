@@ -1,4 +1,4 @@
-// Copyright 2017-2020 The Cloudprober Authors.
+// Copyright 2017-2021 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -33,39 +33,74 @@ var configWithAdditionalLabels = &configpb.ProbeDef{
 			Value: proto.String("@target.label.zone@"),
 		},
 		{
+			Key:   proto.String("dst_zone_label"),
+			Value: proto.String("zone:@target.label.zone@"),
+		},
+		{
 			Key:   proto.String("dst_name"),
 			Value: proto.String("@target.name@"),
+		},
+		{
+			Key:   proto.String("dst"),
+			Value: proto.String("@target.label.zone@:@target.name@"),
+		},
+		{
+			Key:   proto.String("bad_label"),
+			Value: proto.String("@target.metadata@:@unknown@"),
+		},
+		{
+			Key:   proto.String("incomplete_label"),
+			Value: proto.String("@target.label.zone@:@target.name"),
 		},
 	},
 }
 
 func TestParseAdditionalLabel(t *testing.T) {
-	expectedAdditionalLabels := []*AdditionalLabel{
+	expected := []*AdditionalLabel{
 		{
-			Key:   "src_zone",
-			Value: "zoneA",
+			Key:         "src_zone",
+			staticValue: "zoneA",
+			valueParts:  []string{"zoneA"},
 		},
 		{
-			Key:             "dst_zone",
-			TargetLabelType: TargetLabel,
-			TargetLabelKey:  "zone",
-			LabelForTarget:  make(map[string]string),
+			Key:        "dst_zone",
+			valueParts: []string{"", "target.label.zone", ""},
+			tokens:     []targetToken{{tokenType: label, labelKey: "zone"}},
 		},
 		{
-			Key:             "dst_name",
-			TargetLabelType: TargetName,
-			LabelForTarget:  make(map[string]string),
+			Key:        "dst_zone_label",
+			valueParts: []string{"zone:", "target.label.zone", ""},
+			tokens:     []targetToken{{tokenType: label, labelKey: "zone"}},
+		},
+		{
+			Key:        "dst_name",
+			valueParts: []string{"", "target.name", ""},
+			tokens:     []targetToken{{tokenType: name}},
+		},
+		{
+			Key:        "dst",
+			valueParts: []string{"", "target.label.zone", ":", "target.name", ""},
+			tokens:     []targetToken{{tokenType: label, labelKey: "zone"}, {tokenType: name}},
+		},
+		{
+			Key:         "bad_label",
+			staticValue: "@target.metadata@:@unknown@",
+			valueParts:  []string{"", "target.metadata", ":", "unknown", ""},
+		},
+		{
+			Key:        "incomplete_label",
+			valueParts: []string{"", "target.label.zone", ":", "@target.name"},
+			tokens:     []targetToken{{tokenType: label, labelKey: "zone"}},
 		},
 	}
 
-	aLabels := parseAdditionalLabels(configWithAdditionalLabels)
-
-	// Verify that we got the correct additional lables and also update them while
-	// iterating over them.
-	for i, al := range aLabels {
-		if !reflect.DeepEqual(al, expectedAdditionalLabels[i]) {
-			t.Errorf("Additional labels not parsed correctly. Got=%v, Wanted=%v", al, expectedAdditionalLabels[i])
-		}
+	for i, alpb := range configWithAdditionalLabels.GetAdditionalLabel() {
+		t.Run(alpb.GetKey(), func(t *testing.T) {
+			al := parseAdditionalLabel(alpb)
+			if !reflect.DeepEqual(al, expected[i]) {
+				t.Errorf("Additional labels not parsed correctly. Got=\n%#v\nWanted=\n%#v", al, expected[i])
+			}
+		})
 	}
 }
 
@@ -80,8 +115,24 @@ func TestUpdateAdditionalLabel(t *testing.T) {
 	}
 
 	expectedLabels := map[string][][2]string{
-		"target1": {{"src_zone", "zoneA"}, {"dst_zone", ""}, {"dst_name", "target1"}},
-		"target2": {{"src_zone", "zoneA"}, {"dst_zone", "zoneB"}, {"dst_name", "target2"}},
+		"target1": {
+			{"src_zone", "zoneA"},
+			{"dst_zone", ""},
+			{"dst_zone_label", "zone:"},
+			{"dst_name", "target1"},
+			{"dst", ":target1"},
+			{"bad_label", "@target.metadata@:@unknown@"},
+			{"incomplete_label", ":@target.name"},
+		},
+		"target2": {
+			{"src_zone", "zoneA"},
+			{"dst_zone", "zoneB"},
+			{"dst_zone_label", "zone:zoneB"},
+			{"dst_name", "target2"},
+			{"dst", "zoneB:target2"},
+			{"bad_label", "@target.metadata@:@unknown@"},
+			{"incomplete_label", "zoneB:@target.name"},
+		},
 	}
 
 	for target, labels := range expectedLabels {
