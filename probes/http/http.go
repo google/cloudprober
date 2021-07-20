@@ -91,6 +91,7 @@ type Probe struct {
 	waitGroup   sync.WaitGroup
 
 	requestBody []byte
+	slots       []string
 }
 
 type probeResult struct {
@@ -236,6 +237,8 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		p.targetsUpdateInterval = p.opts.Interval
 	}
 	p.l.Infof("Targets update interval: %v", p.targetsUpdateInterval)
+
+	p.slots = make([]string, int(p.opts.Interval/p.gapBetweenTargets()))
 
 	return nil
 }
@@ -462,6 +465,16 @@ func (p *Probe) gapBetweenTargets() time.Duration {
 	return interTargetGap
 }
 
+func (p *Probe) findFreeSlot() (int, error) {
+	// TODO: don't sweep whole range every time
+	for i, t := range p.slots {
+		if t == "" {
+			return i, nil
+		}
+	}
+	return 0, fmt.Errorf("no free slots")
+}
+
 // updateTargetsAndStartProbes refreshes targets and starts probe loop for
 // new targets and cancels probe loops for targets that are no longer active.
 // Note that this function is not concurrency safe. It is never called
@@ -491,12 +504,18 @@ func (p *Probe) updateTargetsAndStartProbes(ctx context.Context, dataChan chan *
 			continue
 		}
 		cancelF()
+
+		for i, target := range p.slots {
+			if target == targetKey {
+				p.slots[i] = ""
+			}
+		}
+
 		updatedTargets[targetKey] = "DELETE"
 		delete(p.cancelFuncs, targetKey)
 	}
 
 	gapBetweenTargets := p.gapBetweenTargets()
-	var startWaitTime time.Duration
 
 	// Start probe loop for new targets.
 	for key, target := range activeTargets {
@@ -506,8 +525,17 @@ func (p *Probe) updateTargetsAndStartProbes(ctx context.Context, dataChan chan *
 		}
 		updatedTargets[key] = "ADD"
 
+		slot, err := p.findFreeSlot()
+
+		if err != nil {
+			p.l.Errorf("no free slots for %s", key)
+			break
+		}
+
 		probeCtx, cancelF := context.WithCancel(ctx)
 		p.waitGroup.Add(1)
+
+		startWaitTime := gapBetweenTargets * time.Duration(slot)
 
 		go func(target endpoint.Endpoint, waitTime time.Duration) {
 			defer p.waitGroup.Done()
@@ -516,9 +544,8 @@ func (p *Probe) updateTargetsAndStartProbes(ctx context.Context, dataChan chan *
 			p.startForTarget(probeCtx, target, dataChan)
 		}(target, startWaitTime)
 
-		startWaitTime += gapBetweenTargets
-
 		p.cancelFuncs[key] = cancelF
+		p.slots[slot] = target.Key()
 	}
 }
 

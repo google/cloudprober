@@ -249,12 +249,16 @@ func testProbeWithLargeBody(t *testing.T, bodySize int) {
 func TestMultipleTargetsMultipleRequests(t *testing.T) {
 	testTargets := []string{"test.com", "fail-test.com", "fails-to-resolve.com"}
 	reqPerProbe := int64(3)
+	intervalBetweenTargetsMsec := 1
 	opts := &options.Options{
 		Targets:             targets.StaticTargets(strings.Join(testTargets, ",")),
 		Interval:            10 * time.Millisecond,
 		StatsExportInterval: 20 * time.Millisecond,
-		ProbeConf:           &configpb.ProbeConf{RequestsPerProbe: proto.Int32(int32(reqPerProbe))},
-		LogMetrics:          func(_ *metrics.EventMetrics) {},
+		ProbeConf: &configpb.ProbeConf{
+			RequestsPerProbe:           proto.Int32(int32(reqPerProbe)),
+			IntervalBetweenTargetsMsec: proto.Int32(int32(intervalBetweenTargetsMsec)),
+		},
+		LogMetrics: func(_ *metrics.EventMetrics) {},
 	}
 
 	p := &Probe{}
@@ -343,12 +347,16 @@ func compareNumberOfMetrics(t *testing.T, ems []*metrics.EventMetrics, targets [
 func TestUpdateTargetsAndStartProbes(t *testing.T) {
 	testTargets := [2]string{"test1.com", "test2.com"}
 	reqPerProbe := int64(3)
+	intervalBetweenTargetsMsec := 1
 	opts := &options.Options{
 		Targets:             targets.StaticTargets(fmt.Sprintf("%s,%s", testTargets[0], testTargets[1])),
 		Interval:            10 * time.Millisecond,
 		StatsExportInterval: 20 * time.Millisecond,
-		ProbeConf:           &configpb.ProbeConf{RequestsPerProbe: proto.Int32(int32(reqPerProbe))},
-		LogMetrics:          func(_ *metrics.EventMetrics) {},
+		ProbeConf: &configpb.ProbeConf{
+			RequestsPerProbe:           proto.Int32(int32(reqPerProbe)),
+			IntervalBetweenTargetsMsec: proto.Int32(int32(intervalBetweenTargetsMsec)),
+		},
+		LogMetrics: func(_ *metrics.EventMetrics) {},
 	}
 	p := &Probe{}
 	p.Init("http_test", opts)
