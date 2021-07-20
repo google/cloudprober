@@ -1,1 +1,3 @@
 docs/public
+ca-certificates.crt
+builds/
