@@ -24,8 +24,6 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/DataDog/datadog-api-client-go/api/v1/datadog"
-
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
 	"github.com/google/cloudprober/surfacers/common/options"
@@ -53,12 +51,12 @@ var datadogKind = map[metrics.Kind]string{
 type DDSurfacer struct {
 	c                 *configpb.SurfacerConf
 	writeChan         chan *metrics.EventMetrics
-	client            *datadog.APIClient
+	client            *ddClient
 	l                 *logger.Logger
 	ignoreLabelsRegex *regexp.Regexp
 	prefix            string
-	// A cache of []*datadog.Series, used for batch writing to datadog
-	ddSeriesCache []datadog.Series
+	// A cache of []*ddSeries, used for batch writing to datadog
+	ddSeriesCache []ddSeries
 }
 
 func (dd *DDSurfacer) receiveMetricsFromEvent(ctx context.Context) {
@@ -79,7 +77,7 @@ func (dd *DDSurfacer) recordEventMetrics(ctx context.Context, em *metrics.EventM
 		case metrics.NumValue:
 			dd.publishMetrics(ctx, dd.newDDSeries(metricKey, value.Float64(), emLabelsToTags(em), em.Timestamp, em.Kind))
 		case *metrics.Map:
-			var series []datadog.Series
+			var series []ddSeries
 			for _, k := range value.Keys() {
 				tags := emLabelsToTags(em)
 				tags = append(tags, fmt.Sprintf("%s:%s", value.MapName, k))
@@ -93,13 +91,10 @@ func (dd *DDSurfacer) recordEventMetrics(ctx context.Context, em *metrics.EventM
 }
 
 // publish the metrics to datadog, buffering as necessary
-func (dd *DDSurfacer) publishMetrics(ctx context.Context, series ...datadog.Series) {
+func (dd *DDSurfacer) publishMetrics(ctx context.Context, series ...ddSeries) {
 	if len(dd.ddSeriesCache) >= datadogMaxSeries {
-		body := *datadog.NewMetricsPayload(dd.ddSeriesCache)
-		_, r, err := dd.client.MetricsApi.SubmitMetrics(ctx, body)
-
-		if err != nil {
-			dd.l.Errorf("Failed to publish %d series to datadog: %v. Full response: %v", len(dd.ddSeriesCache), err, r)
+		if err := dd.client.submitMetrics(ctx, dd.ddSeriesCache); err != nil {
+			dd.l.Errorf("Failed to publish %d series to datadog: %v", len(dd.ddSeriesCache), err)
 		}
 
 		dd.ddSeriesCache = dd.ddSeriesCache[:0]
@@ -109,8 +104,8 @@ func (dd *DDSurfacer) publishMetrics(ctx context.Context, series ...datadog.Seri
 }
 
 // Create a new datadog series using the values passed in.
-func (dd *DDSurfacer) newDDSeries(metricName string, value float64, tags []string, timestamp time.Time, kind metrics.Kind) datadog.Series {
-	return datadog.Series{
+func (dd *DDSurfacer) newDDSeries(metricName string, value float64, tags []string, timestamp time.Time, kind metrics.Kind) ddSeries {
+	return ddSeries{
 		Metric: dd.prefix + metricName,
 		Points: [][]float64{[]float64{float64(timestamp.Unix()), value}},
 		Tags:   &tags,
@@ -129,9 +124,9 @@ func emLabelsToTags(em *metrics.EventMetrics) []string {
 	return tags
 }
 
-func (dd *DDSurfacer) distToDDSeries(d *metrics.DistributionData, metricName string, tags []string, t time.Time, kind metrics.Kind) []datadog.Series {
-	ret := []datadog.Series{
-		datadog.Series{
+func (dd *DDSurfacer) distToDDSeries(d *metrics.DistributionData, metricName string, tags []string, t time.Time, kind metrics.Kind) []ddSeries {
+	ret := []ddSeries{
+		ddSeries{
 			Metric: dd.prefix + metricName + ".sum",
 			Points: [][]float64{[]float64{float64(t.Unix()), d.Sum}},
 			Tags:   &tags,
@@ -153,7 +148,7 @@ func (dd *DDSurfacer) distToDDSeries(d *metrics.DistributionData, metricName str
 		}
 	}
 
-	ret = append(ret, datadog.Series{Metric: dd.prefix + metricName, Points: points, Tags: &tags, Type: proto.String(datadogKind[kind])})
+	ret = append(ret, ddSeries{Metric: dd.prefix + metricName, Points: points, Tags: &tags, Type: proto.String(datadogKind[kind])})
 	return ret
 }
 
@@ -167,11 +162,6 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 		os.Setenv("DD_APP_KEY", config.GetAppKey())
 	}
 
-	ctx = datadog.NewDefaultContext(ctx)
-	configuration := datadog.NewConfiguration()
-
-	client := datadog.NewAPIClient(configuration)
-
 	p := config.GetPrefix()
 	if p[len(p)-1] != '.' {
 		p += "."
@@ -180,13 +170,13 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 	dd := &DDSurfacer{
 		c:         config,
 		writeChan: make(chan *metrics.EventMetrics, opts.MetricsBufferSize),
-		client:    client,
+		client:    newClient(config.GetServer(), config.GetApiKey(), config.GetAppKey()),
 		l:         l,
 		prefix:    p,
 	}
 
 	// Set the capacity of this slice to the max metric value, to avoid having to grow the slice.
-	dd.ddSeriesCache = make([]datadog.Series, datadogMaxSeries)
+	dd.ddSeriesCache = make([]ddSeries, datadogMaxSeries)
 
 	go dd.receiveMetricsFromEvent(ctx)
 

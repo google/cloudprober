@@ -14,4 +14,7 @@ message SurfacerConf {
 
   // Datadog APP key. If not set, DD_APP_KEY env variable is used.
   optional string app_key = 3;
+
+  // Datadog server, default: "api.datadoghq.com"
+  optional string server = 4;
 }
