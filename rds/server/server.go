@@ -24,6 +24,7 @@ import (
 	"fmt"
 
 	"github.com/google/cloudprober/logger"
+	"github.com/google/cloudprober/rds/file"
 	"github.com/google/cloudprober/rds/gcp"
 	"github.com/google/cloudprober/rds/kubernetes"
 	pb "github.com/google/cloudprober/rds/proto"
@@ -59,6 +60,14 @@ func (s *Server) initProviders(c *configpb.ServerConf) error {
 	for _, pc := range c.GetProvider() {
 		id := pc.GetId()
 		switch pc.Config.(type) {
+		case *configpb.Provider_FileConfig:
+			if id == "" {
+				id = file.DefaultProviderID
+			}
+			s.l.Infof("rds.server: adding file provider with id: %s", id)
+			if p, err = file.New(pc.GetFileConfig(), s.l); err != nil {
+				return err
+			}
 		case *configpb.Provider_GcpConfig:
 			if id == "" {
 				id = gcp.DefaultProviderID

@@ -1,0 +1,31 @@
+{
+	"resource": [
+		{
+			"name": "switch-xx-1",
+			"ip": "10.1.1.1",
+			"port": 8080,
+			"labels": {
+				"device_type": "switch",
+				"cluster": "xx"
+			}
+		},
+		{
+			"name": "switch-xx-2",
+			"ip": "10.1.1.2",
+			"port": 8081,
+			"labels": {
+				"cluster": "xx"
+			}
+		},
+		{
+			"name": "switch-yy-1",
+			"ip": "10.1.2.1",
+			"port": 8080
+		},
+		{
+			"name": "switch-zz-1",
+			"ip": "::aaa:1",
+			"port": 8080
+		}
+	]
+}
