@@ -273,71 +273,18 @@ func TestScrapeOutputWithExpiredTimeMetrics(t *testing.T) {
 	ps.record(expiredEm2)
 
 	var b bytes.Buffer
+	ps.deleteExpiredMetrics()
 	ps.writeData(&b)
 	data := b.String()
+
 	for _, d := range []string{
-		"#TYPE success counter",
-		"success{ptype=\"ping\",probe=\"ping-probe\",dst=\"www.google.com\"} 6 " + promTS,
-		"#TYPE total counter",
-		"total{ptype=\"ping\",probe=\"ping-probe\",dst=\"www.google.com\"} 10 " + promTS,
+		"success{ptype=\"ping\",probe=\"expired-ping-probe\",dst=\"www.google.com/2\"} 12 " + promTS,
+		"success{ptype=\"ping\",probe=\"expired-ping-probe-2\",dst=\"www.google.com/3\"} 18 " + promTS,
+		"total{ptype=\"ping\",probe=\"expired-ping-probe\",dst=\"www.google.com/2\"} 20 " + promTS,
+		"total{ptype=\"ping\",probe=\"expired-ping-probe-2\",dst=\"www.google.com/3\"} 30 " + promTS,
 	} {
-		if strings.Index(data, d) == -1 {
-			t.Errorf("String \"%s\" not found in output data: %s", d, data)
+		if strings.Contains(data, d) {
+			t.Errorf("String \"%s\" contains expired data in output data: %s", d, data)
 		}
-	}
-}
-
-func TestGetExpiredMetrics(t *testing.T) {
-	ps := newPromSurfacer(t, true)
-
-	nowTime := time.Now()
-	timeBeforeTenMin := nowTime.Add(-10 * time.Minute)
-
-	expiredEm := metrics.NewEventMetrics(timeBeforeTenMin).
-		AddMetric("success", metrics.NewInt(12)).
-		AddLabel("ptype", "ping").
-		AddLabel("probe", "expired-ping-probe").
-		AddLabel("dst", "www.google.com/2")
-	ps.record(expiredEm)
-
-	metricKeys, ok := ps.getExpiredMetrics("success", nowTime)
-
-	if !ok {
-		t.Error("This value will be true about success metris because this metrics was stored before 10 mins")
-	}
-
-	expectedMetricKey := "success{ptype=\"ping\",probe=\"expired-ping-probe\",dst=\"www.google.com/2\"}"
-	for _, key := range metricKeys {
-		if key != expectedMetricKey {
-			t.Errorf("This values must be same. key=%s, expectedMetricKey=%s}", key, expectedMetricKey)
-		}
-	}
-}
-
-func TestDeleteExpiredMetrics(t *testing.T) {
-	ps := newPromSurfacer(t, true)
-
-	nowTime := time.Now()
-	timeBeforeTenMin := nowTime.Add(-10 * time.Minute)
-
-	metricName := "success"
-
-	expiredEm := metrics.NewEventMetrics(timeBeforeTenMin).
-		AddMetric(metricName, metrics.NewInt(12)).
-		AddLabel("ptype", "ping").
-		AddLabel("probe", "expired-ping-probe").
-		AddLabel("dst", "www.google.com/2")
-	ps.record(expiredEm)
-
-	expectedMetricKeys := []string{"success{ptype=\"ping\",probe=\"expired-ping-probe\",dst=\"www.google.com/2\"}"}
-	ps.deleteExpiredMetrics(metricName, expectedMetricKeys)
-
-	pm := ps.metrics[metricName]
-	if len(pm.data) != 0 {
-		t.Error("pm.data must be empty.", pm.data)
-	}
-
-	if len(pm.dataKeys) != 0 {
-		t.Error("pm.dataKeys must be empty.", pm.dataKeys)
 	}
 }

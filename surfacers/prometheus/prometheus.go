@@ -382,12 +382,8 @@ func (ps *PromSurfacer) record(em *metrics.EventMetrics) {
 
 // writeData writes metrics data on w io.Writer
 func (ps *PromSurfacer) writeData(w io.Writer) {
-	nowTime := time.Now()
+	ps.deleteExpiredMetrics()
 	for _, name := range ps.metricNames {
-		if metricKeys, ok := ps.getExpiredMetrics(name, nowTime); ok {
-			ps.deleteExpiredMetrics(name, metricKeys)
-		}
-
 		pm := ps.metrics[name]
 		fmt.Fprintf(w, "#TYPE %s %s\n", name, pm.typ)
 		for _, k := range pm.dataKeys {
@@ -396,44 +392,39 @@ func (ps *PromSurfacer) writeData(w io.Writer) {
 	}
 }
 
-// getExpiredMetrics checks the existence of a metric that has not been collected for a long time
-// and returns a list of the metric key values, if any.
-func (ps *PromSurfacer) getExpiredMetrics(metricsName string, t time.Time) ([]string, bool) {
-	var expiredMetricsKeys []string
-	ok := false
+// deleteExpiredMetrics clears the metric expired in PromSurfacer.
+func (ps *PromSurfacer) deleteExpiredMetrics() {
+	nowTime := promTime(time.Now())
 
-	nowTime := promTime(t)
-	pm := ps.metrics[metricsName]
-	for metricKey, v := range pm.data {
-		if nowTime >= v.timestamp+maxExpiredTime {
-			expiredMetricsKeys = append(expiredMetricsKeys, metricKey)
-			ok = true
-		}
-	}
+	for _, name := range ps.metricNames {
+		pm := ps.metrics[name]
 
-	return expiredMetricsKeys, ok
-}
-
-// deleteExpiredMetrics clears the metric information in PromSurfacer using the metric key.
-func (ps *PromSurfacer) deleteExpiredMetrics(metricName string, metricsKeys []string) {
-	pm := ps.metrics[metricName]
-	for _, mk := range metricsKeys {
-		// delete metrics data in pm.data
-		delete(pm.data, mk)
-
-		targetIndex := -1
-		for i, dk := range pm.dataKeys {
-			if dk == mk {
-				targetIndex = i
-				break
+		var expiredMetricsKeys []string
+		for metricKey, v := range pm.data {
+			if nowTime >= v.timestamp+maxExpiredTime {
+				expiredMetricsKeys = append(expiredMetricsKeys, metricKey)
 			}
 		}
 
-		if targetIndex == -1 {
-			continue
+		for _, expiredMetricKey := range expiredMetricsKeys {
+			delete(pm.data, expiredMetricKey)
+			pm.dataKeys = deleteFromSlice(pm.dataKeys, expiredMetricKey)
 		}
-
-		//delete metrics key in dataKeys
-		pm.dataKeys = append(pm.dataKeys[:targetIndex], pm.dataKeys[targetIndex+1:]...)
 	}
+}
+
+// deleteFromSlice delete target on slice
+func deleteFromSlice(stringSlice []string, targetData string) []string {
+	targetIndex := -1
+	for i, data := range stringSlice {
+		if data == targetData {
+			targetIndex = i
+			break
+		}
+	}
+
+	if targetIndex != -1 {
+		stringSlice = append(stringSlice[:targetIndex], stringSlice[targetIndex+1:]...)
+	}
+	return stringSlice
 }
