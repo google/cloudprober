@@ -414,7 +414,7 @@ func (p *Probe) startForTarget(ctx context.Context, target endpoint.Endpoint, da
 	var runCnt int64
 
 	for _, al := range p.opts.AdditionalLabels {
-		al.UpdateForTarget(target.Name, target.Labels)
+		al.UpdateForTarget(target)
 	}
 	result := p.newResult()
 	req := p.httpRequestForTarget(target, nil)

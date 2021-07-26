@@ -1,4 +1,4 @@
-// Copyright 2017-2020 The Cloudprober Authors.
+// Copyright 2017-2021 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -195,7 +195,7 @@ func (p *Probe) updateTargets() {
 
 	for _, target := range p.targets {
 		for _, al := range p.opts.AdditionalLabels {
-			al.UpdateForTarget(target.Name, target.Labels)
+			al.UpdateForTarget(target)
 		}
 
 		// Update results map:

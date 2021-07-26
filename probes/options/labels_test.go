@@ -20,6 +20,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	configpb "github.com/google/cloudprober/probes/proto"
+	"github.com/google/cloudprober/targets/endpoint"
 )
 
 var configWithAdditionalLabels = &configpb.ProbeDef{
@@ -42,7 +43,7 @@ var configWithAdditionalLabels = &configpb.ProbeDef{
 		},
 		{
 			Key:   proto.String("dst"),
-			Value: proto.String("@target.label.zone@:@target.name@"),
+			Value: proto.String("@target.label.zone@:@target.name@:@target.port@"),
 		},
 		{
 			Key:   proto.String("bad_label"),
@@ -79,8 +80,8 @@ func TestParseAdditionalLabel(t *testing.T) {
 		},
 		{
 			Key:        "dst",
-			valueParts: []string{"", "target.label.zone", ":", "target.name", ""},
-			tokens:     []targetToken{{tokenType: label, labelKey: "zone"}, {tokenType: name}},
+			valueParts: []string{"", "target.label.zone", ":", "target.name", ":", "target.port", ""},
+			tokens:     []targetToken{{tokenType: label, labelKey: "zone"}, {tokenType: name}, {tokenType: port}},
 		},
 		{
 			Key:         "bad_label",
@@ -110,8 +111,8 @@ func TestUpdateAdditionalLabel(t *testing.T) {
 	// Verify that we got the correct additional lables and also update them while
 	// iterating over them.
 	for _, al := range aLabels {
-		al.UpdateForTarget("target1", map[string]string{})
-		al.UpdateForTarget("target2", map[string]string{"zone": "zoneB"})
+		al.UpdateForTarget(endpoint.Endpoint{Name: "target1", Labels: map[string]string{}, Port: 80})
+		al.UpdateForTarget(endpoint.Endpoint{Name: "target2", Labels: map[string]string{"zone": "zoneB"}, Port: 8080})
 	}
 
 	expectedLabels := map[string][][2]string{
@@ -120,7 +121,7 @@ func TestUpdateAdditionalLabel(t *testing.T) {
 			{"dst_zone", ""},
 			{"dst_zone_label", "zone:"},
 			{"dst_name", "target1"},
-			{"dst", ":target1"},
+			{"dst", ":target1:80"},
 			{"bad_label", "@target.metadata@:@unknown@"},
 			{"incomplete_label", ":@target.name"},
 		},
@@ -129,7 +130,7 @@ func TestUpdateAdditionalLabel(t *testing.T) {
 			{"dst_zone", "zoneB"},
 			{"dst_zone_label", "zone:zoneB"},
 			{"dst_name", "target2"},
-			{"dst", "zoneB:target2"},
+			{"dst", "zoneB:target2:8080"},
 			{"bad_label", "@target.metadata@:@unknown@"},
 			{"incomplete_label", "zoneB:@target.name"},
 		},
