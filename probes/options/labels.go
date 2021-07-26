@@ -16,8 +16,11 @@ package options
 
 import (
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
+
+	"github.com/google/cloudprober/targets/endpoint"
 
 	configpb "github.com/google/cloudprober/probes/proto"
 )
@@ -30,6 +33,7 @@ const (
 	notTargetLabel targetLabelType = iota
 	label
 	name
+	port
 )
 
 var targetLabelRegex = regexp.MustCompile(`target.label.(.*)`)
@@ -61,7 +65,7 @@ type AdditionalLabel struct {
 }
 
 // UpdateForTarget updates addtional label based on target's name and labels.
-func (al *AdditionalLabel) UpdateForTarget(tname string, tLabels map[string]string) {
+func (al *AdditionalLabel) UpdateForTarget(ep endpoint.Endpoint) {
 	al.mu.Lock()
 	defer al.mu.Unlock()
 
@@ -78,12 +82,14 @@ func (al *AdditionalLabel) UpdateForTarget(tname string, tLabels map[string]stri
 	for i, tok := range al.tokens {
 		switch tok.tokenType {
 		case name:
-			parts[2*i+1] = tname
+			parts[2*i+1] = ep.Name
+		case port:
+			parts[2*i+1] = strconv.Itoa(ep.Port)
 		case label:
-			parts[2*i+1] = tLabels[tok.labelKey]
+			parts[2*i+1] = ep.Labels[tok.labelKey]
 		}
 	}
-	al.valueForTarget[tname] = strings.Join(parts, "")
+	al.valueForTarget[ep.Name] = strings.Join(parts, "")
 }
 
 // KeyValueForTarget returns key, value pair for the given target.
@@ -128,6 +134,10 @@ func parseAdditionalLabel(alpb *configpb.AdditionalLabel) *AdditionalLabel {
 		tokStr := al.valueParts[2*i+1]
 		if tokStr == "target.name" {
 			al.tokens = append(al.tokens, targetToken{tokenType: name})
+			continue
+		}
+		if tokStr == "target.port" {
+			al.tokens = append(al.tokens, targetToken{tokenType: port})
 			continue
 		}
 		matches := targetLabelRegex.FindStringSubmatch(tokStr)
