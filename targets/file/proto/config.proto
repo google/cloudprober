@@ -3,6 +3,7 @@ syntax = "proto2";
 
 package cloudprober.targets.file;
 
+import "github.com/google/cloudprober/rds/file/proto/config.proto";
 import "github.com/google/cloudprober/rds/proto/rds.proto";
 
 option go_package = "github.com/google/cloudprober/targets/file/proto";
@@ -27,19 +28,10 @@ message TargetsConf {
   // }
   optional string file_path = 1;
 
-  repeated rds.Filter filter = 2;
+  repeated .cloudprober.rds.Filter filter = 2;
 
-  enum Format {
-    UNSPECIFIED = 0;  // Determine format using file extension/
-    TEXTPB = 1;       // Text proto format (.textpb).
-    JSON = 2;         // JSON proto format (.json).
-  }
-  optional Format format = 3;
+  optional .cloudprober.rds.file.ProviderConfig.Format format = 3;
 
   // If specified, file will be re-read at the given interval.
   optional int32 re_eval_sec = 4;
-}
-
-message FileResources {
-  repeated rds.Resource resource = 1;
 }

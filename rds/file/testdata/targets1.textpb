@@ -1,0 +1,23 @@
+resource {
+  name: "switch-xx-1"
+	ip: "10.1.1.1"
+	port: 8080
+	labels {
+	  key: "device_type"
+		value: "switch"
+	}
+	labels {
+	  key: "cluster"
+		value: "xx"
+	}
+}
+
+resource {
+  name: "switch-xx-2"
+	ip: "10.1.1.2"
+	port: 8081
+	labels {
+	  key: "cluster"
+		value: "xx"
+	}
+}
