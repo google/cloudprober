@@ -1,4 +1,4 @@
-// Copyright 2018 The Cloudprober Authors.
+// Copyright 2018-2021 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -145,8 +145,7 @@ func sendPktsAndCollectReplies(ctx context.Context, t *testing.T, srvPort int, i
 }
 
 func runProbe(ctx context.Context, t *testing.T, inp *inputState) ([]int, chan statskeeper.ProbeResult, *probeRunResult, *probeErr) {
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
+	ctx, cancelCtx := context.WithCancel(ctx)
 
 	sysvars.Init(&logger.Logger{}, nil)
 	p := &Probe{}
@@ -179,11 +178,20 @@ func runProbe(ctx context.Context, t *testing.T, inp *inputState) ([]int, chan s
 
 	p.updateTargets()
 	resultsChan := make(chan statskeeper.ProbeResult, 10)
-	go p.probeLoop(ctx, resultsChan)
+
+	var wg sync.WaitGroup
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		p.probeLoop(ctx, resultsChan)
+	}()
+
 	time.Sleep(interval) // Wait for echo loop to be active.
 
 	rxSeq := sendPktsAndCollectReplies(ctx, t, port, inp)
-	cancel()
+	cancelCtx()
+	wg.Wait()
 
 	return rxSeq, resultsChan, p.res[localhost], p.errs
 }
