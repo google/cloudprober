@@ -1,0 +1,11 @@
+resource {
+  name: "switch-yy-1"
+	ip: "10.1.2.1"
+	port: 8080
+}
+
+resource {
+  name: "switch-zz-1"
+	ip: "::aaa:1"
+	port: 8080
+}

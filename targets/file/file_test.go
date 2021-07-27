@@ -1,7 +1,20 @@
+// Copyright 2021 The Cloudprober Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package file
 
 import (
-	"io/ioutil"
 	"reflect"
 	"testing"
 
@@ -10,79 +23,6 @@ import (
 	configpb "github.com/google/cloudprober/targets/file/proto"
 	"google.golang.org/protobuf/proto"
 )
-
-var testResourcesTextpb = `
-resource {
-  name: "switch-xx-1"
-	ip: "10.1.1.1"
-	port: 8080
-	labels {
-	  key: "device_type"
-		value: "switch"
-	}
-	labels {
-	  key: "cluster"
-		value: "xx"
-	}
-}
-resource {
-  name: "switch-xx-2"
-	ip: "10.1.1.2"
-	port: 8081
-	labels {
-	  key: "cluster"
-		value: "xx"
-	}
-}
-resource {
-  name: "switch-yy-1"
-	ip: "10.1.2.1"
-	port: 8080
-}
-resource {
-  name: "switch-zz-1"
-	ip: "::aaa:1"
-	port: 8080
-}
-`
-
-var testResourcesJSON = `{
-	"resource": [
-		{
-			"name": "switch-xx-1",
-			"ip": "10.1.1.1",
-			"port": 8080,
-			"labels": {
-				"device_type": "switch",
-				"cluster": "xx"
-			}
-		},
-		{
-			"name": "switch-xx-2",
-			"ip": "10.1.1.2",
-			"port": 8081,
-			"labels": {
-				"cluster": "xx"
-			}
-		},
-		{
-			"name": "switch-yy-1",
-			"ip": "10.1.2.1",
-			"port": 8080
-		},
-		{
-			"name": "switch-zz-1",
-			"ip": "::aaa:1",
-			"port": 8080
-		}
-	]
-}
-`
-
-var testResourcesFile = map[string]string{
-	"textpb": testResourcesTextpb,
-	"json":   testResourcesJSON,
-}
 
 var testExpectedEndpoints = []endpoint.Endpoint{
 	{
@@ -110,24 +50,6 @@ var testExpectedEndpoints = []endpoint.Endpoint{
 	},
 }
 
-var testExpectedEndpointsWithFilter = []endpoint.Endpoint{
-	{
-		Name: "switch-xx-1",
-		Port: 8080,
-		Labels: map[string]string{
-			"device_type": "switch",
-			"cluster":     "xx",
-		},
-	},
-	{
-		Name: "switch-xx-2",
-		Port: 8081,
-		Labels: map[string]string{
-			"cluster": "xx",
-		},
-	},
-}
-
 var testExpectedIP = map[string]string{
 	"switch-xx-1": "10.1.1.1",
 	"switch-xx-2": "10.1.1.2",
@@ -135,86 +57,59 @@ var testExpectedIP = map[string]string{
 	"switch-zz-1": "::aaa:1",
 }
 
-func TestFileTargets(t *testing.T) {
-	for _, filetype := range []string{"textpb", "json"} {
-		t.Run("Test "+filetype, func(t *testing.T) {
-			testFileTargetsForType(t, filetype)
-		})
-	}
-}
-
-func createTestFile(t *testing.T, fileType string) string {
-	t.Helper()
-
-	if fileType == "" {
-		fileType = "textpb"
-	}
-
-	tempFile, err := ioutil.TempFile("", "file_targets_*."+fileType)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if err := ioutil.WriteFile(tempFile.Name(), []byte(testResourcesFile[fileType]), 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	return tempFile.Name()
-}
-
-func testFileTargetsForType(t *testing.T, fileType string) {
-	t.Helper()
-	testFile := createTestFile(t, fileType)
-
-	ft, err := New(&configpb.TargetsConf{FilePath: proto.String(testFile)}, nil, nil)
-	if err != nil {
-		t.Fatalf("Unexpected error while parsing textpb: %v", err)
-	}
-
-	t.Log(ft.names)
-
-	got := ft.ListEndpoints()
-
-	if !reflect.DeepEqual(got, testExpectedEndpoints) {
-		t.Errorf("ft.ListEndpoints: got: %v, expected: %v", got, testExpectedEndpoints)
-	}
-
-	for name, ip := range testExpectedIP {
-		resolvedIP, err := ft.Resolve(name, 0)
-		if err != nil {
-			t.Errorf("unexpected error while resolving %s: %v", name, err)
-		}
-		got := resolvedIP.String()
-		if got != ip {
-			t.Errorf("ft.Resolve(%s): got=%s, expected=%s", name, got, ip)
-		}
-	}
-}
-
 func TestListEndpointsWithFilter(t *testing.T) {
-	t.Helper()
-
-	testFile := createTestFile(t, "")
-
-	ft, err := New(&configpb.TargetsConf{
-		FilePath: proto.String(testFile),
-		Filter: []*rdspb.Filter{
-			{
+	for _, test := range []struct {
+		desc          string
+		f             []*rdspb.Filter
+		wantEndpoints []endpoint.Endpoint
+	}{
+		{
+			desc:          "no_filter",
+			wantEndpoints: testExpectedEndpoints,
+		},
+		{
+			desc: "with_filter",
+			f: []*rdspb.Filter{{
 				Key:   proto.String("labels.cluster"),
 				Value: proto.String("xx"),
-			},
+			}},
+			wantEndpoints: testExpectedEndpoints[:2],
 		},
-	}, nil, nil)
+	} {
+		t.Run(test.desc, func(t *testing.T) {
+			ft, err := New(&configpb.TargetsConf{
+				FilePath: proto.String("../../rds/file/testdata/targets.json"),
+				Filter:   test.f,
+			}, nil, nil)
 
-	if err != nil {
-		t.Fatalf("Unexpected error while parsing textpb: %v", err)
+			if err != nil {
+				t.Fatalf("Unexpected error while parsing textpb: %v", err)
+			}
+
+			got := ft.ListEndpoints()
+
+			if len(got) != len(test.wantEndpoints) {
+				t.Fatalf("Got endpoints: %d, expected: %d", len(got), len(test.wantEndpoints))
+			}
+			for i := range test.wantEndpoints {
+				want := test.wantEndpoints[i]
+
+				if got[i].Name != want.Name || got[i].Port != want.Port || !reflect.DeepEqual(got[i].Labels, want.Labels) {
+					t.Errorf("ListResources: got:\n%v\nexpected:\n%v", got[i], want)
+				}
+			}
+
+			for _, ep := range got {
+				resolvedIP, err := ft.Resolve(ep.Name, 0)
+				if err != nil {
+					t.Errorf("unexpected error while resolving %s: %v", ep.Name, err)
+				}
+				ip := resolvedIP.String()
+				if ip != testExpectedIP[ep.Name] {
+					t.Errorf("ft.Resolve(%s): got=%s, expected=%s", ep.Name, ip, testExpectedIP[ep.Name])
+				}
+			}
+		})
 	}
 
-	t.Log(ft.names)
-
-	got := ft.ListEndpoints()
-
-	if !reflect.DeepEqual(got, testExpectedEndpointsWithFilter) {
-		t.Errorf("ft.ListEndpoints: got: %v, expected: %v", got, testExpectedEndpointsWithFilter)
-	}
 }
