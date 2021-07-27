@@ -13,6 +13,7 @@ syntax = "proto2";
 
 package cloudprober.rds;
 
+import "github.com/google/cloudprober/rds/file/proto/config.proto";
 import "github.com/google/cloudprober/rds/gcp/proto/config.proto";
 import "github.com/google/cloudprober/rds/kubernetes/proto/config.proto";
 
@@ -29,6 +30,7 @@ message Provider {
   optional string id = 1;
 
   oneof config {
+    file.ProviderConfig file_config = 4;
     gcp.ProviderConfig gcp_config = 2;
     kubernetes.ProviderConfig kubernetes_config = 3;
   }

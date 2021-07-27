@@ -1,0 +1,66 @@
+// Configuration proto for Kubernetes provider.
+//
+// Example provider config:
+// {
+//   pods {}
+// }
+//
+// In probe config:
+// probe {
+//   targets{
+//     rds_targets {
+//       resource_path: "k8s://pods"
+//       filter {
+//         key: "namespace"
+//         value: "default"
+//       }
+//       filter {
+//         key: "name"
+//         value: "cloudprober.*"
+//       }
+//     }
+//   }
+// }
+syntax = "proto2";
+
+package cloudprober.rds.file;
+
+import "github.com/google/cloudprober/rds/proto/rds.proto";
+
+option go_package = "github.com/google/cloudprober/rds/file/proto";
+
+// File provider config.
+message ProviderConfig {
+  // File that contains resources in either textproto or json format.
+  // Example in textproto format:
+  //
+  // resource {
+  //   name: "switch-xx-01"
+  //   ip: "10.11.112.3"
+  //   port: 8080
+  //   labels {
+  //     key: "device_type"
+  //     value: "switch"
+  //   }
+  // }
+  // resource {
+  //   name: "switch-yy-01"
+  //   ip: "10.16.110.12"
+  //   port: 8080
+  // }
+  repeated string file_path = 1;
+
+  enum Format {
+    UNSPECIFIED = 0;  // Determine format using file extension/
+    TEXTPB = 1;       // Text proto format (.textpb).
+    JSON = 2;         // JSON proto format (.json).
+  }
+  optional Format format = 2;
+
+  // If specified, file will be re-read at the given interval.
+  optional int32 re_eval_sec = 3;
+}
+
+message FileResources {
+  repeated .cloudprober.rds.Resource resource = 1;
+}
