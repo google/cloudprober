@@ -129,35 +129,39 @@ func TestListResourcesWithResourcePath(t *testing.T) {
 
 func BenchmarkListResources(b *testing.B) {
 	for _, n := range []int{100, 10000, 1000000} {
-		b.Run(fmt.Sprintf("%d-resources", n), func(b *testing.B) {
-			b.StopTimer()
-			ls := &lister{
-				resources: make([]*pb.Resource, n),
-			}
-			for i := 0; i < n; i++ {
-				ls.resources[i] = &pb.Resource{
-					Name: proto.String(fmt.Sprintf("host-%d", i)),
-					Ip:   proto.String("10.1.1.1"),
-					Port: proto.Int32(80),
-					Labels: map[string]string{
-						"index": strconv.Itoa(i),
-					},
-					LastUpdated: proto.Int64(time.Now().Unix()),
+		for _, filters := range [][]*rdspb.Filter{nil, []*rdspb.Filter{{Key: proto.String("name"), Value: proto.String("host-1.*")}}} {
+			b.Run(fmt.Sprintf("%d-resources,%d-filters", n, len(filters)), func(b *testing.B) {
+				b.StopTimer()
+				ls := &lister{
+					resources: make([]*rdspb.Resource, n),
 				}
-			}
-			b.StartTimer()
-
-			for j := 0; j < b.N; j++ {
-				res, err := ls.ListResources(nil)
-
-				if err != nil {
-					b.Errorf("Unexpected error while listing resources: %v", err)
+				for i := 0; i < n; i++ {
+					ls.resources[i] = &rdspb.Resource{
+						Name: proto.String(fmt.Sprintf("host-%d", i)),
+						Ip:   proto.String("10.1.1.1"),
+						Port: proto.Int32(80),
+						Labels: map[string]string{
+							"index": strconv.Itoa(i),
+						},
+						LastUpdated: proto.Int64(time.Now().Unix()),
+					}
 				}
+				b.StartTimer()
 
-				if len(res.GetResources()) != n {
-					b.Errorf("Got %d resources, wanted: %d", len(res.GetResources()), n)
+				for j := 0; j < b.N; j++ {
+					res, err := ls.ListResources(&rdspb.ListResourcesRequest{
+						Filter: filters,
+					})
+
+					if err != nil {
+						b.Errorf("Unexpected error while listing resources: %v", err)
+					}
+
+					if filters == nil && len(res.GetResources()) != n {
+						b.Errorf("Got %d resources, wanted: %d", len(res.GetResources()), n)
+					}
 				}
-			}
-		})
+			})
+		}
 	}
 }
