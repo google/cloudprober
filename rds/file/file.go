@@ -69,20 +69,25 @@ type lister struct {
 
 // ListResources returns the last successfully parsed list of resources.
 func (ls *lister) ListResources(req *pb.ListResourcesRequest) (*pb.ListResourcesResponse, error) {
+	ls.mu.RLock()
+	defer ls.mu.RUnlock()
+
+	// If there are no filters, return early.
+	if len(req.GetFilter()) == 0 {
+		return &pb.ListResourcesResponse{Resources: append([]*pb.Resource{}, ls.resources...)}, nil
+	}
+
 	allFilters, err := filter.ParseFilters(req.GetFilter(), SupportedFilters.RegexFilterKeys, "")
 	if err != nil {
 		return nil, err
 	}
 	nameFilter, labelsFilter := allFilters.RegexFilters["name"], allFilters.LabelsFilter
 
-	ls.mu.RLock()
-	defer ls.mu.RUnlock()
-
 	// Allocate resources for response early but optimize for large number of
 	// total resources.
 	allocSize := len(ls.resources)
-	if allocSize > 10 && len(req.GetFilter()) != 0 {
-		allocSize = 10
+	if allocSize > 100 {
+		allocSize = 100
 	}
 	resources := make([]*pb.Resource, 0, allocSize)
 
@@ -198,6 +203,14 @@ func (p *Provider) ListResources(req *pb.ListResourcesRequest) (*pb.ListResource
 			return nil, fmt.Errorf("file path %s is not available on this server", fPath)
 		}
 		return ls.ListResources(req)
+	}
+
+	// Avoid append and another allocation if there is only one lister, most
+	// common use case.
+	if len(p.listers) == 1 {
+		for _, ls := range p.listers {
+			return ls.ListResources(req)
+		}
 	}
 
 	var result []*pb.Resource
