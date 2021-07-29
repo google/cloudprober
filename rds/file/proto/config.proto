@@ -59,6 +59,11 @@ message ProviderConfig {
 
   // If specified, file will be re-read at the given interval.
   optional int32 re_eval_sec = 3;
+
+  // Whenever possible, we reload a file only if it has been modified since the
+  // last load. If following option is set, mod time check is disabled.
+  // Note that mod-time check doesn't work for GCS.
+  optional bool disable_modified_time_check = 4;
 }
 
 message FileResources {
