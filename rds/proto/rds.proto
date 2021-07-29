@@ -39,6 +39,13 @@ message ListResourcesRequest {
   // Optional. If resource has an IP (and a NIC) address, following
   // fields determine which IP address will be included in the results.
   optional IPConfig ip_config = 4;
+
+  // If specified, and if provider supports it, server will send resources in
+  // the response only if they have changed since the given timestamp. Since
+  // there may be no resources in the response for non-caching reasons as well,
+  // clients should use the "last_modified" field in the response to determine
+  // if they need to update the local cache or not.
+  optional int64 if_modified_since = 5;
 }
 
 message Filter {
@@ -99,5 +106,13 @@ message Resource {
 }
 
 message ListResourcesResponse {
+  // There may not be any resources in the response if request contains the
+  // "if_modified_since" field and provider "knows" that nothing has changed since
+  // the if_modified_since timestamp.
   repeated Resource resources = 1;
+
+  // When were resources last modified. This field will always be set if
+  // provider has a way of figuring out last_modified timestamp for its
+  // resources.
+  optional int64 last_modified = 2;
 }

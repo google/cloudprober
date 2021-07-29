@@ -1,4 +1,4 @@
-// Copyright 2018-2020 The Cloudprober Authors.
+// Copyright 2018-2021 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -40,6 +40,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	grpcoauth "google.golang.org/grpc/credentials/oauth"
+	"google.golang.org/protobuf/proto"
 )
 
 // globalResolver is a singleton DNS resolver that is used as the default
@@ -68,6 +69,7 @@ type Client struct {
 	cache         map[string]*cacheRecord
 	names         []string
 	listResources func(context.Context, *pb.ListResourcesRequest) (*pb.ListResourcesResponse, error)
+	lastModified  int64
 	resolver      *dnsRes.Resolver
 	l             *logger.Logger
 }
@@ -81,7 +83,10 @@ func (client *Client) refreshState(timeout time.Duration) {
 	ctx, cancelFunc := context.WithTimeout(context.Background(), timeout)
 	defer cancelFunc()
 
-	response, err := client.listResources(ctx, client.c.GetRequest())
+	req := client.c.GetRequest()
+	req.IfModifiedSince = proto.Int64(client.lastModified)
+
+	response, err := client.listResources(ctx, req)
 	if err != nil {
 		client.l.Errorf("rds.client: error getting resources from RDS server: %v", err)
 		return
@@ -92,6 +97,13 @@ func (client *Client) refreshState(timeout time.Duration) {
 func (client *Client) updateState(response *pb.ListResourcesResponse) {
 	client.mu.Lock()
 	defer client.mu.Unlock()
+
+	// If server doesn't support caching, response's last_modified will be 0 and
+	// we'll skip the following block.
+	if response.GetLastModified() != 0 && response.GetLastModified() <= client.lastModified {
+		client.l.Infof("rds_client: Not refreshing state. Local last-modified: %d, response's last-modified: %d.", client.lastModified, response.GetLastModified())
+		return
+	}
 
 	client.names = make([]string, len(response.GetResources()))
 	oldcache := client.cache
@@ -111,6 +123,7 @@ func (client *Client) updateState(response *pb.ListResourcesResponse) {
 		i++
 	}
 	client.names = client.names[:i]
+	client.lastModified = response.GetLastModified()
 }
 
 // ListEndpoints returns the list of resources.
