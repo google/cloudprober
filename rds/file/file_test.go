@@ -233,8 +233,8 @@ func testModTimeCheckBehavior(t *testing.T, disableModTimeCheck bool) {
 	}
 	ls.refresh()
 
-	if !ls.lastUpdated.After(fileModTime) {
-		t.Errorf("File lister last update time (%v) not after file mod time (%v)", ls.lastUpdated, fileModTime)
+	if ls.lastUpdated.Before(fileModTime) {
+		t.Errorf("File lister last update time (%v) before file mod time (%v)", ls.lastUpdated, fileModTime)
 	}
 	res, err = ls.ListResources(nil)
 	if err != nil {
