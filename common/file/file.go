@@ -19,18 +19,26 @@ package file
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"strings"
+	"time"
 
 	"golang.org/x/oauth2/google"
 )
 
 type readFunc func(path string) ([]byte, error)
+type modTimeFunc func(path string) (time.Time, error)
 
 var prefixToReadfunc = map[string]readFunc{
 	"gs://": readFileFromGCS,
+}
+
+var prefixToModTimeFunc = map[string]modTimeFunc{
+	"gs://": modTimeGCS,
 }
 
 func readFileFromGCS(objectPath string) ([]byte, error) {
@@ -54,6 +62,10 @@ func readFileFromGCS(objectPath string) ([]byte, error) {
 	return ioutil.ReadAll(res.Body)
 }
 
+func modTimeGCS(objectPath string) (time.Time, error) {
+	return time.Time{}, errors.New("mod-time is not implemented for GCS files yet")
+}
+
 // ReadFile returns file contents as a slice of bytes. It's similar to ioutil's
 // ReadFile, but includes support for files on non-disk locations. For example,
 // files with paths starting with gs:// are assumed to be on GCS, and are read
@@ -65,4 +77,19 @@ func ReadFile(fname string) ([]byte, error) {
 		}
 	}
 	return ioutil.ReadFile(fname)
+}
+
+// ModTime returns file's modified timestamp.
+func ModTime(fname string) (time.Time, error) {
+	for prefix, f := range prefixToModTimeFunc {
+		if strings.HasPrefix(fname, prefix) {
+			return f(fname[len(prefix):])
+		}
+	}
+
+	statInfo, err := os.Stat(fname)
+	if err != nil {
+		return time.Time{}, err
+	}
+	return statInfo.ModTime(), nil
 }

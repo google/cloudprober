@@ -65,6 +65,9 @@ type lister struct {
 	format    configpb.ProviderConfig_Format
 	resources []*pb.Resource
 	l         *logger.Logger
+
+	lastUpdated  time.Time
+	checkModTime bool
 }
 
 // ListResources returns the last successfully parsed list of resources.
@@ -126,7 +129,28 @@ func (ls *lister) parseFileContent(b []byte) ([]*pb.Resource, error) {
 	return nil, fmt.Errorf("file_provider(%s): unknown format - %v", ls.filePath, ls.format)
 }
 
+func (ls *lister) shouldReloadFile() bool {
+	if !ls.checkModTime {
+		return true
+	}
+
+	modTime, err := file.ModTime(ls.filePath)
+	if err != nil {
+		ls.l.Warningf("file(%s): Error getting modified time: %v; Ignoring modified time check.", ls.filePath, err)
+		return true
+	}
+
+	ls.mu.RLock()
+	defer ls.mu.RUnlock()
+	return modTime.After(ls.lastUpdated)
+}
+
 func (ls *lister) refresh() error {
+	if !ls.shouldReloadFile() {
+		ls.l.Infof("file(%s): Skipping reloading file as it has not changed since its last refresh at %v", ls.filePath, ls.lastUpdated)
+		return nil
+	}
+
 	b, err := file.ReadFile(ls.filePath)
 	if err != nil {
 		return fmt.Errorf("file(%s): error while reading file: %v", ls.filePath, err)
@@ -139,6 +163,8 @@ func (ls *lister) refresh() error {
 
 	ls.mu.Lock()
 	defer ls.mu.Unlock()
+
+	ls.lastUpdated = time.Now()
 	ls.resources = resources
 
 	ls.l.Infof("file_provider(%s): Read %d resources.", ls.filePath, len(ls.resources))
@@ -156,18 +182,21 @@ func formatFromPath(path string) configpb.ProviderConfig_Format {
 }
 
 // newLister creates a new file-based targets lister.
-func newLister(filePath string, format configpb.ProviderConfig_Format, reEvalSec int32, l *logger.Logger) (*lister, error) {
+func newLister(filePath string, c *configpb.ProviderConfig, l *logger.Logger) (*lister, error) {
+	format := c.GetFormat()
 	if format == configpb.ProviderConfig_UNSPECIFIED {
 		format = formatFromPath(filePath)
 		l.Infof("file_provider: Determined file format from file name: %v", format)
 	}
 
 	ls := &lister{
-		filePath: filePath,
-		format:   format,
-		l:        l,
+		filePath:     filePath,
+		format:       format,
+		l:            l,
+		checkModTime: !c.GetDisableModifiedTimeCheck(),
 	}
 
+	reEvalSec := c.GetReEvalSec()
 	if reEvalSec == 0 {
 		return ls, ls.refresh()
 	}
@@ -242,7 +271,7 @@ func New(c *configpb.ProviderConfig, l *logger.Logger) (*Provider, error) {
 	}
 
 	for _, filePath := range filePaths {
-		lister, err := newLister(filePath, c.GetFormat(), c.GetReEvalSec(), l)
+		lister, err := newLister(filePath, c, l)
 		if err != nil {
 			return nil, err
 		}

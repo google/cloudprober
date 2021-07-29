@@ -16,12 +16,13 @@ package file
 
 import (
 	"fmt"
+	"io/ioutil"
+	"os"
 	"strconv"
 	"testing"
 	"time"
 
 	configpb "github.com/google/cloudprober/rds/file/proto"
-	pb "github.com/google/cloudprober/rds/proto"
 	rdspb "github.com/google/cloudprober/rds/proto"
 	"google.golang.org/protobuf/proto"
 )
@@ -61,7 +62,7 @@ var testExpectedResources = []*rdspb.Resource{
 	},
 }
 
-func compareResourceList(t *testing.T, got []*pb.Resource, want []*pb.Resource) {
+func compareResourceList(t *testing.T, got []*rdspb.Resource, want []*rdspb.Resource) {
 	t.Helper()
 
 	if len(got) != len(want) {
@@ -85,8 +86,8 @@ func TestListResources(t *testing.T) {
 			for _, test := range []struct {
 				desc          string
 				resourcePath  string
-				f             []*pb.Filter
-				wantResources []*pb.Resource
+				f             []*rdspb.Filter
+				wantResources []*rdspb.Resource
 			}{
 				{
 					desc:          "no_filter",
@@ -94,7 +95,7 @@ func TestListResources(t *testing.T) {
 				},
 				{
 					desc: "with_filter",
-					f: []*pb.Filter{
+					f: []*rdspb.Filter{
 						{
 							Key:   proto.String("labels.cluster"),
 							Value: proto.String("xx"),
@@ -164,4 +165,92 @@ func BenchmarkListResources(b *testing.B) {
 			})
 		}
 	}
+}
+
+func testModTimeCheckBehavior(t *testing.T, disableModTimeCheck bool) {
+	t.Helper()
+	// Set up test file.
+	tf, err := ioutil.TempFile("", "cloudprober_rds_file.*.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	testFile := tf.Name()
+	defer os.Remove(tf.Name())
+
+	b, err := ioutil.ReadFile(testResourcesFiles["json"][0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	ioutil.WriteFile(testFile, b, 0)
+
+	ls, err := newLister(testFile, &configpb.ProviderConfig{
+		DisableModifiedTimeCheck: proto.Bool(disableModTimeCheck),
+	}, nil)
+	if err != nil {
+		t.Fatalf("Error creating file lister: %v", err)
+	}
+
+	// Step 1: Very first run. File should be loaded.
+	res, err := ls.ListResources(nil)
+	if err != nil {
+		t.Errorf("Unexxpected error: %v", err)
+	}
+	if len(res.GetResources()) == 0 {
+		t.Error("Got no resources.")
+	}
+	wantResources := res
+	firstUpdateTime := ls.lastUpdated
+
+	// Step 2: 2nd run. File shouldn't reload unless disableModTimeCheck is true.
+	// Wait for a second and refresh again.
+	time.Sleep(time.Second)
+	ls.refresh()
+
+	if !disableModTimeCheck {
+		if ls.lastUpdated != firstUpdateTime {
+			t.Errorf("File unexpectedly reloaded. Update time: %v, last update time: %v", ls.lastUpdated, firstUpdateTime)
+		}
+	} else {
+		if ls.lastUpdated == firstUpdateTime {
+			t.Errorf("File unexpectly didn't reload. Update time: %v, last update time: %v", ls.lastUpdated, firstUpdateTime)
+		}
+	}
+	res, err = ls.ListResources(nil)
+	if err != nil {
+		t.Errorf("Unexxpected error: %v", err)
+	}
+	if !proto.Equal(res, wantResources) {
+		t.Errorf("Got resources:\n%s\nWant resources:\n%s", res.String(), wantResources.String())
+	}
+
+	// Step 3: Third run. It should reload file.
+	// Update file's modified time and see if file is reloaded.
+	fileModTime := time.Now()
+	if err := os.Chtimes(testFile, fileModTime, fileModTime); err != nil {
+		t.Logf("Error setting modified time on the test file: %v. Finishing test early.", err)
+		return
+	}
+	ls.refresh()
+
+	if !ls.lastUpdated.After(fileModTime) {
+		t.Errorf("File lister last update time (%v) not after file mod time (%v)", ls.lastUpdated, fileModTime)
+	}
+	res, err = ls.ListResources(nil)
+	if err != nil {
+		t.Errorf("Unexxpected error: %v", err)
+	}
+	if !proto.Equal(res, wantResources) {
+		t.Errorf("Got resources:\n%s\nWant resources:\n%s", res.String(), wantResources.String())
+	}
+}
+
+func TestModTimeCheckBehavior(t *testing.T) {
+	t.Run("default", func(t *testing.T) {
+		testModTimeCheckBehavior(t, false)
+	})
+
+	t.Run("ignore-mod-time", func(t *testing.T) {
+		testModTimeCheckBehavior(t, true)
+	})
 }
