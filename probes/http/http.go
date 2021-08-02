@@ -200,6 +200,9 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 	} else {
 		// If it's been more than 2 probe intervals since connection was used, close it.
 		transport.IdleConnTimeout = 2 * p.opts.Interval
+		if p.c.GetRequestsPerProbe() > 1 {
+			transport.MaxIdleConnsPerHost = int(p.c.GetRequestsPerProbe())
+		}
 	}
 
 	if p.c.GetOauthConfig() != nil {
