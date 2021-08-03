@@ -150,7 +150,7 @@ func BenchmarkListResources(b *testing.B) {
 				b.StartTimer()
 
 				for j := 0; j < b.N; j++ {
-					res, err := ls.ListResources(&rdspb.ListResourcesRequest{
+					res, err := ls.listResources(&rdspb.ListResourcesRequest{
 						Filter: filters,
 					})
 
@@ -192,7 +192,7 @@ func testModTimeCheckBehavior(t *testing.T, disableModTimeCheck bool) {
 	}
 
 	// Step 1: Very first run. File should be loaded.
-	res, err := ls.ListResources(nil)
+	res, err := ls.listResources(nil)
 	if err != nil {
 		t.Errorf("Unexxpected error: %v", err)
 	}
@@ -216,10 +216,11 @@ func testModTimeCheckBehavior(t *testing.T, disableModTimeCheck bool) {
 			t.Errorf("File unexpectly didn't reload. Update time: %v, last update time: %v", ls.lastUpdated, firstUpdateTime)
 		}
 	}
-	res, err = ls.ListResources(nil)
+	res, err = ls.listResources(nil)
 	if err != nil {
-		t.Errorf("Unexxpected error: %v", err)
+		t.Errorf("Unexpected error: %v", err)
 	}
+	wantResources.LastModified = proto.Int64(ls.lastModified())
 	if !proto.Equal(res, wantResources) {
 		t.Errorf("Got resources:\n%s\nWant resources:\n%s", res.String(), wantResources.String())
 	}
@@ -236,10 +237,11 @@ func testModTimeCheckBehavior(t *testing.T, disableModTimeCheck bool) {
 	if ls.lastUpdated.Before(fileModTime) {
 		t.Errorf("File lister last update time (%v) before file mod time (%v)", ls.lastUpdated, fileModTime)
 	}
-	res, err = ls.ListResources(nil)
+	res, err = ls.listResources(nil)
 	if err != nil {
 		t.Errorf("Unexxpected error: %v", err)
 	}
+	wantResources.LastModified = proto.Int64(ls.lastModified())
 	if !proto.Equal(res, wantResources) {
 		t.Errorf("Got resources:\n%s\nWant resources:\n%s", res.String(), wantResources.String())
 	}
@@ -253,4 +255,122 @@ func TestModTimeCheckBehavior(t *testing.T) {
 	t.Run("ignore-mod-time", func(t *testing.T) {
 		testModTimeCheckBehavior(t, true)
 	})
+}
+
+func TestListResourcesWithCache(t *testing.T) {
+	// We test with a provider that contains two listers (created from textpb
+	// files above). We try accessing single lister (by setting resource path)
+	// and both listers.
+	tests := []struct {
+		desc               string
+		filePaths          [2]string // Lister's file paths.
+		listerLastModified [2]int64  // Last modified timestamp for listers.
+		ifModifiedSince    int64     // Request's if_modified_since
+		resourcePath       string    // Request's resource path
+		wantResponse       *rdspb.ListResourcesResponse
+	}{
+		{
+			desc:      "no-caching-all-resources",
+			filePaths: [2]string{"testdata/targets1.textpb", "testdata/targets2.textpb"},
+			wantResponse: &rdspb.ListResourcesResponse{
+				Resources:    testExpectedResources,
+				LastModified: proto.Int64(0),
+			},
+		},
+		{
+			desc:               "non-zero-last-modified,return-all-resources",
+			filePaths:          [2]string{"testdata/targets1.textpb", "testdata/targets2.textpb"},
+			listerLastModified: [2]int64{300, 314},
+			wantResponse: &rdspb.ListResourcesResponse{
+				Resources:    testExpectedResources,
+				LastModified: proto.Int64(314),
+			},
+		},
+		{
+			desc:               "if-modified-since-older-1,return-all-resources",
+			filePaths:          [2]string{"testdata/targets1.textpb", "testdata/targets2.textpb"},
+			listerLastModified: [2]int64{300, 314},
+			ifModifiedSince:    300,
+			wantResponse: &rdspb.ListResourcesResponse{
+				Resources:    testExpectedResources,
+				LastModified: proto.Int64(314),
+			},
+		},
+		{
+			desc:               "if-modified-since-older-2,return-all-resources",
+			filePaths:          [2]string{"testdata/targets1.textpb", "testdata/targets2.textpb"},
+			listerLastModified: [2]int64{300, 314},
+			ifModifiedSince:    302,
+			wantResponse: &rdspb.ListResourcesResponse{
+				Resources:    testExpectedResources,
+				LastModified: proto.Int64(314),
+			},
+		},
+		{
+			desc:               "one-resource-path-1st-file,cached",
+			filePaths:          [2]string{"testdata/targets1.textpb", "testdata/targets2.textpb"},
+			listerLastModified: [2]int64{300, 314},
+			ifModifiedSince:    300,
+			resourcePath:       "testdata/targets1.textpb",
+			wantResponse: &rdspb.ListResourcesResponse{
+				LastModified: proto.Int64(300),
+			},
+		},
+		{
+			desc:               "one-resource-path-2nd-file,uncached",
+			filePaths:          [2]string{"testdata/targets1.textpb", "testdata/targets2.textpb"},
+			listerLastModified: [2]int64{300, 314},
+			ifModifiedSince:    300,
+			resourcePath:       "testdata/targets2.textpb",
+			wantResponse: &rdspb.ListResourcesResponse{
+				Resources:    testExpectedResources[2:],
+				LastModified: proto.Int64(314),
+			},
+		},
+		{
+			desc:               "if-modified-since-equal-no-resources",
+			ifModifiedSince:    314,
+			listerLastModified: [2]int64{300, 314},
+			wantResponse: &rdspb.ListResourcesResponse{
+				LastModified: proto.Int64(314),
+			},
+		},
+		{
+			desc:               "if-modified-since-bigger-no-resources",
+			ifModifiedSince:    315,
+			listerLastModified: [2]int64{300, 314},
+			wantResponse: &rdspb.ListResourcesResponse{
+				LastModified: proto.Int64(314),
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.desc, func(t *testing.T) {
+			p := &Provider{
+				filePaths: test.filePaths[:],
+				listers:   make(map[string]*lister),
+			}
+
+			for i, fp := range test.filePaths {
+				ls, _ := newLister(fp, &configpb.ProviderConfig{}, nil)
+				ls.lastUpdated = time.Unix(test.listerLastModified[i], 0)
+				p.listers[fp] = ls
+			}
+
+			resp, err := p.ListResources(&rdspb.ListResourcesRequest{
+				ResourcePath:    proto.String(test.resourcePath),
+				IfModifiedSince: proto.Int64(test.ifModifiedSince),
+			})
+
+			if err != nil {
+				t.Errorf("Got unexpected error: %v", err)
+				return
+			}
+
+			if !proto.Equal(resp, test.wantResponse) {
+				t.Errorf("Got response:\n%s\nwanted:\n%s", resp.String(), test.wantResponse.String())
+			}
+		})
+	}
 }
