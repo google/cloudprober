@@ -31,6 +31,7 @@ import (
 	"github.com/google/cloudprober/rds/server/filter"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/encoding/prototext"
+	"google.golang.org/protobuf/proto"
 )
 
 // DefaultProviderID is the povider id to use for this provider if a provider
@@ -70,14 +71,23 @@ type lister struct {
 	checkModTime bool
 }
 
-// ListResources returns the last successfully parsed list of resources.
-func (ls *lister) ListResources(req *pb.ListResourcesRequest) (*pb.ListResourcesResponse, error) {
+func (ls *lister) lastModified() int64 {
+	ls.mu.RLock()
+	defer ls.mu.RUnlock()
+	return ls.lastUpdated.Unix()
+}
+
+// listResources returns the last successfully parsed list of resources.
+func (ls *lister) listResources(req *pb.ListResourcesRequest) (*pb.ListResourcesResponse, error) {
 	ls.mu.RLock()
 	defer ls.mu.RUnlock()
 
 	// If there are no filters, return early.
 	if len(req.GetFilter()) == 0 {
-		return &pb.ListResourcesResponse{Resources: append([]*pb.Resource{}, ls.resources...)}, nil
+		return &pb.ListResourcesResponse{
+			Resources:    append([]*pb.Resource{}, ls.resources...),
+			LastModified: proto.Int64(ls.lastUpdated.Unix()),
+		}, nil
 	}
 
 	allFilters, err := filter.ParseFilters(req.GetFilter(), SupportedFilters.RegexFilterKeys, "")
@@ -105,7 +115,10 @@ func (ls *lister) ListResources(req *pb.ListResourcesRequest) (*pb.ListResources
 	}
 
 	ls.l.Infof("file.ListResources: returning %d resources out of %d", len(resources), len(ls.resources))
-	return &pb.ListResourcesResponse{Resources: resources}, nil
+	return &pb.ListResourcesResponse{
+		Resources:    resources,
+		LastModified: proto.Int64(ls.lastUpdated.Unix()),
+	}, nil
 }
 
 func (ls *lister) parseFileContent(b []byte) ([]*pb.Resource, error) {
@@ -223,6 +236,20 @@ func newLister(filePath string, c *configpb.ProviderConfig, l *logger.Logger) (*
 	return ls, nil
 }
 
+func responseWithCacheCheck(ls *lister, req *pb.ListResourcesRequest) (*pb.ListResourcesResponse, error) {
+	if req.GetIfModifiedSince() == 0 {
+		return ls.listResources(req)
+	}
+
+	if lastModified := ls.lastModified(); lastModified <= req.GetIfModifiedSince() {
+		return &pb.ListResourcesResponse{
+			LastModified: proto.Int64(lastModified),
+		}, nil
+	}
+
+	return ls.listResources(req)
+}
+
 // ListResources returns the list of resources based on the given request.
 func (p *Provider) ListResources(req *pb.ListResourcesRequest) (*pb.ListResourcesResponse, error) {
 	fPath := req.GetResourcePath()
@@ -231,27 +258,48 @@ func (p *Provider) ListResources(req *pb.ListResourcesRequest) (*pb.ListResource
 		if ls == nil {
 			return nil, fmt.Errorf("file path %s is not available on this server", fPath)
 		}
-		return ls.ListResources(req)
+		return responseWithCacheCheck(ls, req)
 	}
 
 	// Avoid append and another allocation if there is only one lister, most
 	// common use case.
 	if len(p.listers) == 1 {
 		for _, ls := range p.listers {
-			return ls.ListResources(req)
+			return responseWithCacheCheck(ls, req)
 		}
+	}
+
+	// If we are working with multiple listers, it's slightly more complicated.
+	// In that case we need to return all the listers' resources even if only one
+	// of them has changed.
+	//
+	// Get the latest last-modified.
+	lastModified := int64(0)
+	for _, ls := range p.listers {
+		listerLastModified := ls.lastModified()
+		if lastModified < listerLastModified {
+			lastModified = listerLastModified
+		}
+	}
+	resp := &pb.ListResourcesResponse{
+		LastModified: proto.Int64(lastModified),
+	}
+
+	// if nothing changed since req.IfModifiedSince, return early.
+	if req.GetIfModifiedSince() != 0 && lastModified <= req.GetIfModifiedSince() {
+		return resp, nil
 	}
 
 	var result []*pb.Resource
 	for _, fp := range p.filePaths {
-		res, err := p.listers[fp].ListResources(req)
+		res, err := p.listers[fp].listResources(req)
 		if err != nil {
 			return nil, err
 		}
 		result = append(result, res.Resources...)
 	}
-
-	return &pb.ListResourcesResponse{Resources: result}, nil
+	resp.Resources = result
+	return resp, nil
 }
 
 // Provider provides a file-based targets provider for RDS. It implements the
