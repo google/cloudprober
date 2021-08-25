@@ -63,8 +63,10 @@ const histogram = "histogram"
 // blocking on previous queries to finish.
 const queriesQueueSize = 10
 
-// Max time 10 min
-const maxExpiredTime = int64(1000 * 60 * 10)
+// Prometheus does not take metrics that have passed 10 minutes.
+// It is used to decide metrics is validate for Prometheus by comparing the current
+// metric creation time and this metricExpiredTime value.
+const metricExpiredTime = int64(1000 * 60 * 10)
 
 var (
 	// Cache of EventMetric label to prometheus label mapping. We use it to
@@ -155,6 +157,10 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 	// the incoming web queries. To avoid data access race conditions, we do
 	// one thing at a time.
 	go func() {
+		// Run timer to execute a function that periodically deletes invalid (stale) metrics.
+		staleMetricDeleteTimer := time.NewTicker(time.Duration(metricExpiredTime) * time.Millisecond)
+		defer staleMetricDeleteTimer.Stop()
+
 		for {
 			select {
 			case <-ctx.Done():
@@ -165,6 +171,8 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 			case hw := <-ps.queryChan:
 				ps.writeData(hw.w)
 				close(hw.doneChan)
+			case <-staleMetricDeleteTimer.C:
+				ps.deleteExpiredMetrics()
 			}
 		}
 	}()
@@ -382,7 +390,6 @@ func (ps *PromSurfacer) record(em *metrics.EventMetrics) {
 
 // writeData writes metrics data on w io.Writer
 func (ps *PromSurfacer) writeData(w io.Writer) {
-	ps.deleteExpiredMetrics()
 	for _, name := range ps.metricNames {
 		pm := ps.metrics[name]
 		fmt.Fprintf(w, "#TYPE %s %s\n", name, pm.typ)
@@ -401,7 +408,7 @@ func (ps *PromSurfacer) deleteExpiredMetrics() {
 
 		var expiredMetricsKeys []string
 		for metricKey, v := range pm.data {
-			if nowTime >= v.timestamp+maxExpiredTime {
+			if nowTime >= v.timestamp+metricExpiredTime {
 				expiredMetricsKeys = append(expiredMetricsKeys, metricKey)
 			}
 		}
