@@ -527,6 +527,17 @@ func (p *Probe) runServerProbe(ctx, startCtx context.Context) {
 
 	// Wait for receiver goroutine to exit.
 	wg.Wait()
+
+	// Handle requests that we have not yet received replies for: "requests" will
+	// contain only outstanding requests by this point.
+	requestsMu.Lock()
+	defer requestsMu.Unlock()
+	for _, req := range requests {
+		p.processProbeResult(&probeStatus{
+			target:  req.target,
+			success: false,
+		}, p.results[req.target])
+	}
 }
 
 // runCommand encapsulates command executor in a variable so that we can
