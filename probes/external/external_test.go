@@ -36,6 +36,7 @@ import (
 	serverpb "github.com/google/cloudprober/probes/external/proto"
 	"github.com/google/cloudprober/probes/external/serverutils"
 	"github.com/google/cloudprober/probes/options"
+	probeconfigpb "github.com/google/cloudprober/probes/proto"
 	"github.com/google/cloudprober/targets"
 	"github.com/google/cloudprober/targets/endpoint"
 )
@@ -650,8 +651,10 @@ func TestUpdateTargets(t *testing.T) {
 	}
 }
 
-func verifyProcessedResult(t *testing.T, p *Probe, r *result, success int64, name string, val int64, payloadLabels [][2]string) {
+func verifyProcessedResult(t *testing.T, p *Probe, r *result, success int64, name string, val int64, extraLabels map[string]string) {
 	t.Helper()
+
+	t.Log(val)
 
 	testTarget := "test-target"
 	if r.success != success {
@@ -676,9 +679,14 @@ func verifyProcessedResult(t *testing.T, p *Probe, r *result, success int64, nam
 	}
 
 	expectedLabels := map[string]string{"ptype": "external", "probe": "testprobe", "dst": "test-target"}
-	for _, kv := range payloadLabels {
-		expectedLabels[kv[0]] = kv[1]
+	for k, v := range extraLabels {
+		expectedLabels[k] = v
 	}
+
+	if len(em.LabelsKeys()) != len(expectedLabels) {
+		t.Errorf("Labels mismatch: got=%v, expected=%v", em.LabelsKeys(), expectedLabels)
+	}
+
 	for key, val := range expectedLabels {
 		if em.Label(key) != val {
 			t.Errorf("r.payloadMetrics.Label(%s)=%s, expected=%s", key, r.payloadMetrics.Label(key), val)
@@ -687,17 +695,65 @@ func verifyProcessedResult(t *testing.T, p *Probe, r *result, success int64, nam
 }
 
 func TestProcessProbeResult(t *testing.T) {
-	for _, agg := range []bool{true, false} {
+	tests := []struct {
+		desc             string
+		aggregate        bool
+		payloads         []string
+		additionalLabels map[string]string
+		wantValues       []int64
+		wantExtraLabels  map[string]string
+	}{
+		{
+			desc:       "with-aggregation-enabled",
+			aggregate:  true,
+			wantValues: []int64{14, 25},
+			payloads:   []string{"p-failures 14", "p-failures 11"},
+		},
+		{
+			desc:      "with-aggregation-disabled",
+			aggregate: false,
+			payloads: []string{
+				"p-failures{service=serviceA,db=dbA} 14",
+				"p-failures{service=serviceA,db=dbA} 11",
+			},
+			wantValues: []int64{14, 11},
+			wantExtraLabels: map[string]string{
+				"service": "serviceA",
+				"db":      "dbA",
+			},
+		},
+		{
+			desc:      "with-additional-labels",
+			aggregate: false,
+			payloads: []string{
+				"p-failures{service=serviceA,db=dbA} 14",
+				"p-failures{service=serviceA,db=dbA} 11",
+			},
+			additionalLabels: map[string]string{"dc": "xx"},
+			wantValues:       []int64{14, 11},
+			wantExtraLabels: map[string]string{
+				"service": "serviceA",
+				"db":      "dbA",
+				"dc":      "xx",
+			},
+		},
+	}
 
-		t.Run(fmt.Sprintf("With aggregation: %v", agg), func(t *testing.T) {
-
+	for _, test := range tests {
+		t.Run(test.desc, func(t *testing.T) {
 			p := &Probe{}
 			opts := options.DefaultOptions()
 			opts.ProbeConf = &configpb.ProbeConf{
 				OutputMetricsOptions: &payloadconfigpb.OutputMetricsOptions{
-					AggregateInCloudprober: proto.Bool(agg),
+					AggregateInCloudprober: proto.Bool(test.aggregate),
 				},
 				Command: proto.String("./testCommand"),
+			}
+			for k, v := range test.additionalLabels {
+				opts.AdditionalLabels = append(opts.AdditionalLabels, options.ParseAdditionalLabel(&probeconfigpb.AdditionalLabel{
+					Key:   proto.String(k),
+					Value: proto.String(v),
+				}))
 			}
 			err := p.Init("testprobe", opts)
 			if err != nil {
@@ -710,39 +766,30 @@ func TestProcessProbeResult(t *testing.T) {
 				latency: metrics.NewFloat(0),
 			}
 
-			payloadMetricName := map[bool]string{
-				false: "p-failures{service=serviceA,db=dbA}",
-				true:  "p-failures",
-			}
-			payloadLabels := map[bool][][2]string{
-				false: [][2]string{
-					[2]string{"service", "serviceA"},
-					[2]string{"db", "dbA"},
-				},
-			}
-
 			// First run
 			p.processProbeResult(&probeStatus{
 				target:  "test-target",
 				success: true,
 				latency: time.Millisecond,
-				payload: fmt.Sprintf("%s 14", payloadMetricName[agg]),
+				payload: test.payloads[0],
 			}, r)
 
-			verifyProcessedResult(t, p, r, 1, "p-failures", 14, payloadLabels[agg])
+			wantSuccess := int64(1)
+			verifyProcessedResult(t, p, r, wantSuccess, "p-failures", test.wantValues[0], test.wantExtraLabels)
 
 			// Second run
 			p.processProbeResult(&probeStatus{
 				target:  "test-target",
 				success: true,
 				latency: time.Millisecond,
-				payload: fmt.Sprintf("%s 11", payloadMetricName[agg]),
+				payload: test.payloads[1],
 			}, r)
+			wantSuccess++
 
-			if agg {
-				verifyProcessedResult(t, p, r, 2, "p-failures", 25, payloadLabels[agg])
+			if test.aggregate {
+				verifyProcessedResult(t, p, r, wantSuccess, "p-failures", test.wantValues[1], test.wantExtraLabels)
 			} else {
-				verifyProcessedResult(t, p, r, 2, "p-failures", 11, payloadLabels[agg])
+				verifyProcessedResult(t, p, r, wantSuccess, "p-failures", test.wantValues[1], test.wantExtraLabels)
 			}
 		})
 	}

@@ -97,7 +97,7 @@ func TestParseAdditionalLabel(t *testing.T) {
 
 	for i, alpb := range configWithAdditionalLabels.GetAdditionalLabel() {
 		t.Run(alpb.GetKey(), func(t *testing.T) {
-			al := parseAdditionalLabel(alpb)
+			al := ParseAdditionalLabel(alpb)
 			if !reflect.DeepEqual(al, expected[i]) {
 				t.Errorf("Additional labels not parsed correctly. Got=\n%#v\nWanted=\n%#v", al, expected[i])
 			}
