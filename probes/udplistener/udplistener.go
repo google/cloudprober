@@ -23,16 +23,20 @@ sender.
 Notes:
 
 Each probe has 3 goroutines:
+
 - A recvLoop that keeps handling incoming packets and updates metrics.
+
 - An outputLoop that ticks twice every statsExportInterval and outputs metrics.
+
 - An echoLoop that receives incoming packets from recvLoop over a channel and
-  echos back the packets.
+echos back the packets.
 
 - Targets list determines which packet sources are valid sources. It is
-  updated in the outputLoop routine.
+updated in the outputLoop routine.
+
 - We use the probe interval to determine the estimated number of packets that
-  should be received. This number is the lower bound of the total number of
-	packets "sent" by each source.
+should be received. This number is the lower bound of the total number of
+packets "sent" by each source.
 */
 package udplistener
 
