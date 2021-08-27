@@ -329,6 +329,13 @@ func (p *Probe) readProbeReplies(done chan struct{}) error {
 
 }
 
+func (p *Probe) withAdditionalLabels(em *metrics.EventMetrics, target string) *metrics.EventMetrics {
+	for _, al := range p.opts.AdditionalLabels {
+		em.AddLabel(al.KeyValueForTarget(target))
+	}
+	return em
+}
+
 func (p *Probe) defaultMetrics(target string, result *result) *metrics.EventMetrics {
 	em := metrics.NewEventMetrics(time.Now()).
 		AddMetric("success", metrics.NewInt(result.success)).
@@ -340,15 +347,11 @@ func (p *Probe) defaultMetrics(target string, result *result) *metrics.EventMetr
 
 	em.LatencyUnit = p.opts.LatencyUnit
 
-	for _, al := range p.opts.AdditionalLabels {
-		em.AddLabel(al.KeyValueForTarget(target))
-	}
-
 	if p.opts.Validators != nil {
 		em.AddMetric("validation_failure", result.validationFailure)
 	}
 
-	return em
+	return p.withAdditionalLabels(em, target)
 }
 
 func (p *Probe) labels(ep endpoint.Endpoint) map[string]string {
@@ -440,11 +443,11 @@ func (p *Probe) processProbeResult(ps *probeStatus, result *result) {
 		if p.c.GetOutputMetricsOptions().GetAggregateInCloudprober() {
 			result.payloadMetrics = p.payloadParser.AggregatedPayloadMetrics(result.payloadMetrics, ps.payload, ps.target)
 			p.opts.LogMetrics(result.payloadMetrics)
-			p.dataChan <- result.payloadMetrics
+			p.dataChan <- p.withAdditionalLabels(result.payloadMetrics, ps.target)
 		} else {
 			for _, em := range p.payloadParser.PayloadMetrics(ps.payload, ps.target) {
 				p.opts.LogMetrics(em)
-				p.dataChan <- em
+				p.dataChan <- p.withAdditionalLabels(em, ps.target)
 			}
 		}
 	}

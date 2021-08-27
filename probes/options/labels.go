@@ -103,7 +103,9 @@ func (al *AdditionalLabel) KeyValueForTarget(targetName string) (key, val string
 	return al.Key, al.valueForTarget[targetName]
 }
 
-func parseAdditionalLabel(alpb *configpb.AdditionalLabel) *AdditionalLabel {
+// ParseAdditionalLabel parses an additional label proto message into an
+// AdditionalLabel struct.
+func ParseAdditionalLabel(alpb *configpb.AdditionalLabel) *AdditionalLabel {
 	al := &AdditionalLabel{
 		Key: alpb.GetKey(),
 	}
@@ -158,7 +160,7 @@ func parseAdditionalLabels(p *configpb.ProbeDef) []*AdditionalLabel {
 	var aLabels []*AdditionalLabel
 
 	for _, pb := range p.GetAdditionalLabel() {
-		aLabels = append(aLabels, parseAdditionalLabel(pb))
+		aLabels = append(aLabels, ParseAdditionalLabel(pb))
 	}
 
 	return aLabels
