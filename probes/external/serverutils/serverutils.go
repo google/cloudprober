@@ -104,8 +104,9 @@ func WriteMessage(pb proto.Message, w io.Writer) error {
 // provided mainly to help external probe server implementations. Cloudprober doesn't
 // make use of it. Example usage:
 //	import (
-//		serverpb "github.com/google/cloudprober/probes/external/serverutils/server_proto"
-//		"github.com/google/cloudprober/probes/external/serverutils/serverutils"
+//		serverpb "github.com/google/cloudprober/probes/external/proto"
+//    		"github.com/google/cloudprober/probes/external/serverutils"
+//		"google.golang.org/protobuf/proto"
 //	)
 //	func runProbe(opts []*cppb.ProbeRequest_Option) {
 //  	...
