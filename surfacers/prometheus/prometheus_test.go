@@ -240,3 +240,51 @@ func TestScrapeOutputNoTimestamp(t *testing.T) {
 		}
 	}
 }
+
+func TestScrapeOutputWithExpiredTimeMetrics(t *testing.T) {
+	ps := newPromSurfacer(t, true)
+
+	nowTime := time.Now()
+	timeBeforeTenMin := nowTime.Add(-10 * time.Minute)
+	promTS := fmt.Sprintf("%d", nowTime.UnixNano()/(1000*1000))
+
+	em := metrics.NewEventMetrics(nowTime).
+		AddMetric("success", metrics.NewInt(6)).
+		AddMetric("total", metrics.NewInt(10)).
+		AddLabel("ptype", "ping").
+		AddLabel("probe", "ping-probe").
+		AddLabel("dst", "www.google.com")
+	ps.record(em)
+
+	expiredEm := metrics.NewEventMetrics(timeBeforeTenMin).
+		AddMetric("success", metrics.NewInt(12)).
+		AddMetric("total", metrics.NewInt(20)).
+		AddLabel("ptype", "ping").
+		AddLabel("probe", "expired-ping-probe").
+		AddLabel("dst", "www.google.com/2")
+	ps.record(expiredEm)
+
+	expiredEm2 := metrics.NewEventMetrics(timeBeforeTenMin).
+		AddMetric("success", metrics.NewInt(18)).
+		AddMetric("total", metrics.NewInt(30)).
+		AddLabel("ptype", "ping").
+		AddLabel("probe", "expired-ping-probe-2").
+		AddLabel("dst", "www.google.com/3")
+	ps.record(expiredEm2)
+
+	var b bytes.Buffer
+	ps.deleteExpiredMetrics()
+	ps.writeData(&b)
+	data := b.String()
+
+	for _, d := range []string{
+		"success{ptype=\"ping\",probe=\"expired-ping-probe\",dst=\"www.google.com/2\"} 12 " + promTS,
+		"success{ptype=\"ping\",probe=\"expired-ping-probe-2\",dst=\"www.google.com/3\"} 18 " + promTS,
+		"total{ptype=\"ping\",probe=\"expired-ping-probe\",dst=\"www.google.com/2\"} 20 " + promTS,
+		"total{ptype=\"ping\",probe=\"expired-ping-probe-2\",dst=\"www.google.com/3\"} 30 " + promTS,
+	} {
+		if strings.Contains(data, d) {
+			t.Errorf("String \"%s\" contains expired data in output data: %s", d, data)
+		}
+	}
+}

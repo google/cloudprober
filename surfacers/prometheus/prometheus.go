@@ -1,4 +1,4 @@
-// Copyright 2017-2020 The Cloudprober Authors.
+// Copyright 2017-2021 The Cloudprober Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -62,6 +62,10 @@ const histogram = "histogram"
 // queriesQueueSize defines how many queries can we queue before we start
 // blocking on previous queries to finish.
 const queriesQueueSize = 10
+
+// Prometheus does not take metrics that have passed 10 minutes. We delete
+// metrics that are older than this time.
+const metricExpirationTime = 10 * time.Minute
 
 var (
 	// Cache of EventMetric label to prometheus label mapping. We use it to
@@ -152,6 +156,9 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 	// the incoming web queries. To avoid data access race conditions, we do
 	// one thing at a time.
 	go func() {
+		staleMetricDeleteTimer := time.NewTicker(metricExpirationTime)
+		defer staleMetricDeleteTimer.Stop()
+
 		for {
 			select {
 			case <-ctx.Done():
@@ -162,6 +169,8 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 			case hw := <-ps.queryChan:
 				ps.writeData(hw.w)
 				close(hw.doneChan)
+			case <-staleMetricDeleteTimer.C:
+				ps.deleteExpiredMetrics()
 			}
 		}
 	}()
@@ -386,4 +395,43 @@ func (ps *PromSurfacer) writeData(w io.Writer) {
 			ps.dataWriter(w, pm, k)
 		}
 	}
+}
+
+// deleteExpiredMetrics clears the metric expired in PromSurfacer.
+// Note from manugarg: We can possibly optimize this by recording expired
+// keys while serving the metrics, and deleting them based on the timer.
+func (ps *PromSurfacer) deleteExpiredMetrics() {
+	staleTimeThreshold := promTime(time.Now()) - metricExpirationTime.Milliseconds()
+
+	for _, name := range ps.metricNames {
+		pm := ps.metrics[name]
+
+		var expiredMetricsKeys []string
+		for metricKey, v := range pm.data {
+			if v.timestamp < staleTimeThreshold {
+				expiredMetricsKeys = append(expiredMetricsKeys, metricKey)
+			}
+		}
+
+		for _, expiredMetricKey := range expiredMetricsKeys {
+			delete(pm.data, expiredMetricKey)
+			pm.dataKeys = deleteFromSlice(pm.dataKeys, expiredMetricKey)
+		}
+	}
+}
+
+// deleteFromSlice delete target on slice
+func deleteFromSlice(stringSlice []string, targetData string) []string {
+	targetIndex := -1
+	for i, data := range stringSlice {
+		if data == targetData {
+			targetIndex = i
+			break
+		}
+	}
+
+	if targetIndex != -1 {
+		stringSlice = append(stringSlice[:targetIndex], stringSlice[targetIndex+1:]...)
+	}
+	return stringSlice
 }
