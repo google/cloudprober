@@ -43,6 +43,7 @@ import (
 	servicepb "github.com/google/cloudprober/servers/grpc/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/alts"
+	"google.golang.org/grpc/credentials/local"
 	grpcoauth "google.golang.org/grpc/credentials/oauth"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/resolver"
@@ -107,7 +108,7 @@ func (p *Probe) setupDialOpts() error {
 	}
 
 	if oauthCfg == nil && altsCfg == nil {
-		p.dialOpts = append(p.dialOpts, grpc.WithInsecure())
+		p.dialOpts = append(p.dialOpts, grpc.WithTransportCredentials(local.NewCredentials()))
 	}
 	p.dialOpts = append(p.dialOpts, grpc.WithDefaultServiceConfig(loadBalancingPolicy))
 	p.dialOpts = append(p.dialOpts, grpc.WithBlock())
