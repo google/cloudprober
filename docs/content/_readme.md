@@ -22,9 +22,12 @@ what's broken in your system.
     [Prometheus](http://prometheus.io) and [Grafana](http://grafana.com).
     Cloudprober exports probe results as counter based metrics that work well
     with Prometheus and Grafana.
-*   Integration with [StackDriver](https://cloud.google.com/stackdriver/). If
-    configured, Cloudprober exports probe results to StackDriver as custom
-    metrics.
+*   Out of the box, config based integration with popular monitoring systems:
+    [Prometheus](http://prometheus.io),
+    [DataDog](https://www.datadoghq.com/),
+    [PostgreSQL](https://www.postgresql.org/),
+    [StackDriver](https://cloud.google.com/stackdriver/),
+    [CloudWatch](https://aws.amazon.com/cloudwatch/).
 *   Fast and efficient built-in implementations for the most common types of
     checks: PING (ICMP), HTTP, UDP, DNS. Especially PING and UDP probes are
     implemented in such a way that thousands of hosts can be probed with
@@ -35,11 +38,11 @@ what's broken in your system.
 *   Standard metrics - _total_, _success_, _latency_. Latency can be configured
     to be a distribution (histogram) metric, allowing calculations of
     percentiles.
-*   Strong focus on ease of deployment. Cloudprober is written entirely in Go
+*   Strong focus on ease of deployment. Cloudprober is written entirely in Go,
     and compiles into a static binary. It can be easily deployed, either as a
     standalone binary or through docker containers. Thanks to the automated,
     continuous, target discovery, there is usually no need to re-deploy or
-    re-configure cloudprober in response to the most of the changes.
+    re-configure cloudprober in response to most of the changes.
 *   Low footprint. Cloudprober docker image is small, containing just the
     statically compiled binary and it takes very little CPU and RAM to run even
     a large number of probes.
