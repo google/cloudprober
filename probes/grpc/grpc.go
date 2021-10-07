@@ -50,6 +50,8 @@ import (
 
 	// Import grpclb module so it can be used by name for DirectPath connections.
 	_ "google.golang.org/grpc/balancer/grpclb"
+	// Register google-c2p resolver for Traffic Director
+	_ "google.golang.org/grpc/xds/googledirectpath"
 )
 
 const loadBalancingPolicy = `{"loadBalancingConfig":[{"grpclb":{"childPolicy":[{"pick_first":{}}]}}]}`
@@ -111,7 +113,6 @@ func (p *Probe) setupDialOpts() error {
 		p.dialOpts = append(p.dialOpts, grpc.WithTransportCredentials(local.NewCredentials()))
 	}
 	p.dialOpts = append(p.dialOpts, grpc.WithDefaultServiceConfig(loadBalancingPolicy))
-	p.dialOpts = append(p.dialOpts, grpc.WithBlock())
 	return nil
 }
 
@@ -128,6 +129,7 @@ func (p *Probe) Init(name string, opts *options.Options) error {
 		p.l = &logger.Logger{}
 	}
 	p.targets = p.opts.Targets.ListEndpoints()
+
 	p.cancelFuncs = make(map[string]context.CancelFunc)
 	p.src = sysvars.Vars()["hostname"]
 	if err := p.setupDialOpts(); err != nil {
@@ -158,7 +160,10 @@ func (p *Probe) updateTargetsAndStartProbes(ctx context.Context) {
 	activeTargets := make(map[string]bool)
 	// Create results structure and start probe loop for new targets.
 	for _, tgtEp := range newTargets {
-		tgt := net.JoinHostPort(tgtEp.Name, strconv.Itoa(tgtEp.Port))
+		tgt := tgtEp.Name
+		if tgtEp.Port > 0 {
+			tgt = net.JoinHostPort(tgtEp.Name, strconv.Itoa(tgtEp.Port))
+		}
 		activeTargets[tgt] = true
 		if _, ok := p.results[tgt]; ok {
 			continue
@@ -205,7 +210,12 @@ func (p *Probe) connectWithRetry(ctx context.Context, tgt, msgPattern string, re
 		default:
 		}
 		connCtx, cancelFunc := context.WithTimeout(ctx, connectTimeout)
+
+		if uriScheme := p.c.GetUriScheme(); uriScheme != "" {
+			tgt = uriScheme + tgt
+		}
 		conn, err = grpc.DialContext(connCtx, tgt, p.dialOpts...)
+
 		cancelFunc()
 		if err != nil {
 			p.l.Warningf("ProbeId(%v) connect error: %v", msgPattern, err)
@@ -223,7 +233,7 @@ func (p *Probe) connectWithRetry(ctx context.Context, tgt, msgPattern string, re
 
 // oneTargetLoop connects to and then continuously probes a single target.
 func (p *Probe) oneTargetLoop(ctx context.Context, tgt string, index int, result *probeRunResult) {
-	msgPattern := fmt.Sprintf("%s,%s,%03d", p.src, tgt, index)
+	msgPattern := fmt.Sprintf("%s,%s%s,%03d", p.src, p.c.GetUriScheme(), tgt, index)
 
 	conn := p.connectWithRetry(ctx, tgt, msgPattern, result)
 	if conn == nil {
