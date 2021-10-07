@@ -204,6 +204,7 @@ func TestConnectFailures(t *testing.T) {
 	}
 	p := &Probe{}
 	p.Init("grpc-connectfail", probeOpts)
+	p.dialOpts = append(p.dialOpts, grpc.WithBlock())
 	dataChan := make(chan *metrics.EventMetrics, 5)
 	ctx, cancel := context.WithCancel(context.Background())
 	var wg sync.WaitGroup
@@ -377,6 +378,7 @@ func TestTargets(t *testing.T) {
 	}
 	p := &Probe{}
 	p.Init("grpc", probeOpts)
+	p.dialOpts = append(p.dialOpts, grpc.WithBlock())
 	dataChan := make(chan *metrics.EventMetrics, 10)
 	ctx, cancel := context.WithCancel(context.Background())
 	var wg sync.WaitGroup

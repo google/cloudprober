@@ -44,4 +44,12 @@ message ProbeConf {
 
   // If connect_timeout is not specified, reuse probe timeout.
   optional int32 connect_timeout_msec = 7;
+
+  // URI scheme allows gRPC to use different resolvers
+  // Example URI scheme: "google-c2p:///"
+  // See https://github.com/grpc/grpc/blob/master/doc/naming.md for more details
+  optional string uri_scheme = 8;
+
+  // Set the default port of a GRPC prober
+  optional int32 port = 9;
 }
