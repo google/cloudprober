@@ -40,6 +40,7 @@ type Options struct {
 	ProbeConf           interface{} // Probe-type specific config
 	LatencyDist         *metrics.Distribution
 	LatencyUnit         time.Duration
+	LatencyMetricName   string
 	Validators          []*validators.Validator
 	SourceIP            net.IP
 	IPVersion           int
@@ -113,9 +114,10 @@ func getSourceIPFromConfig(p *configpb.ProbeDef, l *logger.Logger) (net.IP, erro
 // global params.
 func BuildProbeOptions(p *configpb.ProbeDef, ldLister endpoint.Lister, globalTargetsOpts *targetspb.GlobalTargetsOptions, l *logger.Logger) (*Options, error) {
 	opts := &Options{
-		Interval:  time.Duration(p.GetIntervalMsec()) * time.Millisecond,
-		Timeout:   time.Duration(p.GetTimeoutMsec()) * time.Millisecond,
-		IPVersion: ipv(p.IpVersion),
+		Interval:          time.Duration(p.GetIntervalMsec()) * time.Millisecond,
+		Timeout:           time.Duration(p.GetTimeoutMsec()) * time.Millisecond,
+		IPVersion:         ipv(p.IpVersion),
+		LatencyMetricName: p.GetLatencyMetricName(),
 	}
 
 	var err error

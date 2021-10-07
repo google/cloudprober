@@ -340,7 +340,7 @@ func (p *Probe) defaultMetrics(target string, result *result) *metrics.EventMetr
 	em := metrics.NewEventMetrics(time.Now()).
 		AddMetric("success", metrics.NewInt(result.success)).
 		AddMetric("total", metrics.NewInt(result.total)).
-		AddMetric("latency", result.latency).
+		AddMetric(p.opts.LatencyMetricName, result.latency).
 		AddLabel("ptype", "external").
 		AddLabel("probe", p.name).
 		AddLabel("dst", target)

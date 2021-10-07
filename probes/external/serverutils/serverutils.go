@@ -105,8 +105,7 @@ func WriteMessage(pb proto.Message, w io.Writer) error {
 // make use of it. Example usage:
 //	import (
 //		serverpb "github.com/google/cloudprober/probes/external/proto"
-//    		"github.com/google/cloudprober/probes/external/serverutils"
-//		"google.golang.org/protobuf/proto"
+//		"github.com/google/cloudprober/probes/external/serverutils"
 //	)
 //	func runProbe(opts []*cppb.ProbeRequest_Option) {
 //  	...

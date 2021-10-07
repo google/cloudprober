@@ -91,6 +91,7 @@ type probeRunResult struct {
 	latency           metrics.Value
 	timeouts          metrics.Int
 	validationFailure *metrics.Map
+	latencyMetricName string
 }
 
 // Metrics converts probeRunResult into metrics.EventMetrics object
@@ -98,7 +99,7 @@ func (prr probeRunResult) Metrics() *metrics.EventMetrics {
 	return metrics.NewEventMetrics(time.Now()).
 		AddMetric("total", &prr.total).
 		AddMetric("success", &prr.success).
-		AddMetric("latency", prr.latency).
+		AddMetric(prr.latencyMetricName, prr.latency).
 		AddMetric("timeouts", &prr.timeouts).
 		AddMetric("validation_failure", prr.validationFailure)
 }
@@ -217,6 +218,7 @@ func (p *Probe) runProbe(resultsChan chan<- statskeeper.ProbeResult, resolveF re
 
 			result := probeRunResult{
 				target:            target.Name,
+				latencyMetricName: p.opts.LatencyMetricName,
 				validationFailure: validators.ValidationFailureMap(p.opts.Validators),
 			}
 
