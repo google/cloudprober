@@ -59,6 +59,22 @@ message ProbeDef {
   // Valid values: "ns", "us" (or "µs"), "ms", "s", "m", "h".
   optional string latency_unit = 8 [default = "us"];
 
+  // Latency metric name. You may want to change the latency metric name, if:
+  // you're using latency_distribution for some probes, and regular metric for
+  // other probes, and you want to differentiate between the two.
+  // For example:
+  //   probe {
+  //     name: "web1_latency"
+  //     latency_distribution: {...}
+  //     latency_metric_name: "latency_dist"
+  //     ...
+  //   }
+  //   probe {
+  //     name: "app1"
+  //     ...
+  //   }
+  optional string latency_metric_name = 15 [default = "latency"];
+
   // Validators are in experimental phase right now and can change at any time.
   // NOTE: Only PING, HTTP and DNS probes support validators.
   repeated validators.Validator validator = 9;

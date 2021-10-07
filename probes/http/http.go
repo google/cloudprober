@@ -381,7 +381,7 @@ func (p *Probe) exportMetrics(ts time.Time, result *probeResult, targetName stri
 	em := metrics.NewEventMetrics(ts).
 		AddMetric("total", metrics.NewInt(result.total)).
 		AddMetric("success", metrics.NewInt(result.success)).
-		AddMetric("latency", result.latency).
+		AddMetric(p.opts.LatencyMetricName, result.latency).
 		AddMetric("timeouts", metrics.NewInt(result.timeouts)).
 		AddMetric("resp-code", result.respCodes).
 		AddLabel("ptype", "http").

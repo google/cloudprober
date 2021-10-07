@@ -188,9 +188,10 @@ func createTestProbe(cmd string) *Probe {
 	}
 
 	p.Init("testProbe", &options.Options{
-		ProbeConf:  probeConf,
-		Timeout:    1 * time.Second,
-		LogMetrics: func(em *metrics.EventMetrics) {},
+		ProbeConf:         probeConf,
+		Timeout:           1 * time.Second,
+		LogMetrics:        func(em *metrics.EventMetrics) {},
+		LatencyMetricName: "latency",
 	})
 
 	return p

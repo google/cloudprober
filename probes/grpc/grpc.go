@@ -346,7 +346,7 @@ func (p *Probe) Start(ctx context.Context, dataChan chan *metrics.EventMetrics) 
 			em := metrics.NewEventMetrics(ts).
 				AddMetric("total", result.total.Clone()).
 				AddMetric("success", result.success.Clone()).
-				AddMetric("latency", result.latency.Clone()).
+				AddMetric(p.opts.LatencyMetricName, result.latency.Clone()).
 				AddMetric("connecterrors", result.connectErrors.Clone()).
 				AddLabel("ptype", "grpc").
 				AddLabel("probe", p.name).
