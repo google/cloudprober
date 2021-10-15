@@ -27,6 +27,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
 	"github.com/google/cloudprober/logger"
 	"github.com/google/cloudprober/metrics"
+	"github.com/google/cloudprober/sysvars"
 
 	configpb "github.com/google/cloudprober/surfacers/cloudwatch/proto"
 	"github.com/google/cloudprober/surfacers/common/options"
@@ -154,6 +155,24 @@ func emLabelsToDimensions(em *metrics.EventMetrics) []*cloudwatch.Dimension {
 	return dimensions
 }
 
+// getRegion provides an order of precedence for the lookup of the AWS Region
+// Precendence:
+// 1. The region passed in via config
+// 2. The region discovered from the metadata endpoint
+// 3. By returning nil, the environment variable AWS_REGION as evaluated by the
+// the AWS SDK.
+func getRegion(config *configpb.SurfacerConf, sysvars map[string]string) *string {
+	if config.Region != nil {
+		return config.Region
+	}
+
+	if v, exists := sysvars["EC2_Region"]; exists {
+		return &v
+	}
+
+	return nil
+}
+
 // New creates a new instance of a cloudwatch surfacer, based on the config
 // passed in. It then hands off to a goroutine to surface metrics to cloudwatch
 // across a buffered channel.
@@ -161,7 +180,7 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 	sess := session.Must(session.NewSessionWithOptions(session.Options{
 		SharedConfigState: session.SharedConfigEnable,
 		Config: aws.Config{
-			Region: config.Region,
+			Region: getRegion(config, sysvars.Vars()),
 		},
 	}))
 
