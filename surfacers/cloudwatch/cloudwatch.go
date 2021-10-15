@@ -158,9 +158,11 @@ func emLabelsToDimensions(em *metrics.EventMetrics) []*cloudwatch.Dimension {
 // passed in. It then hands off to a goroutine to surface metrics to cloudwatch
 // across a buffered channel.
 func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Options, l *logger.Logger) (*CWSurfacer, error) {
-
 	sess := session.Must(session.NewSessionWithOptions(session.Options{
 		SharedConfigState: session.SharedConfigEnable,
+		Config: aws.Config{
+			Region: config.Region,
+		},
 	}))
 
 	cw := &CWSurfacer{
