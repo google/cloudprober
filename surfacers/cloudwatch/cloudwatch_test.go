@@ -46,19 +46,11 @@ func TestGetRegion(t *testing.T) {
 	tests := map[string]struct {
 		surfacer CWSurfacer
 		region   string
-		sysvars  map[string]string
 		want     string
 	}{
 		"us-east-1_config": {
 			surfacer: newTestCWSurfacer(),
 			region:   "us-east-1",
-			sysvars:  map[string]string{"EC2_Region": "us-east-2"},
-			want:     "us-east-1",
-		},
-		"us-east-1_sysvars": {
-			surfacer: newTestCWSurfacer(),
-			region:   "",
-			sysvars:  map[string]string{"EC2_Region": "us-east-1"},
 			want:     "us-east-1",
 		},
 	}
@@ -68,7 +60,7 @@ func TestGetRegion(t *testing.T) {
 				tc.surfacer.c.Region = &tc.region
 			}
 
-			got := getRegion(tc.surfacer.c, tc.sysvars)
+			got := getRegion(tc.surfacer.c)
 			if *got != tc.want {
 				t.Errorf("got: %v, want: %v", got, tc.want)
 			}
@@ -78,7 +70,7 @@ func TestGetRegion(t *testing.T) {
 
 func TestGetRegionDefault(t *testing.T) {
 	s := newTestCWSurfacer()
-	got := getRegion(s.c, map[string]string{})
+	got := getRegion(s.c)
 	if got != nil {
 		t.Errorf("got: %v, want: nil", got)
 	}

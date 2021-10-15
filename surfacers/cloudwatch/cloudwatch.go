@@ -161,12 +161,13 @@ func emLabelsToDimensions(em *metrics.EventMetrics) []*cloudwatch.Dimension {
 // 2. The region discovered from the metadata endpoint
 // 3. By returning nil, the environment variable AWS_REGION as evaluated by the
 // the AWS SDK.
-func getRegion(config *configpb.SurfacerConf, sysvars map[string]string) *string {
+func getRegion(config *configpb.SurfacerConf) *string {
 	if config.Region != nil {
 		return config.Region
 	}
 
-	if v, exists := sysvars["EC2_Region"]; exists {
+	vars := sysvars.Vars()
+	if v, exists := vars["EC2_Region"]; exists {
 		return &v
 	}
 
@@ -180,7 +181,7 @@ func New(ctx context.Context, config *configpb.SurfacerConf, opts *options.Optio
 	sess := session.Must(session.NewSessionWithOptions(session.Options{
 		SharedConfigState: session.SharedConfigEnable,
 		Config: aws.Config{
-			Region: getRegion(config, sysvars.Vars()),
+			Region: getRegion(config),
 		},
 	}))
 
