@@ -42,6 +42,40 @@ func newTestCWSurfacer() CWSurfacer {
 	}
 }
 
+func TestGetRegion(t *testing.T) {
+	tests := map[string]struct {
+		surfacer CWSurfacer
+		region   string
+		want     string
+	}{
+		"us-east-1_config": {
+			surfacer: newTestCWSurfacer(),
+			region:   "us-east-1",
+			want:     "us-east-1",
+		},
+	}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			if tc.region != "" {
+				tc.surfacer.c.Region = &tc.region
+			}
+
+			got := getRegion(tc.surfacer.c)
+			if got != tc.want {
+				t.Errorf("got: %v, want: %v", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestGetRegionDefault(t *testing.T) {
+	s := newTestCWSurfacer()
+	got := getRegion(s.c)
+	if got != "" {
+		t.Errorf("got: %v, want: \"\"", got)
+	}
+}
+
 func TestEmLabelsToDimensions(t *testing.T) {
 	timestamp := time.Now()
 
