@@ -12,4 +12,13 @@ message SurfacerConf {
   // additional charges as the metrics will be charged at a high resolution
   // rate.
   optional int64 resolution = 2 [default = 60];
+
+  // The AWS Region, used to create a CloudWatch session.
+  // The order of fallback for evaluating the AWS Region:
+  // 1. This config value.
+  // 2. EC2 metadata endpoint, via cloudprober sysvars.
+  // 3. AWS_REGION environment value.
+  // 4. AWS_DEFAULT_REGION environment value, if AWS_SDK_LOAD_CONFIG is set.
+  // https://docs.aws.amazon.com/sdk-for-go/api/aws/session/
+  optional string region = 3;
 }
