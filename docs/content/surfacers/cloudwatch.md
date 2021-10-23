@@ -23,6 +23,15 @@ The cloudwatch surfacer uses the AWS Go SDK, and supports the [default credentia
 3. If your application uses an ECS task definition or RunTask API operation, IAM role for tasks.
 4. If your application is running on an Amazon EC2 instance, IAM role for Amazon EC2.
 
+### Cloudwatch Region
+
+The following order of precende will be used for the [AWS region](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html) parameter in the AWS Go SDK, when initializing the Cloudwatch client. This will be the AWS region that Cloudprober will publish metrics to.
+
+1. The [region configuration](#configuration-options)
+2. The EC2 metadata endpoint, as discovered by cloudprober sysvars.
+3. The `AWS_REGION` environment variable. Note: may be populated by the AWS compute service, like ECS.
+4. `AWS_DEFAULT_REGION` environment value, if `AWS_SDK_LOAD_CONFIG`, see [github.com/aws/aws-sdk-go/aws/session package documentation](https://docs.aws.amazon.com/sdk-for-go/api/aws/session/).
+
 ## Authorization
 
 In order to permit cloudprober to publish metric data to cloudwatch, ensure the profile being used for authentication has the following permissions, where the "cloudwatch:namespace" is the [metric namespace](#metric-namespace) used by cloudprober.
@@ -79,6 +88,15 @@ The full list of configuration options for the cloudwatch surfacer is:
   // The cloudwatch resolution value, lowering this below 60 will incur
   // additional charges as the metrics will be charged at a high resolution rate.
   optional int64 resolution = 2 [default=60];
+
+  // The AWS Region, used to create a CloudWatch session.
+  // The order of fallback for evaluating the AWS Region:
+  // 1. This config value.
+  // 2. EC2 metadata endpoint, via cloudprober sysvars.
+  // 3. AWS_REGION environment value.
+  // 4. AWS_DEFAULT_REGION environment value, if AWS_SDK_LOAD_CONFIG is set.
+  // https://docs.aws.amazon.com/sdk-for-go/api/aws/session/
+  optional string region = 3;
 ```
 
 (Source: https://github.com/google/cloudprober/blob/master/surfacers/cloudwatch/proto/config.proto)
