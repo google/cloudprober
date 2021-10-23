@@ -25,16 +25,16 @@ The cloudwatch surfacer uses the AWS Go SDK, and supports the [default credentia
 
 ### Cloudwatch Region
 
-The following order of precende will be used for the [AWS region](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html) parameter in the AWS Go SDK, when initializing the Cloudwatch client. This will be the AWS region that Cloudprober will publish metrics to.
+The list below is the order of precedence that will be used for discovering the [AWS region](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html) parameter, that is passed to the AWS Go SDK when initializing the Cloudwatch client. This will be the AWS region that Cloudprober will publish metrics to.
 
 1. The [region configuration](#configuration-options)
-2. The EC2 metadata endpoint, as discovered by cloudprober sysvars.
-3. The `AWS_REGION` environment variable. Note: may be populated by the AWS compute service, like ECS.
-4. `AWS_DEFAULT_REGION` environment value, if `AWS_SDK_LOAD_CONFIG`, see [github.com/aws/aws-sdk-go/aws/session package documentation](https://docs.aws.amazon.com/sdk-for-go/api/aws/session/).
+2. The EC2 metadata endpoint, as discovered by Cloudprober sysvars.
+3. The `AWS_REGION` environment variable.
+4. `AWS_DEFAULT_REGION` environment variable, if `AWS_SDK_LOAD_CONFIG`, see [github.com/aws/aws-sdk-go/aws/session package documentation](https://docs.aws.amazon.com/sdk-for-go/api/aws/session/).
 
 ## Authorization
 
-In order to permit cloudprober to publish metric data to cloudwatch, ensure the profile being used for authentication has the following permissions, where the "cloudwatch:namespace" is the [metric namespace](#metric-namespace) used by cloudprober.
+In order to permit Cloudprober to publish metric data to cloudwatch, ensure the profile being used for authentication has the following permissions, where the "cloudwatch:namespace" is the [metric namespace](#metric-namespace) used by Cloudprober.
 
 If the default metric namespace is changed, also change the condition in the IAM policy below to match the same value.
 
@@ -103,7 +103,7 @@ The full list of configuration options for the cloudwatch surfacer is:
 
 ## Calculating the metric delta with Cloudwatch Metric Maths
 
-The metrics produced by cloudprober are cumulative. Most services producing metrics into cloudwatch produce snapshot data whereby the metrics are recorded for a specific point in time.
+The metrics produced by Cloudprober are cumulative. Most services producing metrics into cloudwatch produce snapshot data whereby the metrics are recorded for a specific point in time.
 
 In order to achieve a similar effect here, the [Cloudwatch Metric Maths](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/using-metric-math.html) RATE and PERIOD functions can be used to determine the delta values.
 
@@ -111,7 +111,7 @@ In order to achieve a similar effect here, the [Cloudwatch Metric Maths](https:/
 RATE(m1) * PERIOD(m1)
 ```
 
-Whereby m1 is the metric id for the cloudprober metrics, for example:
+Whereby m1 is the metric id for the Cloudprober metrics, for example:
 
 ```
 namespace: cloudprober
