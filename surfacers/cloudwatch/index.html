@@ -416,12 +416,12 @@
 <li>If your application is running on an Amazon EC2 instance, IAM role for Amazon EC2.</li>
 </ol>
 <h3 id="cloudwatch-region">Cloudwatch Region</h3>
-<p>The list below is the order of precedence that will be used for discovering the <a href="https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html">AWS region</a> parameter, that is passed to the AWS Go SDK when initializing the Cloudwatch client. This will be the AWS region that Cloudprober will publish metrics to.</p>
+<p>The list below is the order of precedence that will be used to determine the <a href="https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html">AWS region</a> that Cloudprober will publish metrics to.</p>
 <ol>
-<li>The <a href="#configuration-options">region configuration</a></li>
-<li>The EC2 metadata endpoint, as discovered by Cloudprober sysvars.</li>
-<li>The <code>AWS_REGION</code> environment variable.</li>
-<li><code>AWS_DEFAULT_REGION</code> environment variable, if <code>AWS_SDK_LOAD_CONFIG</code>, see <a href="https://docs.aws.amazon.com/sdk-for-go/api/aws/session/">github.com/aws/aws-sdk-go/aws/session package documentation</a>.</li>
+<li><a href="#configuration-options">Region configuration</a></li>
+<li>EC2 metadata.</li>
+<li><code>AWS_REGION</code> environment variable.</li>
+<li><code>AWS_DEFAULT_REGION</code> environment variable, if <code>AWS_SDK_LOAD_CONFIG</code> is set (See <a href="https://docs.aws.amazon.com/sdk-for-go/api/aws/session/">AWS package documentation</a> for more details).</li>
 </ol>
 <h2 id="authorization">Authorization</h2>
 <p>In order to permit Cloudprober to publish metric data to cloudwatch, ensure the profile being used for authentication has the following permissions, where the &ldquo;cloudwatch:namespace&rdquo; is the <a href="#metric-namespace">metric namespace</a> used by Cloudprober.</p>
