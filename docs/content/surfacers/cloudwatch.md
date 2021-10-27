@@ -25,12 +25,12 @@ The cloudwatch surfacer uses the AWS Go SDK, and supports the [default credentia
 
 ### Cloudwatch Region
 
-The list below is the order of precedence that will be used for discovering the [AWS region](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html) parameter, that is passed to the AWS Go SDK when initializing the Cloudwatch client. This will be the AWS region that Cloudprober will publish metrics to.
+The list below is the order of precedence that will be used to determine the [AWS region](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html) that Cloudprober will publish metrics to.
 
-1. The [region configuration](#configuration-options)
-2. The EC2 metadata endpoint, as discovered by Cloudprober sysvars.
-3. The `AWS_REGION` environment variable.
-4. `AWS_DEFAULT_REGION` environment variable, if `AWS_SDK_LOAD_CONFIG`, see [github.com/aws/aws-sdk-go/aws/session package documentation](https://docs.aws.amazon.com/sdk-for-go/api/aws/session/).
+1. [Region configuration](#configuration-options)
+2. EC2 metadata.
+3. `AWS_REGION` environment variable.
+4. `AWS_DEFAULT_REGION` environment variable, if `AWS_SDK_LOAD_CONFIG` is set (See [AWS package documentation](https://docs.aws.amazon.com/sdk-for-go/api/aws/session/) for more details).
 
 ## Authorization
 
