@@ -415,8 +415,16 @@
 <li>If your application uses an ECS task definition or RunTask API operation, IAM role for tasks.</li>
 <li>If your application is running on an Amazon EC2 instance, IAM role for Amazon EC2.</li>
 </ol>
+<h3 id="cloudwatch-region">Cloudwatch Region</h3>
+<p>The list below is the order of precedence that will be used for discovering the <a href="https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html">AWS region</a> parameter, that is passed to the AWS Go SDK when initializing the Cloudwatch client. This will be the AWS region that Cloudprober will publish metrics to.</p>
+<ol>
+<li>The <a href="#configuration-options">region configuration</a></li>
+<li>The EC2 metadata endpoint, as discovered by Cloudprober sysvars.</li>
+<li>The <code>AWS_REGION</code> environment variable.</li>
+<li><code>AWS_DEFAULT_REGION</code> environment variable, if <code>AWS_SDK_LOAD_CONFIG</code>, see <a href="https://docs.aws.amazon.com/sdk-for-go/api/aws/session/">github.com/aws/aws-sdk-go/aws/session package documentation</a>.</li>
+</ol>
 <h2 id="authorization">Authorization</h2>
-<p>In order to permit cloudprober to publish metric data to cloudwatch, ensure the profile being used for authentication has the following permissions, where the &ldquo;cloudwatch:namespace&rdquo; is the <a href="#metric-namespace">metric namespace</a> used by cloudprober.</p>
+<p>In order to permit Cloudprober to publish metric data to cloudwatch, ensure the profile being used for authentication has the following permissions, where the &ldquo;cloudwatch:namespace&rdquo; is the <a href="#metric-namespace">metric namespace</a> used by Cloudprober.</p>
 <p>If the default metric namespace is changed, also change the condition in the IAM policy below to match the same value.</p>
 <pre><code>{
     &quot;Version&quot;: &quot;2012-10-17&quot;,
@@ -456,12 +464,21 @@
 </span><span class="err"></span>  <span class="c1">// The cloudwatch resolution value, lowering this below 60 will incur
 </span><span class="c1"></span>  <span class="c1">// additional charges as the metrics will be charged at a high resolution rate.
 </span><span class="c1"></span>  <span class="k">optional</span> <span class="kt">int64</span> <span class="n">resolution</span> <span class="o">=</span> <span class="mi">2</span> <span class="p">[</span><span class="k">default</span><span class="o">=</span><span class="mi">60</span><span class="p">]</span><span class="p">;</span><span class="err">
+</span><span class="err"></span><span class="err">
+</span><span class="err"></span>  <span class="c1">// The AWS Region, used to create a CloudWatch session.
+</span><span class="c1"></span>  <span class="c1">// The order of fallback for evaluating the AWS Region:
+</span><span class="c1"></span>  <span class="c1">// 1. This config value.
+</span><span class="c1"></span>  <span class="c1">// 2. EC2 metadata endpoint, via cloudprober sysvars.
+</span><span class="c1"></span>  <span class="c1">// 3. AWS_REGION environment value.
+</span><span class="c1"></span>  <span class="c1">// 4. AWS_DEFAULT_REGION environment value, if AWS_SDK_LOAD_CONFIG is set.
+</span><span class="c1"></span>  <span class="c1">// https://docs.aws.amazon.com/sdk-for-go/api/aws/session/
+</span><span class="c1"></span>  <span class="k">optional</span> <span class="kt">string</span> <span class="n">region</span> <span class="o">=</span> <span class="mi">3</span><span class="p">;</span><span class="err">
 </span></code></pre></div><p>(Source: <a href="https://github.com/google/cloudprober/blob/master/surfacers/cloudwatch/proto/config.proto">https://github.com/google/cloudprober/blob/master/surfacers/cloudwatch/proto/config.proto</a>)</p>
 <h2 id="calculating-the-metric-delta-with-cloudwatch-metric-maths">Calculating the metric delta with Cloudwatch Metric Maths</h2>
-<p>The metrics produced by cloudprober are cumulative. Most services producing metrics into cloudwatch produce snapshot data whereby the metrics are recorded for a specific point in time.</p>
+<p>The metrics produced by Cloudprober are cumulative. Most services producing metrics into cloudwatch produce snapshot data whereby the metrics are recorded for a specific point in time.</p>
 <p>In order to achieve a similar effect here, the <a href="https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/using-metric-math.html">Cloudwatch Metric Maths</a> RATE and PERIOD functions can be used to determine the delta values.</p>
 <pre><code>RATE(m1) * PERIOD(m1)
-</code></pre><p>Whereby m1 is the metric id for the cloudprober metrics, for example:</p>
+</code></pre><p>Whereby m1 is the metric id for the Cloudprober metrics, for example:</p>
 <pre><code>namespace: cloudprober
 metric name: latency
 dst: google.com
